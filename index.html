@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real Time Campaign Tracking</title>
+<script src="https://sdk.amazonaws.com/js/aws-sdk-2.1002.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    body {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #121212;
+        color: #e0e0e0;
+    }
+
+    .container {
+        width: 90%;
+        max-width: 1200px;
+        margin: 20px auto;
+        background: #1e1e1e;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 {
+        margin-bottom: 20px;
+        font-size: 24px;
+        color: #ffffff;
+        text-align: center;
+        background: #458bff;
+        padding: 10px;
+        border-radius: 10px;
+    }
+
+    .button-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+		background: #ff4081;
+		border-radius: 4px;
+    }
+
+    .button-container a {
+        text-decoration: none;
+        color: #ffffff;
+        font-weight: bold;
+        padding: 10px 20px;
+        margin: 0 10px;
+        border-radius: 2px;
+        transition: background 0.3s;
+    }
+
+    .button-container a:hover {
+        background: #357ae8;
+    }
+
+.progress-container {
+    width: 100%;
+    background-color: #333;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    margin: 0 auto 20px auto; /* Center the container horizontally */
+    display: block; /* Ensure the container is block-level */
+}
+
+
+    .progress-bar {
+        height: 24px;
+        width: 20%;
+        background-color: #03dac6;
+        text-align: center;
+        line-height: 24px;
+        color: #121212;
+        font-weight: bold;
+    }
+	
+    .image-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+
+    .image-container img {
+        width: 100%;
+        max-width: 300px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        margin: 0 10px;
+    }
+
+    .charts-container {
+        display: flex;
+        justify-content: space-around;
+        margin-bottom: 20px;
+		
+    }
+
+    .chart {
+        width: 45%;
+    }
+
+    
+
+    .stats {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+
+    .tab {
+        margin: 0 10px;
+        padding: 15px 20px;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 20px;
+        font-weight: bold;
+    }
+
+    .total-count {
+        background: #03dac6;
+    }
+
+    .total-flyers-viewed {
+        background: #bb86fc;
+    }
+
+    .conversion-rate {
+        background: #ff4081;
+    }
+
+    .acquisition-cost {
+        background: #f67b27;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-size: 14px;
+    }
+
+    th, td {
+        padding: 12px;
+        border: 1px solid #333;
+        text-align: left;
+    }
+
+    th {
+        background-color: #333;
+        color: #bb86fc;
+    }
+
+    td {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+    }
+
+    tr:hover td {
+        background-color: #333;
+    }
+
+    #chart-container {
+        display: flex;
+        justify-content: space-between;
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Real Time Campaign Tracking</h1>
+    <div class="button-container">
+        <a href="https://nftfan.github.io/lf01/" target="_blank">Promo Page</a>
+        <a href="https://nftfan.github.io/GRAPH/" target="_blank">Monthly Progress</a>
+        <a href="https://nftfan.github.io/VIEWALL/" target="_blank">View on Map</a>
+        <a href="https://nftfan.github.io/tool5/" target="_blank">Create New Campaign</a>
+    </div>
+	<div class="progress-container">
+        <div class="progress-bar" id="progressBar">People Reached: 0/10000</div>
+    </div>
+    <div class="image-container">
+        <div>
+            <img src="https://bafybeidyuqef5sjbfshvxvahxafighvnhb3vwyioj3kyhd2dvydpooqcg4.ipfs.nftstorage.link/" alt="Front Image">
+            <p style="text-align: center;">Front</p>
+        </div>
+        <div>
+            <img src="https://bafybeidyuqef5sjbfshvxvahxafighvnhb3vwyioj3kyhd2dvydpooqcg4.ipfs.nftstorage.link/" alt="Back Image">
+            <p style="text-align: center;">Back</p>
+        </div>
+    </div>
+    <div id="chart-container">
+        <div class="chart">
+            <canvas id="promoChart"></canvas>
+        </div>
+        <div class="chart">
+            <canvas id="datePromoChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="stats">
+        <div id="totalCount" class="tab total-count">Total Promo Codes Used: 0</div>
+        <div id="totalFlyersViewed" class="tab total-flyers-viewed">Total Flyers Viewed: <span id="flyersViewed">0</span>/10000</div>
+        <div id="conversionRate" class="tab conversion-rate">Conversion Rate: 0%</div>
+        <div id="acquisitionCost" class="tab acquisition-cost">Acquisition Cost: €0.00</div>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Message</th>
+                <th>Promo Code</th>
+                <th>Date and Time</th>
+            </tr>
+        </thead>
+        <tbody id="promoTable">
+            <!-- Promo code entries will be displayed here -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+    AWS.config.update({
+        region: 'eu-north-1',
+        credentials: new AWS.Credentials('AKIAVRUVVVUMRBVSI6F7', 'dhjsq1zoM9gYgY+/38KJy6ZQSafFrVKpwWJnSEHk')
+    });
+
+    var dynamodb = new AWS.DynamoDB.DocumentClient();
+    var tableName = 'lf01';
+    var totalFlyersViewed = 3000; // Example count for total flyers viewed
+
+    function loadPromoCodes() {
+        var params = {
+            TableName: tableName,
+            Limit: 10000,
+            ScanIndexForward: false
+        };
+
+        dynamodb.scan(params, function(err, data) {
+            if (err) {
+                alert("Error loading promo codes from DynamoDB: " + err.message);
+            } else {
+                displayPromoCodes(data.Items.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime)));
+            }
+        });
+    }
+
+    function displayPromoCodes(promoCodes) {
+        var tableBody = document.getElementById("promoTable");
+        var totalCountElement = document.getElementById("totalCount");
+        var totalFlyersViewedElement = document.getElementById("flyersViewed");
+        var conversionRateElement = document.getElementById("conversionRate");
+        var acquisitionCostElement = document.getElementById("acquisitionCost");
+        var progressBar = document.getElementById("progressBar");
+        tableBody.innerHTML = "";
+
+        promoCodes.forEach(function(entry) {
+            var newRow = tableBody.insertRow();
+            var cell1 = newRow.insertCell(0);
+            var cell2 = newRow.insertCell(1);
+            var cell3 = newRow.insertCell(2);
+
+            cell1.textContent = "A customer has just used your Promo Code";
+            cell2.textContent = entry.code;
+            cell3.textContent = new Date(entry.dateTime).toLocaleString();
+
+            cell1.style.color = "#03dac6";
+        });
+
+        totalCountElement.textContent = "Total Promo Codes Used: " + promoCodes.length;
+        totalFlyersViewedElement.textContent = totalFlyersViewed;
+        var flyersViewed = totalFlyersViewed;
+        var progressPercentage = (flyersViewed / 10000) * 100;
+        progressBar.style.width = progressPercentage + "%";
+        progressBar.textContent = "People Reached: " + flyersViewed + "/10000";
+        
+        var conversionRate = ((promoCodes.length / flyersViewed) * 100).toFixed(2);
+        conversionRateElement.textContent = "Conversion Rate: " + conversionRate + "%";
+
+        var acquisitionCost = (1250 / promoCodes.length).toFixed(2);
+        acquisitionCostElement.textContent = "Acquisition Cost: €" + acquisitionCost;
+
+        updateChart(promoCodes.length, flyersViewed);
+        updateDatePromoChart(promoCodes);
+    }
+
+    function updateChart(promoCodesUsed, flyersViewed) {
+        var ctx = document.getElementById('promoChart').getContext('2d');
+        var promoChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Flyers Distributed', 'Promo Codes Entered'],
+                datasets: [{
+                    label: 'Count',
+                    data: [flyersViewed, promoCodesUsed],
+                    backgroundColor: ['#bb86fc', '#03dac6']
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(tooltipItem) {
+                                return tooltipItem.dataset.label + ': ' + tooltipItem.raw;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateDatePromoChart(promoCodes) {
+        var ctx = document.getElementById('datePromoChart').getContext('2d');
+        var dates = promoCodes.map(function(entry) {
+            return new Date(entry.dateTime).toLocaleDateString();
+        });
+
+        var dateCounts = dates.reduce(function(acc, date) {
+            acc[date] = (acc[date] || 0) + 1;
+            return acc;
+        }, {});
+
+        var sortedDates = Object.keys(dateCounts).sort(function(a, b) {
+            return new Date(a) - new Date(b);
+        });
+
+        var promoChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: sortedDates,
+                datasets: [{
+                    label: 'Promo Codes Entered',
+                    data: sortedDates.map(function(date) {
+                        return dateCounts[date];
+                    }),
+                    backgroundColor: '#ff4081',
+                    borderColor: '#ff4081',
+                    fill: false,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(tooltipItem) {
+                                return tooltipItem.dataset.label + ': ' + tooltipItem.raw;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    window.onload = function() {
+        loadPromoCodes();
+        setInterval(loadPromoCodes, 30000);
+    };
+</script>
+
+</body>
+</html>
