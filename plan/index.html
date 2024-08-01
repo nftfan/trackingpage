@@ -1,0 +1,560 @@
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Population Estimator Dashboard</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+<style>
+  body {
+    background-color: #121212; /* Dark background */
+    color: #f0f0f0; /* Light text color for readability */
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+
+  .main-container {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 0px;
+    padding: 20px;
+  }
+
+  #map {
+    width: 1000px;
+    height: 700px;
+    border-radius: 7px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Darker shadow for contrast */
+    border: 10px solid #1e1e1e; /* Dark border */
+  }
+
+  .card-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
+    max-width: 350px;
+    max-height: 700px;
+    overflow: auto;
+   
+    padding: 10px;
+    border-radius: 5px;
+    
+  }
+
+  .population-info {
+    background-color: #333;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
+  }
+
+  .population-info label {
+    display: block;
+    font-weight: bold;
+    font-size: 16px;
+    color: #f0f0f0;
+    margin-bottom: 10px;
+  }
+
+  .population-info input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    font-family: Arial, sans-serif;
+    border: 1px solid #555;
+    border-radius: 6px;
+    box-sizing: border-box;
+    background-color: #1e1e1e;
+    color: #f0f0f0;
+    outline: none;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .population-info input[type="number"]:focus {
+    border-color: #007bff;
+    
+  }
+
+ .table {
+  width: 1000px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  border-collapse: collapse;
+  color: #f0f0f0;
+  border: 0px solid #555;
+  border-radius: 10px;
+  padding: 20px;
+  position: absolute;
+  top: 740px; /* Moves the table 740px down from the top */
+  left: 10px; /* Adjust the value to move the table to the left side */
+}
+
+.table-column {
+  background-color: #333;
+  border: 1px solid #555;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  padding: 15px;
+}
+
+.table-row {
+  display: table-row;
+}
+
+.table-cell {
+  display: table-cell;
+  border: 1px solid #555;
+  padding: 10px;
+  color: #f0f0f0;
+}
+
+.table-cell.bold {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.table-cell.green {
+  color: #4caf50;
+}
+
+.table-cell.red {
+  color: #f44336;
+}
+
+.table-cell.blue {
+  color: #2196f3;
+}
+
+
+  .population-info button {
+  background: linear-gradient(135deg, #f3eac6, #c5b358);
+  border: none;
+  color: #000000;
+  padding: 10px 20px;
+  text-align: center;
+  font-size: 16px;
+  margin: 10px 0;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.population-info button:hover {
+  background: linear-gradient(135deg, #45a049, #3b8d40);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+.population-info button:active {
+  background: linear-gradient(135deg, #3b8d40, #2e7034);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transform: translateY(0);
+}
+
+
+  .search-container {
+    position: absolute;
+    left: 50px;
+    top: 20px;
+    z-index: 999;
+  }
+
+  .search-container input {
+    padding: 10px;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+	margin-top: 20px;
+    margin-left: 30px;
+    font-size: 14px;
+    background-color: #ffffff;
+    color: #f0f0f0;
+  }
+
+  .search-container button {
+    padding: 10px 10px;
+    background-color: yellow;
+    color: #000000;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+
+  #flyers-info, #hide-element, #population-info, #street-list {
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="main-container">
+  <div id="map"></div>
+
+  <div class="card-container">
+    <div class="card">
+      <div class="population-info">
+        <label for="printing-cost-amount">Printing Cost per Flyer:</label>
+        <input type="number" id="printing-cost-amount" min="0" step="0.01" value="0.03" onchange="calculatePrintingCost()">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="population-info">
+        <label for="vat-amount">VAT (%):</label>
+        <input type="number" id="vat-amount" min="0" max="100" step="0.01" value="21" onchange="calculateRevenue()">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="population-info">
+        <label for="flyers-customer">Flyers required to gain 1 Customer:</label>
+        <input type="number" id="flyers-customer" min="0" step="1" value="150" onchange="calculateRevenue()">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="population-info">
+        <label for="revenue-amount">🎯 Target Revenue per Customer (€):</label>
+        <input type="number" id="revenue-amount" min="0" step="0.01" onchange="calculateRevenue()">
+      </div>
+    </div>
+  </div>
+
+  <div class="table">
+    <div class="table-column">
+      <div class="table-row">
+        <div class="table-cell bold">Campaign Area Code:</div>
+        <div class="table-cell" id="area-nft-code"></div>
+      </div>
+      <div class="table-row">
+        <div class="table-cell bold">Total Count of Ways:</div>
+        <div class="table-cell" id="ways-count"></div>
+      </div>
+      <div class="table-row">
+        <div class="table-cell bold">Area:</div>
+        <div class="table-cell" id="area-info"></div>
+      </div>
+      <div class="table-row">
+        <div class="table-cell bold">Distribution Cost:</div>
+        <div class="table-cell" id="distribution-cost"></div>
+      </div>
+      <div class="table-row">
+        <div class="table-cell bold">Printing Cost:</div>
+        <div class="table-cell" id="printing-cost"></div>
+      </div>
+      <div class="table-row">
+        <div class="table-cell bold red">Total Cost:</div>
+        <div class="table-cell" id="total-cost"></div>
+      </div>
+      <div class="table-row">
+        <div class="table-cell bold green">Potential Customers Gain:</div>
+        <div class="table-cell" id="potential-customer-gain"></div>
+      </div>
+      <div class="table-row">
+        <div class="table-cell bold">Total Revenue:</div>
+        <div class="table-cell" id="total-revenue"></div>
+      </div>
+      <div class="table-row">
+        <div class="table-cell bold blue">Possible Profit from Selected Area:</div>
+        <div class="table-cell" id="possible-profit"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-container">
+    <div id="show-streets-button" class="population-info">
+      <button onclick="toggleStreetList()">Show Streets</button>
+    </div>
+	
+	<h2>How to plan?</h2>
+    <ul>
+        <li><b>Go to the area where you want to drop your offline Ads.</b></li>
+        <li><b>Click the polygon icon to draw a polygon on the map.</b></li>
+		<li><b>Now pay attention to the table below the map.</b></li>
+		<li><b>Set your parameter on right side of the map.</b></li>
+		<li><b>Generate your area code by drawing a polygon on the map.</b></li>
+		<li><b>Click on the image below to learn more.</b></li>
+		<li><b>Ask for help: leuvenfd@mail.com </b></li>
+		
+    </ul>
+<a href="https://hibusm.s3.eu-north-1.amazonaws.com/Add+a+heading+(2).png" target="_blank">
+    <img src="https://hibusm.s3.eu-north-1.amazonaws.com/Add+a+heading+(2).png" alt="By NFT Fans Token" width="300">
+</a>
+
+
+    <div id="street-list" class="population-info"></div>
+  </div>
+</div>
+
+<div class="search-container">
+  <input type="text" id="coordinate-input" placeholder="Search previous campaigns">
+  <button onclick="searchCoordinates()">Search</button>
+</div>
+
+<div id="population-info" class="population-info">
+  <strong style="font-family: Arial, sans-serif; font-size: 20px; color: #000000; background-color: yellow; border-radius: 3px; padding: 10px 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">Offline Marketing Tool</strong>
+</div>
+
+<div id="flyers-info" class="population-info" style="color: white; position: absolute; top: 850px; left: 800px;">
+  <strong>Flyers Required to Cover Area:</strong>
+</div>
+
+<div id="hide-element" style="position: relative; top: -730px; left: 0px;">
+  <div style="background-color: yellow; border-radius: 5px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); padding: 10px; width: 200px; text-align: center;">
+    <button onclick="calculateRevenue()" style="background-color: #fff; border: 1px solid #000000; border-radius: 1px; color: #333; cursor: pointer; font-family: Arial, sans-serif; font-size: 20px;">
+      Calculate Profit
+    </button>
+  </div>
+</div>
+
+
+
+
+
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+<script>
+  var map = L.map('map').setView([51.505, -0.09], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  }).addTo(map);
+
+  var drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  var drawControl = new L.Control.Draw({
+    draw: {
+      polygon: true,
+      polyline: false,
+      marker: false,
+      circle: false,
+      circlemarker: false,
+      rectangle: false
+    },
+    edit: {
+      featureGroup: drawnItems
+    }
+  });
+  map.addControl(drawControl);
+
+  map.on('draw:drawstart', function (e) {
+    drawnItems.clearLayers();
+    document.getElementById('ways-count').innerHTML = '<strong>Total Count of Ways:</strong>';
+    document.getElementById('area-info').innerHTML = '<strong>Area:</strong>';
+    document.getElementById('flyers-info').innerHTML = '<strong>Flyers Required to Cover Area:</strong>';
+    document.getElementById('potential-customer-gain').innerHTML = '<strong>Potential Customers Gain:</strong>';
+    document.getElementById('total-revenue').innerHTML = '<strong>Total Revenue:</strong>';
+    document.getElementById('street-list').innerHTML = '';
+    document.getElementById('show-streets-button').innerHTML = '<button onclick="toggleStreetList()">Show Streets</button>';
+    document.getElementById('distribution-cost').innerHTML = '<strong>Distribution Cost:</strong>';
+    document.getElementById('printing-cost').innerHTML = '<strong>Printing Cost:</strong>';
+    document.getElementById('total-cost').innerHTML = '<strong>Total Cost:</strong>';
+    document.getElementById('possible-profit').innerHTML = '<strong>Possible Profit from Selected Area:</strong>';
+  });
+
+  map.on('draw:created', function (e) {
+    var layer = e.layer;
+    drawnItems.addLayer(layer);
+    updateWaysCount(layer);
+    calculateArea(layer);
+    calculateFlyersRequired();
+    highlightStreets(layer);
+  });
+
+  function updateWaysCount(layer) {
+    var polygonPoints = layer.getLatLngs()[0].map(point => `${point.lat} ${point.lng}`).join(' ');
+    var query = `[out:json];
+      way(poly:"${polygonPoints}");
+      out;
+    `;
+
+    fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    })
+    .then(response => response.json())
+    .then(data => {
+      var waysCount = data.elements.length;
+      document.getElementById('ways-count').innerHTML = "<strong>Total Count of Ways:</strong> " + waysCount;
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  function calculateArea(layer) {
+    var areaSquareMeters = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+    var areaSquareKm = areaSquareMeters / 1000000;
+    document.getElementById('area-info').innerHTML = "<strong>Area:</strong> " + areaSquareMeters.toFixed(2) + " m² (" + areaSquareKm.toFixed(2) + " km²)";
+  }
+
+  function calculateFlyersRequired() {
+    var waysCount = parseFloat(document.getElementById('ways-count').textContent.split(':')[1].trim()) || 0;
+    var flyersCustomer = parseFloat(document.getElementById('flyers-customer').value) || 0;
+       var flyersRequired = waysCount * flyersCustomer;
+    document.getElementById('flyers-info').innerHTML = "<strong>Flyers Required to Cover Area:</strong> " + flyersRequired;
+    calculateRevenue(); // Recalculate revenue after updating flyers required
+  }
+
+  function calculateRevenue() {
+    var revenueAmount = parseFloat(document.getElementById('revenue-amount').value) || 0;
+    var flyersRequired = parseFloat(document.getElementById('ways-count').textContent.split(':')[1].trim()) || 0;
+    var potentialCustomers = Math.floor(flyersRequired / parseFloat(document.getElementById('flyers-customer').value)) || 0;
+    document.getElementById('potential-customer-gain').innerHTML = "<strong>Potential Customers Gain:</strong> " + potentialCustomers;
+
+    var totalRevenue = revenueAmount * potentialCustomers;
+    var vatPercentage = parseFloat(document.getElementById('vat-amount').value) / 100;
+    var costWithVAT = totalRevenue * (1 + vatPercentage);
+    document.getElementById('total-revenue').innerHTML = "<strong>Total Revenue:</strong> " + costWithVAT.toFixed(2) + " €";
+
+    var distributionCost = flyersRequired * 0.05; // Distribution cost per flyer (0.05 €)
+    document.getElementById('distribution-cost').innerHTML = "<strong>Distribution Cost:</strong> " + distributionCost.toFixed(2) + " €";
+
+    var printingCost = parseFloat(document.getElementById('printing-cost').textContent.split(':')[1].trim()) || 0; // Retrieve printing cost from input
+    document.getElementById('printing-cost').innerHTML = "<strong>Printing Cost:</strong> " + printingCost.toFixed(2) + " €";
+
+    var totalCost = distributionCost + printingCost;
+    if (vatPercentage > 0) {
+      totalCost *= (1 + vatPercentage); // Apply VAT if specified
+    }
+    document.getElementById('total-cost').innerHTML = "<strong>Total Cost:</strong> " + totalCost.toFixed(2) + " €";
+
+    var possibleProfit = totalRevenue - totalCost;
+    document.getElementById('possible-profit').innerHTML = "<strong>Possible Profit from Selected Area:</strong> " + possibleProfit.toFixed(2) + " €";
+  }
+
+  function calculatePrintingCost() {
+    var flyersRequired = parseFloat(document.getElementById('ways-count').textContent.split(':')[1].trim()) || 0;
+    var printingCostPerFlyer = parseFloat(document.getElementById('printing-cost-amount').value) || 0;
+    var printingCost = flyersRequired * printingCostPerFlyer;
+    document.getElementById('printing-cost').innerHTML = "<strong>Printing Cost:</strong> " + printingCost.toFixed(2) + " €";
+    calculateRevenue(); // Recalculate revenue after updating printing cost
+  }
+
+  function toggleStreetList() {
+    var streetList = document.getElementById('street-list');
+    if (streetList.style.display === 'none') {
+      streetList.style.display = 'block';
+      document.getElementById('show-streets-button').innerHTML = '<button onclick="toggleStreetList()">Hide Streets</button>';
+      updateStreetList();
+    } else {
+      streetList.style.display = 'none';
+      document.getElementById('show-streets-button').innerHTML = '<button onclick="toggleStreetList()">Show Streets</button>';
+    }
+  }
+
+  function updateStreetList() {
+    var drawnLayer = drawnItems.getLayers()[0];
+    var polygonPoints = drawnLayer.getLatLngs()[0].map(point => `${point.lat} ${point.lng}`).join(' ');
+    var query = `[out:json];
+      way["highway"](poly:"${polygonPoints}");
+      out;
+    `;
+
+    fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    })
+    .then(response => response.json())
+    .then(data => {
+      var streets = new Set();
+      data.elements.forEach(function(element) {
+        if (element.tags && element.tags.highway && element.tags.name) {
+          streets.add(element.tags.name);
+        }
+      });
+      var sortedStreets = Array.from(streets).sort();
+document.getElementById('street-list').innerHTML = "<strong style='font-size: 10px;'>List of Streets:</strong><br/><span style='font-size: 10px;'>" + sortedStreets.join("<br/>") + "</span>";
+highlightStreets(drawnLayer); // Highlight streets after updating street list
+
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  function highlightStreets(polygonLayer) {
+    var polygonGeoJSON = polygonLayer.toGeoJSON();
+    var polygonCoords = polygonGeoJSON.geometry.coordinates[0].map(coord => `${coord[1]} ${coord[0]}`).join(' ');
+
+    var query = `[out:json];
+      way["highway"](poly:"${polygonCoords}");
+      out geom;
+    `;
+
+    fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    })
+    .then(response => response.json())
+    .then(data => {
+      data.elements.forEach(function(element) {
+        if (element.type === "way" && element.geometry) {
+          var streetCoordinates = element.geometry.map(node => [node.lat, node.lon]);
+          var streetType = element.tags.highway || "unknown";
+          var color = getStreetColor(streetType);
+          L.polyline(streetCoordinates, { color: color }).addTo(map);
+        }
+      });
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  function getStreetColor(streetType) {
+    switch (streetType) {
+        case 'motorway':
+            return '#ff0000'; // red
+        case 'trunk':
+            return '#ff8000'; // orange
+        case 'primary':
+            return '#ffff00'; // yellow
+        case 'secondary':
+            return '#00ff00'; // green
+        case 'tertiary':
+            return '#0080ff'; // blue
+        default:
+            return '#808080'; // gray for unknown or other types
+    }
+  }
+</script>
+<script>
+  function searchCoordinates() {
+    var coordinatesInput = document.getElementById('coordinate-input').value;
+    var coordinatesArray = coordinatesInput.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/g);
+
+    if (!coordinatesArray) {
+        alert('Invalid coordinates format. Please provide coordinates in the correct format.');
+        return;
+    }
+
+    var latLngs = coordinatesArray.map(function(coord) {
+        var match = coord.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/);
+        return [parseFloat(match[1]), parseFloat(match[2])];
+    });
+
+    var polygon = L.polygon(latLngs, { color: 'red' }).addTo(map);
+    map.fitBounds(polygon.getBounds());
+}
+</script>
+<script>
+  map.on('draw:created', function (e) {
+    var layer = e.layer;
+    displayCampaignArea(layer);
+  });
+
+  function displayCampaignArea(layer) {
+    var polygonPoints = layer.getLatLngs()[0].map(point => `[${point.lat}, ${point.lng}]`).join(', ');
+    document.getElementById('area-nft-code').innerHTML = `<strong>My Campaign Area Code: </strong>${polygonPoints}`;
+  }
+</script>
+</body>
+</html>
+
