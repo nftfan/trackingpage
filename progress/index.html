@@ -1,0 +1,409 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campaign Tracker Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+   <style>
+    /* Dark theme styles */
+    
+   body {
+  font-family: Arial, sans-serif;
+  background-color: #121212;
+  color: #e0e0e0;
+  max-width: 100%; /* Ensures a max width for larger screens */
+  margin: 0 auto; /* Centers the body horizontally */
+  padding: 0 10px; /* Adds padding for small screens */
+  box-sizing: border-box; /* Ensures padding doesn't affect width */
+}
+
+#map {
+  width: 100%;
+  height: 500px;
+}
+
+.container {
+  max-width: 100%;
+  margin: 20px auto;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  padding: 20px;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: left;
+  
+  color: #e0e0e0;
+  
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  margin-bottom: 0px;
+  
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 24px; /* Font size for better look */
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Add text shadow for contrast */
+}
+
+.view-all-button {
+  border: none;
+  border-radius: 5px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(200, 200, 200, 0.3)); /* Refined gradient background */
+  color: #fff;
+  font-size: 14px;
+  font-family: 'Helvetica Neue', 'Arial', sans-serif; /* Sleek font */
+  padding: 12px 24px; /* Slightly increased padding for a better look */
+  cursor: pointer;
+  transition: background 0.3s, transform 0.3s, box-shadow 0.3s; /* Smooth transitions */
+  margin-left: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Enhanced shadow for more depth */
+  text-transform: uppercase; /* Uppercase text for a professional look */
+  letter-spacing: 1px; /* Increased letter spacing for readability */
+}
+
+.view-all-button:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(200, 200, 200, 0.5)); /* Brighter gradient on hover */
+  transform: scale(1.05); /* Slightly larger on hover */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); /* Stronger shadow on hover */
+}
+
+
+
+
+
+
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  color: #e0e0e0;
+}
+
+th, td {
+  border: 1px solid #444;
+  padding: 8px;
+  text-align: left;
+  font-size: 12px;
+}
+
+th {
+  background-color: #333;
+}
+
+.view-on-map-button {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.view-all-button {
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: #28a745;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Container for totals section */
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: #e0e0e0;
+  border-bottom: 2px solid #333;
+}
+
+/* Individual total item styled as tab */
+.totals span {
+  margin-right: 30px;
+  padding: 10px 20px;
+  cursor: pointer;
+  border: 1px solid #333;
+  border-bottom: none;
+  margin-bottom: -1px; /* Ensure the bottom border doesn't create extra space */
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  transition: background-color 0.3s, color 0.3s;
+  font-weight: bold;
+}
+
+#totalFlyers {
+  background-color: #1e90ff; /* DodgerBlue */
+}
+
+#totalQrCodes {
+  background-color: #32cd32; /* LimeGreen */
+}
+
+#totalPromoCodes {
+  background-color: #ff4500; /* OrangeRed */
+}
+
+.totals span:hover {
+  filter: brightness(85%);
+}
+
+.totals span.active {
+  background-color: #333;
+  color: #fff;
+}
+
+
+
+.leaflet-control-attribution,
+.leaflet-control-zoom {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+/* Media Queries for Mobile Optimization */
+@media (max-width: 600px) {
+  .header h1 {
+    font-size: 20px;
+  }
+
+  th, td {
+    font-size: 10px;
+    padding: 6px;
+  }
+
+  .view-on-map-button, .view-all-button {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+
+  .totals {
+    font-size: 12px;
+  }
+
+  .container {
+    padding: 15px;
+  }
+}
+
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="header">
+  <h1>Campaign Tracker Dashboard</h1>
+  <button class="view-all-button" onclick="viewAllOnMap()">View Progress</button>
+</div>
+
+	
+  </div>
+
+  <div class="totals">
+    
+    <span id="totalFlyers">Total Flyers Delivered: 0</span> 
+    <span id="totalQrCodes">Total QR Codes Scanned: 0</span> 
+    <span id="totalPromoCodes">Total Promo Codes Entered: 0</span>
+  </div>
+
+  <div id="map"></div>
+
+  <table id="campaignTable">
+    <tr>
+      <th>Campaign</th>
+      <th>QR Codes Scans</th>
+      <th>Promo Code Entered</th>
+      <th>Flyers Distributed</th>
+      <th>Start Date</th>
+      <th>Action</th>
+    </tr>
+    <tr>
+      <td>Campaign 1</td>
+      <td>28</td>
+      <td>17</td>
+      <td>3900</td>
+      <td>26 January 2023</td>
+      <td><button class="view-on-map-button" onclick="viewOnMap([[51.208227720244885, 4.408435821533204], [51.210432328919325, 4.422340393066407], [51.19924688225324, 4.431438446044923], [51.19290008464798, 4.4228553771972665]], 'Campaign 1', 28, 17, 3900)">View on Map</button></td>
+    </tr>
+    <tr>
+      <td>Campaign 2</td>
+      <td>28</td>
+      <td>17</td>
+      <td>3900</td>
+      <td>27 January 2023</td>
+      <td><button class="view-on-map-button" onclick="viewOnMap([[51.2041946263841, 4.388952255249024], [51.20946446493662, 4.407491683959962], [51.192523552234164, 4.4207096099853525], [51.19467512458473, 4.399251937866212], [51.199354447559195, 4.388608932495118]], 'Campaign 2', 28, 17, 3900)">View on Map</button></td>
+    </tr>
+    <tr>
+      <td>Campaign 3</td>
+      <td>28</td>
+      <td>17</td>
+      <td>3900</td>
+      <td>28 January 2023</td>
+      <td><button class="view-on-map-button" onclick="viewOnMap([[51.205162601119845, 4.37908172607422], [51.203979518124676, 4.385433197021485], [51.210647407041904, 4.4063758850097665], [51.21693799772028, 4.414014816284181], [51.2197335399395, 4.415473937988282], [51.220969975619994, 4.406890869140626], [51.221883841517354, 4.397277832031251]], 'Campaign 3', 28, 17, 3900)">View on Map</button></td>
+    </tr>
+	
+	 <tr>
+      <td>Campaign 4</td>
+      <td>28</td>
+      <td>17</td>
+      <td>3900</td>
+      <td>29 January 2023</td>
+      <td><button class="view-on-map-button" onclick="viewOnMap([[51.22247515684192, 4.416418075561524], [51.22930161093041, 4.4289493560791025], [51.22027112475077, 4.4310951232910165], [51.219518504257174, 4.42002296447754]], 'Campaign 3', 28, 17, 3900)">View on Map</button></td>
+    </tr>
+	  <tr>
+      <td>Campaign 5</td>
+      <td>28</td>
+      <td>17</td>
+      <td>3900</td>
+      <td>30 January 2023</td>
+      <td><button class="view-on-map-button" onclick="viewOnMap([[51.19940823011799, 4.431867599487306], [51.21059363760544, 4.4228553771972665], [51.213819692667286, 4.433670043945313], [51.2138734583368, 4.443025588989259], [51.20715226308073, 4.440193176269532]], 'Campaign 3', 28, 17, 3900)">View on Map</button></td>
+    </tr>
+    <!-- Add more campaign rows here as needed -->
+  </table>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  var map = L.map('map').setView([51.505, -0.09], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  }).addTo(map);
+
+  var campaignData = [
+    {
+      coordinates: [[51.208227720244885, 4.408435821533204], [51.210432328919325, 4.422340393066407], [51.19924688225324, 4.431438446044923], [51.19290008464798, 4.4228553771972665]],
+      name: 'Campaign 1',
+      qrScans: 28,
+      promoCodes: 17,
+      flyers: 3900
+    },
+    {
+      coordinates: [[51.2041946263841, 4.388952255249024], [51.20946446493662, 4.407491683959962], [51.192523552234164, 4.4207096099853525], [51.19467512458473, 4.399251937866212], [51.199354447559195, 4.388608932495118]],
+      name: 'Campaign 2',
+      qrScans: 28,
+      promoCodes: 17,
+      flyers: 3900
+    },
+    {
+      coordinates: [[51.205162601119845, 4.37908172607422], [51.203979518124676, 4.385433197021485], [51.210647407041904, 4.4063758850097665], [51.21693799772028, 4.414014816284181], [51.2197335399395, 4.415473937988282], [51.220969975619994, 4.406890869140626], [51.221883841517354, 4.397277832031251]],
+      name: 'Campaign 3',
+      qrScans: 28,
+      promoCodes: 17,
+      flyers: 3900
+    },
+	{
+      coordinates: [[51.22247515684192, 4.416418075561524], [51.22930161093041, 4.4289493560791025], [51.22027112475077, 4.4310951232910165], [51.219518504257174, 4.42002296447754]],
+      name: 'Campaign 4',
+      qrScans: 28,
+      promoCodes: 17,
+      flyers: 3900
+    },
+	  {
+      coordinates: [[51.19940823011799, 4.431867599487306], [51.21059363760544, 4.4228553771972665], [51.213819692667286, 4.433670043945313], [51.2138734583368, 4.443025588989259], [51.20715226308073, 4.440193176269532]],
+      name: 'Campaign 5',
+      qrScans: 28,
+      promoCodes: 17,
+      flyers: 3900
+    }
+	
+  ];
+
+  function viewOnMap(coordinates, campaignName, qrScans, promoCodes, flyers) {
+    var latLngs = coordinates;
+    var popupContent = `
+      <div style="display: flex; border-radius: 2px; overflow: hidden; background-color: #f7f7f7; width: 280px; height: 125px; ">
+        <div style="flex: 1;">
+          <img src="https://blogger.googleusercontent.com/img/a/AVvXsEij75BcOUXBYmtzazGIjmRqpvJxk0AOdtZKztseavAzN0fE6YEoMOzNKgK108BEPQB_ltdnxPyV0KIHoU_bNeR38GhQc7rj0sl7Q8kQtC4L_u7jyS7GKSCHgyG0L_NHc_hJ1QQti6z8lcCQkwD87rabm3IDZGZN88yMJf63Hg_ELstXqrfbGU4VBsEK9_I" alt="Campaign Poster" style="width: 100%; height: auto; ">
+        </div>
+        <div style="flex: 2; padding: 5px;">
+          <p style="font-size: 12px; margin-bottom: 10px;">${campaignName}</p>
+          <div style="margin-bottom: 10px;">
+            <strong>QR Codes Scans:</strong> ${qrScans}
+          </div>
+          <div style="margin-bottom: 10px;">
+            <strong>Promo Code Entered:</strong> ${promoCodes}
+          </div>
+          <div>
+            <strong>Flyers Distributed:</strong> ${flyers}
+          </div>
+        </div>
+      </div>
+    `;
+    var polygon = L.polygon(latLngs, { color: 'green' }).addTo(map);
+    polygon.bindPopup(popupContent).openPopup();
+    map.fitBounds(polygon.getBounds());
+  }
+
+  function viewAllOnMap() {
+    map.eachLayer(function (layer) {
+      if (layer instanceof L.Polygon) {
+        map.removeLayer(layer);
+      }
+    });
+
+    var bounds = [];
+    campaignData.forEach(function (campaign) {
+      var polygon = L.polygon(campaign.coordinates, { color: 'green' }).addTo(map);
+      var popupContent = `
+        <div style="display: flex; border-radius: 2px; overflow: hidden; background-color: #f7f7f7; width: 280px; height: 125px; ">
+          <div style="flex: 1;">
+            <img src="https://blogger.googleusercontent.com/img/a/AVvXsEij75BcOUXBYmtzazGIjmRqpvJxk0AOdtZKztseavAzN0fE6YEoMOzNKgK108BEPQB_ltdnxPyV0KIHoU_bNeR38GhQc7rj0sl7Q8kQtC4L_u7jyS7GKSCHgyG0L_NHc_hJ1QQti6z8lcCQkwD87rabm3IDZGZN88yMJf63Hg_ELstXqrfbGU4VBsEK9_I" alt="Campaign Poster" style="width: 100%; height: auto; ">
+          </div>
+          <div style="flex: 2; padding: 5px;">
+            <p style="font-size: 12px; margin-bottom: 10px;">${campaign.name}</p>
+            <div style="margin-bottom: 10px;">
+              <strong>QR Codes Scans:</strong> ${campaign.qrScans}
+            </div>
+            <div style="margin-bottom: 10px;">
+              <strong>Promo Code Entered:</strong> ${campaign.promoCodes}
+            </div>
+            <div>
+              <strong>Flyers Distributed:</strong> ${campaign.flyers}
+            </div>
+          </div>
+        </div>
+      `;
+      polygon.bindPopup(popupContent);
+      bounds.push(...campaign.coordinates);
+    });
+
+    map.fitBounds(bounds);
+  }
+
+  function updateTotals() {
+    var totalFlyers = 0;
+    var totalQrCodes = 0;
+    var totalPromoCodes = 0;
+
+    campaignData.forEach(function (campaign) {
+      totalFlyers += campaign.flyers;
+      totalQrCodes += campaign.qrScans;
+      totalPromoCodes += campaign.promoCodes;
+    });
+
+    document.getElementById('totalFlyers').innerText = 'Total Flyers Delivered: ' + totalFlyers;
+    document.getElementById('totalQrCodes').innerText = 'Total QR Codes Scanned: ' + totalQrCodes;
+    document.getElementById('totalPromoCodes').innerText = 'Total Promo Codes Entered: ' + totalPromoCodes;
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    updateTotals();
+  });
+</script>
+
+</body>
+</html>
