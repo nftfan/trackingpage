@@ -1,0 +1,383 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Layout</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 20px;
+        }
+        .chart-container {
+            width: 70%;
+            background-color: #333333;
+            padding: 20px;
+            border-radius: 8px;
+            height: 790px;
+        }
+        .details {
+            width: 25%;
+            background-color: #444444;
+            padding: 20px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .details h2 {
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #ffd700;
+            text-align: center;
+        }
+        .details p {
+            margin: 10px 0;
+            font-size: 18px;
+        }
+        .details .data-section {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .details .flyer-images {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .details .flyer-images img {
+            width: 45%;
+            border-radius: 8px;
+        }
+        .details .flyer-images div {
+            text-align: center;
+        }
+        .checkboxes {
+            margin-bottom: 20px;
+        }
+        .checkboxes label {
+            display: block;
+            margin: 5px 0;
+        }
+        .values {
+            background: #333333;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: left;
+            width: 100%;
+        }
+        .values p {
+            margin: 8px 0;
+        }
+        .customer-calculation {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+            color: #ffd700;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="details">
+            <h2>Flyer Performance</h2>
+            <div class="checkboxes">
+                <label><input type="checkbox" id="handFlyerCheckbox"> HandFlyer</label>
+                <label><input type="checkbox" id="doorFlyerCheckbox"> DoorFlyer</label>
+                <label><input type="checkbox" id="totalFlyerCheckbox"> TotalFlyer</label>
+                <label><input type="checkbox" id="qrHandCheckbox"> QR Hand</label>
+                <label><input type="checkbox" id="qrDoorCheckbox"> QR Door</label>
+            </div>
+
+            <style>
+                .checkboxes {
+                    display: flex;
+                    gap: 1px;
+                }
+                .checkboxes label {
+                    display: flex;
+                    align-items: center;
+                    margin-right: 1px;
+                }
+                .checkboxes input[type="checkbox"] {
+                    margin-right: 5px;
+                }
+            </style>
+
+            <div class="data-section">
+                <style>
+                    .values {
+                        font-family: Arial, sans-serif;
+                        max-width: 400px;
+                        margin: 40px auto;
+                        padding: 20px;
+                        background-color: #333333;
+                        border: 1px solid #e0e0e0;
+                        border-radius: 10px;
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    }
+                    .values p {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin: 15px 0;
+                        padding-bottom: 10px;
+                        border-bottom: 1px solid #f0f0f0;
+                        font-size: 1.1em;
+                    }
+                    .values p:last-child {
+                        border-bottom: none;
+                    }
+                    .values p span {
+                        font-weight: bold;
+                        font-size: 1.3em;
+                        color: #ffffff;
+                    }
+                </style>
+
+                <div class="values">
+                    <p>HandFlyer: <span id="handFlyer">67</span></p>
+                    <p>DoorFlyer: <span id="doorFlyer">87</span></p>
+                    <p>TotalFlyer: <span id="totalFlyer">66</span></p>
+                    <p>QR Hand: <span id="qrHand">54</span></p>
+                    <p>QR Door: <span id="qrDoor">77</span></p>
+                    <p>QR Total: <span id="qrTotal">77</span></p>
+                </div>
+
+                <div class="flyer-images">
+                    <div>
+                        <img src="https://bafybeih2nsbgaw7szabh4mi4grwcqebyruovbrftcjtg3k7ogqbiwqycqm.ipfs.nftstorage.link/" alt="Front of Flyer">
+                        <p>Front</p>
+                    </div>
+                    <div>
+                        <img src="https://bafybeih2nsbgaw7szabh4mi4grwcqebyruovbrftcjtg3k7ogqbiwqycqm.ipfs.nftstorage.link/" alt="Back of Flyer">
+                        <p>Back</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="myChart"></canvas>
+            <div class="customer-calculation">
+                Number of HandFlyers brought 1 customer: <span id="handFlyerCustomerRatio">N/A</span><br>
+                Number of DoorFlyers brought 1 customer: <span id="doorFlyerCustomerRatio">N/A</span><br>
+                Number of TotalFlyers brought 1 customer: <span id="totalFlyerCustomerRatio">N/A</span>
+            </div>
+        </div>
+    </div>
+    <script>
+        const labels = ['Jan 2024', 'Feb 2024', 'Mar 2024', 'Apr 2024', 'May 2024', 'Jun 2024', 'Jul 2024', 'Aug 2024', 'Sep 2024', 'Oct 2024', 'Nov 2024', 'Dec 2024'];
+        const handFlyerData = [320, 450, 520, 630, 710, 830, 910, 1020, 1110, 1230, 1340, 1450];
+        const doorFlyerData = [250, 360, 470, 580, 690, 800, 920, 1030, 1140, 1250, 1370, 1480];
+        const totalFlyerData = handFlyerData.map((num, idx) => num + doorFlyerData[idx]);
+        const qrHandData = [20, 30, 40, 55, 60, 70, 80, 90, 100, 110, 120, 130];
+        const qrDoorData = [15, 25, 35, 45, 55, 65, 75, 85, 95, 105, 115, 125];
+        const qrTotalData = qrHandData.map((num, idx) => num + qrDoorData[idx]);
+
+        let myChart;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const ctx = document.getElementById('myChart').getContext('2d');
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'QR Total',
+                            data: qrTotalData,
+                            backgroundColor: '#FFD700',
+                            borderColor: '#FFD700',
+                            borderWidth: 1,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            grid: {
+                                color: '#444444'
+                            },
+                            ticks: {
+                                color: '#ffffff'
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: '#444444'
+                            },
+                            ticks: {
+                                color: '#ffffff'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Flyer Views',
+                                color: '#ffffff'
+                            }
+                        },
+                        y1: {
+                            position: 'right',
+                            grid: {
+                                color: '#444444'
+                            },
+                            ticks: {
+                                color: '#ffffff'
+                            },
+                            title: {
+                                display: true,
+                                text: 'QR Scans',
+                                color: '#ffffff'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#ffffff'
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    return tooltipItem.dataset.label + ': ' + tooltipItem.raw;
+                                }
+                            }
+                        },
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x'
+                            },
+                            zoom: {
+                                enabled: true,
+                                mode: 'x',
+                                speed: 0.1
+                            }
+                        },
+                        annotation: {
+                            annotations: []
+                        }
+                    },
+                    onClick: function(evt) {
+                        const points = myChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+                        if (points.length) {
+                            const firstPoint = points[0];
+                            const label = myChart.data.labels[firstPoint.index];
+                            const valueHandFlyer = handFlyerData[firstPoint.index];
+                            const valueDoorFlyer = doorFlyerData[firstPoint.index];
+                            const valueTotalFlyer = totalFlyerData[firstPoint.index];
+                            const valueQrHand = qrHandData[firstPoint.index];
+                            const valueQrDoor = qrDoorData[firstPoint.index];
+                            const valueQrTotal = qrTotalData[firstPoint.index];
+
+                            document.getElementById('handFlyer').textContent = valueHandFlyer;
+                            document.getElementById('doorFlyer').textContent = valueDoorFlyer;
+                            document.getElementById('totalFlyer').textContent = valueTotalFlyer;
+                            document.getElementById('qrHand').textContent = valueQrHand;
+                            document.getElementById('qrDoor').textContent = valueQrDoor;
+                            document.getElementById('qrTotal').textContent = valueQrTotal;
+
+                            // Calculate and display ratios
+                            const handFlyerCustomerRatio = (valueQrHand > 0) ? (valueHandFlyer / valueQrHand).toFixed(2) : 'N/A';
+                            const doorFlyerCustomerRatio = (valueQrDoor > 0) ? (valueDoorFlyer / valueQrDoor).toFixed(2) : 'N/A';
+                            const totalFlyerCustomerRatio = (valueQrTotal > 0) ? (valueTotalFlyer / valueQrTotal).toFixed(2) : 'N/A';
+                            document.getElementById('handFlyerCustomerRatio').textContent = handFlyerCustomerRatio;
+                            document.getElementById('doorFlyerCustomerRatio').textContent = doorFlyerCustomerRatio;
+                            document.getElementById('totalFlyerCustomerRatio').textContent = totalFlyerCustomerRatio;
+
+                            // Clear previous annotations
+                            myChart.options.plugins.annotation.annotations = [];
+
+                            // Add new annotation for selected point
+                            myChart.options.plugins.annotation.annotations.push({
+                                type: 'label',
+                                drawTime: 'afterDatasetsDraw',
+                                xValue: label,
+                                yValue: valueQrTotal,
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                borderColor: 'white',
+                                borderWidth: 1,
+                                content: [
+                                    `Month: ${label}`,
+                                    `HandFlyer: ${valueHandFlyer}`,
+                                    `DoorFlyer: ${valueDoorFlyer}`,
+                                    `TotalFlyer: ${valueTotalFlyer}`,
+                                    `QR Hand: ${valueQrHand}`,
+                                    `QR Door: ${valueQrDoor}`,
+                                    `QR Total: ${valueQrTotal}`
+                                ],
+                                font: {
+                                    size: 12,
+                                    color: 'white'
+                                },
+                                xAdjust: 0,
+                                yAdjust: -10
+                            });
+
+                            // Update the chart to display the annotation
+                            myChart.update();
+                        }
+                    }
+                }
+            });
+
+            document.getElementById('handFlyerCheckbox').addEventListener('change', function() {
+                toggleDataset(this.checked, 'HandFlyer', handFlyerData, '#00FF00');
+            });
+
+            document.getElementById('doorFlyerCheckbox').addEventListener('change', function() {
+                toggleDataset(this.checked, 'DoorFlyer', doorFlyerData, '#FFA500');
+            });
+
+            document.getElementById('totalFlyerCheckbox').addEventListener('change', function() {
+                toggleDataset(this.checked, 'TotalFlyer', totalFlyerData, '#1E90FF');
+            });
+
+            document.getElementById('qrHandCheckbox').addEventListener('change', function() {
+                toggleDataset(this.checked, 'QR Hand', qrHandData, '#FF4500', 'y1');
+            });
+
+            document.getElementById('qrDoorCheckbox').addEventListener('change', function() {
+                toggleDataset(this.checked, 'QR Door', qrDoorData, '#8A2BE2', 'y1');
+            });
+        });
+
+        function toggleDataset(visible, label, data, color, yAxisID = 'y') {
+            const datasetIndex = myChart.data.datasets.findIndex(dataset => dataset.label === label);
+
+            if (visible && datasetIndex === -1) {
+                myChart.data.datasets.push({
+                    label: label,
+                    data: data,
+                    backgroundColor: color,
+                    borderColor: color,
+                    borderWidth: 1,
+                    yAxisID: yAxisID
+                });
+            } else if (!visible && datasetIndex !== -1) {
+                myChart.data.datasets.splice(datasetIndex, 1);
+            }
+
+            myChart.update();
+        }
+    </script>
+</body>
+</html>
