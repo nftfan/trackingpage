@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -330,88 +331,113 @@
     </div>
 
     <script>
-        AWS.config.update({
-            region: 'eu-north-1',
-            credentials: new AWS.Credentials('AKIAVRUVVVUMRBVSI6F7', 'dhjsq1zoM9gYgY+/38KJy6ZQSafFrVKpwWJnSEHk')
-        });
+    AWS.config.update({
+        region: 'eu-north-1',
+        credentials: new AWS.Credentials('AKIAVRUVVVUMRBVSI6F7', 'dhjsq1zoM9gYgY+/38KJy6ZQSafFrVKpwWJnSEHk')
+    });
 
-        var dynamodb = new AWS.DynamoDB.DocumentClient();
-        var tableName = 'lf01';
+    var dynamodb = new AWS.DynamoDB.DocumentClient();
+    var tableName = 'lf01';
 
-        function validatePromoCode() {
-            var promoCode = document.getElementById("promoCode").value.trim();
-            var errorMessage = document.getElementById("errorMessage");
-            var popup = document.getElementById("popup");
-            if (promoCode.toLowerCase() === "flyer10") {
-                popup.style.display = 'block';
-                savePromoCode(promoCode);
+    function validatePromoCode() {
+        var promoCode = document.getElementById("promoCode").value.trim();
+        var errorMessage = document.getElementById("errorMessage");
+        var popup = document.getElementById("popup");
+        if (promoCode.toLowerCase() === "flyer10") {
+            popup.style.display = 'block';
+            savePromoCode(promoCode);
+        } else {
+            errorMessage.textContent = "Invalid promo code. Please try again.";
+        }
+        return false; // Prevent default form submission
+    }
+
+    function subscribeNewsletter() {
+        var email = document.getElementById("subscribeEmail").value.trim();
+        if (email) {
+            saveEmail(email);
+            showSubscribePopup();
+        }
+        return false; // Prevent default form submission
+    }
+
+    function closePopup() {
+        var popup = document.getElementById("popup");
+        popup.style.display = 'none';
+    }
+
+    function closeSubscribePopup() {
+        var subscribePopup = document.getElementById("subscribePopup");
+        subscribePopup.style.display = 'none';
+    }
+
+    function showSubscribePopup() {
+        var subscribePopup = document.getElementById("subscribePopup");
+        subscribePopup.style.display = 'block';
+    }
+
+    function savePromoCode(promoCode) {
+        var params = {
+            TableName: tableName,
+            Item: {
+                lf01: Date.now().toString(), // Primary key attribute
+                code: promoCode,
+                dateTime: new Date().toISOString()
+            }
+        };
+
+        dynamodb.put(params, function(err, data) {
+            if (err) {
+                alert("Error saving promo code to DynamoDB: " + err.message);
             } else {
-                errorMessage.textContent = "Invalid promo code. Please try again.";
+                console.log("Promo code saved successfully.");
             }
-            return false; // Prevent default form submission
-        }
+        });
+    }
 
-        function subscribeNewsletter() {
-            var email = document.getElementById("subscribeEmail").value.trim();
-            if (email) {
-                saveEmail(email);
-                showSubscribePopup();
+    function saveEmail(email) {
+        var params = {
+            TableName: tableName,
+            Item: {
+                lf01: Date.now().toString(), // Primary key attribute
+                email: email,
+                dateTime: new Date().toISOString()
             }
-            return false; // Prevent default form submission
-        }
+        };
 
-        function closePopup() {
-            var popup = document.getElementById("popup");
-            popup.style.display = 'none';
-        }
+        dynamodb.put(params, function(err, data) {
+            if (err) {
+                alert("Error saving email to DynamoDB: " + err.message);
+            } else {
+                console.log("Email saved successfully.");
+            }
+        });
+    }
 
-        function closeSubscribePopup() {
-            var subscribePopup = document.getElementById("subscribePopup");
-            subscribePopup.style.display = 'none';
-        }
+    function logPageView() {
+        var params = {
+            TableName: tableName,
+            Item: {
+                lf01: Date.now().toString(), // Primary key attribute
+                viewType: "View",
+                dateTime: new Date().toISOString()
+            }
+        };
 
-        function showSubscribePopup() {
-            var subscribePopup = document.getElementById("subscribePopup");
-            subscribePopup.style.display = 'block';
-        }
+        dynamodb.put(params, function(err, data) {
+            if (err) {
+                alert("Error logging page view to DynamoDB: " + err.message);
+            } else {
+                console.log("Page view logged successfully.");
+            }
+        });
+    }
 
-        function savePromoCode(promoCode) {
-            var params = {
-                TableName: tableName,
-                Item: {
-                    lf01: Date.now().toString(), // Primary key attribute
-                    code: promoCode,
-                    dateTime: new Date().toISOString()
-                }
-            };
+    // Trigger the logPageView function when the page loads
+    window.onload = function() {
+        logPageView();
+    };
+</script>
 
-            dynamodb.put(params, function(err, data) {
-                if (err) {
-                    alert("Error saving promo code to DynamoDB: " + err.message);
-                } else {
-                    console.log("Promo code saved successfully.");
-                }
-            });
-        }
-
-        function saveEmail(email) {
-            var params = {
-                TableName: tableName,
-                Item: {
-                    lf01: Date.now().toString(), // Primary key attribute
-                    email: email,
-                    dateTime: new Date().toISOString()
-                }
-            };
-
-            dynamodb.put(params, function(err, data) {
-                if (err) {
-                    alert("Error saving email to DynamoDB: " + err.message);
-                } else {
-                    console.log("Email saved successfully.");
-                }
-            });
-        }
-    </script>
 </body>
 </html>
