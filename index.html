@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>LeuvenFlyers</title>
+ <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1002.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
    <link rel="icon" href="https://hibusm.s3.eu-north-1.amazonaws.com/mailbox+(1).png" type="image/png">
@@ -20,6 +22,15 @@
 
 .container {
     width: 100%;
+    max-width: 1000px;
+    margin: 20px auto;
+    background: #c7c7ac;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+.container2 {
+    width: 80%;
     max-width: 1000px;
     margin: 20px auto;
     background: #c7c7ac;
@@ -247,7 +258,122 @@ tr:hover td {
     }
 }
 
-</style>
+.date-range-filter {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.date-range-filter label {
+    margin-right: 10px;
+}
+
+.date-range-filter input {
+    margin-right: 10px;
+    padding: 5px;
+}
+
+.date-range-filter button {
+    padding: 5px 10px;
+    background-color: #458bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.date-range-filter button:hover {
+    background-color: #357ae8;
+}
+
+
+#map {
+  width: 100%;
+  height: 500px;
+}
+
+
+
+.view-all-button {
+  border: none;
+  border-radius: 5px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(200, 200, 200, 0.3)); /* Refined gradient background */
+  color: #fff;
+  font-size: 14px;
+  font-family: 'Helvetica Neue', 'Arial', sans-serif; /* Sleek font */
+  padding: 12px 24px; /* Slightly increased padding for a better look */
+  cursor: pointer;
+  transition: background 0.3s, transform 0.3s, box-shadow 0.3s; /* Smooth transitions */
+  margin-left: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Enhanced shadow for more depth */
+  text-transform: uppercase; /* Uppercase text for a professional look */
+  letter-spacing: 1px; /* Increased letter spacing for readability */
+}
+
+.view-all-button:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(200, 200, 200, 0.5)); /* Brighter gradient on hover */
+  transform: scale(1.05); /* Slightly larger on hover */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); /* Stronger shadow on hover */
+}
+
+
+
+
+
+
+
+
+
+
+
+.view-all-button {
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: #28a745;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+
+
+
+
+.leaflet-control-attribution,
+.leaflet-control-zoom {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+/* Media Queries for Mobile Optimization */
+@media (max-width: 600px) {
+  .header h1 {
+    font-size: 20px;
+  }
+
+  th, td {
+    font-size: 10px;
+    padding: 6px;
+  }
+
+  .view-on-map-button, .view-all-button {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+
+  .totals {
+    font-size: 12px;
+  }
+
+  .container {
+    padding: 15px;
+  }
+}
+    
+
+
+  </style>
 </head>
 <body>
 
@@ -260,7 +386,7 @@ tr:hover td {
 		<a href="http://www.leuvenflyers.com/print/" target="_blank">Print</a>
         <a href="http://www.leuvenflyers.com/demopromo/" target="_blank">My Promo</a>
         
-        <a href="http://www.leuvenflyers.com/progress/" target="_blank">Progress</a>
+        
 	    <a href="http://www.leuvenflyers.com/data/" target="_blank">Data</a>
 	    <a href="http://www.leuvenflyers.com/archive/" target="_blank">Archive</a>
 		<a href="http://www.leuvenflyers.com/buy/" target="_blank">Buy Ads</a>
@@ -280,6 +406,22 @@ tr:hover td {
             <p style="text-align: center;">Back</p>
         </div>
     </div>
+	<div class="container2">
+  <div class="header">
+    <div class="header">
+  
+  <button class="view-all-button" onclick="viewAllOnMap()">View Progress</button>
+</div>
+
+	
+  </div>
+
+  
+
+  <div id="map"></div>
+
+  
+</div>
     <div id="chart-container">
         <div class="chart">
             <canvas id="promoChart"></canvas>
@@ -295,21 +437,31 @@ tr:hover td {
         <div id="conversionRate" class="tab conversion-rate">Conversion Rate: 0%</div>
         <div id="acquisitionCost" class="tab acquisition-cost">Acquisition Cost: €0.00</div>
     </div>
+	<!-- Date Range Filter -->
+<div class="date-range-filter">
+    <label for="startDate">Start Date:</label>
+    <input type="date" id="startDate">
+    <label for="endDate">End Date:</label>
+    <input type="date" id="endDate">
+    <button onclick="applyDateRangeFilter()">Apply Date Range</button>
+</div>
+
    <table>
     <thead>
         <tr>
-            <th>Message</th>
-            <th>Promo Code</th>
-            <th>Date and Time</th>
-            <th>Email</th> <!-- New column -->
-            <th>View Type</th> <!-- New column -->
-			<th>Coupon</th> <!-- New column -->
+            <th id="messageHeader">Response</th>
+            <th id="viewTypeHeader">View Type</th>
+            <th id="promoCodeHeader">Promo Code</th>
+            <th id="actionTypeHeader">Coupon</th>
+            <th id="emailHeader">Email</th>
+            <th id="dateTimeHeader">Date and Time</th>
         </tr>
     </thead>
     <tbody id="promoTable">
         <!-- Promo code entries will be displayed here -->
     </tbody>
 </table>
+
 </div>
 
 <script>
@@ -337,51 +489,106 @@ tr:hover td {
             }
         });
     }
+ function displayPromoCodes(promoCodes) {
+        var tableBody = document.getElementById("promoTable");
+        var totalCountElement = document.getElementById("totalCount");
+        var totalFlyersViewedElement = document.getElementById("flyersViewed");
+        var conversionRateElement = document.getElementById("conversionRate");
+        var acquisitionCostElement = document.getElementById("acquisitionCost");
+        var progressBar = document.getElementById("progressBar");
+        var messageHeader = document.getElementById("messageHeader");
+        var promoCodeHeader = document.getElementById("promoCodeHeader");
+        var emailHeader = document.getElementById("emailHeader");
+        var viewTypeHeader = document.getElementById("viewTypeHeader");
+        var actionTypeHeader = document.getElementById("actionTypeHeader");
+        var dateTimeHeader = document.getElementById("dateTimeHeader");
 
-    function displayPromoCodes(promoCodes) {
-    var tableBody = document.getElementById("promoTable");
-    var totalCountElement = document.getElementById("totalCount");
-    var totalFlyersViewedElement = document.getElementById("flyersViewed");
-    var conversionRateElement = document.getElementById("conversionRate");
-    var acquisitionCostElement = document.getElementById("acquisitionCost");
-    var progressBar = document.getElementById("progressBar");
-    tableBody.innerHTML = "";
+        tableBody.innerHTML = "";
 
-    promoCodes.forEach(function(entry) {
-        var newRow = tableBody.insertRow();
-        var cell1 = newRow.insertCell(0);
-        var cell2 = newRow.insertCell(1);
-        var cell3 = newRow.insertCell(2);
-        var cell4 = newRow.insertCell(3); // Cell for Email
-        var cell5 = newRow.insertCell(4); // Cell for View Type
-        var cell6 = newRow.insertCell(5); // Cell for Action Type
+        // Define dark colors for dates
+        const darkColors = ['#2e3b4e', '#4e5d6a', '#6a7a8a', '#8a9b9d', '#9d9d9d', '#c2c2c2', '#e0e0e0'];
+        let colorMap = {};
+        let colorIndex = 0;
 
-        cell1.textContent = "A customer has responded";
-        cell2.textContent = entry.code;
-        cell3.textContent = new Date(entry.dateTime).toLocaleString();
-        cell4.textContent = entry.email || "N/A"; // Display email or "N/A"
-        cell5.textContent = entry.viewType || "N/A"; // Display viewType or "N/A"
-        cell6.textContent = entry.actionType || "N/A"; // Display actionType or "N/A"
+        // Count non-blank entries for each column
+        var validPromoCodesCount = promoCodes.filter(function(entry) {
+            return entry.code && entry.code.trim() !== "";
+        }).length;
 
-        cell1.style.color = "#03dac6";
-    });
+        var validEmailsCount = promoCodes.filter(function(entry) {
+            return entry.email && entry.email.trim() !== "";
+        }).length;
 
-    totalCountElement.textContent = "Total Responses: " + promoCodes.length;
-    totalFlyersViewedElement.textContent = totalFlyersViewed;
-    var flyersViewed = totalFlyersViewed;
-    var progressPercentage = (flyersViewed / 10000) * 100;
-    progressBar.style.width = progressPercentage + "%";
-    progressBar.textContent = "People Reached: " + flyersViewed + "/10000";
-    
-    var conversionRate = ((promoCodes.length / flyersViewed) * 100).toFixed(2);
-    conversionRateElement.textContent = "Conversion Rate: " + conversionRate + "%";
+        var validViewTypesCount = promoCodes.filter(function(entry) {
+            return entry.viewType && entry.viewType.trim() !== "";
+        }).length;
 
-    var acquisitionCost = (1250 / promoCodes.length).toFixed(2);
-    acquisitionCostElement.textContent = "Acquisition Cost: €" + acquisitionCost;
+        var validActionTypesCount = promoCodes.filter(function(entry) {
+            return entry.actionType && entry.actionType.trim() !== "";
+        }).length;
 
-    updateChart(promoCodes.length, flyersViewed);
-    updateDatePromoChart(promoCodes);
-}
+        promoCodes.forEach(function(entry) {
+            var newRow = tableBody.insertRow();
+            var cell1 = newRow.insertCell(0); // Cell for Message
+            var cell2 = newRow.insertCell(1); // Cell for View Type
+            var cell3 = newRow.insertCell(2); // Cell for Promo Code
+            var cell4 = newRow.insertCell(3); // Cell for Action Type
+            var cell5 = newRow.insertCell(4); // Cell for Email
+            var cell6 = newRow.insertCell(5); // Cell for Date and Time
+
+            cell1.textContent = "A customer has responded"; // Fixed Message
+            cell2.textContent = entry.viewType || "-"; // Display viewType or "-"
+            cell3.textContent = entry.code || "-"; // Display code or "-"
+            cell4.textContent = entry.actionType || "-"; // Display actionType or "-"
+            cell5.textContent = entry.email || "-"; // Display email or "-"
+            cell6.textContent = new Date(entry.dateTime).toLocaleString(); // Display dateTime
+
+            // Apply background color for cells with "-"
+            if (cell2.textContent === "-") cell2.style.backgroundColor = "#df3056";
+            if (cell3.textContent === "-") cell3.style.backgroundColor = "#df3056";
+            if (cell4.textContent === "-") cell4.style.backgroundColor = "#df3056";
+            if (cell5.textContent === "-") cell5.style.backgroundColor = "#df3056";
+
+            // Apply dark color for date cells
+            let dateStr = new Date(entry.dateTime).toLocaleDateString();
+            if (!colorMap[dateStr]) {
+                colorMap[dateStr] = darkColors[colorIndex % darkColors.length];
+                colorIndex++;
+            }
+            cell6.style.backgroundColor = colorMap[dateStr];
+        });
+
+        totalCountElement.textContent = "Total Responses: " + promoCodes.length;
+        totalFlyersViewedElement.textContent = totalFlyersViewed;
+        var flyersViewed = totalFlyersViewed;
+        var progressPercentage = (flyersViewed / 10000) * 100;
+        progressBar.style.width = progressPercentage + "%";
+        progressBar.textContent = "People Reached: " + flyersViewed + "/10000";
+        
+        // Update acquisition cost based on the total action type counts
+        var totalActionTypesCount = promoCodes.filter(entry => entry.actionType).length;
+        var acquisitionCost = totalActionTypesCount ? (1250 / totalActionTypesCount).toFixed(2) : 0;
+        acquisitionCostElement.textContent = "Acquisition Cost: €" + acquisitionCost;
+
+        // Update conversion rate based on the total action type counts
+        var conversionRate = (totalActionTypesCount / flyersViewed * 100).toFixed(2);
+        conversionRateElement.textContent = "Conversion Rate: " + conversionRate + "%";
+
+        // Update headers with counts
+        promoCodeHeader.textContent = "Promo Code [" + validPromoCodesCount + "]";
+        emailHeader.textContent = "Email [" + validEmailsCount + "]";
+        viewTypeHeader.textContent = "View Type [" + validViewTypesCount + "]";
+        actionTypeHeader.textContent = "Coupon [" + validActionTypesCount + "]";
+        dateTimeHeader.textContent = "Date and Time";
+
+        updateChart(promoCodes.length, flyersViewed);
+        updateDatePromoChart(promoCodes);
+    }
+
+
+
+
+
 
 
 
@@ -472,9 +679,186 @@ tr:hover td {
     }
 
     window.onload = function() {
-        loadPromoCodes();
-        setInterval(loadPromoCodes, 30000);
+    loadPromoCodes(null, null); // Load initial data without date range
+
+    setInterval(function() {
+        if (!isCustomDateRangeActive) {
+            loadPromoCodes(null, null); // Auto-update only if no custom date range is active
+        }
+    }, 30000);
+};
+let isCustomDateRangeActive = false;
+
+	
+function loadPromoCodes(startDate, endDate) {
+    var params = {
+        TableName: tableName,
+        Limit: 10000,
+        ScanIndexForward: false
     };
+
+    dynamodb.scan(params, function(err, data) {
+        if (err) {
+            alert("Error loading promo codes from DynamoDB: " + err.message);
+        } else {
+            // Filter data based on date range
+            var filteredPromoCodes = data.Items.filter(function(entry) {
+                var entryDate = new Date(entry.dateTime);
+                var entryDateStr = entryDate.toISOString().split('T')[0]; // 'YYYY-MM-DD'
+                return (!startDate || entryDateStr >= startDate) && (!endDate || entryDateStr <= endDate);
+            });
+            displayPromoCodes(filteredPromoCodes.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime)));
+        }
+    });
+}
+
+
+
+function applyDateRangeFilter() {
+    var startDate = document.getElementById('startDate').value;
+    var endDate = document.getElementById('endDate').value;
+
+    // Convert date input to 'YYYY-MM-DD' format if needed
+    startDate = startDate ? new Date(startDate).toISOString().split('T')[0] : null;
+    endDate = endDate ? new Date(endDate).toISOString().split('T')[0] : null;
+
+    isCustomDateRangeActive = true; // Set the flag to true when a custom range is applied
+    loadPromoCodes(startDate, endDate);
+
+
+
+}
+
+</script>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  var map = L.map('map').setView([51.505, -0.09], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  }).addTo(map);
+
+  var campaignData = [
+    {
+      coordinates: [[51.208227720244885, 4.408435821533204], [51.210432328919325, 4.422340393066407], [51.19924688225324, 4.431438446044923], [51.19290008464798, 4.4228553771972665]],
+      name: 'Campaign 1',
+      qrScans: 28,
+      promoCodes: 17,
+      flyers: 3900
+    },
+    {
+      coordinates: [[51.2041946263841, 4.388952255249024], [51.20946446493662, 4.407491683959962], [51.192523552234164, 4.4207096099853525], [51.19467512458473, 4.399251937866212], [51.199354447559195, 4.388608932495118]],
+      name: 'Campaign 2',
+      qrScans: 28,
+      promoCodes: 17,
+      flyers: 3900
+    },
+    {
+      coordinates: [[51.205162601119845, 4.37908172607422], [51.203979518124676, 4.385433197021485], [51.210647407041904, 4.4063758850097665], [51.21693799772028, 4.414014816284181], [51.2197335399395, 4.415473937988282], [51.220969975619994, 4.406890869140626], [51.221883841517354, 4.397277832031251]],
+      name: 'Campaign 3',
+      qrScans: 28,
+      promoCodes: 17,
+      flyers: 3900
+    },
+	{
+      coordinates: [[51.22247515684192, 4.416418075561524], [51.22930161093041, 4.4289493560791025], [51.22027112475077, 4.4310951232910165], [51.219518504257174, 4.42002296447754]],
+      name: 'Campaign 4',
+      qrScans: 28,
+      promoCodes: 17,
+      flyers: 3900
+    },
+	  {
+      coordinates: [[51.19940823011799, 4.431867599487306], [51.21059363760544, 4.4228553771972665], [51.213819692667286, 4.433670043945313], [51.2138734583368, 4.443025588989259], [51.20715226308073, 4.440193176269532]],
+      name: 'Campaign 5',
+      qrScans: 28,
+      promoCodes: 17,
+      flyers: 3900
+    }
+	
+  ];
+
+  function viewOnMap(coordinates, campaignName, qrScans, promoCodes, flyers) {
+    var latLngs = coordinates;
+    var popupContent = `
+      <div style="display: flex; border-radius: 2px; overflow: hidden; background-color: #f7f7f7; width: 280px; height: 125px; ">
+        <div style="flex: 1;">
+          <img src="https://blogger.googleusercontent.com/img/a/AVvXsEij75BcOUXBYmtzazGIjmRqpvJxk0AOdtZKztseavAzN0fE6YEoMOzNKgK108BEPQB_ltdnxPyV0KIHoU_bNeR38GhQc7rj0sl7Q8kQtC4L_u7jyS7GKSCHgyG0L_NHc_hJ1QQti6z8lcCQkwD87rabm3IDZGZN88yMJf63Hg_ELstXqrfbGU4VBsEK9_I" alt="Campaign Poster" style="width: 100%; height: auto; ">
+        </div>
+        <div style="flex: 2; padding: 5px;">
+          <p style="font-size: 12px; margin-bottom: 10px;">${campaignName}</p>
+          <div style="margin-bottom: 10px;">
+            <strong>QR Codes Scans:</strong> ${qrScans}
+          </div>
+          <div style="margin-bottom: 10px;">
+            <strong>Promo Code Entered:</strong> ${promoCodes}
+          </div>
+          <div>
+            <strong>Flyers Distributed:</strong> ${flyers}
+          </div>
+        </div>
+      </div>
+    `;
+    var polygon = L.polygon(latLngs, { color: 'green' }).addTo(map);
+    polygon.bindPopup(popupContent).openPopup();
+    map.fitBounds(polygon.getBounds());
+  }
+
+  function viewAllOnMap() {
+    map.eachLayer(function (layer) {
+      if (layer instanceof L.Polygon) {
+        map.removeLayer(layer);
+      }
+    });
+
+    var bounds = [];
+    campaignData.forEach(function (campaign) {
+      var polygon = L.polygon(campaign.coordinates, { color: 'green' }).addTo(map);
+      var popupContent = `
+        <div style="display: flex; border-radius: 2px; overflow: hidden; background-color: #f7f7f7; width: 280px; height: 125px; ">
+          <div style="flex: 1;">
+            <img src="https://hibusm.s3.eu-north-1.amazonaws.com/PromoCode.png" alt="Campaign Poster" style="width: 100%; height: auto; ">
+          </div>
+          <div style="flex: 2; padding: 5px;">
+            <p style="font-size: 12px; margin-bottom: 10px;">${campaign.name}</p>
+            <div style="margin-bottom: 10px;">
+              <strong>QR Codes Scans:</strong> ${campaign.qrScans}
+            </div>
+            <div style="margin-bottom: 10px;">
+              <strong>Promo Code Entered:</strong> ${campaign.promoCodes}
+            </div>
+            <div>
+              <strong>Flyers Distributed:</strong> ${campaign.flyers}
+            </div>
+          </div>
+        </div>
+      `;
+      polygon.bindPopup(popupContent);
+      bounds.push(...campaign.coordinates);
+    });
+
+    map.fitBounds(bounds);
+  }
+
+  function updateTotals() {
+    var totalFlyers = 0;
+    var totalQrCodes = 0;
+    var totalPromoCodes = 0;
+
+    campaignData.forEach(function (campaign) {
+      totalFlyers += campaign.flyers;
+      totalQrCodes += campaign.qrScans;
+      totalPromoCodes += campaign.promoCodes;
+    });
+
+    document.getElementById('totalFlyers').innerText = 'Total Flyers Delivered: ' + totalFlyers;
+    document.getElementById('totalQrCodes').innerText = 'Total QR Codes Scanned: ' + totalQrCodes;
+    document.getElementById('totalPromoCodes').innerText = 'Total Promo Codes Entered: ' + totalPromoCodes;
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    updateTotals();
+  });
 </script>
 
 </body>
