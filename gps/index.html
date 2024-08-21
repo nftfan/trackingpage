@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="https://raw.githubusercontent.com/nftfan/delivery/main/Untitled%20design%20(22).png" type="image/png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rider Location Tracking</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- iOS Web App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rider Location Tracking">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/nftfan/delivery/main/Untitled%20design%20(23)929292.png">
+    
+    <!-- iOS Splash Screen -->
+    <link rel="apple-touch-startup-image" href="https://raw.githubusercontent.com/nftfan/delivery/main/Untitled%20design%20(22).png">
+    
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="https://raw.githubusercontent.com/nftfan/delivery/main/d2.json">
+    
+    <!-- iOS Viewport Adjustment -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f0f2f5;
+        }
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+        h1 {
+            text-align: center;
+            background-color: #df3056;
+            padding: 10px;
+            font-size: 12px;
+            margin: 0;
+            position: fixed;
+            width: 100%;
+            color: #ffffff;
+            z-index: 1000;
+        }
+        footer {
+            text-align: center;
+            background-color: #df3056;
+            padding: 4px;
+            font-size: 12px;
+            margin: 0;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            color: #ffffff;
+            z-index: 1000;
+        }
+        @media only screen and (max-width: 600px) {
+            h1 {
+                font-size: 10px;
+                padding: 3px;
+            }
+            footer {
+                font-size: 10px;
+                padding: 3px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Rider Location Tracking</h1>
+    <div id="map"></div>
+    <footer>Share your location in real-time.</footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let riderPosition = null;
+
+        // Initialize the map
+        const map = L.map('map').setView([50.879, 4.7009], 14); // Default center (Leuven)
+
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        // Define a marker for the rider's location
+        const riderMarker = L.marker([50.879, 4.7009], {
+            icon: L.icon({
+                iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+                shadowSize: [41, 41]
+            })
+        }).addTo(map);
+
+        // Function to handle location updates
+        function onLocationFound(e) {
+            const { latitude, longitude } = e.coords;
+
+            // Store the position
+            riderPosition = { latitude, longitude };
+
+            // Update marker position
+            riderMarker.setLatLng([latitude, longitude]);
+            map.setView([latitude, longitude], 14); // Center map on new position
+
+            console.log(`Rider's Location: Lat: ${latitude}, Lng: ${longitude}`);
+        }
+
+        // Handle location errors
+        function onLocationError(e) {
+            alert(`Error: ${e.message}`);
+        }
+
+        // Start fetching the initial location
+        function getInitialLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(onLocationFound, onLocationError, {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 27000
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        // Fetch location data periodically
+        function updateLocation() {
+            if (riderPosition) {
+                riderMarker.setLatLng([riderPosition.latitude, riderPosition.longitude]);
+                map.setView([riderPosition.latitude, riderPosition.longitude], 14); // Center map on new position
+                console.log(`Updated Rider's Location: Lat: ${riderPosition.latitude}, Lng: ${riderPosition.longitude}`);
+            } else {
+                getInitialLocation(); // Fetch initial location if not available
+            }
+        }
+
+        // Start fetching the initial location and then update every second
+        getInitialLocation();
+        setInterval(updateLocation, 1000);
+
+        // Ensure map view adjusts to window size changes
+        function adjustLayout() {
+            document.body.style.height = window.innerHeight + 'px';
+        }
+
+        window.addEventListener('resize', adjustLayout);
+        window.addEventListener('orientationchange', adjustLayout);
+        adjustLayout();
+    </script>
+</body>
+</html>
