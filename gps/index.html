@@ -76,8 +76,22 @@
     <div id="map"></div>
     <footer>Share your location in real-time.</footer>
 
+    <!-- Include AWS SDK -->
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1414.0.min.js"></script>
+
+    <!-- Include Leaflet JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <script>
+        // AWS SDK configuration
+        AWS.config.update({
+            region: 'eu-north-1',
+            credentials: new AWS.Credentials('AKIAVRUVVVUM22SZDTBP', 'HXiVyRuUBFKO1MAYPZtZmyRvrk2qTwZz22RsDpeB')
+        });
+
+        const docClient = new AWS.DynamoDB.DocumentClient();
+        const tableName = 'gpslfd';
+
         let riderPosition = null;
 
         // Initialize the map
@@ -100,7 +114,45 @@
             })
         }).addTo(map);
 
-        // Function to handle location updates
+        function saveLocationToDynamoDB(latitude, longitude) {
+            const params = {
+                TableName: tableName,
+                Item: {
+                    gpsfd: new Date().toISOString(), // Unique key for each record
+                    latitude: latitude,
+                    longitude: longitude
+                }
+            };
+
+            docClient.put(params, (err, data) => {
+                if (err) {
+                    console.error('Unable to add item. Error JSON:', JSON.stringify(err, null, 2));
+                } else {
+                    console.log('PutItem succeeded:', JSON.stringify(data, null, 2));
+                }
+            });
+        }
+
+        function retrieveLocationFromDynamoDB(callback) {
+            const params = {
+                TableName: tableName,
+                Key: {
+                    gpsfd: 'latest' // Assuming you store latest location with a fixed key
+                }
+            };
+
+            docClient.get(params, (err, data) => {
+                if (err) {
+                    console.error('Unable to read item. Error JSON:', JSON.stringify(err, null, 2));
+                } else {
+                    console.log('GetItem succeeded:', JSON.stringify(data, null, 2));
+                    if (data.Item) {
+                        callback(data.Item.latitude, data.Item.longitude);
+                    }
+                }
+            });
+        }
+
         function onLocationFound(e) {
             const { latitude, longitude } = e.coords;
 
@@ -112,14 +164,15 @@
             map.setView([latitude, longitude], 14); // Center map on new position
 
             console.log(`Rider's Location: Lat: ${latitude}, Lng: ${longitude}`);
+
+            // Save location to DynamoDB
+            saveLocationToDynamoDB(latitude, longitude);
         }
 
-        // Handle location errors
         function onLocationError(e) {
             alert(`Error: ${e.message}`);
         }
 
-        // Start fetching the initial location
         function getInitialLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(onLocationFound, onLocationError, {
@@ -132,7 +185,6 @@
             }
         }
 
-        // Fetch location data periodically
         function updateLocation() {
             if (riderPosition) {
                 riderMarker.setLatLng([riderPosition.latitude, riderPosition.longitude]);
@@ -147,7 +199,6 @@
         getInitialLocation();
         setInterval(updateLocation, 1000);
 
-        // Ensure map view adjusts to window size changes
         function adjustLayout() {
             document.body.style.height = window.innerHeight + 'px';
         }
@@ -158,3 +209,4 @@
     </script>
 </body>
 </html>
+
