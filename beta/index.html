@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Delivery</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f0f2f5;
+        }
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+        .popup-content {
+            width: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 10px;
+            box-sizing: border-box;
+            font-size: 12px;
+            font-family: Arial, sans-serif;
+            position: relative;
+        }
+        .popup-title {
+            background-color: #df3056;
+            color: #fff;
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .popup-content textarea {
+            width: calc(100% - 20px);
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            box-sizing: border-box;
+            font-size: 12px;
+            resize: none;
+            height: 100px;
+        }
+        .popup-content button {
+            width: calc(100% - 20px);
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: #fff;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 8px;
+        }
+        .popup-content button:hover {
+            background-color: #45a049;
+        }
+        .chat-box {
+            display: flex;
+            flex-direction: column;
+            height: 200px;
+            overflow-y: auto;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+        }
+        .chat-message {
+            margin-bottom: 8px;
+        }
+        .chat-message .message {
+            background-color: #e1ffc7;
+            padding: 5px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .chat-message .timestamp {
+            font-size: 10px;
+            color: #aaa;
+            margin-left: 5px;
+        }
+        .chat-input {
+            width: calc(100% - 20px);
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 12px;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 5px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        h1 {
+            text-align: center;
+            background-color: #df3056;
+            padding: 10px;
+            font-size: 12px;
+            margin: 0;
+            position: fixed;
+            width: 100%;
+            color: #ffffff;
+            z-index: 1000;
+        }
+        footer {
+            text-align: center;
+            background-color: #df3056;
+            padding: 4px;
+            font-size: 12px;
+            margin: 0;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            color: #ffffff;
+            z-index: 1000;
+        }
+        #search-container {
+            position: fixed;
+            bottom: 70px; /* Adjust to ensure visibility above footer */
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            background-color: #fff;
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Added shadow for better visibility */
+            z-index: 1000; /* Ensures it stays on top of other elements */
+        }
+        #search-input {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 5px;
+            width: 200px; /* Adjust as needed */
+        }
+        #search-button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: #fff;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        #search-button:hover {
+            background-color: #45a049;
+        }
+        @media only screen and (max-width: 600px) {
+            .popup-content {
+                font-size: 11px;
+            }
+            .popup-content textarea, .popup-content button, .chat-input {
+                font-size: 11px;
+            }
+            h1, footer {
+                font-size: 10px;
+                padding: 3px;
+            }
+            #search-input {
+                width: 150px; /* Adjust as needed */
+            }
+            #search-button {
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Pick & Bring Leuven</h1>
+    <div id="map"></div>
+    <div id="search-container">
+        <input type="text" id="search-input" placeholder="Enter order number" />
+        <button id="search-button">Search</button>
+    </div>
+    <footer>Click on any shop to start.</footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.140.0.min.js"></script>
+    <script>
+        AWS.config.update({
+            region: 'eu-north-1',
+            credentials: new AWS.Credentials('AKIAVRUVVVUM73M5ULGL', '3CaIv7G5VbNfue6j5g7EOZwAKYPuT8c9VL40QZIx')
+        });
+
+        var dynamoDB = new AWS.DynamoDB.DocumentClient();
+        var tableName = 'date01';
+        var chatIntervals = {};  // To keep track of intervals for different chat boxes
+
+        const bounds = L.latLngBounds([
+            [50.881105905697815, 4.679918289184571],
+            [50.871032302986535, 4.68395233154297],
+            [50.866428049928565, 4.700603485107423],
+            [50.87065314638895, 4.715452194213868],
+            [50.88002282709126, 4.718542098999024],
+            [50.88706238802917, 4.715023040771485],
+            [50.89020277208792, 4.7043800354003915],
+            [50.89079833828432, 4.69167709350586],
+            [50.88587115248574, 4.6830081939697275]
+        ]);
+
+        const map = L.map('map', {
+            minZoom: 14,
+            maxZoom: 19,
+            maxBounds: bounds,
+            maxBoundsViscosity: 1.0,
+            zoomControl: false
+        }).fitBounds(bounds);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        map.on('moveend', function() {
+            if (map.getBounds().intersects(bounds)) {
+                return;
+            }
+            map.setView(bounds.getCenter(), map.getZoom());
+        });
+
+        function onMapClick(e) {
+            const latlng = e.latlng;
+            const orderCode = generateOrderCode();
+            const date01 = `${latlng.lat}-${latlng.lng}-${Date.now()}`;
+
+            const popupContent = `
+                <div class="popup-content">
+                    <div class="popup-title">Order Code: ${orderCode}</div>
+                    <div class="chat-box" id="chatBox-${date01}"></div>
+                    <textarea id="chatInput-${date01}" class="chat-input" placeholder="Type your message here..."></textarea>
+                    <button onclick="sendMessage('${orderCode}', '${date01}')">Send</button>
+                </div>
+            `;
+
+            L.popup()
+                .setLatLng(latlng)
+                .setContent(popupContent)
+                .openOn(map);
+
+            const params = {
+                TableName: tableName,
+                Item: {
+                    date01: date01,
+                    orderCode: orderCode,
+                    coordinates: {
+                        lat: latlng.lat,
+                        lng: latlng.lng
+                    },
+                    chat: [{
+                        message: 'Welcome to Pick & Bring',
+                        timestamp: new Date().toLocaleTimeString()
+                    }]
+                }
+            };
+
+            dynamoDB.put(params, function(err, data) {
+                if (err) {
+                    console.error("Unable to add item. Error JSON:", JSON.stringify(err, null, 2));
+                } else {
+                    console.log("Added item:", JSON.stringify(data, null, 2));
+                }
+            });
+
+            loadChatMessages(date01);
+        }
+
+        function loadChatMessages(date01) {
+            const params = {
+                TableName: tableName,
+                Key: {
+                    date01: date01
+                }
+            };
+
+            dynamoDB.get(params, function(err, data) {
+                const chatBox = document.getElementById(`chatBox-${date01}`);
+                if (err) {
+                    console.error("Unable to retrieve item. Error JSON:", JSON.stringify(err, null, 2));
+                } else {
+                    const messages = data.Item?.chat || [];
+                    chatBox.innerHTML = '';  // Clear existing messages
+                    messages.forEach(msg => {
+                        const chatMessage = document.createElement('div');
+                        chatMessage.classList.add('chat-message');
+                        chatMessage.innerHTML = `
+                            <div class="message">${msg.message}</div>
+                            <div class="timestamp">${msg.timestamp}</div>
+                        `;
+                        chatBox.appendChild(chatMessage);
+                    });
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            });
+
+            // Set up or clear the interval for this chat
+            if (chatIntervals[date01]) {
+                clearInterval(chatIntervals[date01]);
+            }
+            chatIntervals[date01] = setInterval(() => loadChatMessages(date01), 1000);
+        }
+
+        function generateOrderCode() {
+            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let orderCode = '';
+            for (let i = 0; i < 4; i++) {
+                orderCode += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+            return orderCode;
+        }
+
+        function sendMessage(orderCode, date01) {
+            const chatInput = document.getElementById(`chatInput-${date01}`);
+            const message = chatInput.value;
+            if (!message.trim()) return;
+            chatInput.value = '';
+
+            const timestamp = new Date().toLocaleTimeString();
+            const chatBox = document.getElementById(`chatBox-${date01}`);
+
+            const chatMessage = document.createElement('div');
+            chatMessage.classList.add('chat-message');
+            chatMessage.innerHTML = `
+                <div class="message">You: ${message}</div>
+                <div class="timestamp">${timestamp}</div>
+            `;
+            chatBox.appendChild(chatMessage);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            const params = {
+                TableName: tableName,
+                Key: {
+                    date01: date01
+                },
+                UpdateExpression: 'SET chat = list_append(if_not_exists(chat, :emptyList), :newChatItem)',
+                ExpressionAttributeValues: {
+                    ':newChatItem': [{
+                        message: `You: ${message}`,
+                        timestamp: timestamp
+                    }],
+                    ':emptyList': []
+                }
+            };
+
+            dynamoDB.update(params, function(err, data) {
+                if (err) {
+                    console.error("Unable to add message. Error JSON:", JSON.stringify(err, null, 2));
+                } else {
+                    console.log("Added message:", JSON.stringify(data, null, 2));
+                }
+            });
+        }
+
+        function searchChatBox(orderNumber) {
+            const params = {
+                TableName: tableName,
+                FilterExpression: 'orderCode = :orderCode',
+                ExpressionAttributeValues: {
+                    ':orderCode': orderNumber
+                }
+            };
+
+            dynamoDB.scan(params, function(err, data) {
+                if (err) {
+                    console.error("Unable to search item. Error JSON:", JSON.stringify(err, null, 2));
+                } else {
+                    const item = data.Items[0];
+                    if (item) {
+                        const latlng = L.latLng(item.coordinates.lat, item.coordinates.lng);
+                        map.setView(latlng, map.getZoom());
+                        L.popup()
+                            .setLatLng(latlng)
+                            .setContent(`
+                                <div class="popup-content">
+                                    <div class="popup-title">Order Code: ${item.orderCode}</div>
+                                    <div class="chat-box" id="chatBox-${item.date01}"></div>
+                                    <textarea id="chatInput-${item.date01}" class="chat-input" placeholder="Type your message here..."></textarea>
+                                    <button onclick="sendMessage('${item.orderCode}', '${item.date01}')">Send</button>
+                                </div>
+                            `)
+                            .openOn(map);
+
+                        loadChatMessages(item.date01);
+                    } else {
+                        alert('Order number not found.');
+                    }
+                }
+            });
+        }
+
+        document.getElementById('search-button').addEventListener('click', function() {
+            const orderNumber = document.getElementById('search-input').value.trim();
+            if (orderNumber) {
+                searchChatBox(orderNumber);
+            }
+        });
+
+        map.on('click', onMapClick);
+    </script>
+</body>
+</html>
