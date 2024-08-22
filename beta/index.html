@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -451,46 +452,68 @@ function manageChatScroll(chatBox) {
         }
 
         function sendMessage(orderCode, date01) {
-            const chatInput = document.getElementById(`chatInput-${date01}`);
-            const message = chatInput.value;
-            if (!message.trim()) return;
-            chatInput.value = '';
+    const chatInput = document.getElementById(`chatInput-${date01}`);
+    const message = chatInput.value;
+    if (!message.trim()) return;
+    chatInput.value = '';
 
-            const timestamp = new Date().toLocaleTimeString();
-            const chatBox = document.getElementById(`chatBox-${date01}`);
+    const timestamp = new Date().toLocaleTimeString();
+    const chatBox = document.getElementById(`chatBox-${date01}`);
 
-            const chatMessage = document.createElement('div');
-            chatMessage.classList.add('chat-message');
-            chatMessage.innerHTML = `
-                <div class="message">You: ${message}</div>
-                <div class="timestamp">${timestamp}</div>
-            `;
-            chatBox.appendChild(chatMessage);
-            chatBox.scrollTop = chatBox.scrollHeight;
+    const chatMessage = document.createElement('div');
+    chatMessage.classList.add('chat-message');
+    chatMessage.innerHTML = `
+        <div class="message">You: ${message}</div>
+        <div class="timestamp">${timestamp}</div>
+    `;
+    chatBox.appendChild(chatMessage);
+    chatBox.scrollTop = chatBox.scrollHeight;
 
-            const params = {
-                TableName: tableName,
-                Key: {
-                    date01: date01
-                },
-                UpdateExpression: 'SET chat = list_append(if_not_exists(chat, :emptyList), :newChatItem)',
-                ExpressionAttributeValues: {
-                    ':newChatItem': [{
-                        message: `You: ${message}`,
-                        timestamp: timestamp
-                    }],
-                    ':emptyList': []
-                }
-            };
-
-            dynamoDB.update(params, function(err, data) {
-                if (err) {
-                    console.error("Unable to add message. Error JSON:", JSON.stringify(err, null, 2));
-                } else {
-                    console.log("Added message:", JSON.stringify(data, null, 2));
-                }
-            });
+    const params = {
+        TableName: tableName,
+        Key: {
+            date01: date01
+        },
+        UpdateExpression: 'SET chat = list_append(if_not_exists(chat, :emptyList), :newChatItem)',
+        ExpressionAttributeValues: {
+            ':newChatItem': [{
+                message: `You: ${message}`,
+                timestamp: timestamp
+            }],
+            ':emptyList': []
         }
+    };
+
+    dynamoDB.update(params, function(err, data) {
+        if (err) {
+            console.error("Unable to add message. Error JSON:", JSON.stringify(err, null, 2));
+        } else {
+            console.log("Added message:", JSON.stringify(data, null, 2));
+            // Notify Telegram about the new message
+            sendTelegramMessageNotification(orderCode, message);
+        }
+    });
+}
+
+function sendTelegramMessageNotification(orderCode, message) {
+    const chatId = '2141064153'; // Your personal Telegram chat ID
+    const botToken = '7029060933:AAHHTPvCTlAs6rRp1JpPX5EcOjzrsp0-dak';
+    const text = `📬 New Message for Order ${orderCode} 📬\nMessage: ${message}`;
+
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(text)}`;
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                console.log('Telegram notification sent successfully');
+            } else {
+                console.error('Error sending Telegram notification:', data);
+            }
+        })
+        .catch(error => console.error('Fetch error:', error));
+}
+
 
         function searchChatBox(orderNumber) {
             const params = {
