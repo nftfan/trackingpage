@@ -169,33 +169,35 @@
         let refreshInterval;
         let currentOrderDate01 = null;
 
-        function fetchOrders() {
-            const params = {
-                TableName: tableName,
-                ProjectionExpression: 'date01, orderCode'
-            };
+       function fetchOrders() {
+    const params = {
+        TableName: tableName,
+        ProjectionExpression: 'date01, orderCode, clickTimestamp', // Include clickTimestamp
+        // ScanIndexForward is not used in scan operation
+    };
 
-            dynamoDB.scan(params, function(err, data) {
-                if (err) {
-                    console.error("Unable to fetch orders. Error JSON:", JSON.stringify(err, null, 2));
-                } else {
-                    const orders = data.Items;
-                    // Sort orders by date01 in descending order
-                    orders.sort((a, b) => new Date(b.date01) - new Date(a.date01));
-                    
-                    const orderList = document.getElementById('orderList');
-                    orderList.innerHTML = '';
-                    orders.forEach(order => {
-                        const orderItem = document.createElement('div');
-                        orderItem.classList.add('order-item');
-                        orderItem.dataset.date01 = order.date01;
-                        orderItem.textContent = `Order Code: ${order.orderCode}`;
-                        orderItem.onclick = () => loadOrder(order.date01);
-                        orderList.appendChild(orderItem);
-                    });
-                }
+    dynamoDB.scan(params, function(err, data) {
+        if (err) {
+            console.error("Unable to fetch orders. Error JSON:", JSON.stringify(err, null, 2));
+        } else {
+            const orders = data.Items;
+            // Sort orders by clickTimestamp in descending order
+            orders.sort((a, b) => new Date(b.clickTimestamp) - new Date(a.clickTimestamp));
+            
+            const orderList = document.getElementById('orderList');
+            orderList.innerHTML = '';
+            orders.forEach(order => {
+                const orderItem = document.createElement('div');
+                orderItem.classList.add('order-item');
+                orderItem.dataset.date01 = order.date01;
+                orderItem.textContent = `Order Code: ${order.orderCode}`;
+                orderItem.onclick = () => loadOrder(order.date01);
+                orderList.appendChild(orderItem);
             });
         }
+    });
+}
+
 
         function loadOrder(date01) {
             currentOrderDate01 = date01;  // Store the current order being viewed
@@ -203,6 +205,7 @@
             openChatModal();
 
             // Start refreshing the chat every second
+            if (refreshInterval) clearInterval(refreshInterval);  // Clear any existing interval
             refreshInterval = setInterval(refreshChat, 1000);
         }
 
@@ -313,3 +316,4 @@
     </script>
 </body>
 </html>
+
