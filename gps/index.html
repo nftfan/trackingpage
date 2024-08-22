@@ -69,28 +69,12 @@
                 padding: 3px;
             }
         }
-        .refresh-button {
-            position: fixed;
-            bottom: 50px;
-            right: 20px;
-            padding: 10px 20px;
-            background-color: #df3056;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            z-index: 1000;
-        }
-        .refresh-button:hover {
-            background-color: #c92b45;
-        }
     </style>
 </head>
 <body>
     <h1>Rider Location Tracking</h1>
     <div id="map"></div>
     <footer>Share your location in real-time.</footer>
-    <button class="refresh-button" onclick="location.reload()">Refresh</button>
 
     <!-- Include AWS SDK -->
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1414.0.min.js"></script>
@@ -111,11 +95,7 @@
         let riderPosition = null;
 
         // Initialize the map
-        const map = L.map('map', {
-            center: [50.879, 4.7009], // Default center (Leuven)
-            zoom: 14,
-            zoomControl: false // Hide zoom control buttons
-        });
+        const map = L.map('map').setView([50.879, 4.7009], 14); // Default center (Leuven)
 
         // Add OpenStreetMap tile layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -135,30 +115,31 @@
         }).addTo(map);
 
         function saveLocationToDynamoDB(latitude, longitude) {
-            const params = {
-                TableName: tableName,
-                Item: {
-                    gpsfd: 'rider-location', // Fixed key for the rider's location
-                    latitude: latitude,
-                    longitude: longitude,
-                    timestamp: new Date().toISOString() // Optionally store the timestamp of the latest update
-                }
-            };
-
-            docClient.put(params, (err, data) => {
-                if (err) {
-                    console.error('Unable to add item. Error JSON:', JSON.stringify(err, null, 2));
-                } else {
-                    console.log('PutItem succeeded:', JSON.stringify(data, null, 2));
-                }
-            });
+    const params = {
+        TableName: tableName,
+        Item: {
+            gpsfd: 'rider-location', // Fixed key for the rider's location
+            latitude: latitude,
+            longitude: longitude,
+            timestamp: new Date().toISOString() // Optionally store the timestamp of the latest update
         }
+    };
+
+    docClient.put(params, (err, data) => {
+        if (err) {
+            console.error('Unable to add item. Error JSON:', JSON.stringify(err, null, 2));
+        } else {
+            console.log('PutItem succeeded:', JSON.stringify(data, null, 2));
+        }
+    });
+}
+
 
         function retrieveLocationFromDynamoDB(callback) {
             const params = {
                 TableName: tableName,
                 Key: {
-                    gpsfd: 'rider-location' // Assuming you store the rider's location with this key
+                    gpsfd: 'latest' // Assuming you store latest location with a fixed key
                 }
             };
 
@@ -195,29 +176,8 @@
         }
 
         function getInitialLocation() {
-            const locationStored = localStorage.getItem('riderLocation');
-
-            if (locationStored) {
-                const { latitude, longitude } = JSON.parse(locationStored);
-                riderPosition = { latitude, longitude };
-                riderMarker.setLatLng([latitude, longitude]);
-                map.setView([latitude, longitude], 14);
-            } else if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition((position) => {
-                    const { latitude, longitude } = position.coords;
-                    riderPosition = { latitude, longitude };
-
-                    // Store location in localStorage
-                    localStorage.setItem('riderLocation', JSON.stringify({ latitude, longitude }));
-
-                    riderMarker.setLatLng([latitude, longitude]);
-                    map.setView([latitude, longitude], 14);
-
-                    console.log(`Rider's Location: Lat: ${latitude}, Lng: ${longitude}`);
-
-                    // Save location to DynamoDB
-                    saveLocationToDynamoDB(latitude, longitude);
-                }, onLocationError, {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(onLocationFound, onLocationError, {
                     enableHighAccuracy: true,
                     maximumAge: 0,
                     timeout: 27000
@@ -251,4 +211,3 @@
     </script>
 </body>
 </html>
-
