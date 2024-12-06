@@ -97,83 +97,117 @@
   </div>
 
   <script>
-    document.getElementById('downloadButton').addEventListener('click', function () {
-      // Create a canvas for the coupon
-      const canvas = document.createElement('canvas');
-      canvas.width = 600; // Coupon width
-      canvas.height = 350; // Coupon height
-      const ctx = canvas.getContext('2d');
+  document.getElementById('downloadButton').addEventListener('click', function () {
+    // Create a canvas for the coupon
+    const canvas = document.createElement('canvas');
+    canvas.width = 550; // Coupon width
+    canvas.height = 600; // Coupon height
+    const ctx = canvas.getContext('2d');
 
-      // Draw a gradient background for the coupon
-      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      gradient.addColorStop(0, '#ff66cc');
-      gradient.addColorStop(1, '#ffcc00');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw a gradient background for the coupon
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, '#ff66cc');
+    gradient.addColorStop(1, '#ffcc00');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Add border to the coupon
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = '#333';
-      ctx.strokeRect(0, 0, canvas.width, canvas.height);
+    // Add border to the coupon
+    ctx.lineWidth = 15;
+    ctx.strokeStyle = '#333';
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-      // Draw the title
+    // Draw the title
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 32px Arial';
+    const titleText = 'Congratulations!';
+    ctx.fillText(titleText, canvas.width / 2 - ctx.measureText(titleText).width / 2, 80);
+
+    // Draw the emoji
+    ctx.font = '50px Arial'; // Larger font size for the emoji
+    const emojiText = '🎊'; // Emoji text
+    ctx.fillText(emojiText, canvas.width / 2 - ctx.measureText(emojiText).width / 2, 150);
+
+    // Add instructions
+    ctx.font = 'italic 28px Arial';
+    ctx.fillStyle = '#f2f2f2';
+
+    // Get the width of the text
+    const line1Width = ctx.measureText('Bring this coupon with you').width;
+    const line2Width = ctx.measureText('for a 10% discount at the counter.').width;
+
+    // Calculate the starting position for each line to center it
+    const line1X = (canvas.width - line1Width) / 2;
+    const line2X = (canvas.width - line2Width) / 2;
+
+    ctx.fillText('Bring this coupon with you', line1X, 190);
+    ctx.fillText('for a 10% discount at the counter.', line2X, 220);
+
+    // Generate a discount code based on the current date and time (DD-HHMMSS)
+    const now = new Date();
+    const discountCode = 
+      now.getDate().toString().padStart(2, '0') + '-' +
+      now.getHours().toString().padStart(2, '0') +
+      now.getMinutes().toString().padStart(2, '0') +
+      now.getSeconds().toString().padStart(2, '0');
+
+    // Function to draw a rounded rectangle
+CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+  this.beginPath();
+  this.moveTo(x + radius, y);
+  this.lineTo(x + width - radius, y);
+  this.arcTo(x + width, y, x + width, y + height, radius);
+  this.lineTo(x + width, y + height - radius);
+  this.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+  this.lineTo(x + radius, y + height);
+  this.arcTo(x, y + height, x, y + height - radius, radius);
+  this.lineTo(x, y + radius);
+  this.arcTo(x, y, x + radius, y, radius);
+  this.closePath();
+};
+
+// Add the discount code in a box with rounded corners
+ctx.fillStyle = '#333';
+ctx.roundRect(80, 250, 400, 60, 20); // Drawing a rounded rectangle with radius 20
+ctx.fill();
+
+// Add the discount code text inside the box
 ctx.fillStyle = '#fff';
-ctx.font = 'bold 32px Arial';
+ctx.font = 'bold 36px Arial';
+ctx.textAlign = 'center';
+ctx.textBaseline = 'middle'; // Center the text vertically
+ctx.fillText(discountCode, canvas.width / 2, 280); // Adjust Y to center text vertically
 
-// Draw "Congratulations!" text
-const titleText = 'Congratulations!';
-ctx.fillText(titleText, canvas.width / 2 - ctx.measureText(titleText).width / 2, 80);
 
-// Draw the line break
-const lineBreakY = 100; // Adjust the position for the line break
+    // Generate the QR code
+    const qrCode = new QRCode(canvas, {
+      text: "https://www.leuvenflyers.com/",
+      width: 250, // Width of the QR code
+      height: 250, // Height of the QR code
+      correctLevel: QRCode.CorrectLevel.H
+    });
 
-// Draw the emoji below the title
-ctx.font = '50px Arial'; // Larger font size for the emoji
-const emojiText = '🎊'; // Emoji text
-ctx.fillText(emojiText, canvas.width / 2 - ctx.measureText(emojiText).width / 2, lineBreakY + 50); // Add extra space for line break
+    // Wait for the QR code to be generated and draw it on the canvas
+    qrCode.makeCode("https://www.leuvenflyers.com/");
+    const qrImage = qrCode._oDrawing._elCanvas;
+    const qrCanvas = qrImage.toDataURL();
 
+    // Draw QR code on the coupon image
+    const qrCodeX = canvas.width / 2 - 125; // Centered horizontally
+    const qrCodeY = 320; // Position below the promo code
+    const qrImageElement = new Image();
+    qrImageElement.onload = function () {
+      ctx.drawImage(qrImageElement, qrCodeX, qrCodeY, 250, 250);
       
-      
-
-      // Add instructions
-ctx.font = 'italic 28px Arial';
-ctx.fillStyle = '#f2f2f2';
-
-// Get the width of the text
-const line1Width = ctx.measureText('Bring this coupon with you').width;
-const line2Width = ctx.measureText('for a 10% discount at the counter.').width;
-
-// Calculate the starting position for each line to center it
-const line1X = (canvas.width - line1Width) / 2;
-const line2X = (canvas.width - line2Width) / 2;
-
-ctx.fillText('Bring this coupon with you', line1X, 190);
-ctx.fillText('for a 10% discount at the counter.', line2X, 220);
-
-
-      // Generate a discount code based on the current date and time (DD-HHMMSS)
-      const now = new Date();
-      const discountCode = 
-        now.getDate().toString().padStart(2, '0') + '-' +
-        now.getHours().toString().padStart(2, '0') +
-        now.getMinutes().toString().padStart(2, '0') +
-        now.getSeconds().toString().padStart(2, '0');
-
-      // Add the discount code in a box with rounded corners
-      ctx.fillStyle = '#333';
-      ctx.fillRect(80, 250, 440, 60);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 36px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(discountCode, canvas.width / 2, 300);
-
       // Create a download link
       const link = document.createElement('a');
       link.download = 'coupon.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
-    });
-  </script>
+    };
+    qrImageElement.src = qrCanvas;
+  });
+</script>
+
 
 </body>
 </html>
