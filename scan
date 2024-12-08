@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #28a745;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .btn:hover {
+            background-color: #218838;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table th, table td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        table th {
+            background-color: #f8f9fa;
+        }
+        #qrCodeScanner {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Customer Management</h1>
+    <div class="container">
+        <div class="form-group">
+            <label for="customerCode">Enter Customer Code</label>
+            <input type="text" id="customerCode" placeholder="e.g., 31-123454">
+        </div>
+        <button class="btn" id="addCustomerBtn">Add Customer</button>
+        <button class="btn" id="scanQRBtn">Scan QR Code</button>
+        <h2>Customer List</h2>
+        <table id="customerTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Customer Code</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Rows will be dynamically added here -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Hidden QR Code Scanner Modal -->
+    <div id="qrCodeScanner">
+        <video id="qrCodeScannerCamera"></video>
+        <button class="btn" id="closeQRScanner">Close</button>
+    </div>
+
+    <script>
+        document.getElementById("addCustomerBtn").addEventListener("click", function () {
+            const customerCode = document.getElementById("customerCode").value.trim();
+            if (customerCode === "") {
+                alert("Please enter a valid customer code.");
+                return;
+            }
+
+            const tableBody = document.getElementById("customerTable").querySelector("tbody");
+            const newRow = tableBody.insertRow();
+            const cellIndex = newRow.insertCell(0);
+            const cellCode = newRow.insertCell(1);
+
+            cellIndex.textContent = tableBody.rows.length;
+            cellCode.textContent = customerCode;
+
+            // Clear the input field
+            document.getElementById("customerCode").value = "";
+        });
+
+        document.getElementById("scanQRBtn").addEventListener("click", function () {
+            const qrScanner = document.getElementById("qrCodeScanner");
+            qrScanner.style.display = 'block';
+            startQRScanner();
+        });
+
+        document.getElementById("closeQRScanner").addEventListener("click", function () {
+            const qrScanner = document.getElementById("qrCodeScanner");
+            qrScanner.style.display = 'none';
+            stopQRScanner();
+        });
+
+        let video = null;
+        let scanner = null;
+
+        function startQRScanner() {
+            const videoElement = document.getElementById('qrCodeScannerCamera');
+            videoElement.style.width = '100%';
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                    .then((stream) => {
+                        videoElement.srcObject = stream;
+                        videoElement.play();
+                        scanner = new QrScanner(videoElement, (result) => {
+                            handleQRCodeResult(result);
+                        });
+                    })
+                    .catch((err) => console.error("Error accessing camera: ", err));
+            }
+        }
+
+        function stopQRScanner() {
+            if (scanner) {
+                scanner.stop();
+                const videoElement = document.getElementById('qrCodeScannerCamera');
+                videoElement.srcObject.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        function handleQRCodeResult(result) {
+            if (result) {
+                const customerCode = result.data;
+                document.getElementById("customerCode").value = customerCode;
+                document.getElementById("addCustomerBtn").click();
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/qr-scanner/qr-scanner.min.js"></script>
+</body>
+</html>
