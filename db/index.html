@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promo Code Tracker Dashboard</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            text-align: center;
+        }
+        .header {
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 15px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .card {
+            background: #e9ecef;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: left;
+        }
+        .card h2 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+        }
+        .card p {
+            margin: 5px 0;
+            font-size: 16px;
+            color: #555;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .count {
+            font-size: 48px;
+            font-weight: bold;
+            color: #f15d7f;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>My Customers Dashboard</h1>
+    </div>
+ 
+    <div class="container">
+	
+	<div class="card">
+            <h2>Flyers Distributed</h2>
+            <p id="flyerCount" class="flyer-count" style="font-size: 48px; font-weight: bold; color: #007bff;">5,000</p>
+
+        </div>
+        <div class="card">
+            <h2>Coupons Downloaded</h2>
+            <div class="count" id="promoCount">Loading...</div>
+        </div>
+
+       
+
+        <div class="card">
+            <h2>Customers Added</h2>
+<p id="customerCount" style="font-size: 48px; font-weight: bold; color: #6c757d;">Loading...</p>
+
+        </div>
+
+        <div class="card">
+            <h2>View Areas Completed</h2>
+            <a href="https://www.leuvenflyers.com/cubansalsa/" target="_blank" class="button">View Areas Completed</a>
+        </div>
+    </div>
+
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1199.0.min.js"></script>
+    <script>
+        AWS.config.update({
+            region: 'eu-north-1',
+            credentials: new AWS.Credentials('AKIAVRUVVVUMRBVSI6F7', 'dhjsq1zoM9gYgY+/38KJy6ZQSafFrVKpwWJnSEHk')
+        });
+
+        const dynamodb = new AWS.DynamoDB.DocumentClient();
+        const tableName = 'lf01';
+        const promoCode = 'Fly10'; // We're using this as the comparison target in a case-insensitive manner
+
+        function loadPromoCount() {
+            const params = {
+                TableName: tableName
+            };
+
+            dynamodb.scan(params, function (err, data) {
+                if (err) {
+                    alert('Error loading data: ' + err.message);
+                } else {
+                    // Counting entries for case-insensitive match of the promo code
+                    const count = data.Items.filter(item => 
+                        typeof item.code === 'string' &&
+                        item.code.trim().toLowerCase() === promoCode.toLowerCase() // Lowercase comparison
+                    ).length;
+
+                    // Update the UI with the count of promo code entries
+                    document.getElementById('promoCount').textContent = count;
+                }
+            });
+        }
+
+        function loadCustomerCount() {
+            // Assuming the customer count is stored similarly in DynamoDB
+            const params = {
+                TableName: tableName
+            };
+
+            dynamodb.scan(params, function (err, data) {
+                if (err) {
+                    alert('Error loading customer data: ' + err.message);
+                } else {
+                    const customerCount = data.Items.filter(item => item.type === 'customer').length;
+                    document.getElementById('customerCount').textContent = customerCount;
+                }
+            });
+        }
+
+        // Load the counts on page load
+        window.onload = function() {
+            loadPromoCount();
+            loadCustomerCount();
+        };
+    </script>
+</body>
+</html>
