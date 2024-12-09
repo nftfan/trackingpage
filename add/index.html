@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Customer</title>
+<script src="https://sdk.amazonaws.com/js/aws-sdk-2.1199.0.min.js"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -118,48 +119,100 @@
     </div>
 
     <script>
-        // Secret PIN for validation
-        const pin = "4455";
+        // AWS Configuration
+        AWS.config.update({
+            region: 'eu-north-1',
+            credentials: new AWS.Credentials('AKIAVRUVVVUMTKXLCDO6', '2PkALOW/h0MecUTcWdNkAxQM8mNhV33H7nH9sTGq')
+        });
 
-        // Select DOM elements
-        const addCustomerBtn = document.getElementById('addCustomerBtn');
-        const customerTable = document.getElementById('customerTable');
-        const customerCode1 = document.getElementById('customerCode1');
-        const customerCode2 = document.getElementById('customerCode2');
-        let customerCount = 0;
+        var dynamodb = new AWS.DynamoDB.DocumentClient();
+        var tableName = 'nftfan'; // DynamoDB table name
 
-        // Event listener for adding a customer
-        addCustomerBtn.addEventListener('click', function () {
-            // Prompt user to enter the secret PIN
-            const enteredPin = prompt("Enter the secret PIN to add a customer:");
-            
-            // Check if the entered PIN matches the secret PIN
-            if (enteredPin === pin) {
-                customerCount++;
-                const dateTime = new Date().toLocaleString();
+        // Function to generate a unique ID
+        function generateUniqueId() {
+            return 'id-' + Date.now(); // Example: id-1672531200000
+        }
 
-                // Gather customer code input (optional)
-                const codePart1 = customerCode1.value.trim().toUpperCase() || "N/A";
-                const codePart2 = customerCode2.value.trim().toUpperCase() || "N/A";
-                const customerCode = `${codePart1}-${codePart2}`;
+        // Function to add customer to DynamoDB
+        function addCustomerToDynamoDB(uniqueId, customerCode, dateTime) {
+            const params = {
+                TableName: tableName,
+                Item: {
+                    nftfan: uniqueId,    // Unique Partition key
+                    customerCode: customerCode, // Customer Code
+                    addedOn: dateTime    // Sort key or timestamp
+                }
+            };
 
-                // Add a new row to the table with customer details
+            dynamodb.put(params, function (err, data) {
+                if (err) {
+                    alert("Error saving data to DynamoDB: " + err.message);
+                    console.error("DynamoDB Error:", JSON.stringify(err, null, 2));
+                } else {
+                    console.log("Data saved successfully to DynamoDB.");
+                    loadCustomersFromDynamoDB(); // Refresh the table after saving
+                }
+            });
+        }
+
+        // Function to load customers from DynamoDB
+        function loadCustomersFromDynamoDB() {
+            const params = {
+                TableName: tableName
+            };
+
+            dynamodb.scan(params, function (err, data) {
+                if (err) {
+                    alert("Error fetching data from DynamoDB: " + err.message);
+                    console.error("DynamoDB Error:", JSON.stringify(err, null, 2));
+                } else {
+                    console.log("Data retrieved from DynamoDB:", data);
+                    displayCustomers(data.Items);
+                }
+            });
+        }
+
+        // Function to display customers in the HTML table
+        function displayCustomers(customers) {
+            const customerTable = document.getElementById('customerTable');
+            customerTable.innerHTML = ''; // Clear existing rows
+
+            customers.forEach((customer, index) => {
                 const newRow = document.createElement('tr');
                 newRow.innerHTML = `
-                    <td>${customerCount}</td>
-                    <td>${dateTime}</td>
-                    <td>${customerCode}</td>
+                    <td>${index + 1}</td>
+                    <td>${customer.addedOn}</td>
+                    <td>${customer.customerCode}</td>
                 `;
                 customerTable.appendChild(newRow);
+            });
+        }
 
-                // Clear input fields
-                customerCode1.value = '';
-                customerCode2.value = '';
-            } else {
-                // Show error if the PIN is incorrect
-                alert("Invalid PIN. Access denied.");
+        // Event listener for adding a customer
+        document.getElementById('addCustomerBtn').addEventListener('click', function () {
+            const pin = prompt("Enter the PIN to submit data:");
+            if (pin !== '4455') {
+                alert("Incorrect PIN. Data not submitted.");
+                return;
             }
+
+            const customerCode1 = document.getElementById('customerCode1').value.trim().toUpperCase() || "N/A";
+            const customerCode2 = document.getElementById('customerCode2').value.trim().toUpperCase() || "N/A";
+            const customerCode = `${customerCode1}-${customerCode2}`;
+            const uniqueId = generateUniqueId(); // Generate a unique ID
+            const dateTime = new Date().toISOString();
+
+            addCustomerToDynamoDB(uniqueId, customerCode, dateTime);
+
+            // Clear input fields
+            document.getElementById('customerCode1').value = '';
+            document.getElementById('customerCode2').value = '';
         });
+
+        // Load customers on page load
+        window.onload = function () {
+            loadCustomersFromDynamoDB();
+        };
     </script>
 </body>
 </html>
