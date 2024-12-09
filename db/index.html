@@ -75,11 +75,10 @@
     </div>
  
     <div class="container">
-	
-	<div class="card">
-           
+        <div class="card">
             <a href="https://www.leuvenflyers.com/cubansalsa/" target="_blank" class="button">View Areas Completed</a>
-			<a href="https://www.leuvenflyers.com/code/" target="_blank" class="button">View My Promo Page</a>
+            <a href="https://www.leuvenflyers.com/code/" target="_blank" class="button">View My Promo Page</a>
+			<a href="https://www.leuvenflyers.com/add/" target="_blank" class="button">View Added Customers</a>
         </div>
         <div class="card">
             <h2>Flyers Distributed</h2>
@@ -93,27 +92,26 @@
             <h2>Customers Added</h2>
             <p id="customerCount" style="font-size: 48px; font-weight: bold; color: #6c757d;">Loading...</p>
         </div>
-        
-       
     </div>
 
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1199.0.min.js"></script>
     <script>
+        // AWS Configuration for the first set of credentials
         AWS.config.update({
             region: 'eu-north-1',
             credentials: new AWS.Credentials('AKIAVRUVVVUMRBVSI6F7', 'dhjsq1zoM9gYgY+/38KJy6ZQSafFrVKpwWJnSEHk')
         });
 
-        const dynamodb = new AWS.DynamoDB.DocumentClient();
-        const tableName = 'lf01';
+        const dynamodbLf01 = new AWS.DynamoDB.DocumentClient();
+        const tableNameLf01 = 'lf01';
         const promoCode = 'Fly10'; // We're using this as the comparison target in a case-insensitive manner
 
         function loadPromoCount() {
             const params = {
-                TableName: tableName
+                TableName: tableNameLf01
             };
 
-            dynamodb.scan(params, function (err, data) {
+            dynamodbLf01.scan(params, function (err, data) {
                 if (err) {
                     alert('Error loading data: ' + err.message);
                 } else {
@@ -130,16 +128,25 @@
         }
 
         function loadCustomerCount() {
-            // Assuming the customer count is stored similarly in DynamoDB
+            // AWS Configuration for the second set of credentials
+            AWS.config.update({
+                region: 'eu-north-1',
+                credentials: new AWS.Credentials('AKIAVRUVVVUMTKXLCDO6', '2PkALOW/h0MecUTcWdNkAxQM8mNhV33H7nH9sTGq')
+            });
+
+            const dynamodbNftfan = new AWS.DynamoDB.DocumentClient();
+            const tableNameNftfan = 'nftfan'; // DynamoDB table name
+
             const params = {
-                TableName: tableName
+                TableName: tableNameNftfan
             };
 
-            dynamodb.scan(params, function (err, data) {
+            dynamodbNftfan.scan(params, function (err, data) {
                 if (err) {
                     alert('Error loading customer data: ' + err.message);
                 } else {
-                    const customerCount = data.Items.filter(item => item.type === 'customer').length;
+                    // Total entries in the table represent the customer count
+                    const customerCount = data.Count;
                     document.getElementById('customerCount').textContent = customerCount;
                 }
             });
