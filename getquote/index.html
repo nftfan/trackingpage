@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flyer Distribution Planner</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Source+Code+Pro:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        header {
+            background-color: #1f1f1f;
+            color: #e0e0e0;
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #1f1f1f;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .section {
+            margin-bottom: 2rem;
+        }
+        .section h2 {
+            margin-bottom: 1rem;
+            color: #bb86fc;
+        }
+        input[type="file"], input[type="number"], input[type="text"], input[type="email"], select, button {
+            width: 100%;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border: none;
+            border-radius: 4px;
+            background-color: #333;
+            color: #e0e0e0;
+        }
+        button {
+            background-color: #bb86fc;
+            color: #121212;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #9a67ea;
+        }
+        .flyer-preview {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .flyer-preview div {
+            flex: 1;
+            text-align: center;
+        }
+        .flyer-preview img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #333;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+        .total {
+            font-family: 'Source Code Pro', monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #bb86fc;
+        }
+        .description {
+            font-size: 1rem;
+            color: #999;
+            margin-bottom: 1rem;
+        }
+        #map {
+            width: 100%;
+            height: 700px;
+            margin-top: 0px;
+            border-radius: 7px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border: 10px solid #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h2>Flyer Distribution Planner</h2>
+    </header>
+    <div class="container">
+        <!-- Upload Flyers Section -->
+        <div class="section" id="upload-section">
+            <h2>Upload Flyers</h2>
+            <p class="description">Our flyers are of A6 size, glossy, and 250gsm premium quality.</p>
+            <label for="front-flyer">Upload Front Side of Flyer:</label>
+            <input type="file" id="front-flyer" accept="image/*" onchange="previewFlyer('front')">
+
+            <label for="back-flyer">Upload Back Side of Flyer:</label>
+            <input type="file" id="back-flyer" accept="image/*" onchange="previewFlyer('back')">
+
+            <div class="flyer-preview">
+                <div>
+                    <h3>Front Side</h3>
+                    <img id="front-preview" src="" alt="Front Side Preview">
+                </div>
+                <div>
+                    <h3>Back Side</h3>
+                    <img id="back-preview" src="" alt="Back Side Preview">
+                </div>
+            </div>
+        </div>
+        <!-- Area Selection Section -->
+        <div class="section" id="area-section">
+            <h2>Select Distribution Area</h2>
+			<p class="description">Click the location icon shown on the map, then put the marker on your distribution area and enter the name of the area.</p>
+            <div id="map"></div>
+        </div>
+
+        <!-- Customer Details Section -->
+        <div class="section" id="customer-details-section">
+            <h2>Customer Details</h2>
+            <label for="customer-name">Customer Name:</label>
+            <input type="text" id="customer-name" placeholder="Enter your name">
+
+            <label for="business-name">Business Name:</label>
+            <input type="text" id="business-name" placeholder="Enter your business name">
+
+            <label for="business-address">Business Address:</label>
+            <input type="text" id="business-address" placeholder="Enter your business address">
+
+            <label for="customer-email">Email:</label>
+            <input type="email" id="customer-email" placeholder="Enter your email">
+        </div>
+
+        <!-- Number of Flyers Section -->
+        <div class="section" id="flyers-section">
+            <h2>Number of Flyers</h2>
+            <label for="flyers-count">How many flyers do you want to distribute?</label>
+            <input type="number" id="flyers-count" min="1" placeholder="Enter number of flyers">
+        </div>
+
+        <!-- VAT Section -->
+        <div class="section" id="vat-section">
+            <h2>Enter VAT Number</h2>
+            <label for="vat-number">VAT Number:</label>
+            <input type="text" id="vat-number" placeholder="Enter your VAT number">
+        </div>
+
+        <!-- Total Bill Section -->
+        <div class="section" id="bill-section">
+            <h2>Total Bill</h2>
+            <p>Your total bill is: <span class="total" id="total-bill">€0.00</span></p>
+            <p>Price including 21% VAT: <span class="total" id="total-bill-vat">€0.00</span></p>
+            <button onclick="calculateBill()">Calculate Bill</button>
+            <p class="description">Price includes Printing cost, Distribution cost and 21% VAT.</p>
+            <button onclick="generateInvoice()">Download Invoice</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.18/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+    <script>
+       let frontFlyerData;
+let backFlyerData;
+let distributionZones = [];
+
+function previewFlyer(side) {
+    const input = document.getElementById(`${side}-flyer`);
+    const preview = document.getElementById(`${side}-preview`);
+
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+            preview.src = e.target.result;
+            if (side === 'front') {
+                frontFlyerData = e.target.result;
+            } else if (side === 'back') {
+                backFlyerData = e.target.result;
+            }
+        };
+
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        preview.src = "";
+    }
+}
+
+function calculateBill() {
+    const flyersCount = parseInt(document.getElementById('flyers-count').value) || 0;
+
+    // Pricing logic
+    const costPerFlyer = 0.20; // €0.20 per flyer
+    const vatRate = 0.21; // 21% VAT
+
+    const totalCost = flyersCount * costPerFlyer;
+    const totalCostWithVAT = totalCost + (totalCost * vatRate);
+
+    document.getElementById('total-bill').innerText = `€${totalCost.toFixed(2)}`;
+    document.getElementById('total-bill-vat').innerText = `€${totalCostWithVAT.toFixed(2)}`;
+}
+
+function generateInvoice() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const customerName = document.getElementById('customer-name').value;
+    const businessName = document.getElementById('business-name').value;
+    const businessAddress = document.getElementById('business-address').value;
+    const customerEmail = document.getElementById('customer-email').value;
+    const vatNumber = document.getElementById('vat-number').value;
+    const flyersCount = document.getElementById('flyers-count').value || 0;
+    const totalBill = document.getElementById('total-bill').innerText;
+    const totalBillVAT = document.getElementById('total-bill-vat').innerText;
+    const date = new Date().toLocaleDateString();
+    const qrCodeUrl = "https://raw.githubusercontent.com/nftfan/trackingpage/refs/heads/main/LeuvenFlyers%20O-qrcode.png";
+
+    // Title
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("LeuvenFlyers Offline Marketing", 105, 20, { align: "center" });
+
+    // Dotted Line
+    doc.setLineDash([2, 2], 0);
+    doc.line(10, 25, 200, 25);
+
+    // Date
+    doc.setFontSize(12);
+    doc.text(`Date: ${date}`, 10, 35);
+
+    // Customer Details
+    doc.text(`Customer Name: ${customerName}`, 10, 45);
+    doc.text(`Business Name: ${businessName}`, 10, 55);
+    doc.text(`Business Address: ${businessAddress}`, 10, 65);
+    doc.text(`Email: ${customerEmail}`, 10, 75);
+
+    // VAT Number
+    doc.text(`VAT Number: ${vatNumber}`, 10, 85);
+
+    // Details
+    const tableData = [
+        ["Description", "Details"],
+        ["Number of Flyers Distributed", flyersCount],
+        ["Total Bill", totalBill],
+        ["Total Bill (including 21% VAT)", totalBillVAT]
+    ];
+
+    doc.autoTable({
+        head: [tableData[0]],
+        body: tableData.slice(1),
+        startY: 95,
+        theme: 'grid',
+        styles: {
+            fillColor: [224, 224, 224],
+            textColor: [32, 32, 32],
+            lineColor: [192, 192, 192],
+            lineWidth: 0.5
+        },
+        headStyles: {
+            fillColor: [224, 224, 224],
+            textColor: [32, 32, 32]
+        }
+    });
+
+    // Distribution Zones
+    if (distributionZones.length > 0) {
+        const zoneTableData = distributionZones.map(zone => [zone.name, zone.lat, zone.lng]);
+
+        doc.autoTable({
+            head: [["Area Name", "Latitude", "Longitude"]],
+            body: zoneTableData,
+            startY: doc.autoTable.previous.finalY + 10,
+            theme: 'grid',
+            styles: {
+                fillColor: [224, 224, 224],
+                textColor: [32, 32, 32],
+                lineColor: [192, 192, 192],
+                lineWidth: 0.5
+            },
+            headStyles: {
+                fillColor: [224, 224, 224],
+                textColor: [32, 32, 32]
+            }
+        });
+    }
+
+    // Contact Information
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    const finalY = doc.autoTable.previous.finalY;
+    doc.text("Email: info@leuvenflyers.com", 10, finalY + 20);
+    doc.text("Phone: +32467620291", 10, finalY + 30);
+    doc.text("Address: Kiekenstraat 1, Leuven 3000, Belgium", 10, finalY + 40);
+
+    // QR Code
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("To pay this invoice, scan the QR code:", 10, finalY + 60);
+    doc.addImage(qrCodeUrl, 'PNG', 10, finalY + 70, 50, 50);
+
+    // Add new page for front flyer
+    if (frontFlyerData) {
+        doc.addPage();
+        doc.addImage(frontFlyerData, 'JPEG', 0, 0, 210, 297);
+    }
+
+    // Add new page for back flyer
+    if (backFlyerData) {
+        doc.addPage();
+        doc.addImage(backFlyerData, 'JPEG', 0, 0, 210, 297);
+    }
+
+    // Save the PDF
+    doc.save("invoice.pdf");
+}
+
+// Initialize the map
+document.addEventListener("DOMContentLoaded", function () {
+    const map = L.map('map').setView([50.879, 4.6997], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    const drawControl = new L.Control.Draw({
+        draw: {
+            polyline: false,
+            polygon: false,
+            circle: false,
+            circlemarker: false,
+            rectangle: false,
+            marker: true
+        },
+        edit: {
+            featureGroup: drawnItems,
+            edit: false,
+            remove: false
+        }
+    });
+    map.addControl(drawControl);
+
+    map.on(L.Draw.Event.CREATED, function (event) {
+        const layer = event.layer;
+        drawnItems.addLayer(layer);
+
+        if (event.layerType === 'marker') {
+            const coordinates = layer.getLatLng();
+            const areaName = prompt("Please enter the area name:");
+            distributionZones.push({ name: areaName, lat: coordinates.lat, lng: coordinates.lng });
+        }
+    });
+});
+    </script>
+</body>
+</html>
