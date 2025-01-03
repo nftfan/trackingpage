@@ -1,0 +1,370 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Population Estimator Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+  <style>
+    body {
+      background-color: #121212;
+      color: #f0f0f0;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      max-width: 350px;
+    }
+
+    #map {
+      width: calc(100% - 40px); /* 20px margin on each side */
+      height: 400px; /* Adjusted height for better mobile view */
+      margin: 25px; /* 20px margin on all sides */
+      border-radius: 7px;
+      overflow: hidden;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      border: 0px solid #1e1e1e;
+      box-sizing: border-box; /* Ensure padding and border are included in width and height */
+    }
+
+    .search-container {
+      padding: 10px;
+      background: #1e1e1e;
+      border-bottom: 1px solid #555;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .search-container input, .search-container button {
+      padding: 10px;
+      border: 1px solid #555;
+      border-radius: 5px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .search-container input {
+      background-color: #ffffff;
+      color: #000;
+    }
+
+    .search-container button {
+      background-color: #f0f0f0;
+      color: #000;
+      cursor: pointer;
+    }
+
+    .search-container button:hover {
+      background-color: #ddd;
+    }
+
+    .streets-container {
+      padding: 20px;
+      background: #1e1e1e;
+      border-top: 1px solid #444;
+      color: #f0f0f0;
+      font-family: 'Arial', sans-serif;
+    }
+
+    .streets-list {
+      background: #292929;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 15px;
+      max-height: 250px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+
+    .streets-container input {
+      padding: 12px;
+      border: 1px solid #555;
+      border-radius: 8px;
+      width: 100%;
+      box-sizing: border-box;
+      background: #333;
+      color: #f0f0f0;
+      margin-bottom: 10px;
+      font-family: 'Arial', sans-serif;
+    }
+
+    .streets-container button {
+      padding: 10px 15px;
+      border: 1px solid #007bff;
+      border-radius: 8px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s ease, color 0.3s ease;
+      font-family: 'Arial', sans-serif;
+    }
+
+    .streets-container button:hover {
+      background: #0056b3;
+      border-color: #0056b3;
+    }
+
+    .street-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #444;
+    }
+
+    .street-item:last-child {
+      border-bottom: none;
+    }
+
+    .toggle-btn {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 25px;
+      height: 25px;
+      font-size: 0.75em;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background 0.3s ease;
+      margin-left: 10px;
+    }
+
+    .toggle-btn.done {
+      background-color: #28a745;
+    }
+
+    .toggle-btn:hover {
+      opacity: 0.8;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="search-container">
+    <input type="text" id="coordinate-input" placeholder="Enter coordinates e.g., [52.5200, 13.4050]">
+    <button onclick="searchCoordinates()">Go</button>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="streets-container">
+    <div id="street-list" class="streets-list"></div>
+    <input type="number" id="total-flyers" placeholder="Total flyers distributed" min="0">
+    <button onclick="submitFlyers()">Submit</button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+  <script>
+// Initialize the map
+var map = L.map('map', {
+  center: [51.505, -0.09],
+  zoom: 13,
+  zoomControl: true // Enable default zoom controls
+});
+
+// Add tile layer
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+}).addTo(map);
+
+// Custom user location icon
+var userIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/nftfan/missionlive/main/dot.png',
+  iconSize: [15, 15], // Size of the icon
+  iconAnchor: [2.5, 2.5], // Point of the icon which will correspond to marker's location
+});
+
+// Marker for user's location
+var userMarker;
+
+// Array to store the user's location coordinates
+var locationHistory = [];
+var polyline;
+
+// Function to update user's location on the map
+function updateLocation(position) {
+  var lat = position.coords.latitude;
+  var lng = position.coords.longitude;
+
+  // Add the new location to the location history
+  locationHistory.push([lat, lng]);
+
+  if (!userMarker) {
+    userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
+    map.setView([lat, lng], 13);
+  } else {
+    userMarker.setLatLng([lat, lng]);
+  }
+
+  // If a polyline exists, remove it before creating a new one
+  if (polyline) {
+    map.removeLayer(polyline);
+  }
+
+  // Create a new polyline with the updated location history
+  polyline = L.polyline(locationHistory, { color: 'red' }).addTo(map);
+}
+
+
+// Handle errors from the Geolocation API
+function handleLocationError(error) {
+  console.error('Error obtaining location: ', error);
+}
+
+// Request user's location once
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    function(position) {
+      updateLocation(position);
+      // Watch the user's position to update the location in real time
+      navigator.geolocation.watchPosition(updateLocation, handleLocationError, {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 10000
+      });
+    },
+    handleLocationError,
+    { enableHighAccuracy: true }
+  );
+} else {
+  alert('Geolocation is not supported by your browser.');
+}
+
+// Enable map rotation on touch devices
+map.dragging.enable();
+map.touchZoom.enable();
+map.doubleClickZoom.enable();
+map.scrollWheelZoom.enable();
+map.boxZoom.enable();
+map.keyboard.enable();
+
+// Function to handle searching coordinates
+function searchCoordinates() {
+  var coordinatesInput = document.getElementById('coordinate-input').value;
+  var coordinatesArray = coordinatesInput.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/g);
+
+  if (!coordinatesArray) {
+    alert('Invalid coordinates format. Please provide coordinates in the correct format.');
+    return;
+  }
+
+  var latLngs = coordinatesArray.map(function(coord) {
+    var match = coord.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/);
+    return [parseFloat(match[1]), parseFloat(match[2])];
+  });
+
+  var polygon = L.polygon(latLngs, { color: 'red' }).addTo(map);
+  map.fitBounds(polygon.getBounds());
+  updateStreetList(polygon);
+}
+
+// Function to update the street list
+function updateStreetList(polygonLayer) {
+  var polygonGeoJSON = polygonLayer.toGeoJSON();
+  var polygonCoords = polygonGeoJSON.geometry.coordinates[0].map(coord => `${coord[1]} ${coord[0]}`).join(' ');
+
+  var query = `[out:json];
+    way["highway"](poly:"${polygonCoords}");
+    out;
+  `;
+
+  fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    body: query
+  })
+  .then(response => response.json())
+  .then(data => {
+    var streets = new Set();
+    data.elements.forEach(function(element) {
+      if (element.tags && element.tags.highway && element.tags.name) {
+        streets.add(element.tags.name);
+      }
+    });
+    var sortedStreets = Array.from(streets).sort();
+    var streetListHTML = sortedStreets.map(street => `
+      <div class="street-item">
+        <span>${street}</span>
+        <button class="toggle-btn" onclick="toggleStreetStatus(this)">P</button>
+      </div>
+    `).join("");
+    document.getElementById('street-list').innerHTML = "<strong>List of Streets:</strong><br/>" + streetListHTML;
+    highlightStreets(polygonLayer);
+  })
+  .catch(error => console.error('Error:', error));
+}
+
+// Function to toggle street status
+function toggleStreetStatus(button) {
+  if (button.classList.contains('done')) {
+    button.classList.remove('done');
+    button.style.backgroundColor = 'red';
+    button.textContent = 'P';
+  } else {
+    button.classList.add('done');
+    button.style.backgroundColor = 'green';
+    button.textContent = 'D';
+  }
+}
+
+// Function to highlight streets on the map
+function highlightStreets(polygonLayer) {
+  var polygonGeoJSON = polygonLayer.toGeoJSON();
+  var polygonCoords = polygonGeoJSON.geometry.coordinates[0].map(coord => `${coord[1]} ${coord[0]}`).join(' ');
+
+  var query = `[out:json];
+    way["highway"](poly:"${polygonCoords}");
+    out geom;
+  `;
+
+  fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    body: query
+  })
+  .then(response => response.json())
+  .then(data => {
+    data.elements.forEach(function(element) {
+      if (element.type === "way" && element.geometry) {
+        var streetCoordinates = element.geometry.map(node => [node.lat, node.lon]);
+        var streetType = element.tags.highway || "unknown";
+        var color = getStreetColor(streetType);
+        L.polyline(streetCoordinates, { color: color }).addTo(map);
+      }
+    });
+  })
+  .catch(error => console.error('Error:', error));
+}
+
+// Function to get street color based on type
+function getStreetColor(streetType) {
+  switch (streetType) {
+    case 'motorway':
+      return '#ff0000'; // red
+    case 'trunk':
+      return '#ff8000'; // orange
+    case 'primary':
+      return '#ffff00'; // yellow
+    case 'secondary':
+      return '#00ff00'; // green
+    case 'tertiary':
+      return '#0080ff'; // blue
+    default:
+      return '#808080'; // gray for unknown or other types
+  }
+}
+
+// Function to handle submitting flyers
+function submitFlyers() {
+  var totalFlyers = document.getElementById('total-flyers').value;
+  alert('Total flyers distributed: ' + totalFlyers);
+}
+
+  </script>
+</body>
+</html>
