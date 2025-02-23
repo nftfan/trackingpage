@@ -1,0 +1,382 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Population Estimator Dashboard</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+  <style>
+   
+   
+#map {
+  max-width: 90%;
+  height: 700px;
+  margin-top: 0px; /* Adjust the value as needed */
+  border-radius: 7px; /* Adjust the value to control the roundness of corners */
+  overflow: hidden; /* Ensures content does not overflow rounded corners */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Adjust the values as needed for the shadow effect */
+  border: 10px solid #ffffff; /* Add a 4px solid border with the color #f3eac6 */
+}
+
+
+
+
+
+.population-info {
+  margin-top: 10px;
+  background-color: white;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+#street-list {
+  display: none;
+}
+
+  </style>
+</head>
+<body>
+
+<button id="draw-polygon-button" style="position: fixed; top: 20px; right: 20px; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 999;">My Missions</button>
+
+
+
+<div id="map"></div>
+<div id="population-info" class="population-info" style="text-align: left; padding: 20px; display: none;">
+  <strong style="font-family: Arial, display: none; sans-serif; position: absolute; 0px; top: 800px; font-size: 20px; color: #000000; background-color: yellow; border-radius: 3px; padding: 10px 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">Offline Marketing Tool</strong>
+</div>
+
+
+<div class="search-container" style="position: absolute; display: none; left: 50px; top: 20px; z-index: 999;">
+  <input type="text" id="coordinate-input" placeholder="Search previous campaigns" style="padding: 10px; border: 2px solid #ccc; border-radius: 5px; margin-right: 10px; font-size: 14px;">
+  <button onclick="searchCoordinates()" style="padding: 10px 10px; display: none; background-color: yellow; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; color: #000000;">Search</button>
+</div>
+
+
+
+
+
+
+
+  
+  
+
+
+<div id="flyers-info" class="population-info" style="color: white; position: absolute; top: 850px; left: 800px; display: none;">
+  <strong>Flyers Required to Cover Area:</strong> <!-- Insert your content here -->
+</div>
+
+
+
+
+<div id="hide-element" style="position: relative; top: -730px; left: 0px; display: none;">
+  <div style="background-color: yellow; border-radius: 5px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); padding: 10px; width: 200px; text-align: center;">
+    <button onclick="calculateRevenue()" style="background-color: #fff; border: 1px solid #000000; border-radius: 1px; color: #333; cursor: pointer; font-family: Arial, sans-serif; font-size: 20px;">
+      Calculate Profit
+    </button>
+  </div>
+</div>
+
+
+
+
+<style>
+  .card-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 2px;
+    margin-left: 780px; /* Add margin to move the container 50px to the right */
+    margin-top: -725px;
+    max-width: 300px; /* Decreased maximum width */
+    max-height: 600px; /* Decreased maximum height */
+    overflow: auto; /* Add overflow auto to enable scrolling if content exceeds the maximum height */
+  }
+
+  
+  .population-info {
+    margin-bottom: 1px; /* Reduced margin bottom */
+background-color: #f3eac6;
+border-radius: 8px;
+  }
+
+  .population-info label {
+    font-weight: bold;
+    font-size: 14px; /* Reduced font size */
+    color: #333;
+    font-family: Arial, sans-serif;
+background-color: #f3eac6;
+  }
+
+  .population-info input[type="number"] {
+    width: 100%;
+    padding: 0px; /* Reduced padding */
+    font-size: 14px; /* Reduced font size */
+    font-family: Arial, sans-serif;
+    border: 1px solid #ccc;
+    border-radius: 1px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+
+  .population-info input[type="number"]:focus {
+    border-color: #007bff;
+  }
+</style>
+
+
+
+
+
+  <!-- Additional div elements in next line -->
+<style>
+  .table {
+    margin-left: 780px;
+    margin-top: 455px;
+margin-bottom: 50px;
+    width: 300px;
+    height: 450px;
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    border-collapse: collapse;
+  }
+  .table-column {
+    background-color: #f3eac6;
+    border: 1px solid #000;
+    border-radius: 1px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 15px;
+    font-size: inherit;
+  }
+  .table-row {
+    display: table-row;
+  }
+  .table-cell {
+    display: table-cell;
+    border: 1px solid #000;
+    padding: 5px;
+    color: #333;
+    font-size: inherit;
+  }
+  .table-cell.bold {
+    font-weight: bold;
+    font-size: 12px;
+  }
+  .table-cell.green {
+    color: green;
+  }
+  .table-cell.red {
+    color: #f6180f;
+  }
+  .table-cell.blue {
+    color: #4caf50;
+  }
+</style>
+
+
+
+
+
+
+
+<style>
+  /* Button Styles */
+  .population-info button {
+    background-color: #f3eac6; 
+    border: none;
+    color: #000000;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition-duration: 0.4s;
+   
+  }
+
+  .population-info button:hover {
+    background-color: #45a049; /* Darker Green */
+    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+  }
+</style>
+
+
+
+
+
+
+
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+<script>
+  var map = L.map('map').setView([51.505, -0.09], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  }).addTo(map);
+
+  var drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  var drawControl = new L.Control.Draw({
+    draw: {
+      polygon: true,
+      polyline: false,
+      marker: false,
+      circle: false,
+      circlemarker: false,
+      rectangle: false
+    },
+    edit: {
+      featureGroup: drawnItems
+    }
+  });
+  map.addControl(drawControl);
+
+  map.on('draw:created', function (e) {
+    var layer = e.layer;
+    drawnItems.addLayer(layer);
+    updateWaysCount(layer);
+    displayCampaignArea(layer);
+    // No need to show the popup here, we bind it on the click event instead
+  });
+
+  function updateWaysCount(layer) {
+    var polygonPoints = layer.getLatLngs()[0].map(point => `${point.lat} ${point.lng}`).join(' ');
+    var query = `[out:json];
+      way(poly:"${polygonPoints}");
+      out;
+    `;
+
+    fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    })
+    .then(response => response.json())
+    .then(data => {
+      var waysCount = data.elements.length;
+      document.getElementById('ways-count').innerHTML = "<strong>Total Count of Ways:</strong> " + waysCount;
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  function displayCampaignArea(layer) {
+    var polygonPoints = layer.getLatLngs()[0].map(point => `[${point.lat}, ${point.lng}]`).join(', ');
+    document.getElementById('area-nft-code').innerHTML = `<strong>My Campaign Area Code: </strong>${polygonPoints}`;
+  }
+
+  // Show the popup only on click
+  drawnItems.on('click', function(e) {
+    var layer = e.layer;
+    var polygonPoints = layer.getLatLngs()[0].map(point => `[${point.lat}, ${point.lng}]`).join('<br>');
+    layer.bindPopup(`<strong>Polygon Coordinates:</strong><br>${polygonPoints}`).openPopup();
+  });
+
+  var polygonCoordinates = [
+  [
+    [51.206453109524226, 4.386698092589971], [51.20797892994935, 4.388575220213991], [51.20817385490839, 4.389283165489314], [51.208429272571394, 4.39255473077691], [51.208207462576546, 4.392908703414552], [51.2059624164427, 4.39245819278479], [51.20466507941491, 4.388832654859551], [51.20507512252877, 4.388038898035683], [51.20585486657565, 4.387298773429681]
+  ],
+  [[51.208402293621646, 4.388990836670682], [51.212206507041195, 4.393689018952496], [51.21243501868925, 4.394053718033751], [51.21205864595874, 4.397164386667827], [51.21150752319578, 4.4011331707871735], [51.211265564777186, 4.4011331707871735], [51.209679361436194, 4.39478311619622], [51.209652476162944, 4.394246794017951], [51.208375407602794, 4.39261637459592], [51.208173761961255, 4.389183912654882]
+],
+  [[51.20599611861918, 4.392600059509278], [51.2091418390886, 4.402599334716798], [51.21140017256014, 4.401354789733888], [51.20962577701306, 4.394273757934571], [51.20841592266659, 4.3929433822631845]],
+  [[51.20435595691943, 4.389231204986573], [51.206829621034245, 4.396848678588868], [51.20087378067744, 4.391441345214845], [51.20358963184392, 4.389145374298097]],
+  [[51.19905864236346, 4.3909692764282235], [51.200914116272095, 4.3912696838378915], [51.202877072527684, 4.393372535705567], [51.20274262613756, 4.394187927246095], [51.20172082074824, 4.39405918121338], [51.19948890383846, 4.3946170806884775], [51.19755269555516, 4.395003318786622], [51.19792918687227, 4.3923425674438485]],
+[[51.19763337252496, 4.395132064819337], [51.202688847471634, 4.3943166732788095], [51.202877072527684, 4.39354419708252], [51.20688339486562, 4.3970632553100595], [51.207179149815914, 4.398179054260255], [51.20424840329202, 4.39779281616211], [51.201828380277675, 4.396162033081056], [51.2005645399451, 4.398522377014161], [51.20016117934832, 4.39929485321045]],
+[[51.2072060365354, 4.39830780029297], [51.21078183035838, 4.4077491760253915], [51.208147061828704, 4.4088220596313485], [51.20688339486562, 4.40727710723877], [51.20768999480205, 4.40478801727295], [51.204409733638954, 4.401011466979981], [51.20349552086791, 4.399466514587403], [51.203737520132, 4.397578239440919]],
+[[51.21094313782019, 4.407835006713868], [51.211937854682034, 4.409165382385255], [51.210835599575105, 4.411697387695313], [51.21008282482769, 4.417791366577149], [51.2074211297262, 4.4193363189697275], [51.205807906308806, 4.418134689331056], [51.207179149815914, 4.414229393005372], [51.209867744068205, 4.410238265991212], [51.21037855923173, 4.409551620483399], [51.209733318083416, 4.408264160156251]],
+[[51.20967954757963, 4.408264160156251], [51.21019036483072, 4.4097232818603525], [51.20567346847335, 4.418091773986817], [51.202043498583045, 4.4124698638916025], [51.20551214255283, 4.41028118133545]],
+[[51.201989719100894, 4.412598609924317], [51.20556591792245, 4.418177604675294], [51.20430218013711, 4.4211816787719735], [51.20220483665283, 4.419593811035157], [51.20177460054433, 4.418091773986817], [51.19994605225258, 4.419507980346681], [51.19921999088752, 4.415431022644044]]
+];
+
+  // Define colors for each polygon
+  var polygonColors = [
+    'red', // 1
+    'red',  // 2
+    'red', // 3
+    'red',   // 4
+    'red',   // 5
+    'red',   // 6
+    'red',   // 7
+    'red',   // 8
+    'red',   // 9
+    'red',   // 10
+    'red',   // 11
+    'red',   // 12
+    'red',   // 13
+    'red',   // 14
+    'red',   // 15
+    'red',   // 16
+    'red',   // 17
+    'red',   // 18
+    'red',   // 19
+    'red',   // 20
+    'red',   // 21
+    'red',   // 22
+    'red',   // 23
+    'red',   // 24
+    'red',   // 25
+    'red',   // 26
+    'red',   // 27
+    'red',   // 28
+    'red',   // 29
+    'red',   // 30
+    'red',   // 31
+    'red',   // 32
+    'red',   // 33
+    'red',   // 34
+    'red',   // 35
+    'red',   // 36
+    'red',   // 37
+    'red',   // 38
+    'red',   // 39
+    'red',   // 40
+    'red',   // 41
+    'red',   // 42
+    'red',   // 43
+    'red',   // 44
+    'red',   // 45
+    'red',   // 46
+    'red',   // 47
+    'red',   // 48
+    'red',   // 49
+    'red',   // 50
+];
+
+
+  document.getElementById('draw-polygon-button').addEventListener('click', function() {
+    polygonCoordinates.forEach(function(coords, index) {
+      var polygon = L.polygon(coords, { color: polygonColors[index] }).addTo(map);
+      // Only bind the popup here without opening it
+      polygon.on('click', function() {
+        var polygonPoints = coords.map(point => `[${point[0]}, ${point[1]}]`).join('<br>');
+        polygon.bindPopup(`<strong>Polygon Coordinates:</strong><br>${polygonPoints}`).openPopup(); // Show popup on click
+      });
+      map.fitBounds(polygon.getBounds());
+    });
+  });
+</script>
+
+
+
+</body>
+</html>
