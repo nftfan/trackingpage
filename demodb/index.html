@@ -1,0 +1,618 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promo Code Tracker Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-light: #dbeafe;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --neutral: #6b7280;
+            --dark: #1f2937;
+            --light: #f9fafb;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+            color: #1f2937;
+            line-height: 1.5;
+        }
+        
+        .header {
+            background-color: #ffffff;
+            padding: 20px 30px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .progress-bar-container {
+            background-color: #ffffff;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .status-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .status-label span:last-child {
+            color: var(--primary);
+        }
+        
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        
+        .step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+        
+        .step::after {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background-color: #e5e7eb;
+            z-index: 1;
+        }
+        
+        .step:last-child::after {
+            display: none;
+        }
+        
+        .step-circle {
+            width: 30px;
+            height: 30px;
+            background-color: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 8px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .step.active .step-circle {
+            border-color: var(--primary);
+            background-color: var(--primary);
+            color: #ffffff;
+        }
+        
+        .step.completed .step-circle {
+            border-color: var(--success);
+            background-color: var(--success);
+            color: #ffffff;
+        }
+        
+        .step-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--neutral);
+        }
+        
+        .step.active .step-title {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .step.completed .step-title {
+            color: var(--success);
+            font-weight: 600;
+        }
+        
+        .step-date {
+            font-size: 10px;
+            color: var(--neutral);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+        }
+        
+        .card {
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card:hover {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background-color: var(--primary-light);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .card h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--dark);
+            margin: 0 0 4px 0;
+        }
+        
+        .card h3 {
+            font-size: 12px;
+            font-weight: 400;
+            color: var(--neutral);
+            margin: 0 0 16px 0;
+            line-height: 1.4;
+        }
+        
+        .count {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--dark);
+            margin: 0 0 16px 0;
+        }
+        
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+        }
+        
+        .button {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: var(--primary);
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .button:hover {
+            background-color: #1d4ed8;
+        }
+        
+        .button-outline {
+            background-color: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+        
+        .button-outline:hover {
+            background-color: var(--primary-light);
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 4px 8px;
+            background-color: var(--primary-light);
+            color: var(--primary);
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 4px;
+            margin-bottom: 4px;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            text-align: left;
+            margin-top: 16px;
+        }
+        
+        .table th {
+            padding: 8px;
+            color: var(--neutral);
+            font-weight: 500;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .table td {
+            padding: 8px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        
+        .stat-change {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .stat-change.positive {
+            color: var(--success);
+        }
+        
+        .stat-change.negative {
+            color: var(--danger);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>My Customers Dashboard</h1>
+        <div class="header-actions">
+            <button class="button button-outline">
+                <i class="fas fa-download"></i> Export
+            </button>
+            <button class="button">
+                <i class="fas fa-refresh"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="progress-bar-container">
+        <div class="status-label">
+            <span>Campaign Progress</span>
+            <span>95% Complete</span>
+        </div>
+        <div class="progress-steps">
+            <div class="step completed">
+                <div class="step-circle">
+                    <i class="fas fa-check"></i>
+                </div>
+                <div class="step-title">Design</div>
+                <div class="step-date">11/10/24</div>
+            </div>
+            <div class="step completed">
+                <div class="step-circle">
+                    <i class="fas fa-check"></i>
+                </div>
+                <div class="step-title">Printing</div>
+                <div class="step-date">16/10/24</div>
+            </div>
+            <div class="step completed">
+                <div class="step-circle">
+                    <i class="fas fa-check"></i>
+                </div>
+                <div class="step-title">Pick up</div>
+                <div class="step-date">17/10/24</div>
+            </div>
+            <div class="step active">
+                <div class="step-circle">
+                    <i class="fas fa-sync-alt"></i>
+                </div>
+                <div class="step-title">Distribution</div>
+                <div class="step-date">In Progress</div>
+            </div>
+            <div class="step">
+                <div class="step-circle">
+                    <i class="fas fa-flag"></i>
+                </div>
+                <div class="step-title">Completed</div>
+                <div class="step-date">Pending</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="grid-container">
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>Total Ads</h2>
+                        <h3>Total number of ads planned for distribution</h3>
+                    </div>
+                    <div class="card-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                </div>
+                <div class="count">5,000</div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Completed on</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><i class="fas fa-check-circle" style="color: var(--success);"></i> Design</td>
+                            <td>11/10/24</td>
+                        </tr>
+                        <tr>
+                            <td><i class="fas fa-check-circle" style="color: var(--success);"></i> Printing</td>
+                            <td>16/10/24</td>
+                        </tr>
+                        <tr>
+                            <td><i class="fas fa-check-circle" style="color: var(--success);"></i> Pick up</td>
+                            <td>17/10/24</td>
+                        </tr>
+                        <tr>
+                            <td><i class="fas fa-spinner fa-spin" style="color: var(--primary);"></i> Distribution</td>
+                            <td>Pending</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>Coupons Downloaded</h2>
+                        <h3>Number of people who took action after receiving your flyer</h3>
+                    </div>
+                    <div class="card-icon">
+                        <i class="fas fa-ticket-alt"></i>
+                    </div>
+                </div>
+                <div id="promoCount" class="count">Loading...</div>
+                <div class="card-footer">
+                    <div class="stat-change positive">
+                        <i class="fas fa-arrow-up"></i> +3.2% from last week
+                    </div>
+                    <a href="https://www.leuvenflyers.com/code/" target="_blank" class="button">
+                        <i class="fas fa-external-link-alt"></i> Promo Page
+                    </a>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>Customers Added</h2>
+                        <h3>Number of customers added during this campaign</h3>
+                    </div>
+                    <div class="card-icon">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                </div>
+                <div id="customerCount" class="count" style="color: var(--primary);">Loading...</div>
+                <div class="card-footer">
+                    <div class="stat-change positive">
+                        <i class="fas fa-arrow-up"></i> +5.7% from last campaign
+                    </div>
+                    <a href="https://www.leuvenflyers.com/add/" target="_blank" class="button">
+                        View Customers
+                    </a>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>Flyers Distributed</h2>
+                        <h3>Total number of flyers delivered in this campaign</h3>
+                    </div>
+                    <div class="card-icon">
+                        <i class="fas fa-paper-plane"></i>
+                    </div>
+                </div>
+                <div class="count">4,800</div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Amount</th>
+                            <th>Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Door to Door</td>
+                            <td>4,800</td>
+                            <td>
+                                <div style="width: 100%; background-color: #e5e7eb; height: 6px; border-radius: 3px;">
+                                    <div style="width: 96%; background-color: var(--success); height: 6px; border-radius: 3px;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Hand to Hand</td>
+                            <td>0</td>
+                            <td>
+                                <div style="width: 100%; background-color: #e5e7eb; height: 6px; border-radius: 3px;">
+                                    <div style="width: 0%; background-color: var(--primary); height: 6px; border-radius: 3px;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>Zones Completed</h2>
+                        <h3>View on map all zones completed, pending, or not yet started</h3>
+                    </div>
+                    <div class="card-icon">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                </div>
+                <div class="count">5</div>
+                <div class="tags-container">
+                    <span class="tag"><i class="fas fa-map-marker-alt"></i> Leuven (3)</span>
+                    <span class="tag"><i class="fas fa-map-marker-alt"></i> Ghent (2)</span>
+                </div>
+                <div class="card-footer">
+                    <div class="stat-change positive">
+                        <i class="fas fa-check-circle"></i> 100% complete
+                    </div>
+                    <a href="https://www.leuvenflyers.com/cubansalsa/" target="_blank" class="button">
+                        View Map
+                    </a>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>Handovers Completed</h2>
+                        <h3>Number of flyer bundles distributed hand to hand</h3>
+                    </div>
+                    <div class="card-icon">
+                        <i class="fas fa-handshake"></i>
+                    </div>
+                </div>
+                <div class="count">10</div>
+                <div class="tags-container">
+                    <span class="tag"><i class="fas fa-map-marker-alt"></i> Leuven (3)</span>
+                    <span class="tag"><i class="fas fa-map-marker-alt"></i> Ghent (2)</span>
+                </div>
+                <div class="card-footer">
+                    <div class="stat-change positive">
+                        <i class="fas fa-check-circle"></i> All points completed
+                    </div>
+                    <a href="https://www.leuvenflyers.com/cubansalsa/" target="_blank" class="button">
+                        View Handovers
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.1199.0/aws-sdk.min.js"></script>
+    <script>
+        // AWS Configuration for the first set of credentials
+        AWS.config.update({
+            region: 'eu-north-1',
+            credentials: new AWS.Credentials('AKIAVRUVVVUMRBVSI6F7', 'dhjsq1zoM9gYgY+/38KJy6ZQSafFrVKpwWJnSEHk')
+        });
+
+        const dynamodbLf01 = new AWS.DynamoDB.DocumentClient();
+        const tableNameLf01 = 'lf01';
+        const promoCode = 'Fly10'; // We're using this as the comparison target in a case-insensitive manner
+
+        function loadPromoCount() {
+            const params = {
+                TableName: tableNameLf01
+            };
+
+            dynamodbLf01.scan(params, function (err, data) {
+                if (err) {
+                    console.error('Error loading data: ' + err.message);
+                    document.getElementById('promoCount').textContent = 'Error';
+                } else {
+                    // Counting entries for case-insensitive match of the promo code
+                    const count = data.Items.filter(item => 
+                        typeof item.code === 'string' &&
+                        item.code.trim().toLowerCase() === promoCode.toLowerCase() // Lowercase comparison
+                    ).length;
+
+                    // Format number with commas
+                    const formattedCount = count.toLocaleString();
+                    
+                    // Update the UI with the count of promo code entries
+                    document.getElementById('promoCount').textContent = formattedCount;
+                }
+            });
+        }
+
+        function loadCustomerCount() {
+            // AWS Configuration for the second set of credentials
+            AWS.config.update({
+                region: 'eu-north-1',
+                credentials: new AWS.Credentials('AKIAVRUVVVUMTKXLCDO6', '2PkALOW/h0MecUTcWdNkAxQM8mNhV33H7nH9sTGq')
+            });
+
+            const dynamodbNftfan = new AWS.DynamoDB.DocumentClient();
+            const tableNameNftfan = 'nftfan'; // DynamoDB table name
+
+            const params = {
+                TableName: tableNameNftfan,
+                FilterExpression: "#tag = :tagValue",
+                ExpressionAttributeNames: {
+                    "#tag": "tag" // The name of the tag column in your DynamoDB table
+                },
+                ExpressionAttributeValues: {
+                    ":tagValue": "fly10" // The tag value to filter by
+                }
+            };
+
+            dynamodbNftfan.scan(params, function (err, data) {
+                if (err) {
+                    console.error('Error loading customer data: ' + err.message);
+                    document.getElementById('customerCount').textContent = 'Error';
+                } else {
+                    // Total entries in the table with the tag 'fly10' represent the customer count
+                    const customerCount = data.Count;
+                    
+                    // Format number with commas
+                    const formattedCount = customerCount.toLocaleString();
+                    
+                    document.getElementById('customerCount').textContent = formattedCount;
+                }
+            });
+        }
+
+        // Load the counts on page load
+        window.onload = function() {
+            loadPromoCount();
+            loadCustomerCount();
+        };
+    </script>
+</body>
+</html>
