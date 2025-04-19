@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Population Estimator Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <style>
+    :root {
+      --primary-bg: #121212;
+      --secondary-bg: #1e1e1e;
+      --tertiary-bg: #292929;
+      --border-color: #444;
+      --text-color: #f0f0f0;
+      --primary-btn: #2563eb;
+      --primary-btn-hover: #1d4ed8;
+      --success-color: #10b981;
+      --danger-color: #ef4444;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      background-color: var(--primary-bg);
+      color: var(--text-color);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100vh;
+      font-size: 16px;
+    }
+
+    .container {
+      max-width: 100%;
+      padding: 0;
+      margin: 0 auto;
+    }
+
+    .header {
+      background-color: var(--secondary-bg);
+      padding: 12px 16px;
+      text-align: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .header h1 {
+      font-size: 1.2rem;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    .search-container {
+      padding: 12px;
+      background: var(--secondary-bg);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .search-container input, .search-container button {
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      width: 100%;
+    }
+
+    .search-container input {
+      background-color: #ffffff;
+      color: #000;
+      font-size: 16px;
+    }
+
+    .search-container button {
+      background-color: var(--primary-btn);
+      color: white;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 0.2s ease;
+    }
+
+    .search-container button:hover {
+      background-color: var(--primary-btn-hover);
+    }
+
+    /* Important fix for map container */
+    #map-container {
+      width: 100%;
+      height: 40vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+    }
+
+    .stats-container {
+      background-color: var(--secondary-bg);
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .stat-box {
+      flex: 1;
+      padding: 10px;
+      background-color: var(--tertiary-bg);
+      border-radius: 8px;
+      text-align: center;
+    }
+    
+    .stat-box:first-child {
+      margin-right: 8px;
+    }
+    
+    .stat-label {
+      font-size: 0.8rem;
+      opacity: 0.8;
+    }
+    
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-top: 4px;
+    }
+
+    .streets-container {
+      padding: 12px;
+      background: var(--secondary-bg);
+      border-top: 1px solid var(--border-color);
+    }
+
+    .streets-list {
+      background: var(--tertiary-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 12px;
+    }
+    
+    .streets-heading {
+      margin-bottom: 10px;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .streets-container input {
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      width: 100%;
+      background: #333;
+      color: var(--text-color);
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+
+    .streets-container button {
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: var(--primary-btn);
+      color: white;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      width: 100%;
+      font-weight: 500;
+      font-size: 16px;
+    }
+
+    .streets-container button:hover {
+      background: var(--primary-btn-hover);
+    }
+
+    .street-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .street-item:last-child {
+      border-bottom: none;
+    }
+
+    .toggle-btn {
+      background-color: var(--danger-color);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      font-size: 0.75rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background 0.2s ease;
+      margin-left: 10px;
+    }
+
+    .toggle-btn.done {
+      background-color: var(--success-color);
+    }
+
+    .toggle-btn:hover {
+      opacity: 0.9;
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    
+    .action-buttons button {
+      flex: 1;
+      padding: 12px;
+    }
+    
+    .action-buttons .secondary {
+      background-color: #555;
+    }
+    
+    .action-buttons .secondary:hover {
+      background-color: #666;
+    }
+
+    /* Fix for Leaflet controls */
+    .leaflet-control-container .leaflet-control {
+      margin: 10px;
+    }
+    
+    /* Make sure the streets list is scrollable */
+    .streets-list {
+      -webkit-overflow-scrolling: touch;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Population Estimator Dashboard</h1>
+    </div>
+
+    <div class="search-container">
+      <input type="text" id="coordinate-input" placeholder="Enter coordinates e.g., [52.5200, 13.4050]">
+      <button onclick="searchCoordinates()">Go to Area</button>
+    </div>
+
+    <div id="map-container">
+      <div id="map"></div>
+    </div>
+    
+    <div class="stats-container">
+      <div class="stat-box">
+        <div class="stat-label">Distance Walked</div>
+        <div class="stat-value" id="distance-value">0.00 km</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Streets Completed</div>
+        <div class="stat-value" id="streets-completed">0/0</div>
+      </div>
+    </div>
+
+    <div class="streets-container">
+      <div class="streets-heading">Streets in Selected Area:</div>
+      <div id="street-list" class="streets-list"></div>
+      <input type="number" id="total-flyers" placeholder="Total flyers distributed" min="0">
+      <button onclick="submitFlyers()">Submit</button>
+      
+      <div class="action-buttons">
+        <button onclick="clearPath()" class="secondary">Clear Path</button>
+        <button onclick="savePath()" class="secondary">Save Path</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script>
+    // Initialize variables
+    var map;
+    var userMarker;
+    var pathPoints = [];
+    var pathLine;
+    var totalDistance = 0;
+    var lastPosition = null;
+    var watchId;
+    var selectedAreaPolygon = null;
+    
+    // Initialize the map when the DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      initMap();
+      loadSavedPath();
+      startTracking();
+    });
+    
+    // Function to initialize the map
+    function initMap() {
+      // Create the map
+      map = L.map('map', {
+        center: [51.505, -0.09], // Default center
+        zoom: 15,
+        zoomControl: false,
+        attributionControl: true,
+        tap: true // Enable tap for mobile
+      });
+      
+      // Add tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(map);
+      
+      // Add zoom control to the top right
+      L.control.zoom({
+        position: 'topright'
+      }).addTo(map);
+      
+      // Fix map size issues
+      setTimeout(function() {
+        map.invalidateSize();
+      }, 100);
+    }
+    
+    // Check if there's saved path data
+    function loadSavedPath() {
+      const savedPathData = localStorage.getItem('walkPath');
+      if (savedPathData) {
+        try {
+          const pathData = JSON.parse(savedPathData);
+          pathPoints = pathData.points;
+          totalDistance = pathData.distance;
+          
+          // Draw the saved path
+          if (pathPoints.length > 0) {
+            pathLine = L.polyline(pathPoints, {
+              color: 'red',
+              weight: 3,
+              opacity: 0.7
+            }).addTo(map);
+            
+            // Update distance display
+            updateDistanceDisplay();
+            
+            // Center map on the last point
+            map.setView(pathPoints[pathPoints.length - 1], 15);
+          }
+        } catch (e) {
+          console.error('Error loading saved path:', e);
+        }
+      }
+    }
+    
+    // Calculate distance between two points using the Haversine formula
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Earth radius in kilometers
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+    
+    // Update the distance display
+    function updateDistanceDisplay() {
+      document.getElementById('distance-value').textContent = totalDistance.toFixed(2) + ' km';
+    }
+
+    // Custom user location icon
+    var userIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/nftfan/missionlive/main/dot.png',
+      iconSize: [15, 15],
+      iconAnchor: [7.5, 7.5],
+    });
+
+    // Function to update user's location on the map
+    function updateLocation(position) {
+      var lat = position.coords.latitude;
+      var lng = position.coords.longitude;
+      var currentPosition = [lat, lng];
+
+      if (!userMarker) {
+        // First location fix
+        userMarker = L.marker(currentPosition, { icon: userIcon }).addTo(map);
+        map.setView(currentPosition, 15);
+        
+        // Initialize path line if it doesn't exist yet
+        if (!pathLine) {
+          pathLine = L.polyline([currentPosition], {
+            color: 'red',
+            weight: 3,
+            opacity: 0.7
+          }).addTo(map);
+        }
+        
+        // Add first point to the path
+        pathPoints.push(currentPosition);
+        lastPosition = currentPosition;
+      } else {
+        // Update marker position
+        userMarker.setLatLng(currentPosition);
+        
+        // Only add point if we've moved at least 5 meters (to reduce unnecessary points)
+        if (lastPosition) {
+          const distance = calculateDistance(
+            lastPosition[0], lastPosition[1], 
+            currentPosition[0], currentPosition[1]
+          );
+          
+          // Only add point and update distance if we've moved at least 5 meters
+          if (distance > 0.005) {
+            pathPoints.push(currentPosition);
+            pathLine.addLatLng(currentPosition);
+            
+            // Update total distance
+            totalDistance += distance;
+            updateDistanceDisplay();
+            
+            // Save the new last position
+            lastPosition = currentPosition;
+            
+            // Auto-save to local storage every 10 points
+            if (pathPoints.length % 10 === 0) {
+              savePath(false);
+            }
+          }
+        }
+      }
+    }
+
+    // Handle errors from the Geolocation API
+    function handleLocationError(error) {
+      console.error('Error obtaining location: ', error);
+      alert('Unable to access your location. Please check your device settings.');
+    }
+
+    // Function to start tracking
+    function startTracking() {
+      if (navigator.geolocation) {
+        // Get initial position
+        navigator.geolocation.getCurrentPosition(
+          updateLocation,
+          handleLocationError,
+          { enableHighAccuracy: true }
+        );
+        
+        // Start watching position with high accuracy
+        watchId = navigator.geolocation.watchPosition(
+          updateLocation,
+          handleLocationError,
+          {
+            enableHighAccuracy: true,
+            maximumAge: 1000,
+            timeout: 10000
+          }
+        );
+      } else {
+        alert('Geolocation is not supported by your browser.');
+      }
+    }
+    
+    // Function to stop tracking
+    function stopTracking() {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    }
+    
+    // Function to clear the current path
+    function clearPath() {
+      if (confirm('Are you sure you want to clear your current path?')) {
+        if (pathLine) {
+          map.removeLayer(pathLine);
+          pathLine = null;
+        }
+        
+        pathPoints = [];
+        totalDistance = 0;
+        updateDistanceDisplay();
+        
+        // Clear from local storage
+        localStorage.removeItem('walkPath');
+        
+        // Restart tracking
+        startTracking();
+      }
+    }
+    
+    // Function to save the current path to local storage
+    function savePath(showConfirmation = true) {
+      if (pathPoints.length > 0) {
+        const pathData = {
+          points: pathPoints,
+          distance: totalDistance,
+          timestamp: new Date().toISOString()
+        };
+        
+        localStorage.setItem('walkPath', JSON.stringify(pathData));
+        
+        if (showConfirmation) {
+          alert('Path saved successfully!');
+        }
+      } else if (showConfirmation) {
+        alert('No path data to save.');
+      }
+    }
+
+    // Function to handle searching coordinates
+    function searchCoordinates() {
+      var coordinatesInput = document.getElementById('coordinate-input').value;
+      var coordinatesArray = coordinatesInput.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/g);
+
+      if (!coordinatesArray) {
+        alert('Invalid coordinates format. Please provide coordinates in the format: [lat, lng]');
+        return;
+      }
+
+      var latLngs = coordinatesArray.map(function(coord) {
+        var match = coord.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/);
+        return [parseFloat(match[1]), parseFloat(match[2])];
+      });
+
+      // Remove existing polygon if any
+      if (selectedAreaPolygon) {
+        map.removeLayer(selectedAreaPolygon);
+      }
+
+      // Create new polygon
+      selectedAreaPolygon = L.polygon(latLngs, { 
+        color: '#2563eb',
+        weight: 2,
+        opacity: 0.7,
+        fillOpacity: 0.2
+      }).addTo(map);
+      
+      // Fit map to polygon bounds
+      map.fitBounds(selectedAreaPolygon.getBounds());
+      
+      // Update street list
+      updateStreetList(selectedAreaPolygon);
+    }
+
+    // Function to update the street list
+    function updateStreetList(polygonLayer) {
+      var polygonGeoJSON = polygonLayer.toGeoJSON();
+      var polygonCoords = polygonGeoJSON.geometry.coordinates[0].map(coord => `${coord[1]} ${coord[0]}`).join(' ');
+
+      var query = `[out:json];
+        way["highway"](poly:"${polygonCoords}");
+        out;
+      `;
+
+      fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: query
+      })
+      .then(response => response.json())
+      .then(data => {
+        var streets = new Set();
+        data.elements.forEach(function(element) {
+          if (element.tags && element.tags.highway && element.tags.name) {
+            streets.add(element.tags.name);
+          }
+        });
+        
+        var sortedStreets = Array.from(streets).sort();
+        var streetListHTML = sortedStreets.map(street => `
+          <div class="street-item">
+            <span>${street}</span>
+            <button class="toggle-btn" onclick="toggleStreetStatus(this)">P</button>
+          </div>
+        `).join("");
+        
+        document.getElementById('street-list').innerHTML = streetListHTML || "<p>No named streets found in this area.</p>";
+        
+        // Update street counter
+        updateStreetCounter();
+      })
+      .catch(error => {
+        console.error('Error fetching streets:', error);
+        document.getElementById('street-list').innerHTML = "<p>Error fetching streets. Please try again.</p>";
+      });
+    }
+
+    // Function to toggle street status
+    function toggleStreetStatus(button) {
+      if (button.classList.contains('done')) {
+        button.classList.remove('done');
+        button.style.backgroundColor = '#ef4444'; // danger-color
+        button.textContent = 'P';
+      } else {
+        button.classList.add('done');
+        button.style.backgroundColor = '#10b981'; // success-color
+        button.textContent = 'D';
+      }
+      
+      // Update street counter
+      updateStreetCounter();
+    }
+    
+    // Function to update street counter
+    function updateStreetCounter() {
+      const streetItems = document.querySelectorAll('.street-item');
+      const completedStreets = document.querySelectorAll('.toggle-btn.done').length;
+      
+      document.getElementById('streets-completed').textContent = `${completedStreets}/${streetItems.length}`;
+    }
+
+    // Function to handle submitting flyers
+    function submitFlyers() {
+      var totalFlyers = document.getElementById('total-flyers').value;
+      
+      if (!totalFlyers || totalFlyers < 0) {
+        alert('Please enter a valid number of flyers distributed.');
+        return;
+      }
+      
+      // Here you would typically send this data to a server
+      alert(`Total flyers distributed: ${totalFlyers}`);
+      
+      // For this demo, just clear the input
+      document.getElementById('total-flyers').value = '';
+    }
+    
+    // Handle window resize
+    window.addEventListener('resize', function() {
+      if (map) {
+        map.invalidateSize();
+      }
+    });
+  </script>
+</body>
+</html>
