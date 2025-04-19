@@ -17,6 +17,7 @@
       --primary-btn-hover: #1d4ed8;
       --success-color: #10b981;
       --danger-color: #ef4444;
+      --warning-color: #f59e0b;
     }
     
     * {
@@ -119,7 +120,7 @@
       text-align: center;
     }
     
-    .stat-box:first-child {
+    .stat-box:not(:last-child) {
       margin-right: 8px;
     }
     
@@ -248,12 +249,120 @@
     .streets-list {
       -webkit-overflow-scrolling: touch;
     }
+    
+    /* Modal for saved paths */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      overflow-y: auto;
+    }
+    
+    .modal-content {
+      background-color: var(--secondary-bg);
+      margin: 15% auto;
+      padding: 20px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      position: relative;
+    }
+    
+    .close-modal {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--text-color);
+    }
+    
+    .saved-path-item {
+      background-color: var(--tertiary-bg);
+      padding: 12px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+    }
+    
+    .saved-path-item:hover {
+      background-color: #383838;
+    }
+    
+    .saved-path-date {
+      font-size: 0.9rem;
+      margin-bottom: 5px;
+      color: #ccc;
+    }
+    
+    .saved-path-details {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+      font-size: 0.85rem;
+    }
+    
+    .no-saved-paths {
+      text-align: center;
+      padding: 20px;
+      color: #888;
+    }
+    
+    /* Tabs for the view history */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 15px;
+    }
+    
+    .tab {
+      padding: 10px 15px;
+      cursor: pointer;
+      background-color: var(--tertiary-bg);
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+      margin-right: 5px;
+      font-size: 0.9rem;
+    }
+    
+    .tab.active {
+      background-color: var(--primary-btn);
+      color: white;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    /* Warning banner for paths not yet saved */
+    .warning-banner {
+      background-color: var(--warning-color);
+      color: #000;
+      padding: 10px;
+      text-align: center;
+      font-weight: bold;
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>Population Estimator Dashboard</h1>
+    </div>
+    
+    <div id="warning-banner" class="warning-banner">
+      Path data not saved! Tap "Save Path" to preserve your route.
     </div>
 
     <div class="search-container">
@@ -274,6 +383,10 @@
         <div class="stat-label">Streets Completed</div>
         <div class="stat-value" id="streets-completed">0/0</div>
       </div>
+      <div class="stat-box">
+        <div class="stat-label">Total Flyers</div>
+        <div class="stat-value" id="flyers-distributed">0</div>
+      </div>
     </div>
 
     <div class="streets-container">
@@ -285,6 +398,35 @@
       <div class="action-buttons">
         <button onclick="clearPath()" class="secondary">Clear Path</button>
         <button onclick="savePath()" class="secondary">Save Path</button>
+      </div>
+      
+      <div class="action-buttons" style="margin-top: 10px;">
+        <button onclick="openViewHistoryModal()" style="background-color: var(--tertiary-bg);">View History</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal for viewing history -->
+  <div id="history-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="closeModal()">&times;</span>
+      <h2 style="margin-bottom: 15px;">History</h2>
+      
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('paths-tab')">Paths</div>
+        <div class="tab" onclick="switchTab('flyers-tab')">Flyers</div>
+      </div>
+      
+      <div id="paths-tab" class="tab-content active">
+        <div id="saved-paths-list">
+          <div class="no-saved-paths">No saved paths found</div>
+        </div>
+      </div>
+      
+      <div id="flyers-tab" class="tab-content">
+        <div id="flyers-history-list">
+          <div class="no-saved-paths">No flyer history found</div>
+        </div>
       </div>
     </div>
   </div>
@@ -301,11 +443,14 @@
     var lastPosition = null;
     var watchId;
     var selectedAreaPolygon = null;
+    var totalFlyersDistributed = 0;
+    var pathSaved = true;
     
     // Initialize the map when the DOM is fully loaded
     document.addEventListener('DOMContentLoaded', function() {
       initMap();
       loadSavedPath();
+      loadFlyersData();
       startTracking();
     });
     
@@ -337,9 +482,28 @@
       }, 100);
     }
     
+    // Load flyers data from local storage
+    function loadFlyersData() {
+      const savedFlyersData = localStorage.getItem('flyersData');
+      if (savedFlyersData) {
+        try {
+          const flyersData = JSON.parse(savedFlyersData);
+          totalFlyersDistributed = flyersData.totalDistributed || 0;
+          updateFlyersDisplay();
+        } catch (e) {
+          console.error('Error loading flyers data:', e);
+        }
+      }
+    }
+    
+    // Update the flyers display
+    function updateFlyersDisplay() {
+      document.getElementById('flyers-distributed').textContent = totalFlyersDistributed;
+    }
+    
     // Check if there's saved path data
     function loadSavedPath() {
-      const savedPathData = localStorage.getItem('walkPath');
+      const savedPathData = localStorage.getItem('currentWalkPath');
       if (savedPathData) {
         try {
           const pathData = JSON.parse(savedPathData);
@@ -437,10 +601,14 @@
             // Save the new last position
             lastPosition = currentPosition;
             
-            // Auto-save to local storage every 10 points
+            // Auto-save current progress to local storage every 10 points
             if (pathPoints.length % 10 === 0) {
-              savePath(false);
+              saveCurrentPath();
             }
+            
+            // Path has been updated but not saved permanently
+            pathSaved = false;
+            document.getElementById('warning-banner').style.display = 'block';
           }
         }
       }
@@ -497,16 +665,20 @@
         totalDistance = 0;
         updateDistanceDisplay();
         
-        // Clear from local storage
-        localStorage.removeItem('walkPath');
+        // Clear current path from local storage
+        localStorage.removeItem('currentWalkPath');
+        
+        // Reset path saved flag
+        pathSaved = true;
+        document.getElementById('warning-banner').style.display = 'none';
         
         // Restart tracking
         startTracking();
       }
     }
     
-    // Function to save the current path to local storage
-    function savePath(showConfirmation = true) {
+    // Function to save the current path progress to local storage (without archiving)
+    function saveCurrentPath() {
       if (pathPoints.length > 0) {
         const pathData = {
           points: pathPoints,
@@ -514,7 +686,44 @@
           timestamp: new Date().toISOString()
         };
         
-        localStorage.setItem('walkPath', JSON.stringify(pathData));
+        localStorage.setItem('currentWalkPath', JSON.stringify(pathData));
+      }
+    }
+    
+    // Function to save the current path to local storage and history
+    function savePath(showConfirmation = true) {
+      if (pathPoints.length > 0) {
+        // Create path data object
+        const pathData = {
+          points: pathPoints,
+          distance: totalDistance,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Save current path
+        localStorage.setItem('currentWalkPath', JSON.stringify(pathData));
+        
+        // Add to saved paths history
+        let savedPaths = [];
+        const savedPathsJson = localStorage.getItem('savedPaths');
+        if (savedPathsJson) {
+          savedPaths = JSON.parse(savedPathsJson);
+        }
+        
+        // Add current path to history
+        savedPaths.push(pathData);
+        
+        // Keep only the last 20 paths
+        if (savedPaths.length > 20) {
+          savedPaths = savedPaths.slice(-20);
+        }
+        
+        // Save the updated history
+        localStorage.setItem('savedPaths', JSON.stringify(savedPaths));
+        
+        // Update path saved flag
+        pathSaved = true;
+        document.getElementById('warning-banner').style.display = 'none';
         
         if (showConfirmation) {
           alert('Path saved successfully!');
@@ -627,24 +836,276 @@
 
     // Function to handle submitting flyers
     function submitFlyers() {
-      var totalFlyers = document.getElementById('total-flyers').value;
+      var flyersInput = document.getElementById('total-flyers').value;
       
-      if (!totalFlyers || totalFlyers < 0) {
+      if (!flyersInput || flyersInput < 0) {
         alert('Please enter a valid number of flyers distributed.');
         return;
       }
       
-      // Here you would typically send this data to a server
-      alert(`Total flyers distributed: ${totalFlyers}`);
+      const flyers = parseInt(flyersInput);
       
-      // For this demo, just clear the input
+      // Update total flyers count
+      totalFlyersDistributed += flyers;
+      updateFlyersDisplay();
+      
+      // Save flyers data
+      saveFlyersData(flyers);
+      
+      // Show confirmation
+      alert(`${flyers} flyers recorded. Total distributed: ${totalFlyersDistributed}`);
+      
+      // Clear the input
       document.getElementById('total-flyers').value = '';
     }
     
-    // Handle window resize
+    // Function to save flyers data
+    function saveFlyersData(newFlyers) {
+      // Get existing flyers data
+      let flyersData = {
+        totalDistributed: totalFlyersDistributed,
+        history: []
+      };
+      
+      const savedFlyersData = localStorage.getItem('flyersData');
+      if (savedFlyersData) {
+        try {
+          flyersData = JSON.parse(savedFlyersData);
+          flyersData.totalDistributed = totalFlyersDistributed;
+        } catch (e) {
+          console.error('Error parsing flyers data:', e);
+        }
+      }
+      
+      // Add new entry to history
+      flyersData.history.push({
+        count: newFlyers,
+        timestamp: new Date().toISOString(),
+        location: lastPosition ? lastPosition : null
+      });
+      
+      // Keep only the last 50 entries
+      if (flyersData.history.length > 50) {
+        flyersData.history = flyersData.history.slice(-50);
+      }
+      
+      // Save updated data
+      localStorage.setItem('flyersData', JSON.stringify(flyersData));
+    }
+    
+    // Function to open the view history modal
+    function openViewHistoryModal() {
+      // Show the modal
+      document.getElementById('history-modal').style.display = 'block';
+      
+      // Load saved paths tab by default
+      loadSavedPathsList();
+    }
+    
+    // Function to close the modal
+    function closeModal() {
+      document.getElementById('history-modal').style.display = 'none';
+    }
+    
+    // Function to switch tabs
+    function switchTab(tabId) {
+      // Hide all tab contents
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Remove active class from all tabs
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Show selected tab content
+      document.getElementById(tabId).classList.add('active');
+      
+      // Add active class to selected tab
+      document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+      
+      // Load content for the selected tab
+      if (tabId === 'paths-tab') {
+        loadSavedPathsList();
+      } else if (tabId === 'flyers-tab') {
+        loadFlyersHistory();
+      }
+    }
+    
+    // Function to load saved paths list
+    function loadSavedPathsList() {
+      const savedPathsContainer = document.getElementById('saved-paths-list');
+      
+      // Get saved paths from local storage
+      const savedPathsJson = localStorage.getItem('savedPaths');
+      if (savedPathsJson) {
+        try {
+          const savedPaths = JSON.parse(savedPathsJson);
+          
+          if (savedPaths.length > 0) {
+            // Sort paths by date (newest first)
+            savedPaths.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            // Generate HTML for each path
+            let pathsHTML = '';
+            
+            savedPaths.forEach((path, index) => {
+              const date = new Date(path.timestamp);
+              const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+              
+              pathsHTML += `
+                <div class="saved-path-item" onclick="loadSavedPathToMap(${index})">
+                  <div class="saved-path-date">${formattedDate}</div>
+                  <div class="saved-path-details">
+                    <span>Distance: ${path.distance.toFixed(2)} km</span>
+                    <span>Points: ${path.points.length}</span>
+                  </div>
+                </div>
+              `;
+            });
+            
+            savedPathsContainer.innerHTML = pathsHTML;
+          } else {
+            savedPathsContainer.innerHTML = '<div class="no-saved-paths">No saved paths found</div>';
+          }
+        } catch (e) {
+          console.error('Error loading saved paths:', e);
+          savedPathsContainer.innerHTML = '<div class="no-saved-paths">Error loading saved paths</div>';
+        }
+      } else {
+        savedPathsContainer.innerHTML = '<div class="no-saved-paths">No saved paths found</div>';
+      }
+    }
+    
+    // Function to load flyers history
+    function loadFlyersHistory() {
+      const flyersHistoryContainer = document.getElementById('flyers-history-list');
+      
+      // Get flyers data from local storage
+      const savedFlyersData = localStorage.getItem('flyersData');
+      if (savedFlyersData) {
+        try {
+          const flyersData = JSON.parse(savedFlyersData);
+          
+          if (flyersData.history && flyersData.history.length > 0) {
+            // Sort history by date (newest first)
+            flyersData.history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            // Generate HTML for each entry
+            let historyHTML = '';
+            
+            flyersData.history.forEach(entry => {
+              const date = new Date(entry.timestamp);
+              const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+              
+              historyHTML += `
+                <div class="saved-path-item">
+                  <div class="saved-path-date">${formattedDate}</div>
+                  <div class="saved-path-details">
+                    <span>Flyers: ${entry.count}</span>
+                    ${entry.location ? `<span>Lat: ${entry.location[0].toFixed(4)}, Lng: ${entry.location[1].toFixed(4)}</span>` : ''}
+                  </div>
+                </div>
+              `;
+            });
+            
+            flyersHistoryContainer.innerHTML = historyHTML;
+          } else {
+            flyersHistoryContainer.innerHTML = '<div class="no-saved-paths">No flyer history found</div>';
+          }
+        } catch (e) {
+          console.error('Error loading flyers history:', e);
+          flyersHistoryContainer.innerHTML = '<div class="no-saved-paths">Error loading flyers history</div>';
+        }
+      } else {
+        flyersHistoryContainer.innerHTML = '<div class="no-saved-paths">No flyer history found</div>';
+      }
+    }
+    
+    // Function to load a saved path to the map
+    function loadSavedPathToMap(pathIndex) {
+      // Get saved paths from local storage
+      const savedPathsJson = localStorage.getItem('savedPaths');
+      if (savedPathsJson) {
+        try {
+          const savedPaths = JSON.parse(savedPathsJson);
+          
+          if (savedPaths[pathIndex]) {
+            const pathData = savedPaths[pathIndex];
+            
+            // Ask for confirmation if current path is not saved
+            if (!pathSaved && pathPoints.length > 0) {
+              if (!confirm('Current path is not saved. Loading this path will replace your current path. Continue?')) {
+                return;
+              }
+            }
+            
+            // Remove current path if it exists
+            if (pathLine) {
+              map.removeLayer(pathLine);
+            }
+            
+            // Load the saved path
+            pathPoints = pathData.points;
+            totalDistance = pathData.distance;
+            
+            // Draw the path on the map
+            pathLine = L.polyline(pathPoints, {
+              color: 'red',
+              weight: 3,
+              opacity: 0.7
+            }).addTo(map);
+            
+            // Update distance display
+            updateDistanceDisplay();
+            
+            // Fit map to path bounds
+            map.fitBounds(pathLine.getBounds());
+            
+            // Close the modal
+            closeModal();
+            
+            // Save this as the current path
+            saveCurrentPath();
+            
+            // Update path saved flag
+            pathSaved = true;
+            document.getElementById('warning-banner').style.display = 'none';
+          }
+        } catch (e) {
+          console.error('Error loading saved path:', e);
+          alert('Error loading saved path. Please try again.');
+        }
+      }
+    }
+    
+    // Handle page visibility changes to ensure map renders correctly
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        setTimeout(function() {
+          map.invalidateSize();
+        }, 300);
+      }
+    });
+    
+    // Window resize handler to fix map rendering issues
     window.addEventListener('resize', function() {
-      if (map) {
+      setTimeout(function() {
         map.invalidateSize();
+      }, 100);
+    });
+    
+    // Before page unload, save current path if not saved
+    window.addEventListener('beforeunload', function(e) {
+      if (!pathSaved && pathPoints.length > 0) {
+        // Auto-save path before unload
+        savePath(false);
+        
+        // Show warning message
+        e.preventDefault();
+        e.returnValue = 'You have an unsaved path. Are you sure you want to leave?';
+        return e.returnValue;
       }
     });
   </script>
