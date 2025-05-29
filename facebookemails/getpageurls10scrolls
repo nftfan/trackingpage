@@ -1,0 +1,63 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from urllib.parse import urljoin, urlparse
+import time
+import re
+
+def is_facebook_page_url(url):
+    """
+    Returns True if the URL is very likely a Facebook Page URL.
+    """
+    # Basic normalization
+    if not url or "facebook.com/" not in url:
+        return False
+    parsed = urlparse(url)
+    path = parsed.path.strip("/")
+    # Exclude common non-page paths
+    exclusions = [
+        "groups", "events", "profile.php", "photos", "posts",
+        "watch", "reel", "people", "gaming", "marketplace", "messages", "pages"
+    ]
+    if any(path.startswith(excl) for excl in exclusions):
+        return False
+    # Exclude URLs with query params that indicate they're not pages
+    if "?" in path or "&" in path:
+        if "id=" in parsed.query or "group_id=" in parsed.query:
+            return False
+    # Pattern: facebook.com/{name} (where {name} contains only allowed characters and no slash)
+    # Allow page names with dots and dashes, but not slashes
+    if re.fullmatch(r"[A-Za-z0-9.\-]+", path):
+        return True
+    return False
+
+def extract_facebook_pages_with_scroll(url, wait_time=2, scroll_pause=1, num_scrolls=10):
+    options = Options()
+    options.headless = True
+    driver = webdriver.Chrome(options=options)
+    facebook_page_urls = set()
+    try:
+        driver.get(url)
+        time.sleep(wait_time)  # Wait for JS to load initially
+
+        for _ in range(num_scrolls):
+            # Extract all <a href=...> links visible so far
+            anchors = driver.find_elements("tag name", "a")
+            for a in anchors:
+                href = a.get_attribute("href")
+                if href:
+                    absolute_url = urljoin(driver.current_url, href)
+                    if is_facebook_page_url(absolute_url):
+                        facebook_page_urls.add(absolute_url)
+            # Scroll down by window height
+            driver.execute_script("window.scrollBy(0, window.innerHeight);")
+            time.sleep(scroll_pause)
+    finally:
+        driver.quit()
+    return sorted(facebook_page_urls)
+
+if __name__ == "__main__":
+    url = input("Enter a URL to extract Facebook PAGE links with 10 scrolls: ").strip()
+    fb_pages = extract_facebook_pages_with_scroll(url)
+    print(f"Found {len(fb_pages)} unique Facebook PAGE URLs:")
+    for u in fb_pages:
+        print(u)
