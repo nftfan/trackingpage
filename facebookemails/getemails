@@ -1,0 +1,53 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import re
+import time
+
+def extract_emails_from_urls(urls, wait_time=5):
+    options = Options()
+    options.headless = True
+    driver = webdriver.Chrome(options=options)
+    results = {}
+
+    for url in urls:
+        url = url.strip()
+        if not url:
+            continue
+        try:
+            driver.get(url)
+            time.sleep(wait_time)  # Wait for JS to load
+            html = driver.page_source
+            emails = re.findall(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', html)
+            results[url] = sorted(set(emails)) if emails else []
+        except Exception as e:
+            results[url] = [f"Error: {e}"]
+    driver.quit()
+    return results
+
+if __name__ == "__main__":
+    print("Enter URLs (one per line), end with an empty line:")
+    lines = []
+    while True:
+        line = input()
+        if not line.strip():
+            break
+        lines.append(line)
+    
+    emails_by_url = extract_emails_from_urls(lines)
+    all_emails = set()
+    for url, emails in emails_by_url.items():
+        print(f"\nURL: {url}")
+        if emails:
+            print("\n".join(emails))
+            # Only add valid emails, skip error messages
+            all_emails.update(e for e in emails if '@' in e and not e.startswith("Error:"))
+        else:
+            print("No email addresses found.")
+
+    if all_emails:
+        print("\nAll emails found:")
+        for email in sorted(all_emails):
+            print(email)
+    else:
+        print("\nNo email addresses found in any URL.")
+
