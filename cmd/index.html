@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Email Marketing Progress Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --bg: #181a20;
+      --bg-alt: #23272f;
+      --text: #ddd;
+      --accent: #2a81c9;
+      --input-bg: #23272f;
+      --input-border: #444;
+      --success: #1cb955;
+      --fail: #c92a2a;
+      --group-dance: #2563eb;
+      --group-fitness: #eab308;
+      --group-real-estate: #be185d;
+      --default-group: #3b3b3b;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    h1 {
+      text-align: center;
+      margin: 30px 0 10px 0;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    table {
+      width: 98%;
+      margin: 0 auto 30px auto;
+      border-collapse: collapse;
+      background: var(--bg-alt);
+      box-shadow: 0 2px 16px #0004;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      border: 1px solid var(--input-border);
+      padding: 8px 6px;
+      text-align: center;
+      font-size: 0.98em;
+    }
+    th {
+      background: #20232a;
+      font-weight: 500;
+      color: var(--accent);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    td {
+      background: var(--bg-alt);
+    }
+    input[type="text"], select {
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--input-border);
+      border-radius: 3px;
+      padding: 4px 6px;
+      font-size: 1em;
+      width: 95%;
+      min-width: 70px;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus, select:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+    .action-btn {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      margin: 8px 0;
+      transition: background 0.2s;
+    }
+    .action-btn:hover {
+      background: #165a96;
+    }
+    .delete-btn {
+      background: var(--fail);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-weight: 600;
+      margin: 0 4px;
+      transition: background 0.2s;
+    }
+    .delete-btn:hover {
+      background: #7f1d1d;
+    }
+    .group-header {
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #fff;
+      text-align: left;
+      padding-left: 12px;
+    }
+    .group-dance { background: var(--group-dance) !important; }
+    .group-fitness { background: var(--group-fitness) !important; }
+    .group-real-estate { background: var(--group-real-estate) !important; }
+    .group-custom { background: var(--default-group) !important; }
+    .group-controls {
+      padding: 8px 0 8px 12px;
+    }
+    #export-csv-btn {
+      float: left;
+      margin: 12px 0 10px 2%;
+    }
+    @media (max-width: 1000px) {
+      th, td {
+        font-size: 0.8em;
+        padding: 3px 2px;
+      }
+      input, select {
+        font-size: 0.8em;
+      }
+      .group-header { font-size: 1em; }
+    }
+    ::placeholder {
+      color: #888;
+      opacity: 1;
+    }
+    .sent-status {
+      background: var(--success) !important;
+      color: #fff !important;
+      border: none;
+    }
+    .not-sent-status {
+      background: var(--fail) !important;
+      color: #fff !important;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Email Marketing Progress Tracker</h1>
+  <button id="export-csv-btn" class="action-btn" onclick="exportEmailsToCSV()">Export Emails as CSV</button>
+  <div style="width:99%;text-align:right;margin-bottom:8px;">
+    <button class="action-btn" onclick="addGroupPrompt()">+ Add Group</button>
+  </div>
+  <table id="trackerTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Jan</th>
+        <th>Feb</th>
+        <th>Mar</th>
+        <th>Apr</th>
+        <th>May</th>
+        <th>Jun</th>
+        <th>Jul</th>
+        <th>Aug</th>
+        <th>Sep</th>
+        <th>Oct</th>
+        <th>Nov</th>
+        <th>Dec</th>
+        <th>Delete</th>
+      </tr>
+    </thead>
+    <tbody id="trackerBody">
+      <!-- Groups and rows will be injected here -->
+    </tbody>
+  </table>
+  <script>
+    const LOCAL_STORAGE_KEY = "email_marketing_tracker_groups_v2";
+
+    // Helper for default groups (for first time/no storage)
+    function getDefaultGroups() {
+      return [
+        { name: "Dance", color: "group-dance", id: generateId(), clients: [] },
+        { name: "Fitness", color: "group-fitness", id: generateId(), clients: [] },
+        { name: "Real estate", color: "group-real-estate", id: generateId(), clients: [] }
+      ];
+    }
+
+    // Helper for group color class
+    function getGroupColorClass(group) {
+      if (["group-dance", "group-fitness", "group-real-estate"].includes(group.color)) {
+        return group.color;
+      }
+      return "group-custom";
+    }
+
+    function generateId() {
+      return "g" + Math.random().toString(36).substr(2, 9);
+    }
+
+    // Load or initialize groups
+    let groups = [];
+    function loadGroups() {
+      try {
+        const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (saved) {
+          groups = JSON.parse(saved);
+        } else {
+          groups = getDefaultGroups();
+          // Add a demo client to each by default if empty
+          groups.forEach(g => g.clients.push({}));
+          saveGroups();
+        }
+      } catch (e) {
+        groups = getDefaultGroups();
+        groups.forEach(g => g.clients.push({}));
+        saveGroups();
+      }
+    }
+
+    function saveGroups() {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(groups));
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('trackerBody');
+      tbody.innerHTML = "";
+      let rowIndex = 1;
+      groups.forEach(group => {
+        // Group header row
+        const trGroup = document.createElement('tr');
+        trGroup.className = "group-header-row";
+        trGroup.innerHTML = `
+          <td colspan="16" class="group-header ${getGroupColorClass(group)}">
+            <span>${group.name}</span>
+            <span class="group-controls">
+              <button class="action-btn" style="background:#1e293b;color:#fff;padding:2px 9px;font-size:0.9em;" onclick="addClient('${group.id}')">+ Add Client</button>
+              <button class="delete-btn" onclick="deleteGroup('${group.id}')">Delete Group</button>
+            </span>
+          </td>
+        `;
+        tbody.appendChild(trGroup);
+
+        // Client rows for the group
+        group.clients.forEach((client, clientIdx) => {
+          const tr = document.createElement('tr');
+          let cells = `
+            <td>${rowIndex++}</td>
+            <td><input type="text" placeholder="Enter name" value="${client.name || ''}" onchange="saveAndUpdate()" /></td>
+            <td><input type="text" placeholder="Enter email" value="${client.email || ''}" onchange="saveAndUpdate()" /></td>
+          `;
+          for (let i = 0; i < 12; i++) {
+            const month = client.months && client.months[i] ? client.months[i] : "not_sent";
+            cells += `<td>
+              <select class="${month === "sent" ? "sent-status" : "not-sent-status"}"
+                onchange="onStatusChange(this); saveAndUpdate()">
+                <option value="not_sent" ${month === "not_sent" ? "selected" : ""}>Not Sent</option>
+                <option value="sent" ${month === "sent" ? "selected" : ""}>Sent</option>
+              </select>
+            </td>`;
+          }
+          cells += `<td><button class="delete-btn" onclick="deleteClient('${group.id}', ${clientIdx})">X</button></td>`;
+          tr.innerHTML = cells;
+          tbody.appendChild(tr);
+        });
+      });
+    }
+
+    function addGroupPrompt() {
+      const name = prompt("Enter group name (e.g., Dance, Fitness):");
+      if (!name) return;
+      // Assign default color class for custom groups
+      groups.push({ name, color: "group-custom", id: generateId(), clients: [] });
+      saveGroups();
+      renderTable();
+    }
+
+    function deleteGroup(gid) {
+      if (!confirm("Delete entire group?")) return;
+      groups = groups.filter(g => g.id !== gid);
+      saveGroups();
+      renderTable();
+    }
+
+    function addClient(gid) {
+      const group = groups.find(g => g.id === gid);
+      if (!group) return;
+      group.clients.push({});
+      saveGroups();
+      renderTable();
+    }
+
+    function deleteClient(gid, idx) {
+      const group = groups.find(g => g.id === gid);
+      if (!group) return;
+      group.clients.splice(idx, 1);
+      saveGroups();
+      renderTable();
+    }
+
+    // Save changes on input, select
+    function saveAndUpdate() {
+      const tbody = document.getElementById('trackerBody');
+      const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => !r.classList.contains('group-header-row'));
+      let clientCounter = 0;
+      groups.forEach(group => {
+        group.clients.forEach((client, cIdx) => {
+          const row = rows[clientCounter++];
+          if (!row) return;
+          const cells = row.querySelectorAll('td');
+          if (!cells.length) return;
+          client.name = cells[1].querySelector('input[type="text"]').value;
+          client.email = cells[2].querySelector('input[type="text"]').value;
+          client.months = [];
+          for (let i = 0; i < 12; i++) {
+            const select = cells[3 + i].querySelector('select');
+            client.months[i] = select.value;
+          }
+        });
+      });
+      saveGroups();
+      renderTable();
+    }
+
+    // Color dropdown backgrounds on load/change
+    function onStatusChange(sel) {
+      sel.className = sel.value === "sent" ? "sent-status" : "not-sent-status";
+    }
+
+    // Export emails as CSV
+    function exportEmailsToCSV() {
+      let csv = "Group,Name,Email,Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec\n";
+      groups.forEach(group => {
+        group.clients.forEach(client => {
+          // Only export if email is present
+          if ((client.email || '').trim() === "") return;
+          let row = [
+            `"${group.name.replace(/"/g, '""')}"`,
+            `"${(client.name || '').replace(/"/g, '""')}"`,
+            `"${client.email.replace(/"/g, '""')}"`,
+          ];
+          for (let i = 0; i < 12; i++) {
+            row.push(`"${client.months && client.months[i] ? client.months[i] : "not_sent"}"`);
+          }
+          csv += row.join(",") + "\n";
+        });
+      });
+      // Download CSV
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "emails.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // On page load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadGroups();
+      renderTable();
+      document.querySelectorAll('select').forEach(onStatusChange);
+    });
+
+    // Also color selects after each render
+    function afterRenderColorSelects() {
+      setTimeout(() => {
+        document.querySelectorAll('select').forEach(onStatusChange);
+      }, 0);
+    }
+    // Patch renderTable to also color selects
+    const oldRenderTable = renderTable;
+    renderTable = function() {
+      oldRenderTable();
+      afterRenderColorSelects();
+    };
+  </script>
+</body>
+</html>
