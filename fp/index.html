@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Photo Upload App</title>
-  <!-- Material Icons CDN -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
     body {
@@ -19,6 +18,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      gap: 12px;
       padding: 24px 0 12px 0;
       background: #2196f3;
       color: #fff;
@@ -26,23 +26,31 @@
       top: 0;
       z-index: 2;
     }
-    .camera-icon-label {
+    .header button {
+      background: none;
+      border: none;
       cursor: pointer;
+      outline: none;
       display: flex;
       flex-direction: column;
       align-items: center;
+      padding: 0;
     }
     .camera-icon {
       font-size: 80px;
-      margin: 0 auto;
       user-select: none;
       transition: background 0.2s;
       border-radius: 50%;
       background: rgba(255,255,255,0.12);
       padding: 20px;
     }
-    .camera-icon-label:active .camera-icon {
+    .header button:active .camera-icon {
       background: rgba(255,255,255,0.32);
+    }
+    .header-label {
+      font-size:0.95em;
+      margin-top:6px;
+      color: #fff;
     }
     .thumbnails {
       display: flex;
@@ -233,18 +241,16 @@
 </head>
 <body>
   <div class="header">
-    <label for="photo-input" class="camera-icon-label" title="Take or upload photo(s)">
+    <button id="take-photo-btn" type="button">
       <span class="material-icons camera-icon">photo_camera</span>
-      <input
-        id="photo-input"
-        type="file"
-        accept="image/*"
-        capture="environment"
-        style="display:none;"
-        multiple
-      >
-      <span style="font-size:0.95em;margin-top:6px;">Add Photos</span>
-    </label>
+      <span class="header-label">Take Photo</span>
+    </button>
+    <input id="take-photo-input" type="file" accept="image/*" capture="environment" style="display:none;">
+    <button id="upload-photos-btn" type="button">
+      <span class="material-icons camera-icon">collections</span>
+      <span class="header-label">Upload</span>
+    </button>
+    <input id="upload-photos-input" type="file" accept="image/*" multiple style="display:none;">
   </div>
   <div class="thumbnails" id="thumbnails"></div>
   <form class="form-section" id="item-form" autocomplete="off">
@@ -255,9 +261,7 @@
       Add Item
     </button>
   </form>
-  <ul class="item-list" id="item-list">
-    <!-- Items will be appended here -->
-  </ul>
+  <ul class="item-list" id="item-list"></ul>
   <!-- Popup for zoomed photo -->
   <div id="popup-backdrop" class="popup-backdrop" style="display:none;">
     <div class="popup-img-container">
@@ -268,51 +272,50 @@
   <script>
     let photoDataList = [];
 
-    const photoInput = document.getElementById('photo-input');
+    const takePhotoBtn = document.getElementById('take-photo-btn');
+    const takePhotoInput = document.getElementById('take-photo-input');
+    const uploadPhotosBtn = document.getElementById('upload-photos-btn');
+    const uploadPhotosInput = document.getElementById('upload-photos-input');
     const thumbnails = document.getElementById('thumbnails');
     const itemForm = document.getElementById('item-form');
     const itemList = document.getElementById('item-list');
     const titleInput = document.getElementById('title');
     const phoneInput = document.getElementById('phone');
-
-    // Popup elements
     const popupBackdrop = document.getElementById('popup-backdrop');
     const popupImg = document.getElementById('popup-img');
     const popupClose = document.getElementById('popup-close');
 
-    // Open popup with zoomed image
-    function openPopup(imgSrc) {
-      popupImg.src = imgSrc;
-      popupBackdrop.style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-    }
-    function closePopup() {
-      popupImg.src = '';
-      popupBackdrop.style.display = 'none';
-      document.body.style.overflow = '';
-    }
-    popupClose.onclick = closePopup;
-    popupBackdrop.onclick = function(e) {
-      if (e.target === popupBackdrop) closePopup();
+    // Open camera (single photo)
+    takePhotoBtn.onclick = () => takePhotoInput.click();
+    takePhotoInput.onchange = (e) => {
+      if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          photoDataList.push(evt.target.result);
+          renderThumbnails();
+        };
+        reader.readAsDataURL(file);
+      }
+      takePhotoInput.value = '';
     };
 
-    // Handle multiple photo uploads
-    photoInput.addEventListener('change', (e) => {
-      const files = Array.from(e.target.files);
-      if (files && files.length) {
-        files.forEach(file => {
-          const reader = new FileReader();
-          reader.onload = function(evt) {
-            photoDataList.push(evt.target.result);
-            renderThumbnails();
-          };
-          reader.readAsDataURL(file);
-        });
-      }
-      // Reset so that re-selecting the same file triggers change
-      photoInput.value = '';
-    });
+    // Upload from gallery (multiple photos)
+    uploadPhotosBtn.onclick = () => uploadPhotosInput.click();
+    uploadPhotosInput.onchange = (e) => {
+      const files = Array.from(e.target.files || []);
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          photoDataList.push(evt.target.result);
+          renderThumbnails();
+        };
+        reader.readAsDataURL(file);
+      });
+      uploadPhotosInput.value = '';
+    };
 
+    // Thumbnails
     function renderThumbnails() {
       thumbnails.innerHTML = '';
       photoDataList.forEach((data, idx) => {
@@ -338,15 +341,16 @@
       });
     }
 
-    itemForm.addEventListener('submit', function(e) {
+    // Add item form
+    itemForm.onsubmit = function(e) {
       e.preventDefault();
       if (!photoDataList.length) {
-        alert('Please take or upload at least one photo by tapping the camera icon.');
+        alert('Please take or upload at least one photo.');
         return;
       }
       const title = titleInput.value.trim();
       const phone = phoneInput.value.trim();
-      if(!title || !phone) return;
+      if (!title || !phone) return;
 
       const li = document.createElement('li');
       li.className = 'item';
@@ -385,18 +389,23 @@
       renderThumbnails();
       titleInput.value = '';
       phoneInput.value = '';
-    });
+    };
 
-    // Try to trigger device camera on mobile (best effort)
-    document.querySelector('.camera-icon-label').addEventListener('click', (e) => {
-      // If browser supports mediaDevices.getUserMedia, offer camera capture
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        // Show a camera capture overlay for photo (optional enhancement)
-        // For now, just trigger file input with capture attribute
-        photoInput.setAttribute('capture', 'environment');
-      }
-      photoInput.click();
-    });
+    // Popup zoom
+    function openPopup(imgSrc) {
+      popupImg.src = imgSrc;
+      popupBackdrop.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+    function closePopup() {
+      popupImg.src = '';
+      popupBackdrop.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+    popupClose.onclick = closePopup;
+    popupBackdrop.onclick = function(e) {
+      if (e.target === popupBackdrop) closePopup();
+    };
   </script>
 </body>
 </html>
