@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Photo Upload App</title>
+  <title>Food Ads App</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
     body {
@@ -23,30 +23,38 @@
       z-index: 2;
       display: flex;
       align-items: center;
-      justify-content: flex-end;
-      padding: 0 12px;
+      justify-content: space-between;
+      padding: 0 8px 0 8px;
     }
-    .upload-btn {
+    .search-btn, .upload-btn, .all-food-btn {
       background: none;
       border: none;
       cursor: pointer;
       outline: none;
       display: flex;
       align-items: center;
-      padding: 0;
+      padding: 0 6px;
       height: 40px;
     }
-    .upload-icon {
-      font-size: 32px;
+    .search-icon, .upload-icon, .all-food-icon {
+      font-size: 28px;
       user-select: none;
       border-radius: 50%;
-      background: rgba(255,255,255,0.16);
-      padding: 6px;
+      background: rgba(255,255,255,0.14);
+      padding: 4px;
       color: #fff;
       transition: background 0.2s;
     }
-    .upload-btn:active .upload-icon {
+    .search-btn:active .search-icon,
+    .upload-btn:active .upload-icon,
+    .all-food-btn:active .all-food-icon {
       background: rgba(255,255,255,0.32);
+    }
+    .all-food-label {
+      color: #fff;
+      font-size: 1em;
+      margin-left: 4px;
+      font-weight: 500;
     }
     .thumbnails {
       display: flex;
@@ -95,15 +103,19 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
     }
     .form-section input[type='text'],
-    .form-section input[type='tel'] {
+    .form-section input[type='tel'],
+    .form-section input[type='number'],
+    .form-section select {
       padding: 12px;
       border: 1px solid #ccc;
       border-radius: 6px;
       font-size: 16px;
     }
-    .form-section button {
+    .form-section button[type='submit'] {
       background: #2196f3;
       color: #fff;
       border: none;
@@ -115,6 +127,7 @@
       align-items: center;
       gap: 8px;
       justify-content: center;
+      margin-top: 5px;
     }
     .item-list {
       list-style: none;
@@ -158,7 +171,7 @@
       margin: 0;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
     }
     .info-list li {
       display: flex;
@@ -168,6 +181,7 @@
       color: #222;
       padding: 4px 0;
       border-radius: 4px;
+      word-break: break-word;
     }
     .info-list .material-icons {
       font-size: 1.25em;
@@ -184,6 +198,49 @@
     .info-list .adcode {
       color: #ff9100;
       background: #fff8e1;
+    }
+    .info-list .foodtype {
+      color: #ab47bc;
+      background: #f3e5f5;
+    }
+    .info-list .price {
+      color: #009688;
+      background: #e0f2f1;
+    }
+    .food-type-list {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px #0001;
+      padding: 12px 8px;
+      margin: 12px 16px 0 16px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      z-index: 10;
+    }
+    .food-type-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1.05em;
+      color: #333;
+      transition: background 0.12s;
+    }
+    .food-type-item:hover, .food-type-item.selected {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    .food-type-item .material-icons {
+      color: #ab47bc;
+      background: #f3e5f5;
+      border-radius: 50%;
+      padding: 3px;
+      font-size: 1.08em;
+      margin-right: 2px;
     }
     /* Popup styles */
     .popup-backdrop {
@@ -258,15 +315,28 @@
 </head>
 <body>
   <div class="header">
+    <button id="search-btn" class="search-btn" title="Search">
+      <span class="material-icons search-icon">search</span>
+    </button>
+    <button id="all-food-btn" class="all-food-btn" title="All Food Types">
+      <span class="material-icons all-food-icon">restaurant_menu</span>
+      <span class="all-food-label">All Food</span>
+    </button>
     <button id="upload-photos-btn" type="button" class="upload-btn" title="Upload photos">
       <span class="material-icons upload-icon">collections</span>
     </button>
     <input id="upload-photos-input" type="file" accept="image/*" multiple style="display:none;">
   </div>
+  <!-- Food types list -->
+  <div id="food-type-list" class="food-type-list"></div>
   <div class="thumbnails" id="thumbnails"></div>
   <form class="form-section" id="item-form" autocomplete="off">
     <input type="text" id="title" placeholder="Title" required maxlength="40">
-    <input type="tel" id="phone" placeholder="WhatsApp Phone Number" required pattern="^\+?\d{10,15}$">
+    <input type="tel" id="phone" placeholder="WhatsApp Phone Number (+923451234567)" required pattern="^\+92\d{10}$">
+    <input type="number" id="price" min="1" placeholder="Price (Rs)" required>
+    <select id="food-type" required>
+      <option value="" selected disabled>Select Food Type</option>
+    </select>
     <button type="submit">
       <span class="material-icons">add_circle</span>
       Add Item
@@ -281,7 +351,26 @@
     </div>
   </div>
   <script>
+    // 10 food types with icons
+    const FOOD_TYPES = [
+      { value: "pizza", label: "Pizza", icon: "local_pizza" },
+      { value: "burger", label: "Burger", icon: "fastfood" },
+      { value: "biryani", label: "Biryani", icon: "lunch_dining" },
+      { value: "barbecue", label: "Barbecue", icon: "outdoor_grill" },
+      { value: "dessert", label: "Dessert", icon: "cake" },
+      { value: "icecream", label: "Ice Cream", icon: "icecream" },
+      { value: "chinese", label: "Chinese", icon: "ramen_dining" },
+      { value: "rolls", label: "Rolls", icon: "wrap_text" },
+      { value: "shawarma", label: "Shawarma", icon: "kebab_dining" },
+      { value: "juice", label: "Juice", icon: "local_drink" }
+    ];
+
     let photoDataList = [];
+    let ads = [];
+    let shownFoodType = null; // null means show all
+
+    // Collect posted food types for "All Food" list
+    let postedFoodTypes = [];
 
     const uploadPhotosBtn = document.getElementById('upload-photos-btn');
     const uploadPhotosInput = document.getElementById('upload-photos-input');
@@ -290,9 +379,22 @@
     const itemList = document.getElementById('item-list');
     const titleInput = document.getElementById('title');
     const phoneInput = document.getElementById('phone');
+    const priceInput = document.getElementById('price');
+    const foodTypeSelect = document.getElementById('food-type');
     const popupBackdrop = document.getElementById('popup-backdrop');
     const popupImg = document.getElementById('popup-img');
     const popupClose = document.getElementById('popup-close');
+    const allFoodBtn = document.getElementById('all-food-btn');
+    const foodTypeListDiv = document.getElementById('food-type-list');
+    const searchBtn = document.getElementById('search-btn');
+
+    // Populate food type dropdown
+    FOOD_TYPES.forEach(ft => {
+      const option = document.createElement('option');
+      option.value = ft.value;
+      option.textContent = ft.label;
+      foodTypeSelect.appendChild(option);
+    });
 
     // Upload from gallery (multiple photos)
     uploadPhotosBtn.onclick = () => uploadPhotosInput.click();
@@ -309,7 +411,6 @@
       uploadPhotosInput.value = '';
     };
 
-    // Thumbnails
     function renderThumbnails() {
       thumbnails.innerHTML = '';
       photoDataList.forEach((data, idx) => {
@@ -337,7 +438,6 @@
 
     // Generate a random Ad-Code string
     function generateAdCode() {
-      // Generates a random string like kshdsa8yddyd7
       const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
       let code = '';
       for (let i = 0; i < 13; i++) {
@@ -346,60 +446,126 @@
       return code;
     }
 
+    // Validate phone number format: +923XXXXXXXXX
+    function isValidPKPhone(phone) {
+      return /^\+92\d{10}$/.test(phone);
+    }
+
     // Add item form
     itemForm.onsubmit = function(e) {
       e.preventDefault();
+      // Validate images
       if (!photoDataList.length) {
         alert('Please upload at least one photo.');
         return;
       }
-      const title = titleInput.value.trim();
+      // Validate phone
       const phone = phoneInput.value.trim();
-      if (!title || !phone) return;
+      if (!isValidPKPhone(phone)) {
+        alert('Please enter WhatsApp number in this format: +923451234567');
+        phoneInput.focus();
+        return;
+      }
+      const title = titleInput.value.trim();
+      const price = priceInput.value.trim();
+      const foodType = foodTypeSelect.value;
+      if (!title || !phone || !price || !foodType) return;
 
       const adCode = generateAdCode();
 
-      const li = document.createElement('li');
-      li.className = 'item';
+      // Track posted food types for All Food button
+      if (!postedFoodTypes.includes(foodType)) {
+        postedFoodTypes.push(foodType);
+      }
 
-      const imagesDiv = document.createElement('div');
-      imagesDiv.className = 'item-images';
-      photoDataList.forEach(src => {
-        const img = document.createElement('img');
-        img.src = src;
-        img.alt = title;
-        img.onclick = () => openPopup(src);
-        imagesDiv.appendChild(img);
-      });
-
-      // Info list with better icons
-      const infoList = document.createElement('ul');
-      infoList.className = 'info-list';
-
-      const titleLi = document.createElement('li');
-      // Use "label" or "info" icon for title (material icon)
-      titleLi.innerHTML = `<span class="material-icons">label_important</span> <span>${title}</span>`;
-      infoList.appendChild(titleLi);
-
-      const phoneLi = document.createElement('li');
-      phoneLi.innerHTML = `<span class="material-icons wa">whatsapp</span> <span>${phone}</span>`;
-      infoList.appendChild(phoneLi);
-
-      const adLi = document.createElement('li');
-      adLi.innerHTML = `<span class="material-icons adcode">confirmation_number</span> <span>Ad-Code: <b>${adCode}</b></span>`;
-      infoList.appendChild(adLi);
-
-      li.appendChild(imagesDiv);
-      li.appendChild(infoList);
-
-      itemList.prepend(li);
+      const ad = {
+        images: [...photoDataList],
+        title,
+        phone,
+        price,
+        foodType,
+        adCode
+      };
+      ads.unshift(ad);
 
       // Reset
       photoDataList = [];
       renderThumbnails();
       titleInput.value = '';
       phoneInput.value = '';
+      priceInput.value = '';
+      foodTypeSelect.value = '';
+
+      shownFoodType = null;
+      renderAds();
     };
+
+    // Render ads list
+    function renderAds() {
+      itemList.innerHTML = '';
+      let filteredAds = ads;
+      if (shownFoodType) {
+        filteredAds = ads.filter(ad => ad.foodType === shownFoodType);
+      }
+      filteredAds.forEach(ad => {
+        const li = document.createElement('li');
+        li.className = 'item';
+
+        const imagesDiv = document.createElement('div');
+        imagesDiv.className = 'item-images';
+        ad.images.forEach(src => {
+          const img = document.createElement('img');
+          img.src = src;
+          img.alt = ad.title;
+          img.onclick = () => openPopup(src);
+          imagesDiv.appendChild(img);
+        });
+
+        // Info list
+        const infoList = document.createElement('ul');
+        infoList.className = 'info-list';
+
+        const titleLi = document.createElement('li');
+        titleLi.innerHTML =
+          `<span class="material-icons">label_important</span> <span>${ad.title}</span>`;
+        infoList.appendChild(titleLi);
+
+        const priceLi = document.createElement('li');
+        priceLi.innerHTML =
+          `<span class="material-icons price">attach_money</span> <span>Rs ${ad.price}</span>`;
+        infoList.appendChild(priceLi);
+
+        const foodTypeObj = FOOD_TYPES.find(f => f.value === ad.foodType);
+        const foodTypeLi = document.createElement('li');
+        foodTypeLi.innerHTML =
+          `<span class="material-icons foodtype">${foodTypeObj ? foodTypeObj.icon : "restaurant"}</span> <span>${foodTypeObj ? foodTypeObj.label : ad.foodType}</span>`;
+        infoList.appendChild(foodTypeLi);
+
+        const phoneLi = document.createElement('li');
+        const phoneLink = document.createElement('a');
+        phoneLink.href = `https://wa.me/${ad.phone.replace('+','')}`;
+        phoneLink.target = "_blank";
+        phoneLink.rel = "noopener noreferrer";
+        phoneLink.textContent = ad.phone;
+        phoneLink.style.color = "#25D366";
+        phoneLink.style.fontWeight = "bold";
+        phoneLink.style.textDecoration = "underline";
+        phoneLink.title = "Chat on WhatsApp";
+        phoneLi.innerHTML = `<span class="material-icons wa">whatsapp</span> `;
+        phoneLi.appendChild(phoneLink);
+        infoList.appendChild(phoneLi);
+
+        const adLi = document.createElement('li');
+        adLi.innerHTML =
+          `<span class="material-icons adcode">confirmation_number</span> <span>Ad-Code: <b>${ad.adCode}</b></span>`;
+        infoList.appendChild(adLi);
+
+        li.appendChild(imagesDiv);
+        li.appendChild(infoList);
+
+        itemList.appendChild(li);
+      });
+    }
 
     // Popup zoom
     function openPopup(imgSrc) {
@@ -416,6 +582,63 @@
     popupBackdrop.onclick = function(e) {
       if (e.target === popupBackdrop) closePopup();
     };
+
+    // Food types list (All Food button)
+    allFoodBtn.onclick = function() {
+      // Show foodTypeListDiv with only types that have been posted
+      foodTypeListDiv.innerHTML = '';
+      let showTypes = postedFoodTypes
+        .map(v => FOOD_TYPES.find(f => f.value === v))
+        .filter(Boolean);
+      if (!showTypes.length) {
+        foodTypeListDiv.style.display = 'none';
+        return;
+      }
+      showTypes.forEach(ft => {
+        const div = document.createElement('div');
+        div.className = 'food-type-item';
+        if (ft.value === shownFoodType) div.classList.add('selected');
+        div.innerHTML = `<span class="material-icons">${ft.icon}</span> <span>${ft.label}</span>`;
+        div.onclick = () => {
+          shownFoodType = ft.value;
+          foodTypeListDiv.style.display = 'none';
+          renderAds();
+        };
+        foodTypeListDiv.appendChild(div);
+      });
+      // Add "Show All" option
+      const divAll = document.createElement('div');
+      divAll.className = 'food-type-item';
+      if (!shownFoodType) divAll.classList.add('selected');
+      divAll.innerHTML = `<span class="material-icons">restaurant_menu</span> <span>Show All</span>`;
+      divAll.onclick = () => {
+        shownFoodType = null;
+        foodTypeListDiv.style.display = 'none';
+        renderAds();
+      };
+      foodTypeListDiv.appendChild(divAll);
+
+      foodTypeListDiv.style.display = 'flex';
+    };
+
+    // Clicking outside food type list closes it
+    document.addEventListener('click', function(e) {
+      if (
+        foodTypeListDiv.style.display === 'flex' &&
+        !foodTypeListDiv.contains(e.target) &&
+        e.target !== allFoodBtn
+      ) {
+        foodTypeListDiv.style.display = 'none';
+      }
+    });
+
+    // Search button action (just focus title input for demo)
+    searchBtn.onclick = function() {
+      titleInput.focus();
+    };
+
+    // Show all ads on load
+    renderAds();
   </script>
 </body>
 </html>
