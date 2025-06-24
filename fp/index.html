@@ -191,10 +191,6 @@
       padding: 3px;
       margin-right: 3px;
     }
-    .info-list .wa {
-      color: #25D366;
-      background: #e6f9eb;
-    }
     .info-list .adcode {
       color: #ff9100;
       background: #fff8e1;
@@ -311,6 +307,21 @@
         height: 56px;
       }
     }
+    /* Search bar styles */
+    #search-bar-container {
+      display: none;
+      padding: 8px 16px 0 16px;
+      background: #fafafa;
+    }
+    #search-bar {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #2196f3;
+      border-radius: 6px;
+      font-size: 1em;
+      margin-bottom: 8px;
+      background: #fff;
+    }
   </style>
 </head>
 <body>
@@ -326,6 +337,10 @@
       <span class="material-icons upload-icon">collections</span>
     </button>
     <input id="upload-photos-input" type="file" accept="image/*" multiple style="display:none;">
+  </div>
+  <!-- Search bar -->
+  <div id="search-bar-container">
+    <input type="text" id="search-bar" placeholder="Search ads by title..." autocomplete="off">
   </div>
   <!-- Food types list -->
   <div id="food-type-list" class="food-type-list"></div>
@@ -368,9 +383,8 @@
     let photoDataList = [];
     let ads = [];
     let shownFoodType = null; // null means show all
-
-    // Collect posted food types for "All Food" list
     let postedFoodTypes = [];
+    let searchQuery = "";
 
     const uploadPhotosBtn = document.getElementById('upload-photos-btn');
     const uploadPhotosInput = document.getElementById('upload-photos-input');
@@ -387,6 +401,8 @@
     const allFoodBtn = document.getElementById('all-food-btn');
     const foodTypeListDiv = document.getElementById('food-type-list');
     const searchBtn = document.getElementById('search-btn');
+    const searchBarContainer = document.getElementById('search-bar-container');
+    const searchBar = document.getElementById('search-bar');
 
     // Populate food type dropdown
     FOOD_TYPES.forEach(ft => {
@@ -396,7 +412,6 @@
       foodTypeSelect.appendChild(option);
     });
 
-    // Upload from gallery (multiple photos)
     uploadPhotosBtn.onclick = () => uploadPhotosInput.click();
     uploadPhotosInput.onchange = (e) => {
       const files = Array.from(e.target.files || []);
@@ -436,7 +451,6 @@
       });
     }
 
-    // Generate a random Ad-Code string
     function generateAdCode() {
       const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
       let code = '';
@@ -446,20 +460,16 @@
       return code;
     }
 
-    // Validate phone number format: +923XXXXXXXXX
     function isValidPKPhone(phone) {
       return /^\+92\d{10}$/.test(phone);
     }
 
-    // Add item form
     itemForm.onsubmit = function(e) {
       e.preventDefault();
-      // Validate images
       if (!photoDataList.length) {
         alert('Please upload at least one photo.');
         return;
       }
-      // Validate phone
       const phone = phoneInput.value.trim();
       if (!isValidPKPhone(phone)) {
         alert('Please enter WhatsApp number in this format: +923451234567');
@@ -472,12 +482,9 @@
       if (!title || !phone || !price || !foodType) return;
 
       const adCode = generateAdCode();
-
-      // Track posted food types for All Food button
       if (!postedFoodTypes.includes(foodType)) {
         postedFoodTypes.push(foodType);
       }
-
       const ad = {
         images: [...photoDataList],
         title,
@@ -487,25 +494,28 @@
         adCode
       };
       ads.unshift(ad);
-
-      // Reset
       photoDataList = [];
       renderThumbnails();
       titleInput.value = '';
       phoneInput.value = '';
       priceInput.value = '';
       foodTypeSelect.value = '';
-
       shownFoodType = null;
+      searchQuery = "";
+      searchBar.value = "";
       renderAds();
     };
 
-    // Render ads list
     function renderAds() {
       itemList.innerHTML = '';
       let filteredAds = ads;
       if (shownFoodType) {
-        filteredAds = ads.filter(ad => ad.foodType === shownFoodType);
+        filteredAds = filteredAds.filter(ad => ad.foodType === shownFoodType);
+      }
+      if (searchQuery) {
+        filteredAds = filteredAds.filter(ad =>
+          ad.title.toLowerCase().includes(searchQuery.toLowerCase())
+        );
       }
       filteredAds.forEach(ad => {
         const li = document.createElement('li');
@@ -521,7 +531,6 @@
           imagesDiv.appendChild(img);
         });
 
-        // Info list
         const infoList = document.createElement('ul');
         infoList.className = 'info-list';
 
@@ -542,6 +551,7 @@
         infoList.appendChild(foodTypeLi);
 
         const phoneLi = document.createElement('li');
+        // No icon for the phone number, just clickable green text
         const phoneLink = document.createElement('a');
         phoneLink.href = `https://wa.me/${ad.phone.replace('+','')}`;
         phoneLink.target = "_blank";
@@ -551,7 +561,6 @@
         phoneLink.style.fontWeight = "bold";
         phoneLink.style.textDecoration = "underline";
         phoneLink.title = "Chat on WhatsApp";
-        phoneLi.innerHTML = `<span class="material-icons wa">whatsapp</span> `;
         phoneLi.appendChild(phoneLink);
         infoList.appendChild(phoneLi);
 
@@ -567,7 +576,6 @@
       });
     }
 
-    // Popup zoom
     function openPopup(imgSrc) {
       popupImg.src = imgSrc;
       popupBackdrop.style.display = 'flex';
@@ -584,8 +592,8 @@
     };
 
     // Food types list (All Food button)
-    allFoodBtn.onclick = function() {
-      // Show foodTypeListDiv with only types that have been posted
+    allFoodBtn.onclick = function(e) {
+      e.stopPropagation();
       foodTypeListDiv.innerHTML = '';
       let showTypes = postedFoodTypes
         .map(v => FOOD_TYPES.find(f => f.value === v))
@@ -599,7 +607,8 @@
         div.className = 'food-type-item';
         if (ft.value === shownFoodType) div.classList.add('selected');
         div.innerHTML = `<span class="material-icons">${ft.icon}</span> <span>${ft.label}</span>`;
-        div.onclick = () => {
+        div.onclick = (ev) => {
+          ev.stopPropagation();
           shownFoodType = ft.value;
           foodTypeListDiv.style.display = 'none';
           renderAds();
@@ -611,7 +620,8 @@
       divAll.className = 'food-type-item';
       if (!shownFoodType) divAll.classList.add('selected');
       divAll.innerHTML = `<span class="material-icons">restaurant_menu</span> <span>Show All</span>`;
-      divAll.onclick = () => {
+      divAll.onclick = (ev) => {
+        ev.stopPropagation();
         shownFoodType = null;
         foodTypeListDiv.style.display = 'none';
         renderAds();
@@ -621,7 +631,6 @@
       foodTypeListDiv.style.display = 'flex';
     };
 
-    // Clicking outside food type list closes it
     document.addEventListener('click', function(e) {
       if (
         foodTypeListDiv.style.display === 'flex' &&
@@ -632,12 +641,38 @@
       }
     });
 
-    // Search button action (just focus title input for demo)
-    searchBtn.onclick = function() {
-      titleInput.focus();
+    // SEARCH FUNCTIONALITY
+    searchBtn.onclick = function(e) {
+      e.stopPropagation();
+      if (searchBarContainer.style.display === "block") {
+        searchBarContainer.style.display = "none";
+        searchBar.value = "";
+        searchQuery = "";
+        renderAds();
+      } else {
+        searchBarContainer.style.display = "block";
+        searchBar.focus();
+      }
+      foodTypeListDiv.style.display = "none";
     };
+    searchBar.oninput = function() {
+      searchQuery = searchBar.value.trim();
+      renderAds();
+    };
+    // Hide search if user clicks outside
+    document.addEventListener('click', function(e) {
+      if (
+        searchBarContainer.style.display === 'block' &&
+        !searchBarContainer.contains(e.target) &&
+        e.target !== searchBtn
+      ) {
+        searchBarContainer.style.display = "none";
+        searchBar.value = "";
+        searchQuery = "";
+        renderAds();
+      }
+    });
 
-    // Show all ads on load
     renderAds();
   </script>
 </body>
