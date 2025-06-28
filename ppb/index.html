@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1211,10 +1210,18 @@ body {
     document.body.classList.remove("blurred");
   }
   function getStoredKey() {
-    return localStorage.getItem(KEY_STORAGE);
+    try {
+      return localStorage.getItem(KEY_STORAGE);
+    } catch (e) {
+      return null;
+    }
   }
   function saveKey(addr) {
-    localStorage.setItem(KEY_STORAGE, addr);
+    try {
+      localStorage.setItem(KEY_STORAGE, addr);
+    } catch (e) {
+      // Optionally inform the user
+    }
   }
   function afterKeySet(addr) {
     WALLETS.available = addr;
@@ -1223,7 +1230,9 @@ body {
     document.body.classList.remove("blurred");
   }
   document.getElementById('deleteKeyBtn').onclick = function() {
-    localStorage.removeItem(KEY_STORAGE);
+    try {
+      localStorage.removeItem(KEY_STORAGE);
+    } catch (e) {}
     document.getElementById('keyShortValue').textContent = "---";
     showKeyModal();
   };
@@ -1268,40 +1277,6 @@ body {
     modal.classList.remove('active');
     document.getElementById('fullscreenImg').src = "";
   }
-  document.addEventListener("DOMContentLoaded", function() {
-    var images = document.querySelectorAll('.product-image');
-    images.forEach(function(img) {
-      img.addEventListener('click', function() {
-        showFullscreenImage(img.src);
-      });
-    });
-    document.getElementById('closeModalBtn').onclick = closeFullscreenImage;
-    document.getElementById('fullscreenModal').onclick = function(e) {
-      if (e.target === this) closeFullscreenImage();
-    };
-    document.getElementById('keyModalOverlay').onclick = function(e) {
-      if (e.target === this) return false;
-    };
-    renderBeautifulUpdatesTab();
-    renderUpdatesTabBadge();
-  });
-  // Fetch all balances for each box
-  function fetchAllBalances() {
-    fetchPPC(WALLETS.spent, "spentPPC");
-    fetchPPC(WALLETS.inspending, "spendingPPC");
-    fetchPPC(WALLETS.returned, "returnedPPC");
-    fetchPPC(WALLETS.available, "availablePPC");
-  }
-  // On load, check for key and blur content if not set
-  (function() {
-    let addr = getStoredKey();
-    if (!addr || !/^0x[a-fA-F0-9]{40}$/.test(addr)) {
-      showKeyModal();
-    } else {
-      afterKeySet(addr);
-      setInterval(fetchAllBalances, 60000); // every 60 seconds
-    }
-  })();
 
   // --- Updates Tab Section ---
   const updates = [
@@ -1417,6 +1392,47 @@ body {
     const badge = document.getElementById('updatesTabBadge');
     badge.textContent = updates.length > 99 ? "99+" : updates.length;
   }
+
+  // Fetch all balances for each box
+  function fetchAllBalances() {
+    fetchPPC(WALLETS.spent, "spentPPC");
+    fetchPPC(WALLETS.inspending, "spendingPPC");
+    fetchPPC(WALLETS.returned, "returnedPPC");
+    fetchPPC(WALLETS.available, "availablePPC");
+  }
+
+  // Global error handler for debugging mobile issues
+  window.onerror = function(message, source, lineno, colno, error) {
+    alert("JS Error: " + message + "\n" + source + ":" + lineno);
+  };
+
+  document.addEventListener("DOMContentLoaded", function() {
+    // Image modal logic
+    var images = document.querySelectorAll('.product-image');
+    images.forEach(function(img) {
+      img.addEventListener('click', function() {
+        showFullscreenImage(img.src);
+      });
+    });
+    document.getElementById('closeModalBtn').onclick = closeFullscreenImage;
+    document.getElementById('fullscreenModal').onclick = function(e) {
+      if (e.target === this) closeFullscreenImage();
+    };
+    document.getElementById('keyModalOverlay').onclick = function(e) {
+      if (e.target === this) return false;
+    };
+    renderBeautifulUpdatesTab();
+    renderUpdatesTabBadge();
+
+    // Key check logic
+    let addr = getStoredKey();
+    if (!addr || !/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+      showKeyModal();
+    } else {
+      afterKeySet(addr);
+      setInterval(fetchAllBalances, 60000); // every 60 seconds
+    }
+  });
 </script>
 </body>
 </html>
