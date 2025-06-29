@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +291,34 @@
       font-size: 1.15em;
       box-shadow: 0 1px 8px #1e293b22;
     }
+    .upload-progress-list {
+      list-style: none;
+      margin: 0 0 0.5em 0;
+      padding: 0;
+    }
+    .upload-progress-list li {
+      background: #151d2a;
+      border-radius: 6px;
+      margin-bottom: 0.35em;
+      padding: 0.6em 0.9em 0.6em 0.85em;
+      display: flex;
+      align-items: center;
+      gap: 0.7em;
+      font-size: 1em;
+      border: 1.3px solid #27447b;
+      box-shadow: 0 1px 6px #0e172a15;
+      color: #b8e0ff;
+      font-weight: 500;
+    }
+    .upload-progress-list .file-done {
+      color: var(--success);
+    }
+    .upload-progress-list .file-error {
+      color: var(--danger);
+    }
+    .upload-progress-list .file-pending {
+      color: #3b82f6;
+    }
     /* FAQ Modal Overlay */
 .faq-modal-bg {
   display: none;
@@ -512,13 +539,10 @@
       <li>
         <span class="material-icons" style="color:#3b82f6">email</span>
         <strong>5. Track Campaign Progress:</strong>
-        Enter your email to receive real-time updates at each key stage of the campaign.
+        Enter your campaign ID to see the campaign status and results.
         <ul>
-          <li>🖨 Printing confirmation</li>
-          <li>📸 Photo proof of printed flyers</li>
-          <li>🛰 GPS-based delivery tracking</li>
-          <li>✅ Final delivery confirmation</li>
-          <li>You’ll receive automatic emails with proof of work and status updates.</li>
+          <li>You will receive a unique campaign ID after starting your campaign.</li>
+          <li>Bookmark the link provided to get live progress updates (link is live within 24h).</li>
         </ul>
       </li>
     </ol>
@@ -555,11 +579,12 @@
         <input type="file" id="flyerFiles" name="flyer" accept=".pdf,image/png,image/jpeg" multiple required>
         <div class="preview-images" id="previewImages"></div>
         <button type="submit" class="lfc-upload-btn"><span class="material-icons">send</span>Send</button>
+        <ul class="upload-progress-list" id="uploadProgressList" style="display:none"></ul>
         <div class="lfc-upload-status" id="lfc-upload-status"></div>
       </form>
     </div>
 
-    <!-- Step 4: Enter LFC Key (Wallet) -->
+    <!-- Step 4: Enter LFC Key (Wallet) & show campaign ID -->
     <div class="step-panel hidden" id="step4-panel">
       <div class="step-title-flex step-title">
         <span class="step-number"><span class="material-icons">key</span>4</span>
@@ -585,30 +610,27 @@
         </div>
         <input type="text" id="lfcKeyInput" placeholder="Paste your LFC credit key (wallet address) here" style="margin-bottom:0.7em;width:100%;">
         <div id="step4-extra"></div>
+        <div id="campaignIdBox" style="margin: 1em 0 0.3em 0; display:none; background:#132943; border-radius:8px; padding:0.7em 1.1em; border:1.2px solid #3b82f6;">
+          <span class="material-icons" style="font-size:1.1em;vertical-align:-0.15em;">vpn_key</span>
+          <b>Your Campaign ID:</b>
+          <span id="campaignIdVal" style="font-family:monospace;color:#ffb400;margin-left:.7em;font-size:1.12em;"></span>
+          <br>
+          <span style="color:#c9e0fd;font-size:0.97em;">Save this Campaign ID safely! You will need it to track your campaign.</span>
+        </div>
         <button type="button" class="lfc-start-btn" id="lfcStartBtn" disabled><span class="material-icons">play_arrow</span>Start Campaign</button>
       </div>
       <div id="step4-msg" class="lfc-upload-status"></div>
     </div>
 
-    <!-- Step 5: Campaign Progress & Email -->
+    <!-- Step 5: Campaign Progress & Campaign ID input -->
     <div class="step-panel hidden" id="step5-panel">
       <div class="step-title"><span class="step-number"><span class="material-icons">email</span>5</span>Track your campaign progress</div>
       <div class="step-content" id="step5-content">
-        <form id="progressEmailForm" autocomplete="off" style="margin-top:0.5em;">
-          <input type="email" id="progressEmail" placeholder="Enter your email to receive campaign updates and proofs"
-                 required style="max-width:350px;display:inline-block;margin-bottom:0.45em;">
-          <button type="submit" class="lfc-progress-btn"><span class="material-icons">send</span>Submit Email</button>
+        <form id="campaignIdForm" autocomplete="off" style="margin-top:0.5em;">
+          <input type="text" id="campaignIdInput" placeholder="Enter your Campaign ID (e.g. fn4urf)" required style="max-width:250px;display:inline-block;margin-bottom:0.45em;">
+          <button type="submit" class="lfc-progress-btn"><span class="material-icons">search</span>Show Progress</button>
         </form>
-        <div id="progressEmailStatus" class="lfc-upload-status"></div>
-        <div id="progressInfo" style="display:none;">
-          <div style="margin:1.1em 0 0.4em 0;font-weight:600;">You will soon receive:</div>
-          <ul style="color:#e6f6ff;font-size:1.05em;line-height:1.7;padding-left:1.5em;">
-            <li><span class="material-icons" style="font-size:1em;vertical-align:middle;color:#3b82f6;">local_printshop</span> Flyers are in printing process</li>
-            <li><span class="material-icons" style="font-size:1em;vertical-align:middle;color:#10b981;">check_circle</span> Flyers are printed with photo proof</li>
-            <li><span class="material-icons" style="font-size:1em;vertical-align:middle;color:#3b82f6;">map</span> Flyers are being distributed (GPS and on-map zone completion updates)</li>
-            <li><span class="material-icons" style="font-size:1em;vertical-align:middle;color:#f7c873;">flag</span> Campaign completed</li>
-          </ul>
-        </div>
+        <div id="campaignProgressStatus" class="lfc-upload-status"></div>
       </div>
     </div>
   </div>
@@ -647,6 +669,7 @@
     let campaignStarted = false;
     let campaignWallet = '';
     let campaignAreaInfo = '';
+    let campaignId = '';
 
     // Step 1: Map setup
     function rectangleAreaMeters(bounds) {
@@ -691,19 +714,23 @@
       campaignStarted = false;
       campaignWallet = '';
       campaignAreaInfo = '';
+      campaignId = '';
       showStep(1);
       document.getElementById('areaEstimate').textContent = "";
       document.getElementById('lfc-upload-status').textContent = "";
       document.getElementById('lfcKeyInput').value = "";
       document.getElementById('step4-msg').textContent = "";
       document.getElementById('lfcStartBtn').disabled = true;
-      document.getElementById('progressEmail').value = "";
-      document.getElementById('progressEmailStatus').textContent = "";
-      document.getElementById('progressInfo').style.display = "none";
       document.getElementById('previewImages').innerHTML = "";
       document.getElementById('flyerFiles').value = "";
       document.getElementById('lfcRequiredLabel').innerText = "";
       document.getElementById('lfcRequiredAgain').innerText = "?";
+      document.getElementById('campaignIdBox').style.display = "none";
+      document.getElementById('campaignIdVal').innerText = "";
+      document.getElementById('campaignIdInput').value = "";
+      document.getElementById('campaignProgressStatus').innerText = "";
+      document.getElementById('uploadProgressList').innerHTML = "";
+      document.getElementById('uploadProgressList').style.display = "none";
     }
     function setupMap() {
       map = L.map('map').setView([50.8503, 4.3517], 9);
@@ -800,11 +827,14 @@
       showStep(3);
     };
 
-    // Step 3: Flyer upload (multiple, preview)
+    // Step 3: Flyer upload (multiple, preview, progress)
     const flyerFilesInput = document.getElementById('flyerFiles');
     const previewImagesDiv = document.getElementById('previewImages');
+    const uploadProgressList = document.getElementById('uploadProgressList');
     flyerFilesInput.addEventListener('change', function(e) {
       previewImagesDiv.innerHTML = "";
+      uploadProgressList.innerHTML = "";
+      uploadProgressList.style.display = "none";
       const files = flyerFilesInput.files;
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -828,6 +858,8 @@
       e.preventDefault();
       const statusDiv = document.getElementById('lfc-upload-status');
       statusDiv.textContent = "";
+      uploadProgressList.innerHTML = "";
+      uploadProgressList.style.display = "none";
       const btn = document.querySelector('.lfc-upload-btn');
       btn.disabled = true;
       const files = flyerFilesInput.files;
@@ -837,19 +869,42 @@
         return;
       }
       let hasValid = false;
+      let fileNames = [];
       for (let i = 0; i < files.length; i++) {
-        if (['application/pdf', 'image/png', 'image/jpeg'].includes(files[i].type)) hasValid = true;
+        if (['application/pdf', 'image/png', 'image/jpeg'].includes(files[i].type)) {
+          hasValid = true;
+          fileNames.push(files[i].name);
+        }
       }
       if (!hasValid) {
         statusDiv.innerHTML = `<span class="lfc-upload-error"><span class="material-icons">error</span>Only PDF, PNG, or JPEG allowed.</span>`;
         btn.disabled = false;
         return;
       }
-      statusDiv.innerHTML = `<span style="color:#3b82f6;"><span class="material-icons" style="vertical-align:-0.18em;">autorenew</span> Sending...</span>`;
+
+      // Show upload progress UI
+      uploadProgressList.innerHTML = "";
+      for (let i = 0; i < files.length; i++) {
+        uploadProgressList.innerHTML += `
+          <li id="fileprogress_${i}" class="file-pending">
+            <span class="material-icons file-status-icon">hourglass_empty</span>
+            <span>${files[i].name}</span>
+            <span class="file-status-msg">Waiting...</span>
+          </li>
+        `;
+      }
+      uploadProgressList.style.display = "";
+
       try {
         let sent = 0, errors = 0;
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
+          const fileStatusEl = document.getElementById(`fileprogress_${i}`);
+          fileStatusEl.querySelector('.file-status-icon').innerText = "autorenew";
+          fileStatusEl.querySelector('.file-status-msg').innerText = "Sending...";
+          fileStatusEl.classList.remove("file-done", "file-error", "file-pending");
+          fileStatusEl.classList.add("file-pending");
+
           const formData = new FormData();
           if (file.type === 'application/pdf') {
             formData.append('document', file);
@@ -859,17 +914,42 @@
           formData.append('caption', `Flyer upload for this area\n${boxInfoText(currentBounds, stats)}`);
           formData.append('chat_id', chatId);
           const url = `https://api.telegram.org/bot${botToken}/${file.type === 'application/pdf' ? 'sendDocument' : 'sendPhoto'}`;
-          const res = await fetch(url, { method: 'POST', body: formData });
-          if (!res.ok) errors++;
-          else sent++;
+
+          try {
+            const res = await fetch(url, { method: 'POST', body: formData });
+            if (res.ok) {
+              fileStatusEl.querySelector('.file-status-icon').innerText = "check_circle";
+              fileStatusEl.querySelector('.file-status-msg').innerText = "Sent";
+              fileStatusEl.classList.remove("file-pending");
+              fileStatusEl.classList.add("file-done");
+              sent++;
+            } else {
+              fileStatusEl.querySelector('.file-status-icon').innerText = "error";
+              fileStatusEl.querySelector('.file-status-msg').innerText = "Failed";
+              fileStatusEl.classList.remove("file-pending");
+              fileStatusEl.classList.add("file-error");
+              errors++;
+            }
+          } catch (err) {
+            fileStatusEl.querySelector('.file-status-icon').innerText = "error";
+            fileStatusEl.querySelector('.file-status-msg').innerText = "Failed";
+            fileStatusEl.classList.remove("file-pending");
+            fileStatusEl.classList.add("file-error");
+            errors++;
+          }
         }
-        if (sent > 0) {
-          statusDiv.innerHTML = `<span class="lfc-upload-success"><span class="material-icons">check_circle</span>Sent successfully!<br>Enter your wallet address (LFC credit key) to continue.</span>`;
+        if (sent > 0 && errors === 0) {
+          statusDiv.innerHTML = `<span class="lfc-upload-success"><span class="material-icons">check_circle</span>All files sent successfully!<br>Enter your wallet address (LFC credit key) to continue.</span>`;
+          flyerUploaded = true;
+          showStep(4);
+          updateStep4();
+        } else if (sent > 0 && errors > 0) {
+          statusDiv.innerHTML = `<span class="lfc-upload-success"><span class="material-icons">check_circle</span>${sent} file(s) sent.<br></span><span class="lfc-upload-error"><span class="material-icons">error</span>${errors} file(s) failed.</span>`;
           flyerUploaded = true;
           showStep(4);
           updateStep4();
         } else {
-          statusDiv.innerHTML = `<span class="lfc-upload-error"><span class="material-icons">error</span>Failed to send. Please try again or contact support.</span>`;
+          statusDiv.innerHTML = `<span class="lfc-upload-error"><span class="material-icons">error</span>Failed to send any files. Please try again or contact support.</span>`;
         }
       } catch (err) {
         statusDiv.innerHTML = `<span class="lfc-upload-error"><span class="material-icons">error</span>Failed to send. Please try again or contact support.<br>${err.message}</span>`;
@@ -882,12 +962,23 @@
     const startBtn = document.getElementById('lfcStartBtn');
     const keyStatus = document.getElementById('step4-msg');
     const extraDiv = document.getElementById('step4-extra');
+    const campaignIdBox = document.getElementById('campaignIdBox');
+    const campaignIdVal = document.getElementById('campaignIdVal');
 
     lfcKeyInput.addEventListener('input', updateStep4);
+
+    function randomCampaignId() {
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      let id = '';
+      for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random()*chars.length)];
+      return id;
+    }
 
     async function updateStep4() {
       keyStatus.textContent = '';
       startBtn.disabled = true;
+      campaignIdBox.style.display = "none";
+      campaignIdVal.innerText = "";
       const wallet = lfcKeyInput.value.trim();
       extraDiv.innerHTML = '';
       if (wallet !== LFC_CREDIT_KEY) {
@@ -927,6 +1018,12 @@
         `;
         startBtn.disabled = true;
       } else if (typeof stats !== "undefined" && stats && flyerUploaded) {
+        // Generate & display campaign id
+        if (!campaignId) {
+          campaignId = randomCampaignId();
+        }
+        campaignIdBox.style.display = "block";
+        campaignIdVal.innerText = campaignId;
         startBtn.disabled = false;
       }
     }
@@ -936,23 +1033,38 @@
       const wallet = lfcKeyInput.value.trim();
       campaignWallet = wallet;
       campaignAreaInfo = boxInfoText(currentBounds, stats);
-      await sendBoxInfoToTelegram(currentBounds, stats, wallet, "CAMPAIGN STARTED (ALERT)");
-      keyStatus.innerHTML = `<span class="lfc-upload-success"><span class="material-icons">check_circle</span>Campaign started! Please enter your email for updates.</span>`;
+      await sendBoxInfoToTelegram(currentBounds, stats, wallet, "CAMPAIGN STARTED (ALERT)", campaignId);
+      keyStatus.innerHTML = `<span class="lfc-upload-success"><span class="material-icons">check_circle</span>Campaign started! Save your campaign ID above to track campaign progress.</span>`;
       startBtn.textContent = "Started!";
       campaignStarted = true;
       showStep(5);
-      document.getElementById('progressInfo').style.display = "none";
+      document.getElementById('campaignProgressStatus').innerText = "";
+      document.getElementById('campaignIdInput').value = "";
     };
 
-    // Step 5: Email + progress
-    document.getElementById('progressEmailForm').onsubmit = async function(e) {
+    // Step 5: Campaign progress by campaign ID
+    document.getElementById('campaignIdForm').onsubmit = async function(e) {
       e.preventDefault();
-      const email = document.getElementById('progressEmail').value.trim();
-      if (!email) return;
-      document.getElementById('progressEmailStatus').innerHTML =
-        `<span class="lfc-progress-success"><span class="material-icons">check_circle</span>Thank you! You will soon receive all updates and proofs about your flyering campaign at <b>${email}</b>.</span>`;
-      document.getElementById('progressInfo').style.display = "block";
-      await sendEmailToTelegram(email, campaignWallet, campaignAreaInfo);
+      const cid = document.getElementById('campaignIdInput').value.trim();
+      if (!/^[a-z0-9]{6}$/i.test(cid)) {
+        document.getElementById('campaignProgressStatus').innerHTML =
+          `<span class="lfc-upload-error"><span class="material-icons">error</span> Enter a valid Campaign ID (6 chars, e.g. fn4urf).</span>`;
+        return;
+      }
+      document.getElementById('campaignProgressStatus').innerHTML =
+        `<span class="lfc-upload-success"><span class="material-icons">link</span> 
+        <b>Your campaign progress link:</b><br>
+        <a href="http://leuvenflyers.com/id/${cid}" target="_blank" style="color:#3b82f6;text-decoration:underline;">http://leuvenflyers.com/id/${cid}</a><br>
+        <span style="color:#ffb400;">
+  Bookmark this link to check your campaign progress.<br>
+  This page will be live within 24h after campaign start.<br>
+  View example of a campaign:<br>
+  <a href="http://leuvenflyers.com/example1" style="color:#ffb400; text-decoration: underline;">
+    http://leuvenflyers.com/example1
+  </a>
+</span>
+
+        </span>`;
     };
 
     function boxInfoText(bounds, stats) {
@@ -961,21 +1073,8 @@
       const areaKm2 = (rectangleAreaMeters(bounds) / 1e6).toFixed(2);
       return `Area: ${areaKm2} km²\nSW: ${sw.lat.toFixed(6)}, ${sw.lng.toFixed(6)}\nNE: ${ne.lat.toFixed(6)}, ${ne.lng.toFixed(6)}\nLFC Required: ${stats.lfcNeeded}\nFlyers: ${stats.flyers}\nEstimated Customers: ${stats.minCustomers}`;
     }
-    async function sendBoxInfoToTelegram(bounds, stats, wallet, action) {
-      const info = `${action} (LeuvenFlyers)\nWallet: ${wallet}\n${boxInfoText(bounds, stats)}`;
-      try {
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: info
-          })
-        });
-      } catch (e) {}
-    }
-    async function sendEmailToTelegram(email, wallet, areaInfo) {
-      const info = `User submitted campaign email:\nEmail: ${email}\nWallet: ${wallet}\n${areaInfo}`;
+    async function sendBoxInfoToTelegram(bounds, stats, wallet, action, campaignId) {
+      const info = `${action} (LeuvenFlyers)\nWallet: ${wallet}\nCampaign ID: ${campaignId}\n${boxInfoText(bounds, stats)}`;
       try {
         await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
@@ -1026,4 +1125,3 @@
   </script>
 </body>
 </html>
-
