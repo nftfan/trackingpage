@@ -1,402 +1,493 @@
-
-
-
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Population Estimator Dashboard</title>
+  <title>LEUVENFLYERS OFFLINE MARKETING</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Material Icons (Outlined) -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
   <style>
-   
-   
-#map {
-  max-width: 90%;
-  height: 700px;
-  margin-top: 0px; /* Adjust the value as needed */
-  border-radius: 7px; /* Adjust the value to control the roundness of corners */
-  overflow: hidden; /* Ensures content does not overflow rounded corners */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Adjust the values as needed for the shadow effect */
-  border: 10px solid #ffffff; /* Add a 4px solid border with the color #f3eac6 */
-}
-
-
-
-
-
-.population-info {
-  margin-top: 10px;
-  background-color: white;
-  padding: 10px;
-  border: 1px solid #ccc;
-}
-
-#street-list {
-  display: none;
-}
-
-.polygon-label {
-    background-color: transparent;
-    border: none;
-}
-
-.polygon-label div {
-    background-color: rgba(255, 255, 255, 0.8);
-    border: 1px solid black;
-    border-radius: 4px;
-    padding: 2px 5px;
-    font-family: Arial, sans-serif;
-    font-weight: bold;
-    font-size: 12px;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-}
-
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f8f8f8;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto 0 auto;
+      background: #fff;
+      box-shadow: 0 4px 24px 0 rgba(0,0,0,0.10);
+      border-radius: 12px;
+      padding: 30px 30px 40px 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #map {
+      width: 800px;
+      height: 500px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.09);
+      border: 6px solid #fff;
+      margin: 0 auto 24px auto;
+      background: #e9e9e9;
+      position: relative;
+      z-index: 1;
+    }
+    .step-list {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0;
+      list-style: none;
+    }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 28px;
+      background: #f3eac6;
+      border-radius: 8px;
+      padding: 18px 18px 18px 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .step:last-child {
+      margin-bottom: 0;
+    }
+    .step-icon {
+      min-width: 46px;
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      font-size: 32px;
+      color: #2196f3;
+      margin-top: 2px;
+    }
+    .step-completed .step-icon {
+      color: #388e3c;
+      background: #e8f5e9;
+    }
+    .step-pending .step-icon {
+      color: #d32f2f;
+      background: #ffebee;
+    }
+    .step-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .step-title {
+      font-size: 19px;
+      font-weight: bold;
+      color: #444;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .step-date {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    .step img {
+      max-width: 150px;
+      border-radius: 6px;
+      margin-top: 8px;
+      background: #eee;
+      border: 1px solid #ddd;
+      display: block;
+      cursor: pointer;
+      transition: box-shadow 0.2s;
+    }
+    .step img:hover {
+      box-shadow: 0 0 0 3px #1976d2;
+    }
+    .zone-status {
+      font-size: 16px;
+      margin-top: 6px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .zone-completed {
+      color: #388e3c;
+      font-weight: bold;
+    }
+    .zone-pending {
+      color: #d32f2f;
+      font-weight: bold;
+    }
+    .gps-proof-link {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 6px 14px;
+      background: #2196f3;
+      color: #fff !important;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .gps-proof-link:hover {
+      background: #1976d2;
+    }
+    .tg-bot-link {
+      color: #007bff;
+      text-decoration: underline;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .dashboard-title {
+      font-size: 2.2rem;
+      font-weight: bold;
+      text-align: center;
+      color: #222;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .dashboard-campaign-id {
+      font-size: 1.2rem;
+      color: #555;
+      font-weight: 500;
+      text-align: center;
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+    /* Small, beautiful zone labels */
+    .leaflet-label-zone {
+      background: rgba(33, 150, 243, 0.97);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 2px 13px 2px 13px;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(33,150,243,0.15);
+      display: inline-block;
+      text-align: center;
+      line-height: 1.3;
+      margin: 0;
+      letter-spacing: 0.5px;
+      opacity: 0.95;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.09);
+    }
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 20;
+      left: 0; top: 0; right: 0; bottom: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.65);
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: #fff;
+      border-radius: 16px;
+      max-width: 92vw;
+      max-height: 92vh;
+      padding: 20px 20px 10px 20px;
+      box-shadow: 0 6px 36px rgba(0,0,0,0.24);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      animation: popup-in 0.2s;
+    }
+    @keyframes popup-in {
+      from {transform: scale(0.85);}
+      to {transform: scale(1);}
+    }
+    .modal-content img {
+      max-width: 80vw;
+      max-height: 70vh;
+      border-radius: 12px;
+      border: 1px solid #aaa;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.11);
+      margin-bottom: 10px;
+    }
+    .modal-close {
+      position: absolute;
+      top: 10px; right: 18px;
+      font-size: 30px;
+      color: #333;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    .modal-close:hover {
+      color: #c62828;
+    }
+    @media (max-width: 900px) {
+      .container, #map, .step-list {
+        max-width: 98vw;
+        width: 98vw;
+      }
+      #map {
+        min-width: 0;
+        width: 100%;
+      }
+    }
+    @media (max-width: 600px) {
+      .container, .step-list, #map {
+        padding: 0;
+        margin: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .step {
+        flex-direction: column;
+      }
+      .step-icon {
+        margin-bottom: 8px;
+      }
+      .step-content {
+        width: 100%;
+      }
+      .modal-content img {
+        max-width: 98vw;
+        max-height: 60vh;
+      }
+    }
+    /* Material Icons fix for outlined style */
+    .material-icons-outlined {
+      font-family: 'Material Icons Outlined', 'Material Icons', sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 32px;
+      display: inline-block;
+      line-height: 1;
+      text-transform: none;
+      letter-spacing: normal;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
-
-<button id="draw-polygon-button" style="position: fixed; top: 20px; right: 20px; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 999;">My Zones</button>
-
-
-
-<div id="map"></div>
-<div id="population-info" class="population-info" style="text-align: left; padding: 20px; display: none;">
-  <strong style="font-family: Arial, display: none; sans-serif; position: absolute; 0px; top: 800px; font-size: 20px; color: #000000; background-color: yellow; border-radius: 3px; padding: 10px 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">Offline Marketing Tool</strong>
-</div>
-
-
-<div class="search-container" style="position: absolute; display: none; left: 50px; top: 20px; z-index: 999;">
-  <input type="text" id="coordinate-input" placeholder="Search previous campaigns" style="padding: 10px; border: 2px solid #ccc; border-radius: 5px; margin-right: 10px; font-size: 14px;">
-  <button onclick="searchCoordinates()" style="padding: 10px 10px; display: none; background-color: yellow; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; color: #000000;">Search</button>
-</div>
-
-
-
-
-
-
-
-  
-  
-
-
-<div id="flyers-info" class="population-info" style="color: white; position: absolute; top: 850px; left: 800px; display: none;">
-  <strong>Flyers Required to Cover Area:</strong> <!-- Insert your content here -->
-</div>
-
-
-
-
-<div id="hide-element" style="position: relative; top: -730px; left: 0px; display: none;">
-  <div style="background-color: yellow; border-radius: 5px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); padding: 10px; width: 200px; text-align: center;">
-    <button onclick="calculateRevenue()" style="background-color: #fff; border: 1px solid #000000; border-radius: 1px; color: #333; cursor: pointer; font-family: Arial, sans-serif; font-size: 20px;">
-      Calculate Profit
-    </button>
+  <div class="container">
+    <!-- Title and Campaign ID -->
+    <div class="dashboard-title">LEUVENFLYERS OFFLINE MARKETING</div>
+    <div class="dashboard-campaign-id">CAMPAIGN ID: SDS43</div>
+    <!-- Centered Map -->
+    <div id="map"></div>
+    <!-- Steps below the map -->
+    <ol class="step-list">
+      <li class="step">
+        <div class="step-icon">
+          <span class="material-icons-outlined">flag</span>
+        </div>
+        <div class="step-content">
+          <div class="step-title">
+            Campaign Started
+          </div>
+          <div class="step-date"><span class="material-icons-outlined" style="font-size:18px;vertical-align:middle;">calendar_today</span> Started on: 2025-06-20</div>
+          <div>Initial planning and area selection completed.</div>
+        </div>
+      </li>
+      <li class="step">
+        <div class="step-icon">
+          <span class="material-icons-outlined">design_services</span>
+        </div>
+        <div class="step-content">
+          <div class="step-title">
+            Flyer Design Sent for Printing
+          </div>
+          <div class="step-date"><span class="material-icons-outlined" style="font-size:18px;vertical-align:middle;">send</span> Sent on: 2025-06-21</div>
+          <div>Quantity: <strong>5,000 flyers</strong></div>
+        </div>
+      </li>
+      <li class="step">
+        <div class="step-icon">
+          <span class="material-icons-outlined">inventory_2</span>
+        </div>
+        <div class="step-content">
+          <div class="step-title">
+            Printed Flyers Received for Distribution
+          </div>
+          <div class="step-date"><span class="material-icons-outlined" style="font-size:18px;vertical-align:middle;">check_circle</span> Received on: 2025-06-23</div>
+          <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749620583/vYo7UgT_x34seo.png" alt="Printed Flyers Proof" class="popup-img" />
+        </div>
+      </li>
+      <li class="step step-completed">
+        <div class="step-icon">
+          <span class="material-icons-outlined">check_circle</span>
+        </div>
+        <div class="step-content">
+          <div class="step-title">
+            Zone 1 Completed
+          </div>
+          <div class="zone-status zone-completed"><span class="material-icons-outlined" style="font-size:19px;vertical-align:middle;">task_alt</span> Status: Completed</div>
+          <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749621173/NGWzXGU_liznhx.png" alt="Zone 1 Proof" class="popup-img" />
+          <a href="https://cds.com" class="gps-proof-link" target="_blank">
+            <span class="material-icons-outlined" style="font-size:18px;vertical-align:middle;">location_on</span>
+            View GPS Proof of Zone 1
+          </a>
+        </div>
+      </li>
+      <li class="step step-pending">
+        <div class="step-icon">
+          <span class="material-icons-outlined">pending_actions</span>
+        </div>
+        <div class="step-content">
+          <div class="step-title">
+            Zone 2 Pending
+          </div>
+          <div class="zone-status zone-pending"><span class="material-icons-outlined" style="font-size:19px;vertical-align:middle;">hourglass_empty</span> Status: Pending</div>
+        </div>
+      </li>
+      <li class="step">
+        <div class="step-icon">
+          <span class="material-icons-outlined">celebration</span>
+        </div>
+        <div class="step-content">
+          <div class="step-title">
+            Campaign Ended
+          </div>
+          <div>
+            <span class="material-icons-outlined" style="font-size:18px;vertical-align:middle;">track_changes</span>
+            For live scan tracking, follow this Telegram bot:
+            <span class="tg-bot-link">@nddddd</span>
+          </div>
+        </div>
+      </li>
+    </ol>
   </div>
-</div>
+  <!-- Modal for popup image -->
+  <div id="imgModal" class="modal" onclick="hideModal(event)">
+    <div class="modal-content" id="modalContent">
+      <button class="modal-close" onclick="hideModal(event)" aria-label="Close">&times;</button>
+      <img src="" alt="Large preview" id="modalImg"/>
+    </div>
+  </div>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Centered on Antwerp area
+    var map = L.map('map').setView([51.168, 4.45], 13);
 
-
-
-
-<style>
-  .card-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    gap: 2px;
-    margin-left: 780px; /* Add margin to move the container 50px to the right */
-    margin-top: -725px;
-    max-width: 300px; /* Decreased maximum width */
-    max-height: 600px; /* Decreased maximum height */
-    overflow: auto; /* Add overflow auto to enable scrolling if content exceeds the maximum height */
-  }
-
-  
-  .population-info {
-    margin-bottom: 1px; /* Reduced margin bottom */
-background-color: #f3eac6;
-border-radius: 8px;
-  }
-
-  .population-info label {
-    font-weight: bold;
-    font-size: 14px; /* Reduced font size */
-    color: #333;
-    font-family: Arial, sans-serif;
-background-color: #f3eac6;
-  }
-
-  .population-info input[type="number"] {
-    width: 100%;
-    padding: 0px; /* Reduced padding */
-    font-size: 14px; /* Reduced font size */
-    font-family: Arial, sans-serif;
-    border: 1px solid #ccc;
-    border-radius: 1px;
-    box-sizing: border-box;
-    outline: none;
-    transition: border-color 0.3s ease;
-  }
-
-  .population-info input[type="number"]:focus {
-    border-color: #007bff;
-  }
-</style>
-
-
-
-
-
-  <!-- Additional div elements in next line -->
-<style>
-  .table {
-    margin-left: 780px;
-    margin-top: 455px;
-margin-bottom: 50px;
-    width: 300px;
-    height: 450px;
-    font-family: Arial, sans-serif;
-    font-size: 11px;
-    border-collapse: collapse;
-  }
-  .table-column {
-    background-color: #f3eac6;
-    border: 1px solid #000;
-    border-radius: 1px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    margin-bottom: 15px;
-    font-size: inherit;
-  }
-  .table-row {
-    display: table-row;
-  }
-  .table-cell {
-    display: table-cell;
-    border: 1px solid #000;
-    padding: 5px;
-    color: #333;
-    font-size: inherit;
-  }
-  .table-cell.bold {
-    font-weight: bold;
-    font-size: 12px;
-  }
-  .table-cell.green {
-    color: green;
-  }
-  .table-cell.red {
-    color: #f6180f;
-  }
-  .table-cell.blue {
-    color: #4caf50;
-  }
-</style>
-
-
-
-
-
-
-
-<style>
-  /* Button Styles */
-  .population-info button {
-    background-color: #f3eac6; 
-    border: none;
-    color: #000000;
-    padding: 10px 20px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    margin: 4px 2px;
-    cursor: pointer;
-    border-radius: 8px;
-    transition-duration: 0.4s;
-   
-  }
-
-  .population-info button:hover {
-    background-color: #45a049; /* Darker Green */
-    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
-  }
-</style>
-
-
-
-
-
-
-
-
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
-<script>
-  var map = L.map('map').setView([51.505, -0.09], 13);
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-  }).addTo(map);
-
-  var drawnItems = new L.FeatureGroup();
-  map.addLayer(drawnItems);
-
-  var drawControl = new L.Control.Draw({
-    draw: {
-      polygon: true,
-      polyline: false,
-      marker: false,
-      circle: false,
-      circlemarker: false,
-      rectangle: false
-    },
-    edit: {
-      featureGroup: drawnItems
-    }
-  });
-  
-
-  map.on('draw:created', function (e) {
-    var layer = e.layer;
-    drawnItems.addLayer(layer);
-    updateWaysCount(layer);
-    calculateArea(layer);
-    calculateFlyersRequired();
-    highlightStreets(layer);
-  });
-
-  function updateWaysCount(layer) {
-    var polygonPoints = layer.getLatLngs()[0].map(point => `${point.lat} ${point.lng}`).join(' ');
-    var query = `[out:json];
-      way(poly:"${polygonPoints}");
-      out;
-    `;
-
-    fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: query
-    })
-    .then(response => response.json())
-    .then(data => {
-      var waysCount = data.elements.length;
-      document.getElementById('ways-count').innerHTML = "<strong>Total Count of Ways:</strong> " + waysCount;
-    })
-    .catch(error => console.error('Error:', error));
-  }
-
-  
-</script>
-<script>
-  function searchCoordinates() {
-    var coordinatesInput = document.getElementById('coordinate-input').value;
-    var coordinatesArray = coordinatesInput.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/g);
-
-    if (!coordinatesArray) {
-        alert('Invalid coordinates format. Please provide coordinates in the correct format.');
-        return;
-    }
-
-    var latLngs = coordinatesArray.map(function(coord) {
-        var match = coord.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/);
-        return [parseFloat(match[1]), parseFloat(match[2])];
-    });
-
-    var polygon = L.polygon(latLngs, { color: 'red' }).addTo(map);
-    map.fitBounds(polygon.getBounds());
-}
-</script>
-<script>
-  map.on('draw:created', function (e) {
-    var layer = e.layer;
-    displayCampaignArea(layer);
-  });
-
-  function displayCampaignArea(layer) {
-    var polygonPoints = layer.getLatLngs()[0].map(point => `[${point.lat}, ${point.lng}]`).join(', ');
-    document.getElementById('area-nft-code').innerHTML = `<strong>My Campaign Area Code: </strong>${polygonPoints}`;
-  }
-</script>
-<script>
- 
-var polygonCoordinates = [
-  [
-    [51.17390788442244, 4.438954437656327], [51.17374644727535, 4.447753350251698], [51.171109560530326, 4.44886930989791], [51.166911756281955, 4.444705921986963], [51.16742304774701, 4.4426027672690624], [51.16723467786671, 4.43878275155691]
-  ],
-  [ [51.16163742306019, 4.469976425170899], [51.16158359641715, 4.461050033569337], [51.16508219757714, 4.459247589111329], [51.16605099405929, 4.462080001831056], [51.16599717256636, 4.46371078491211], [51.16712741072914, 4.467315673828126], [51.16766560964336, 4.469976425170899] ]
-  
-  
-];
-
-// Define colors for each polygon
-var polygonColors = ['blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'red', 'red', 'red',
- 'blue', 'blue', 'blue', 'blue', 'blue', 'red', 'red', 'red', 'blue', 'blue',
- 'blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'red', 'red', 'red',
- 'red', 'red', 'red', 'red', 'blue', 'blue', 'blue', 'blue', 'red', 'red',
- 'red', 'red', 'red', 'red', 'red', 'red', 'red', 'red', 'red', 'red']
-
-; // Set any color you want for each polygon
-
-document.getElementById('draw-polygon-button').addEventListener('click', function() {
-    polygonCoordinates.forEach(function(coords, index) {
-        var polygon = L.polygon(coords, { 
-            color: 'black',        // Set the border color to black
-            fillColor: polygonColors[index] // Use fillColor for the interior color
-        }).addTo(map);
-        map.fitBounds(polygon.getBounds());
-    });
-});
-
-
-// When creating your polygons, add this code to add a label to each one
-polygonCoordinates.forEach(function(coords, index) {
-    // Create the polygon
-    var polygon = L.polygon(coords, { 
-        color: 'black',
-        fillColor: polygonColors[index]
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
     }).addTo(map);
-    
-    // Calculate the center of the polygon
-    var polygonCenter = polygon.getBounds().getCenter();
-    
-    // Create a custom label icon
-    var labelIcon = L.divIcon({
-        className: 'polygon-label',
-        html: `<div>Antwerp ${index + 1}</div>`,
-        iconSize: [80, 20],
-        iconAnchor: [40, 10]
-    });
-    
-    // Add the label as a marker at the polygon's center
-    L.marker(polygonCenter, {icon: labelIcon}).addTo(map);
-    
-    map.fitBounds(polygon.getBounds());
-});
 
- // Campaign progress rectangle coordinates
-    const sw = [51.161594, 4.438646];
-    const ne = [51.173649, 4.469876];
-    const campaignBounds = [sw, ne];
+    // Example zone polygons (Zone 1 completed, Zone 2 pending)
+    var zone1 = [
+      [51.17390788442244, 4.438954437656327], 
+      [51.17374644727535, 4.447753350251698], 
+      [51.171109560530326, 4.44886930989791], 
+      [51.166911756281955, 4.444705921986963], 
+      [51.16742304774701, 4.4426027672690624], 
+      [51.16723467786671, 4.43878275155691]
+    ];
+    var zone2 = [
+      [51.16163742306019, 4.469976425170899], 
+      [51.16158359641715, 4.461050033569337], 
+      [51.16508219757714, 4.459247589111329], 
+      [51.16605099405929, 4.462080001831056], 
+      [51.16599717256636, 4.46371078491211], 
+      [51.16712741072914, 4.467315673828126], 
+      [51.16766560964336, 4.469976425170899]
+    ];
 
-    // Draw the campaign progress rectangle
-    const campaignRectangle = L.rectangle(campaignBounds, {
+    // Draw completed zone 1 in blue
+    var zone1Polygon = L.polygon(zone1, {
+      color: 'black',
+      fillColor: '#2196f3',
+      fillOpacity: 0.5,
+      weight: 2
+    }).addTo(map);
+
+    // Draw pending zone 2 in orange
+    var zone2Polygon = L.polygon(zone2, {
+      color: 'black',
+      fillColor: '#ff9800',
+      fillOpacity: 0.45,
+      weight: 2,
+      dashArray: "4 6"
+    }).addTo(map);
+
+    // Draw campaign progress rectangle
+    var sw = [51.161594, 4.438646];
+    var ne = [51.173649, 4.469876];
+    var campaignBounds = [sw, ne];
+    var campaignRectangle = L.rectangle(campaignBounds, {
       color: 'red',
       weight: 3,
       fillOpacity: 0.1
     }).addTo(map);
 
-    campaignRectangle.bindPopup("Campaign Progress Area");
+    // Always show small, beautiful labels for each zone (not the rectangle)
+    function getPolygonCenter(latlngs) {
+      return L.polygon(latlngs).getBounds().getCenter();
+    }
 
+    // Zone 1 label
+    var zone1Center = getPolygonCenter(zone1);
+    var zone1Label = L.marker(zone1Center, {
+      icon: L.divIcon({
+        className: 'leaflet-label-zone',
+        html: '<span>Zone 1</span>',
+        iconAnchor: [32, 10]
+      }),
+      interactive: false
+    }).addTo(map);
 
+    // Zone 2 label
+    var zone2Center = getPolygonCenter(zone2);
+    var zone2Label = L.marker(zone2Center, {
+      icon: L.divIcon({
+        className: 'leaflet-label-zone',
+        html: '<span>Zone 2</span>',
+        iconAnchor: [32, 10]
+      }),
+      interactive: false
+    }).addTo(map);
 
-</script>
+    // Fit map to show both polygons and the rectangle
+    var group = L.featureGroup([zone1Polygon, zone2Polygon, campaignRectangle]);
+    map.fitBounds(group.getBounds().pad(0.12));
 
-
+    // -------- POPUP IMAGE LOGIC --------
+    function showModal(imgSrc) {
+      var modal = document.getElementById('imgModal');
+      var modalImg = document.getElementById('modalImg');
+      modalImg.src = imgSrc;
+      modal.style.display = "flex";
+      document.body.style.overflow = "hidden";
+    }
+    function hideModal(event) {
+      // Only close if clicking the overlay or close button
+      if (event.target.id === "imgModal" || event.target.classList.contains("modal-close")) {
+        var modal = document.getElementById('imgModal');
+        modal.style.display = "none";
+        document.getElementById('modalImg').src = "";
+        document.body.style.overflow = "";
+      }
+    }
+    // Register click listeners for all popup-img
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.popup-img').forEach(function(img) {
+        img.addEventListener('click', function() {
+          showModal(img.src);
+        });
+      });
+    });
+  </script>
 </body>
 </html>
-
-
-
