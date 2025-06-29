@@ -1,0 +1,578 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>LEUVENFLYERS OFFLINE MARKETING</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Material Icons (Outlined) -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f8f8f8;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto 0 auto;
+      background: #fff;
+      box-shadow: 0 4px 24px 0 rgba(0,0,0,0.10);
+      border-radius: 12px;
+      padding: 30px 30px 40px 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #map {
+      width: 800px;
+      height: 500px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.09);
+      border: 6px solid #fff;
+      margin: 0 auto 24px auto;
+      background: #e9e9e9;
+      position: relative;
+      z-index: 1;
+    }
+    .dashboard-title {
+      font-size: 2.2rem;
+      font-weight: bold;
+      text-align: center;
+      color: #222;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .dashboard-campaign-id {
+      font-size: 1.2rem;
+      color: #555;
+      font-weight: 500;
+      text-align: center;
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+    .progress-table-container {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto 32px auto;
+    }
+    .progress-table-title {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #2b3443;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+      text-align: left;
+    }
+    .progress-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #f5f7fa;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      margin-bottom: 24px;
+    }
+    .progress-table th, .progress-table td {
+      padding: 12px 10px;
+      text-align: left;
+    }
+    .progress-table th {
+      background: #e0e6ef;
+      font-size: 16px;
+      color: #222;
+      font-weight: 600;
+      border-bottom: 2px solid #d2d9e5;
+      text-align: left;
+    }
+    .progress-table td {
+      font-size: 15px;
+      color: #444;
+      border-bottom: 1px solid #e6e7ed;
+      vertical-align: middle;
+    }
+    .progress-table tr:last-child td {
+      border-bottom: none;
+    }
+    .progress-icon {
+      vertical-align: middle;
+      font-size: 21px;
+      margin-right: 8px;
+      color: #2196f3;
+    }
+    .progress-img-thumb {
+      max-width: 110px;
+      border-radius: 6px;
+      background: #eee;
+      border: 1px solid #ddd;
+      cursor: pointer;
+      transition: box-shadow 0.2s;
+      display: block;
+      margin-top: 4px;
+    }
+    .progress-img-thumb:hover {
+      box-shadow: 0 0 0 3px #1976d2;
+    }
+    .zone-table-container {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto 32px auto;
+    }
+    .zone-table-title {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #2b3443;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+      text-align: left;
+    }
+    .zone-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #f5f7fa;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .zone-table th, .zone-table td {
+      padding: 12px 10px;
+      text-align: center;
+    }
+    .zone-table th {
+      background: #e0e6ef;
+      font-size: 16px;
+      color: #222;
+      font-weight: 600;
+      border-bottom: 2px solid #d2d9e5;
+    }
+    .zone-table td {
+      font-size: 15px;
+      color: #444;
+      border-bottom: 1px solid #e6e7ed;
+      vertical-align: middle;
+    }
+    .zone-table tr:last-child td {
+      border-bottom: none;
+    }
+    .zone-status-table {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 600;
+    }
+    .zone-status-completed {
+      color: #388e3c;
+    }
+    .zone-status-inprogress {
+      color: #f9a825;
+    }
+    .zone-status-pending {
+      color: #d32f2f;
+    }
+    .gps-proof-link {
+      display: inline-block;
+      padding: 5px 11px;
+      background: #2196f3;
+      color: #fff !important;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+      margin-top: 0;
+    }
+    .gps-proof-link:hover {
+      background: #1976d2;
+    }
+    .zone-img-thumb {
+      max-width: 90px;
+      border-radius: 6px;
+      background: #eee;
+      border: 1px solid #ddd;
+      cursor: pointer;
+      transition: box-shadow 0.2s;
+      margin: 0 auto;
+      display: block;
+    }
+    .zone-img-thumb:hover {
+      box-shadow: 0 0 0 3px #1976d2;
+    }
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 20;
+      left: 0; top: 0; right: 0; bottom: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.65);
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: #fff;
+      border-radius: 16px;
+      max-width: 92vw;
+      max-height: 92vh;
+      padding: 20px 20px 10px 20px;
+      box-shadow: 0 6px 36px rgba(0,0,0,0.24);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      animation: popup-in 0.2s;
+    }
+    @keyframes popup-in {
+      from {transform: scale(0.85);}
+      to {transform: scale(1);}
+    }
+    .modal-content img {
+      max-width: 80vw;
+      max-height: 70vh;
+      border-radius: 12px;
+      border: 1px solid #aaa;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.11);
+      margin-bottom: 10px;
+    }
+    .modal-close {
+      position: absolute;
+      top: 10px; right: 18px;
+      font-size: 30px;
+      color: #333;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    .modal-close:hover {
+      color: #c62828;
+    }
+    @media (max-width: 900px) {
+      .container, #map, .zone-table-container, .progress-table-container {
+        max-width: 98vw;
+        width: 98vw;
+      }
+      #map {
+        min-width: 0;
+        width: 100%;
+      }
+      .zone-table th, .zone-table td, .progress-table th, .progress-table td {
+        padding: 10px 4px;
+        font-size: 13px;
+      }
+    }
+    @media (max-width: 600px) {
+      .container, #map, .zone-table-container, .progress-table-container {
+        padding: 0;
+        margin: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .modal-content img {
+        max-width: 98vw;
+        max-height: 60vh;
+      }
+      .zone-table th, .zone-table td, .progress-table th, .progress-table td {
+        padding: 6px 2px;
+        font-size: 12px;
+      }
+    }
+    .material-icons-outlined {
+      font-family: 'Material Icons Outlined', 'Material Icons', sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 32px;
+      display: inline-block;
+      line-height: 1;
+      text-transform: none;
+      letter-spacing: normal;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+    .leaflet-label-zone {
+      background: rgba(33, 150, 243, 0.97);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 2px 13px 2px 13px;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(33,150,243,0.15);
+      display: inline-block;
+      text-align: center;
+      line-height: 1.3;
+      margin: 0;
+      letter-spacing: 0.5px;
+      opacity: 0.95;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.09);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Title and Campaign ID -->
+    <div class="dashboard-title">LEUVENFLYERS OFFLINE MARKETING</div>
+    <div class="dashboard-campaign-id">CAMPAIGN ID: SDS43</div>
+    <!-- Centered Map -->
+    <div id="map"></div>
+
+    <!-- PROGRESS TABLE -->
+    <div class="progress-table-container">
+      <div class="progress-table-title">Campaign Progress</div>
+      <table class="progress-table">
+        <tbody>
+          <tr>
+            <th width="210">Campaign Started</th>
+            <td>
+              <span class="material-icons-outlined progress-icon">flag</span>
+              Started on: 2025-06-20<br>
+              Initial planning and area selection completed.
+            </td>
+          </tr>
+          <tr>
+            <th>Flyer Design Sent for Printing</th>
+            <td>
+              <span class="material-icons-outlined progress-icon">design_services</span>
+              Sent on: 2025-06-21<br>
+              Quantity: <strong>5,000 flyers</strong>
+            </td>
+          </tr>
+          <tr>
+            <th>Printed Flyers Received</th>
+            <td>
+              <span class="material-icons-outlined progress-icon">inventory_2</span>
+              Received on: 2025-06-23<br>
+              <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749620583/vYo7UgT_x34seo.png" alt="Printed Flyers Proof" class="progress-img-thumb popup-img" />
+            </td>
+          </tr>
+          <tr>
+            <th>Campaign Ended</th>
+            <td>
+              <span class="material-icons-outlined progress-icon">celebration</span>
+              Campaign Ended
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ZONE TABLE with only 3 statuses -->
+    <div class="zone-table-container">
+      <div class="zone-table-title">Zone Distribution Progress</div>
+      <table class="zone-table">
+        <thead>
+          <tr>
+            <th>Zone</th>
+            <th>Status</th>
+            <th>Start Date</th>
+            <th>Completion Date</th>
+            <th>Proof Image</th>
+            <th>GPS Proof</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Zone 1</td>
+            <td>
+              <span class="zone-status-table zone-status-completed">
+                <span class="material-icons-outlined" style="font-size:18px;vertical-align:middle;">task_alt</span>
+                Completed
+              </span>
+            </td>
+            <td>2025-06-25</td>
+            <td>2025-06-26</td>
+            <td>
+              <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749621173/NGWzXGU_liznhx.png" alt="Zone 1 Proof" class="zone-img-thumb popup-img" />
+            </td>
+            <td>
+              <a href="https://www.mapmywalk.com/routes/view/6535748779" class="gps-proof-link" target="_blank">
+                <span class="material-icons-outlined" style="font-size:16px;vertical-align:middle;">location_on</span>
+                View GPS
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td>Zone 2</td>
+            <td>
+              <span class="zone-status-table zone-status-inprogress">
+                <span class="material-icons-outlined" style="font-size:18px;vertical-align:middle;">hourglass_top</span>
+                In Progress
+              </span>
+            </td>
+            <td>2025-06-27</td>
+            <td>-</td>
+            <td>
+              <!-- No image yet -->
+            </td>
+            <td>
+              <!-- No GPS link yet -->
+            </td>
+          </tr>
+          <tr>
+            <td>Zone 3</td>
+            <td>
+              <span class="zone-status-table zone-status-pending">
+                <span class="material-icons-outlined" style="font-size:18px;vertical-align:middle;">pending_actions</span>
+                Pending
+              </span>
+            </td>
+            <td>2025-06-29</td>
+            <td>-</td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>Zone 4</td>
+            <td>
+              <span class="zone-status-table zone-status-pending">
+                <span class="material-icons-outlined" style="font-size:18px;vertical-align:middle;">pending_actions</span>
+                Pending
+              </span>
+            </td>
+            <td>2025-07-01</td>
+            <td>-</td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>Zone 5</td>
+            <td>
+              <span class="zone-status-table zone-status-pending">
+                <span class="material-icons-outlined" style="font-size:18px;vertical-align:middle;">pending_actions</span>
+                Pending
+              </span>
+            </td>
+            <td>2025-07-03</td>
+            <td>-</td>
+            <td></td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <!-- Modal for popup image -->
+  <div id="imgModal" class="modal" onclick="hideModal(event)">
+    <div class="modal-content" id="modalContent">
+      <button class="modal-close" onclick="hideModal(event)" aria-label="Close">&times;</button>
+      <img src="" alt="Large preview" id="modalImg"/>
+    </div>
+  </div>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Centered on Antwerp area
+    var map = L.map('map').setView([51.168, 4.45], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    // ZONE 1 (blue, completed)
+    var zone1 = [
+      [51.17390788442244, 4.438954437656327], 
+      [51.17374644727535, 4.447753350251698], 
+      [51.171109560530326, 4.44886930989791], 
+      [51.166911756281955, 4.444705921986963], 
+      [51.16742304774701, 4.4426027672690624], 
+      [51.16723467786671, 4.43878275155691]
+    ];
+    var zone1Polygon = L.polygon(zone1, {
+      color: 'black',
+      fillColor: '#2196f3',
+      fillOpacity: 0.5,
+      weight: 2
+    }).addTo(map);
+
+    // ZONE 2 (orange, in progress)
+    var zone2 = [
+      [51.16163742306019, 4.469976425170899], 
+      [51.16158359641715, 4.461050033569337], 
+      [51.16508219757714, 4.459247589111329], 
+      [51.16605099405929, 4.462080001831056], 
+      [51.16599717256636, 4.46371078491211], 
+      [51.16712741072914, 4.467315673828126], 
+      [51.16766560964336, 4.469976425170899]
+    ];
+    var zone2Polygon = L.polygon(zone2, {
+      color: 'black',
+      fillColor: '#ff9800',
+      fillOpacity: 0.45,
+      weight: 2,
+      dashArray: "4 6"
+    }).addTo(map);
+
+    // Draw campaign progress rectangle (covers all zones)
+    var sw = [51.013598, 3.618548];
+    var ne = [51.024828, 3.653725];
+    var campaignBounds = [sw, ne];
+    var campaignRectangle = L.rectangle(campaignBounds, {
+      color: 'red',
+      weight: 3,
+      fillOpacity: 0.12
+    }).addTo(map);
+
+    // Always show small, beautiful labels for each zone (not the rectangle)
+    function getPolygonCenter(latlngs) {
+      return L.polygon(latlngs).getBounds().getCenter();
+    }
+    var zone1Center = getPolygonCenter(zone1);
+    var zone2Center = getPolygonCenter(zone2);
+
+    L.marker(zone1Center, {
+      icon: L.divIcon({
+        className: 'leaflet-label-zone',
+        html: '<span>Zone 1</span>',
+        iconAnchor: [32, 10]
+      }),
+      interactive: false
+    }).addTo(map);
+
+    L.marker(zone2Center, {
+      icon: L.divIcon({
+        className: 'leaflet-label-zone',
+        html: '<span>Zone 2</span>',
+        iconAnchor: [32, 10]
+      }),
+      interactive: false
+    }).addTo(map);
+
+    // Fit map to show both polygons and the rectangle
+    var group = L.featureGroup([zone1Polygon, zone2Polygon, campaignRectangle]);
+    map.fitBounds(group.getBounds().pad(0.12));
+
+    // -------- POPUP IMAGE LOGIC --------
+    function showModal(imgSrc) {
+      var modal = document.getElementById('imgModal');
+      var modalImg = document.getElementById('modalImg');
+      modalImg.src = imgSrc;
+      modal.style.display = "flex";
+      document.body.style.overflow = "hidden";
+    }
+    function hideModal(event) {
+      // Only close if clicking the overlay or close button
+      if (event.target.id === "imgModal" || event.target.classList.contains("modal-close")) {
+        var modal = document.getElementById('imgModal');
+        modal.style.display = "none";
+        document.getElementById('modalImg').src = "";
+        document.body.style.overflow = "";
+      }
+    }
+    // Register click listeners for all popup-img
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.popup-img').forEach(function(img) {
+        img.addEventListener('click', function() {
+          showModal(img.src);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
