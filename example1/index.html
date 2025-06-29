@@ -1,0 +1,402 @@
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Population Estimator Dashboard</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+  <style>
+   
+   
+#map {
+  max-width: 90%;
+  height: 700px;
+  margin-top: 0px; /* Adjust the value as needed */
+  border-radius: 7px; /* Adjust the value to control the roundness of corners */
+  overflow: hidden; /* Ensures content does not overflow rounded corners */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Adjust the values as needed for the shadow effect */
+  border: 10px solid #ffffff; /* Add a 4px solid border with the color #f3eac6 */
+}
+
+
+
+
+
+.population-info {
+  margin-top: 10px;
+  background-color: white;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+#street-list {
+  display: none;
+}
+
+.polygon-label {
+    background-color: transparent;
+    border: none;
+}
+
+.polygon-label div {
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid black;
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    font-size: 12px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+  </style>
+</head>
+<body>
+
+<button id="draw-polygon-button" style="position: fixed; top: 20px; right: 20px; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 999;">My Zones</button>
+
+
+
+<div id="map"></div>
+<div id="population-info" class="population-info" style="text-align: left; padding: 20px; display: none;">
+  <strong style="font-family: Arial, display: none; sans-serif; position: absolute; 0px; top: 800px; font-size: 20px; color: #000000; background-color: yellow; border-radius: 3px; padding: 10px 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">Offline Marketing Tool</strong>
+</div>
+
+
+<div class="search-container" style="position: absolute; display: none; left: 50px; top: 20px; z-index: 999;">
+  <input type="text" id="coordinate-input" placeholder="Search previous campaigns" style="padding: 10px; border: 2px solid #ccc; border-radius: 5px; margin-right: 10px; font-size: 14px;">
+  <button onclick="searchCoordinates()" style="padding: 10px 10px; display: none; background-color: yellow; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; color: #000000;">Search</button>
+</div>
+
+
+
+
+
+
+
+  
+  
+
+
+<div id="flyers-info" class="population-info" style="color: white; position: absolute; top: 850px; left: 800px; display: none;">
+  <strong>Flyers Required to Cover Area:</strong> <!-- Insert your content here -->
+</div>
+
+
+
+
+<div id="hide-element" style="position: relative; top: -730px; left: 0px; display: none;">
+  <div style="background-color: yellow; border-radius: 5px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); padding: 10px; width: 200px; text-align: center;">
+    <button onclick="calculateRevenue()" style="background-color: #fff; border: 1px solid #000000; border-radius: 1px; color: #333; cursor: pointer; font-family: Arial, sans-serif; font-size: 20px;">
+      Calculate Profit
+    </button>
+  </div>
+</div>
+
+
+
+
+<style>
+  .card-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 2px;
+    margin-left: 780px; /* Add margin to move the container 50px to the right */
+    margin-top: -725px;
+    max-width: 300px; /* Decreased maximum width */
+    max-height: 600px; /* Decreased maximum height */
+    overflow: auto; /* Add overflow auto to enable scrolling if content exceeds the maximum height */
+  }
+
+  
+  .population-info {
+    margin-bottom: 1px; /* Reduced margin bottom */
+background-color: #f3eac6;
+border-radius: 8px;
+  }
+
+  .population-info label {
+    font-weight: bold;
+    font-size: 14px; /* Reduced font size */
+    color: #333;
+    font-family: Arial, sans-serif;
+background-color: #f3eac6;
+  }
+
+  .population-info input[type="number"] {
+    width: 100%;
+    padding: 0px; /* Reduced padding */
+    font-size: 14px; /* Reduced font size */
+    font-family: Arial, sans-serif;
+    border: 1px solid #ccc;
+    border-radius: 1px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+
+  .population-info input[type="number"]:focus {
+    border-color: #007bff;
+  }
+</style>
+
+
+
+
+
+  <!-- Additional div elements in next line -->
+<style>
+  .table {
+    margin-left: 780px;
+    margin-top: 455px;
+margin-bottom: 50px;
+    width: 300px;
+    height: 450px;
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    border-collapse: collapse;
+  }
+  .table-column {
+    background-color: #f3eac6;
+    border: 1px solid #000;
+    border-radius: 1px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 15px;
+    font-size: inherit;
+  }
+  .table-row {
+    display: table-row;
+  }
+  .table-cell {
+    display: table-cell;
+    border: 1px solid #000;
+    padding: 5px;
+    color: #333;
+    font-size: inherit;
+  }
+  .table-cell.bold {
+    font-weight: bold;
+    font-size: 12px;
+  }
+  .table-cell.green {
+    color: green;
+  }
+  .table-cell.red {
+    color: #f6180f;
+  }
+  .table-cell.blue {
+    color: #4caf50;
+  }
+</style>
+
+
+
+
+
+
+
+<style>
+  /* Button Styles */
+  .population-info button {
+    background-color: #f3eac6; 
+    border: none;
+    color: #000000;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition-duration: 0.4s;
+   
+  }
+
+  .population-info button:hover {
+    background-color: #45a049; /* Darker Green */
+    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+  }
+</style>
+
+
+
+
+
+
+
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+<script>
+  var map = L.map('map').setView([51.505, -0.09], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  }).addTo(map);
+
+  var drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  var drawControl = new L.Control.Draw({
+    draw: {
+      polygon: true,
+      polyline: false,
+      marker: false,
+      circle: false,
+      circlemarker: false,
+      rectangle: false
+    },
+    edit: {
+      featureGroup: drawnItems
+    }
+  });
+  
+
+  map.on('draw:created', function (e) {
+    var layer = e.layer;
+    drawnItems.addLayer(layer);
+    updateWaysCount(layer);
+    calculateArea(layer);
+    calculateFlyersRequired();
+    highlightStreets(layer);
+  });
+
+  function updateWaysCount(layer) {
+    var polygonPoints = layer.getLatLngs()[0].map(point => `${point.lat} ${point.lng}`).join(' ');
+    var query = `[out:json];
+      way(poly:"${polygonPoints}");
+      out;
+    `;
+
+    fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    })
+    .then(response => response.json())
+    .then(data => {
+      var waysCount = data.elements.length;
+      document.getElementById('ways-count').innerHTML = "<strong>Total Count of Ways:</strong> " + waysCount;
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  
+</script>
+<script>
+  function searchCoordinates() {
+    var coordinatesInput = document.getElementById('coordinate-input').value;
+    var coordinatesArray = coordinatesInput.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/g);
+
+    if (!coordinatesArray) {
+        alert('Invalid coordinates format. Please provide coordinates in the correct format.');
+        return;
+    }
+
+    var latLngs = coordinatesArray.map(function(coord) {
+        var match = coord.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/);
+        return [parseFloat(match[1]), parseFloat(match[2])];
+    });
+
+    var polygon = L.polygon(latLngs, { color: 'red' }).addTo(map);
+    map.fitBounds(polygon.getBounds());
+}
+</script>
+<script>
+  map.on('draw:created', function (e) {
+    var layer = e.layer;
+    displayCampaignArea(layer);
+  });
+
+  function displayCampaignArea(layer) {
+    var polygonPoints = layer.getLatLngs()[0].map(point => `[${point.lat}, ${point.lng}]`).join(', ');
+    document.getElementById('area-nft-code').innerHTML = `<strong>My Campaign Area Code: </strong>${polygonPoints}`;
+  }
+</script>
+<script>
+ 
+var polygonCoordinates = [
+  [
+    [51.17390788442244, 4.438954437656327], [51.17374644727535, 4.447753350251698], [51.171109560530326, 4.44886930989791], [51.166911756281955, 4.444705921986963], [51.16742304774701, 4.4426027672690624], [51.16723467786671, 4.43878275155691]
+  ],
+  [ [51.16163742306019, 4.469976425170899], [51.16158359641715, 4.461050033569337], [51.16508219757714, 4.459247589111329], [51.16605099405929, 4.462080001831056], [51.16599717256636, 4.46371078491211], [51.16712741072914, 4.467315673828126], [51.16766560964336, 4.469976425170899] ]
+  
+  
+];
+
+// Define colors for each polygon
+var polygonColors = ['blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'red', 'red', 'red',
+ 'blue', 'blue', 'blue', 'blue', 'blue', 'red', 'red', 'red', 'blue', 'blue',
+ 'blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'red', 'red', 'red',
+ 'red', 'red', 'red', 'red', 'blue', 'blue', 'blue', 'blue', 'red', 'red',
+ 'red', 'red', 'red', 'red', 'red', 'red', 'red', 'red', 'red', 'red']
+
+; // Set any color you want for each polygon
+
+document.getElementById('draw-polygon-button').addEventListener('click', function() {
+    polygonCoordinates.forEach(function(coords, index) {
+        var polygon = L.polygon(coords, { 
+            color: 'black',        // Set the border color to black
+            fillColor: polygonColors[index] // Use fillColor for the interior color
+        }).addTo(map);
+        map.fitBounds(polygon.getBounds());
+    });
+});
+
+
+// When creating your polygons, add this code to add a label to each one
+polygonCoordinates.forEach(function(coords, index) {
+    // Create the polygon
+    var polygon = L.polygon(coords, { 
+        color: 'black',
+        fillColor: polygonColors[index]
+    }).addTo(map);
+    
+    // Calculate the center of the polygon
+    var polygonCenter = polygon.getBounds().getCenter();
+    
+    // Create a custom label icon
+    var labelIcon = L.divIcon({
+        className: 'polygon-label',
+        html: `<div>Antwerp ${index + 1}</div>`,
+        iconSize: [80, 20],
+        iconAnchor: [40, 10]
+    });
+    
+    // Add the label as a marker at the polygon's center
+    L.marker(polygonCenter, {icon: labelIcon}).addTo(map);
+    
+    map.fitBounds(polygon.getBounds());
+});
+
+ // Campaign progress rectangle coordinates
+    const sw = [51.161594, 4.438646];
+    const ne = [51.173649, 4.469876];
+    const campaignBounds = [sw, ne];
+
+    // Draw the campaign progress rectangle
+    const campaignRectangle = L.rectangle(campaignBounds, {
+      color: 'red',
+      weight: 3,
+      fillOpacity: 0.1
+    }).addTo(map);
+
+    campaignRectangle.bindPopup("Campaign Progress Area");
+
+
+
+</script>
+
+
+</body>
+</html>
+
+
+
