@@ -1,0 +1,589 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Population Estimator Dashboard</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+  <style>
+   
+   
+#map {
+  width: 100%;
+  height: 700px;
+  margin-top: 0px; /* Adjust the value as needed */
+  border-radius: 7px; /* Adjust the value to control the roundness of corners */
+  overflow: hidden; /* Ensures content does not overflow rounded corners */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Adjust the values as needed for the shadow effect */
+  border: 10px solid #ffffff; /* Add a 4px solid border with the color #f3eac6 */
+}
+
+
+
+
+
+.population-info {
+  margin-top: 10px;
+  background-color: white;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+#street-list {
+  display: none;
+}
+
+  </style>
+</head>
+<body>
+
+<button id="draw-polygon-button" style="position: fixed; top: 20px; right: 20px; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 999;">Areas Completed</button>
+
+
+
+<div id="map"></div>
+<div id="population-info" class="population-info" style="text-align: left; padding: 20px; display: none;">
+  <strong style="font-family: Arial, display: none; sans-serif; position: absolute; 0px; top: 800px; font-size: 20px; color: #000000; background-color: yellow; border-radius: 3px; padding: 10px 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">Offline Marketing Tool</strong>
+</div>
+
+
+<div class="search-container" style="position: absolute; display: none; left: 50px; top: 20px; z-index: 999;">
+  <input type="text" id="coordinate-input" placeholder="Search previous campaigns" style="padding: 10px; border: 2px solid #ccc; border-radius: 5px; margin-right: 10px; font-size: 14px;">
+  <button onclick="searchCoordinates()" style="padding: 10px 10px; display: none; background-color: yellow; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; color: #000000;">Search</button>
+</div>
+
+
+
+
+
+
+
+  
+  
+
+
+<div id="flyers-info" class="population-info" style="color: white; position: absolute; top: 850px; left: 800px; display: none;">
+  <strong>Flyers Required to Cover Area:</strong> <!-- Insert your content here -->
+</div>
+
+
+
+
+<div id="hide-element" style="position: relative; top: -730px; left: 0px; display: none;">
+  <div style="background-color: yellow; border-radius: 5px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); padding: 10px; width: 200px; text-align: center;">
+    <button onclick="calculateRevenue()" style="background-color: #fff; border: 1px solid #000000; border-radius: 1px; color: #333; cursor: pointer; font-family: Arial, sans-serif; font-size: 20px;">
+      Calculate Profit
+    </button>
+  </div>
+</div>
+
+
+
+
+<style>
+  .card-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 2px;
+    margin-left: 780px; /* Add margin to move the container 50px to the right */
+    margin-top: -725px;
+    max-width: 300px; /* Decreased maximum width */
+    max-height: 600px; /* Decreased maximum height */
+    overflow: auto; /* Add overflow auto to enable scrolling if content exceeds the maximum height */
+  }
+
+  
+  .population-info {
+    margin-bottom: 1px; /* Reduced margin bottom */
+background-color: #f3eac6;
+border-radius: 8px;
+  }
+
+  .population-info label {
+    font-weight: bold;
+    font-size: 14px; /* Reduced font size */
+    color: #333;
+    font-family: Arial, sans-serif;
+background-color: #f3eac6;
+  }
+
+  .population-info input[type="number"] {
+    width: 100%;
+    padding: 0px; /* Reduced padding */
+    font-size: 14px; /* Reduced font size */
+    font-family: Arial, sans-serif;
+    border: 1px solid #ccc;
+    border-radius: 1px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+
+  .population-info input[type="number"]:focus {
+    border-color: #007bff;
+  }
+</style>
+
+<div class="card-container">
+  <div class="card">
+    <div class="population-info">
+      <label for="printing-cost-amount">Printing Cost per Flyer:</label><br>
+      <input type="number" id="printing-cost-amount" min="0" step="0.01" value="0.03" onchange="calculatePrintingCost()">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="population-info">
+      <label for="vat-amount">VAT (%):</label><br>
+      <input type="number" id="vat-amount" min="0" max="100" step="0.01" value="21" onchange="calculateRevenue()">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="population-info">
+      <label for="flyers-customer">Flyers required to gain 1 Customer:</label><br>
+      <input type="number" id="flyers-customer" min="0" step="1" value="150" onchange="calculateRevenue()">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="population-info">
+      <label for="revenue-amount">🎯 Target Revenue per Customer (€):</label>
+      <input type="number" id="revenue-amount" min="0" step="0.01" onchange="calculateRevenue()">
+    </div>
+  </div>
+</div>
+
+
+
+
+  <!-- Additional div elements in next line -->
+<style>
+  .table {
+    margin-left: 780px;
+    margin-top: 455px;
+margin-bottom: 50px;
+    width: 300px;
+    height: 450px;
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    border-collapse: collapse;
+  }
+  .table-column {
+    background-color: #f3eac6;
+    border: 1px solid #000;
+    border-radius: 1px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 15px;
+    font-size: inherit;
+  }
+  .table-row {
+    display: table-row;
+  }
+  .table-cell {
+    display: table-cell;
+    border: 1px solid #000;
+    padding: 5px;
+    color: #333;
+    font-size: inherit;
+  }
+  .table-cell.bold {
+    font-weight: bold;
+    font-size: 12px;
+  }
+  .table-cell.green {
+    color: green;
+  }
+  .table-cell.red {
+    color: #f6180f;
+  }
+  .table-cell.blue {
+    color: #4caf50;
+  }
+</style>
+
+
+<div class="table">
+  <div class="table-column">
+    <div class="table-row">
+<div class="table-cell bold" style="font-size: 8px;">Campaign Area Code</div>
+      <div class="table-cell" id="area-nft-code"></div>
+    </div>
+    <div class="table-row">
+      <div class="table-cell bold">Total Count of Ways:</div>
+      <div class="table-cell" id="ways-count"></div>
+    </div>
+    <div class="table-row">
+      <div class="table-cell bold">Area:</div>
+      <div class="table-cell" id="area-info"></div>
+    </div>
+    <div class="table-row">
+      <div class="table-cell bold">Distribution Cost:</div>
+      <div class="table-cell" id="distribution-cost"></div>
+    </div>
+    <div class="table-row">
+      <div class="table-cell bold">Printing Cost:</div>
+      <div class="table-cell" id="printing-cost"></div>
+    </div>
+    <div class="table-row">
+      <div class="table-cell bold red">Total Cost:</div>
+      <div class="table-cell" id="total-cost"></div>
+    </div>
+    <div class="table-row">
+      <div class="table-cell bold green">Potential Customers Gain:</div>
+      <div class="table-cell" id="potential-customer-gain"></div>
+    </div>
+    <div class="table-row">
+      <div class="table-cell bold">Total Revenue:</div>
+      <div class="table-cell" id="total-revenue"></div>
+    </div>
+    <div class="table-row">
+      <div class="table-cell bold blue">Possible Profit from Selected Area:</div>
+      <div class="table-cell" id="possible-profit"></div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+<style>
+  /* Button Styles */
+  .population-info button {
+    background-color: #f3eac6; 
+    border: none;
+    color: #000000;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition-duration: 0.4s;
+   
+  }
+
+  .population-info button:hover {
+    background-color: #45a049; /* Darker Green */
+    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+  }
+</style>
+
+<div id="show-streets-button" class="population-info">
+  <button onclick="toggleStreetList()">Show Streets</button>
+</div>
+
+<div id="street-list" class="population-info"></div>
+
+
+
+
+
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+<script>
+  var map = L.map('map').setView([51.505, -0.09], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  }).addTo(map);
+
+  var drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  var drawControl = new L.Control.Draw({
+    draw: {
+      polygon: true,
+      polyline: false,
+      marker: false,
+      circle: false,
+      circlemarker: false,
+      rectangle: false
+    },
+    edit: {
+      featureGroup: drawnItems
+    }
+  });
+  map.addControl(drawControl);
+
+  map.on('draw:drawstart', function (e) {
+    drawnItems.clearLayers();
+    document.getElementById('ways-count').innerHTML = '<strong>Total Count of Ways:</strong>';
+    document.getElementById('area-info').innerHTML = '<strong>Area:</strong>';
+    document.getElementById('flyers-info').innerHTML = '<strong>Flyers Required to Cover Area:</strong>';
+    document.getElementById('potential-customer-gain').innerHTML = '<strong>Potential Customers Gain:</strong>';
+    document.getElementById('total-revenue').innerHTML = '<strong>Total Revenue:</strong>';
+    document.getElementById('street-list').innerHTML = '';
+    document.getElementById('show-streets-button').innerHTML = '<button onclick="toggleStreetList()">Show Streets</button>';
+    document.getElementById('distribution-cost').innerHTML = '<strong>Distribution Cost:</strong>';
+    document.getElementById('printing-cost').innerHTML = '<strong>Printing Cost:</strong>';
+    document.getElementById('total-cost').innerHTML = '<strong>Total Cost:</strong>';
+    document.getElementById('possible-profit').innerHTML = '<strong>Possible Profit from Selected Area:</strong>';
+  });
+
+  map.on('draw:created', function (e) {
+    var layer = e.layer;
+    drawnItems.addLayer(layer);
+    updateWaysCount(layer);
+    calculateArea(layer);
+    calculateFlyersRequired();
+    highlightStreets(layer);
+  });
+
+  function updateWaysCount(layer) {
+    var polygonPoints = layer.getLatLngs()[0].map(point => `${point.lat} ${point.lng}`).join(' ');
+    var query = `[out:json];
+      way(poly:"${polygonPoints}");
+      out;
+    `;
+
+    fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    })
+    .then(response => response.json())
+    .then(data => {
+      var waysCount = data.elements.length;
+      document.getElementById('ways-count').innerHTML = "<strong>Total Count of Ways:</strong> " + waysCount;
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  function calculateArea(layer) {
+    var areaSquareMeters = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+    var areaSquareKm = areaSquareMeters / 1000000;
+    document.getElementById('area-info').innerHTML = "<strong>Area:</strong> " + areaSquareMeters.toFixed(2) + " m² (" + areaSquareKm.toFixed(2) + " km²)";
+  }
+
+  function calculateFlyersRequired() {
+    var waysCount = parseFloat(document.getElementById('ways-count').textContent.split(':')[1].trim()) || 0;
+    var flyersCustomer = parseFloat(document.getElementById('flyers-customer').value) || 0;
+       var flyersRequired = waysCount * flyersCustomer;
+    document.getElementById('flyers-info').innerHTML = "<strong>Flyers Required to Cover Area:</strong> " + flyersRequired;
+    calculateRevenue(); // Recalculate revenue after updating flyers required
+  }
+
+  function calculateRevenue() {
+    var revenueAmount = parseFloat(document.getElementById('revenue-amount').value) || 0;
+    var flyersRequired = parseFloat(document.getElementById('ways-count').textContent.split(':')[1].trim()) || 0;
+    var potentialCustomers = Math.floor(flyersRequired / parseFloat(document.getElementById('flyers-customer').value)) || 0;
+    document.getElementById('potential-customer-gain').innerHTML = "<strong>Potential Customers Gain:</strong> " + potentialCustomers;
+
+    var totalRevenue = revenueAmount * potentialCustomers;
+    var vatPercentage = parseFloat(document.getElementById('vat-amount').value) / 100;
+    var costWithVAT = totalRevenue * (1 + vatPercentage);
+    document.getElementById('total-revenue').innerHTML = "<strong>Total Revenue:</strong> " + costWithVAT.toFixed(2) + " €";
+
+    var distributionCost = flyersRequired * 0.05; // Distribution cost per flyer (0.05 €)
+    document.getElementById('distribution-cost').innerHTML = "<strong>Distribution Cost:</strong> " + distributionCost.toFixed(2) + " €";
+
+    var printingCost = parseFloat(document.getElementById('printing-cost').textContent.split(':')[1].trim()) || 0; // Retrieve printing cost from input
+    document.getElementById('printing-cost').innerHTML = "<strong>Printing Cost:</strong> " + printingCost.toFixed(2) + " €";
+
+    var totalCost = distributionCost + printingCost;
+    if (vatPercentage > 0) {
+      totalCost *= (1 + vatPercentage); // Apply VAT if specified
+    }
+    document.getElementById('total-cost').innerHTML = "<strong>Total Cost:</strong> " + totalCost.toFixed(2) + " €";
+
+    var possibleProfit = totalRevenue - totalCost;
+    document.getElementById('possible-profit').innerHTML = "<strong>Possible Profit from Selected Area:</strong> " + possibleProfit.toFixed(2) + " €";
+  }
+
+  function calculatePrintingCost() {
+    var flyersRequired = parseFloat(document.getElementById('ways-count').textContent.split(':')[1].trim()) || 0;
+    var printingCostPerFlyer = parseFloat(document.getElementById('printing-cost-amount').value) || 0;
+    var printingCost = flyersRequired * printingCostPerFlyer;
+    document.getElementById('printing-cost').innerHTML = "<strong>Printing Cost:</strong> " + printingCost.toFixed(2) + " €";
+    calculateRevenue(); // Recalculate revenue after updating printing cost
+  }
+
+  function toggleStreetList() {
+    var streetList = document.getElementById('street-list');
+    if (streetList.style.display === 'none') {
+      streetList.style.display = 'block';
+      document.getElementById('show-streets-button').innerHTML = '<button onclick="toggleStreetList()">Hide Streets</button>';
+      updateStreetList();
+    } else {
+      streetList.style.display = 'none';
+      document.getElementById('show-streets-button').innerHTML = '<button onclick="toggleStreetList()">Show Streets</button>';
+    }
+  }
+
+  function updateStreetList() {
+    var drawnLayer = drawnItems.getLayers()[0];
+    var polygonPoints = drawnLayer.getLatLngs()[0].map(point => `${point.lat} ${point.lng}`).join(' ');
+    var query = `[out:json];
+      way["highway"](poly:"${polygonPoints}");
+      out;
+    `;
+
+    fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    })
+    .then(response => response.json())
+    .then(data => {
+      var streets = new Set();
+      data.elements.forEach(function(element) {
+        if (element.tags && element.tags.highway && element.tags.name) {
+          streets.add(element.tags.name);
+        }
+      });
+      var sortedStreets = Array.from(streets).sort();
+      document.getElementById('street-list').innerHTML = "<strong>List of Streets:</strong><br/>" + sortedStreets.join("<br/>");
+      highlightStreets(drawnLayer); // Highlight streets after updating street list
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  function highlightStreets(polygonLayer) {
+    var polygonGeoJSON = polygonLayer.toGeoJSON();
+    var polygonCoords = polygonGeoJSON.geometry.coordinates[0].map(coord => `${coord[1]} ${coord[0]}`).join(' ');
+
+    var query = `[out:json];
+      way["highway"](poly:"${polygonCoords}");
+      out geom;
+    `;
+
+    fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    })
+    .then(response => response.json())
+    .then(data => {
+      data.elements.forEach(function(element) {
+        if (element.type === "way" && element.geometry) {
+          var streetCoordinates = element.geometry.map(node => [node.lat, node.lon]);
+          var streetType = element.tags.highway || "unknown";
+          var color = getStreetColor(streetType);
+          L.polyline(streetCoordinates, { color: color }).addTo(map);
+        }
+      });
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  function getStreetColor(streetType) {
+    switch (streetType) {
+        case 'motorway':
+            return '#ff0000'; // red
+        case 'trunk':
+            return '#ff8000'; // orange
+        case 'primary':
+            return '#ffff00'; // yellow
+        case 'secondary':
+            return '#00ff00'; // green
+        case 'tertiary':
+            return '#0080ff'; // blue
+        default:
+            return '#808080'; // gray for unknown or other types
+    }
+  }
+</script>
+<script>
+  function searchCoordinates() {
+    var coordinatesInput = document.getElementById('coordinate-input').value;
+    var coordinatesArray = coordinatesInput.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/g);
+
+    if (!coordinatesArray) {
+        alert('Invalid coordinates format. Please provide coordinates in the correct format.');
+        return;
+    }
+
+    var latLngs = coordinatesArray.map(function(coord) {
+        var match = coord.match(/\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]/);
+        return [parseFloat(match[1]), parseFloat(match[2])];
+    });
+
+    var polygon = L.polygon(latLngs, { color: 'red' }).addTo(map);
+    map.fitBounds(polygon.getBounds());
+}
+</script>
+<script>
+  map.on('draw:created', function (e) {
+    var layer = e.layer;
+    displayCampaignArea(layer);
+  });
+
+  function displayCampaignArea(layer) {
+    var polygonPoints = layer.getLatLngs()[0].map(point => `[${point.lat}, ${point.lng}]`).join(', ');
+    document.getElementById('area-nft-code').innerHTML = `<strong>My Campaign Area Code: </strong>${polygonPoints}`;
+  }
+</script>
+<script>
+  var polygonCoordinates = [
+  [
+    [50.86919046876775, 4.708000636494646],
+    [50.86740291875487, 4.70928780972253],
+    [50.866360149592126, 4.711068399354429],
+    [50.86491106800252, 4.711218569564376],
+    [50.865141298928215, 4.712484289905113],
+    [50.86818836583931, 4.716195639378897],
+    [50.870991491499375, 4.717826058800889],
+    [50.872778903902045, 4.718233663656397],
+    [50.873293449311475, 4.716259998040298],
+    [50.87369966535897, 4.714436502634106],
+    [50.87162792650076, 4.7120552321624976],
+    [50.86955609555329, 4.7089016577541685]
+  ],
+  [[50.86873023330397, 4.698715209960938], [50.874200848247476, 4.700088500976563], [50.872088508674054, 4.703822135925294], [50.86921773990198, 4.707813262939454], [50.86826980572436, 4.704122543334962]],
+  [[50.86938024096832, 4.707899093627931], [50.87149270328007, 4.711847305297852], [50.87357798883879, 4.714207649230958], [50.87452581506935, 4.711375236511231], [50.87593397844703, 4.707598686218263], [50.87620477421866, 4.706311225891114], [50.87536530220481, 4.7041654586792], [50.87452581506935, 4.702062606811524], [50.87401128322168, 4.700689315795899], [50.8712760448849, 4.705195426940919]],
+  [[50.876421409703035, 4.706482887268067], [50.87352382675771, 4.713821411132813], [50.87780243724243, 4.715924263000489], [50.881078829039495, 4.714937210083009], [50.880293599103126, 4.710216522216798], [50.878046143736235, 4.70691204071045]],
+  [[50.8811600589673, 4.714722633361817], [50.87912926828837, 4.702448844909669], [50.879968672500084, 4.700818061828614], [50.88243264268154, 4.705839157104493], [50.882378490891114, 4.7071266174316415], [50.884517438756795, 4.711289405822755]],
+[[50.87910219048138, 4.7008609771728525], [50.880347753316656, 4.70991611480713], [50.87788367288198, 4.706783294677735], [50.87677344021729, 4.706225395202638], [50.87449873458739, 4.700946807861329], [50.87441749304715, 4.6999597549438485]],
+[[50.882486794409026, 4.707083702087403], [50.884625737302635, 4.7112464904785165], [50.88689994861239, 4.708328247070313], [50.8881182304318, 4.704895019531251], [50.889580126558656, 4.70017433166504], [50.888659678791235, 4.70043182373047], [50.88746848409305, 4.699144363403321], [50.8872518999662, 4.702792167663575], [50.886791655353164, 4.701976776123048]],
+[[50.87986036312891, 4.700646400451661], [50.88151205368475, 4.703865051269532], [50.88251387024918, 4.7057533264160165], [50.88243264268154, 4.70716953277588], [50.886683361842216, 4.701848030090333], [50.8872518999662, 4.702577590942384], [50.88749555703811, 4.698758125305177], [50.887278973037105, 4.696226119995118], [50.88427376610816, 4.698200225830079], [50.882920005963165, 4.69841480255127], [50.88164743556031, 4.699358940124513], [50.880943445511775, 4.699401855468751], [50.880266521972736, 4.7005605697631845]],
+[[50.88925526471759, 4.694809913635255], [50.8883077380735, 4.694552421569825], [50.88708946121023, 4.696612358093263], [50.88275755210239, 4.698629379272462], [50.88118713557842, 4.699401855468751], [50.87991451784596, 4.700732231140138], [50.88018529048719, 4.699702262878419], [50.88129544186563, 4.6972131729125985], [50.88229726308748, 4.697084426879884], [50.88302830822234, 4.6939945220947275], [50.883840567141505, 4.6923208236694345], [50.886168964227345, 4.691419601440431], [50.88833481053079, 4.691848754882813], [50.88917404890332, 4.692277908325196]],
+[[50.88132251839807, 4.690217971801759], [50.88386764219492, 4.6923208236694345], [50.882486794409026, 4.696784019470216], [50.88134959491482, 4.697384834289552], [50.87986036312891, 4.700646400451661], [50.87921050161489, 4.700517654418946]],
+[[50.88300123268116, 4.683995246887208], [50.8849235570057, 4.685025215148927], [50.88749555703811, 4.688029289245606], [50.88863260652272, 4.6920204162597665], [50.88643970052214, 4.691376686096192], [50.88392179225454, 4.692363739013673], [50.881214212173845, 4.690518379211427], [50.88256802188226, 4.685325622558595]],
+[[50.88294708155157, 4.683609008789063], [50.88002282709126, 4.682922363281251], [50.877206704892, 4.684038162231446], [50.878398161977145, 4.687771797180177], [50.879562511060016, 4.68918800354004], [50.88040190746729, 4.689316749572755], [50.881241288753486, 4.690132141113282]],
+[[50.877152547027954, 4.6840810775756845], [50.87831692723451, 4.687514305114747], [50.8795895885995, 4.689359664916993], [50.879048034820244, 4.69219207763672], [50.87758580817798, 4.691033363342286], [50.875852739408714, 4.690561294555665], [50.87355090780611, 4.69167709350586], [50.87230516329265, 4.691076278686524], [50.87390296000361, 4.687385559082032], [50.8752569821338, 4.685497283935548]],
+[[50.87908865157202, 4.6921706199646005], [50.879603127363325, 4.689166545867921], [50.8805102155797, 4.689338207244874], [50.88122775046563, 4.689981937408448], [50.88061852344034, 4.693737030029298], [50.88018529048719, 4.697320461273194], [50.879508355933844, 4.699616432189942], [50.87922404048887, 4.70043182373047], [50.879020956966066, 4.700882434844972], [50.87707131011386, 4.700453281402589], [50.877423335718774, 4.698286056518556], [50.877694122836104, 4.695475101470948], [50.87761288686611, 4.69268560409546], [50.87788367288198, 4.69144105911255]],
+[[50.87577150022877, 4.690861701965333], [50.873984202440774, 4.691548347473145], [50.87409252547001, 4.693865776062013], [50.874850779625284, 4.694638252258302], [50.874850779625284, 4.696483612060548], [50.875284062175155, 4.697728157043458], [50.87601521734375, 4.6978139877319345], [50.87639433032257, 4.700603485107423], [50.87712546807231, 4.7005605697631845], [50.87753165075451, 4.693908691406251], [50.87796490837991, 4.691462516784669], [50.87666512341922, 4.690861701965333]],
+[[50.86881148475767, 4.699058532714845], [50.87628601264333, 4.700367450714112], [50.87613707542327, 4.6987366676330575], [50.875974597913086, 4.6978139877319345], [50.8752569821338, 4.697771072387696], [50.874796619023314, 4.6964406967163095], [50.87486431976593, 4.694638252258302], [50.87421438857698, 4.694273471832276], [50.87401128322168, 4.693372249603272], [50.873984202440774, 4.691505432128907], [50.872386408515005, 4.691205024719239], [50.86913648915637, 4.69442367553711]],
+[[50.87374047470445, 4.71489429473877], [50.87766704419516, 4.716138839721681], [50.88159328285729, 4.714465141296387], [50.88622311161217, 4.709701538085938], [50.88489648256591, 4.713435173034669], [50.88440913995918, 4.71639633178711], [50.883623966147674, 4.717297554016114], [50.87815445732434, 4.719614982604981], [50.87604229694451, 4.725708961486817], [50.87317177169636, 4.719786643981934], [50.8724405719179, 4.719099998474122]],
+[[50.86599468504891, 4.696354866027833], [50.86539880176159, 4.698071479797364], [50.86596759961018, 4.7019338607788095], [50.86496542731422, 4.706525802612306], [50.86469456623886, 4.709057807922364], [50.86436953087126, 4.709272384643556], [50.8649925133352, 4.711332321166993], [50.86244635857825, 4.711890220642091], [50.86244635857825, 4.709358215332032], [50.86060437271451, 4.706611633300782], [50.86046892970548, 4.703264236450196], [50.86109196428943, 4.699015617370606], [50.86098361104675, 4.69717025756836], [50.861471198656, 4.696054458618165]],
+[[50.86141702250675, 4.685926437377931], [50.868459394102004, 4.69841480255127], [50.867240598219865, 4.69742774963379], [50.86553423045024, 4.696097373962403], [50.861471198656, 4.69592571258545], [50.85502379493606, 4.695625305175782], [50.85553853637791, 4.693307876586915], [50.85721817946077, 4.690861701965333], [50.85971044158446, 4.6876859664917]],  
+  [[50.86491125522505, 4.7112464904785165], [50.86675307094459, 4.71090316772461], [50.86726768291898, 4.709358215332032], [50.869001070932285, 4.707899093627931], [50.86821563747484, 4.704809188842774], [50.867944795283044, 4.701805114746095], [50.86835105798063, 4.6988868713378915], [50.86745727537231, 4.6975135803222665], [50.86596759961018, 4.696269035339356], [50.86529045852743, 4.697341918945313], [50.865642573117896, 4.699058532714845], [50.86594051415569, 4.701976776123048], [50.86512794320409, 4.705495834350587], [50.86474873857985, 4.708585739135743], [50.864071579793574, 4.709272384643556]]
+];
+
+
+document.getElementById('draw-polygon-button').addEventListener('click', function() {
+    // Iterate through each set of coordinates and draw the polygons
+    polygonCoordinates.forEach(function(coords) {
+      var polygon = L.polygon(coords, { color: 'red' }).addTo(map);
+      map.fitBounds(polygon.getBounds());
+    });
+});
+
+// Campaign progress rectangle coordinates
+    const sw = [51.161594, 4.438646];
+    const ne = [51.173649, 4.469876];
+    const campaignBounds = [sw, ne];
+
+    // Draw the campaign progress rectangle
+    const campaignRectangle = L.rectangle(campaignBounds, {
+      color: 'red',
+      weight: 3,
+      fillOpacity: 0.1
+    }).addTo(map);
+
+    campaignRectangle.bindPopup("Campaign Progress Area");
+
+</script>
+
+
+</body>
+</html>
+
