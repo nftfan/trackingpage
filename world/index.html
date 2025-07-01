@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Service Availability – Flyer Distribution & Printing</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif; background: #0e1628; color: #fff; margin: 0;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 950px; margin: 2rem auto; background: #141d32;
+      border-radius: 20px; box-shadow: 0 8px 40px #0005;
+      padding: 2.2rem 2.5rem 2.5rem 2.5rem;
+      position: relative;
+    }
+    h1 {
+      color: #ffdc69; font-size: 2.2em; margin: 0 0 0.2em 0;
+      font-weight: 900; letter-spacing: 1px;
+      text-shadow: 0 2px 20px #0007;
+    }
+    .zone-count {
+      color: #38bdf8; font-size: 1.36em;
+      font-weight: 700; margin-bottom: 1.2em;
+      background: #232c43; display: inline-block;
+      border-radius: 7px; padding: 0.45em 1.2em;
+      border: 2px solid #38bdf8; box-shadow: 0 1px 8px #12243a55;
+      margin-top: 0.5em;
+    }
+    .desc {
+      color: #e6f6ff; margin-bottom: 2em; font-size: 1.11em;
+      background: #1c2540; padding: 1.2em 1.3em;
+      border-radius: 10px; border-left: 6px solid #ffdc69;
+      box-shadow: 0 2px 10px #0003;
+    }
+    .details-panel {
+      background: #18213b; border-radius: 9px;
+      padding: 1.1em 1.4em; margin: 1.2em 0 2em 0;
+      border-left: 6px solid #38bdf8;
+      color: #e0eafc; font-size: 1.08em;
+      box-shadow: 0 1px 7px #0002;
+    }
+    .details-panel ul {
+      margin: 0.3em 0 0 1.3em;
+      color: #a8e0ff;
+      font-size: 1em;
+    }
+    .map-holder {
+      width: 100%; height: 500px; border-radius: 16px;
+      border: 2px solid #283f6a; background: #121b2e;
+      margin-bottom: 1.7em; box-shadow: 0 3px 20px #0002;
+      position: relative;
+    }
+    .buy-btn-bar {
+      display: flex; justify-content: flex-end; margin-bottom: 2em; margin-top: -0.5em;
+    }
+    .buy-btn {
+      background: linear-gradient(90deg,#38bdf8,#0ea5e9 60%);
+      color: #fff; font-weight: 800; font-size: 1.18em;
+      border: none; border-radius: 9px; box-shadow: 0 2px 12px #38bdf855;
+      padding: 0.7em 2.1em; cursor: pointer; transition: background 0.15s;
+      margin-left: auto;
+      letter-spacing: 0.5px;
+    }
+    .buy-btn:hover, .buy-btn:focus {
+      background: linear-gradient(90deg,#0ea5e9,#38bdf8 60%);
+      color: #ffdc69;
+    }
+    .leaflet-label-tooltip {
+      background: #283f6a;
+      color: #fff;
+      padding: 9px 20px 9px 14px;
+      border-radius: 8px;
+      border: 2px solid #38bdf8;
+      font-size: 1.09em;
+      font-weight: 700;
+      box-shadow: 0 2px 18px #045e9533;
+      pointer-events: none;
+      white-space: nowrap;
+      line-height: 1.55em;
+      min-width: 170px;
+      text-align: left;
+    }
+    @media (max-width: 600px) {
+      .container { padding: 0.7rem; }
+      .map-holder { height: 250px; }
+      h1 { font-size: 1.3em; }
+      .details-panel, .desc { padding: 0.8em 0.7em; font-size: 1em;}
+      .zone-count { font-size: 1.02em; padding: 0.35em 0.8em; }
+      .buy-btn-bar { justify-content: center; }
+      .buy-btn { font-size: 1em; padding: 0.5em 1em; }
+      .leaflet-label-tooltip { padding: 7px 6px 7px 10px; min-width: 90px; font-size: 0.99em; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🌍 Service Availability: Flyer Distribution & Printing</h1>
+  <div class="zone-count" id="zoneCount">Zones available worldwide: ...</div>
+  <div class="desc">
+    <b>Reach your customers – anywhere our zones are highlighted below!</b><br>
+    Select your zone to see the price for full coverage. Our service offers distribution + high-quality printing for just <b>€0.09 per flyer</b> (A5, color, premium paper).
+  </div>
+  <div class="details-panel">
+    <b>Why choose us?</b>
+    <ul>
+      <li>High-quality, full-color <b>A5 flyers</b> on premium paper.</li>
+      <li>We deliver to <b>every letterbox & eligible shop</b> in the selected area – no streets skipped.</li>
+      <li>Distribution and printing included in one price.</li>
+      <li>Transparent campaign reporting available.</li>
+      <li>Fast, professional, reliable service – trusted by businesses across Europe.</li>
+    </ul>
+  </div>
+  <div class="buy-btn-bar">
+    <button class="buy-btn" id="buyLFCBtn" onclick="window.open('https://app.uniswap.org/#/swap?outputCurrency=0x2017Fcaea540d2925430586DC92818035Bfc2F50&chain=polygon', '_blank')">
+      Buy LFC (for Advertising)
+    </button>
+  </div>
+  <div class="map-holder"><div id="availMap" style="width:100%;height:100%;"></div></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const PANTRY_KEY = "20d841d1-e6e5-442e-aebc-70c2152b1a01";
+const PANTRY_API = `https://getpantry.cloud/apiv1/pantry/${PANTRY_KEY}/basket/newBasket29`;
+const LFC_EURO = 0.09;
+let previousBoxes = [];
+let availMap, rectLayers = [];
+
+function renderMap() {
+  if (!availMap) {
+    availMap = L.map('availMap', {
+      zoomControl: true,
+      attributionControl: false,
+      dragging: true,
+      scrollWheelZoom: true,
+      doubleClickZoom: true,
+      boxZoom: true,
+      keyboard: false,
+      tap: false
+    }).setView([50.85, 4.35], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      minZoom: 1
+    }).addTo(availMap);
+  }
+  rectLayers.forEach(l => availMap.removeLayer(l));
+  rectLayers = [];
+  if (!previousBoxes.length) return;
+  let boundsArr = [];
+  previousBoxes.forEach((box, idx) => {
+    if (!box.sw || !box.ne) return;
+    let sw = L.latLng(box.sw[0], box.sw[1]), ne = L.latLng(box.ne[0], box.ne[1]);
+    let bounds = L.latLngBounds(sw, ne);
+    let rect = L.rectangle(bounds, {
+      color: "#38bdf8",
+      weight: 2,
+      fillOpacity: 0.15,
+      dashArray: "6 5"
+    }).addTo(availMap);
+    rectLayers.push(rect);
+    boundsArr.push(sw, ne);
+
+    let flyers = box.flyerCount ?? 0;
+    let price = flyers * LFC_EURO;
+
+    let labelContent = `<div class="leaflet-label-tooltip">
+      <b>Zone Price:</b> €${price.toFixed(2)}<br>
+      <b>Total Flyers:</b> ${flyers.toLocaleString()}
+    </div>`;
+    // Place the label at the northWest corner of the box
+    let labelLatLng = L.latLng(box.ne[0], box.sw[1]);
+    let tooltip = L.tooltip({permanent:true, direction:'top', className:'leaflet-label-tooltip', offset:[0,-8]})
+      .setContent(labelContent)
+      .setLatLng(labelLatLng);
+    rect.bindTooltip(tooltip);
+    rect.openTooltip();
+  });
+
+  // Fit bounds to all boxes
+  if (boundsArr.length) {
+    let boundsObj = L.latLngBounds(boundsArr);
+    availMap.fitBounds(boundsObj.pad(0.13));
+  }
+}
+
+async function fetchBoxes() {
+  try {
+    let r = await fetch(PANTRY_API);
+    if (!r.ok) throw new Error("Failed to fetch data");
+    let data = await r.json();
+    previousBoxes = Array.isArray(data.boxes) ? data.boxes : [];
+  } catch (e) {
+    previousBoxes = [];
+  }
+  // Update zone count
+  document.getElementById('zoneCount').textContent =
+    `Zones available worldwide: ${previousBoxes.length}`;
+  renderMap();
+}
+fetchBoxes();
+</script>
+</body>
+</html>
