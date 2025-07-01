@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Flyer Distributor – Smart Area Selection & Earnings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #111827; color: #fff; margin: 0; }
+    .container { max-width: 800px; margin: 2rem auto; background: #171d2e; border-radius: 16px; box-shadow: 0 4px 24px #0002; padding: 2rem; }
+    .step-panel { margin-bottom: 2rem; background: #1a2236; border-radius: 10px; padding: 1.5rem; border: 1.5px solid #25304b; position: relative;}
+    .step-title { font-size: 1.25rem; font-weight: 700; color: #3b82f6; margin-bottom: .5em; }
+    .step-content { color: #e6f6ff; margin-bottom: 1em; }
+    .map-holder { width: 100%; height: 350px; margin-bottom: 1em; border-radius: 8px; border: 1.5px solid #25304b; background: #161f2f; }
+    .hidden { display: none !important; }
+    input, button { font-size: 1em; border-radius: 7px; border: none; margin-bottom: 1em; }
+    input[type="text"], input[type="tel"] { width: 100%; padding: 0.45em 0.7em; border: 1.5px solid #3b82f6; background: #121929; color: #fff; }
+    button { padding: 0.5em 1.5em; background: #3b82f6; color: #fff; font-weight: 700; cursor: pointer; border: none; }
+    button:disabled { background: #25304b; color: #aaa; cursor: not-allowed; }
+    .info { background: #162039; border-left: 4px solid #3b82f6; padding: 0.8em 1em; border-radius: 6px; margin-bottom: 1.2em; }
+    .success { color: #10b981; }
+    .error { color: #ef4444; }
+    .key-box { background: #12243a; border: 1.5px solid #3b82f6; border-radius: 8px; padding: 1em; font-size: 1.1em; color: #fbbf24; word-break: break-all; margin-bottom: 1em; }
+    .instructions { color: #fbbf24; background: #222f43; border-radius: 7px; padding: 1em; margin-bottom: 1.2em; border: 1.5px solid #3b82f6; }
+    .example { color: #7ee787; font-size: 0.98em; }
+    table.tasks-table { width: 100%; border-collapse: collapse; margin: 1.5em 0 1em 0; background: #222f43;}
+    table.tasks-table th, table.tasks-table td { border: 1px solid #26304b; padding: 0.8em 0.6em; }
+    table.tasks-table th { background: #283f6a; color: #fff; font-weight: 600; }
+    table.tasks-table td { color: #e6f6ff; }
+    .lfc-balance-panel { background: #162039; border-left: 4px solid #3b82f6; padding: 1em 1em; border-radius: 6px; margin-bottom: 1.2em; color: #fbbf24; font-size: 1.07em;}
+    .leaflet-label-tooltip {
+      background: #283f6a;
+      color: #fff;
+      padding: 4px 9px;
+      border-radius: 7px;
+      border: 1.5px solid #10b981;
+      font-size: 1em;
+      font-weight: 600;
+      box-shadow: 0 2px 8px #0005;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    @media (max-width: 600px) {
+      .container { padding: 0.7rem; }
+      .step-panel { padding: 1rem; }
+      .map-holder { height: 220px; }
+      table.tasks-table th, table.tasks-table td { padding: 0.5em 0.3em; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="step-panel" id="step1">
+    <div class="step-title">Step 1: Draw Your Distribution Area</div>
+    <div class="instructions">
+      <b>Welcome!</b><br>
+      As a flyer distributor, you can select your working area by drawing a rectangle on the map below.<br>
+      <ul>
+        <li>Click the rectangle icon on the map’s left edge.</li>
+        <li>Click and drag to select the desired distribution area. <b>Max: 30 km².</b></li>
+        <li>You can adjust or redraw as needed. After drawing, click <b>Analyze Area</b> to see your campaign details.</li>
+        <li><b>All your previous boxes appear on this map with earnings and area info!</b></li>
+      </ul>
+      <span class="example">Tip: Pick streets and neighborhoods you know well for best results.</span>
+    </div>
+    <div class="step-content">Draw a rectangle on the map below (max 30km²).</div>
+    <div class="map-holder"><div id="map1" style="width:100%;height:100%;"></div></div>
+    <button id="analyzeBtn" class="hidden">Analyze Area</button>
+  </div>
+  <div class="step-panel hidden" id="step2">
+    <div class="step-title">Step 2: Area Analysis & Earnings Estimation</div>
+    <div class="instructions">
+      <ul>
+        <li>We analyze your chosen area, estimate required flyers, and show your potential earnings.</li>
+        <li>Review the info and proceed to register as a distributor for this campaign.</li>
+      </ul>
+    </div>
+    <div class="map-holder"><div id="map2" style="width:100%;height:100%;"></div></div>
+    <div class="step-content" id="analysisResult"></div>
+    <button id="nextToContact">Next: Enter Contact Info</button>
+  </div>
+  <div class="step-panel hidden" id="step3">
+    <div class="step-title">Step 3: Distributor Tasks & Contact Registration</div>
+    <div class="instructions">
+      <b>Your Professional Tasks During Distribution:</b>
+    </div>
+    <table class="tasks-table">
+      <thead><tr><th>#</th><th>Task Description</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Stay active and responsive on WhatsApp with our team during your distribution window.</td></tr>
+        <tr><td>2</td><td>Collect printed flyers for your selected area, delivered by post to your home address before you start.</td></tr>
+        <tr><td>3</td><td>Distribute flyers in <b>all letterboxes and eligible shops</b> in <b>every street</b> of your selected area (no street or block may be skipped).</td></tr>
+        <tr><td>4</td><td>Share your <b>live location</b> in the provided WhatsApp group during distribution for transparency.</td></tr>
+        <tr><td>5</td><td>Give honest feedback about the distribution area and any issues (e.g. blocked buildings, closed shops) via WhatsApp after your round.</td></tr>
+        <tr><td>6</td><td>Take and send a few photos as proof of completion if requested.</td></tr>
+        <tr><td>7</td><td>Return any leftover flyers (if any) as instructed by our team.</td></tr>
+      </tbody>
+    </table>
+    <div class="instructions">
+      <span class="example">Professionalism is required: follow all instructions, be prompt, and represent our service with care.</span>
+    </div>
+    <div class="map-holder"><div id="map3" style="width:100%;height:100%;"></div></div>
+    <form id="contactForm" autocomplete="off">
+      <input type="text" id="nameInput" placeholder="Your Name (e.g. John Doe)" required />
+      <input type="tel" id="waInput" placeholder="WhatsApp Phone Number (e.g. +32...)" required />
+      <button type="submit">Send Info & Continue</button>
+    </form>
+    <div id="contactStatus"></div>
+  </div>
+  <div class="step-panel hidden" id="step4">
+    <div class="step-title">Step 4: Verify Your Wallet</div>
+    <div class="instructions">
+      <ul>
+        <li>Your wallet must have at least <b>10,000 LFC</b> tokens (nftfan, Polygon network, CA 0x2017Fcaea540d2925430586DC92818035Bfc2F50).</li>
+        <li>Paste your wallet address below and see your LFC balance live. Then click "Check Wallet" to continue.</li>
+        <li>If your balance is too low, please top up and try again.</li>
+      </ul>
+    </div>
+    <div class="map-holder"><div id="map4" style="width:100%;height:100%;"></div></div>
+    <div class="info">Your wallet must have at least <b>10,000 LFC</b> to start the distribution.</div>
+    <input type="text" id="walletInput" placeholder="Paste your wallet address (starts with 0x...)" />
+    <div id="lfcBalancePanel" class="lfc-balance-panel hidden"></div>
+    <button id="checkWalletBtn">Check Wallet & Continue</button>
+    <div id="walletStatus"></div>
+  </div>
+  <div class="step-panel hidden" id="step5">
+    <div class="step-title">Step 5: Save Your Distributor Key & Track Progress</div>
+    <div class="instructions">
+      <ul>
+        <li>You have been assigned a unique <b>Distributor Key</b> for this campaign.</li>
+        <li>This key is sent to our team, along with your area and contact info.</li>
+        <li>Keep your key safe! You will use it to access your personal activity/progress page at any time.</li>
+        <li>To check your campaign progress, enter your key below and click to get your activity link.</li>
+      </ul>
+      <span class="example">Example activity link: <b>https://leuvenflyer.com/fd/nk2tzjeq</b></span>
+    </div>
+    <div class="map-holder"><div id="map5" style="width:100%;height:100%;"></div></div>
+    <div class="key-box" id="distributorKey"></div>
+    <div class="info">
+      <b>Enter your distributor key below to view your campaign activity page at any time.</b><br>
+      <input type="text" id="activityKeyInput" placeholder="Enter your distributor key (8 chars)" />
+      <button id="showActivityBtn">Show Activity Page Link</button>
+      <div id="activityLink"></div>
+    </div>
+  </div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
+<script>
+const LFC_EURO = 0.09;
+const LFC_PER_FLYERS = 0.2;
+const MIN_LFC = 10000;
+const TOKEN_CA = "0x2017Fcaea540d2925430586DC92818035Bfc2F50";
+const TOKEN_ABI = ["function balanceOf(address) view returns (uint256)"];
+const TOKEN_DECIMALS = 18;
+const POLYGON_RPC = "https://polygon-rpc.com/";
+const TG_BOT_TOKEN = "7761334520:AAH2N1Ksa9NToLr6gd6DcknzpyB27q-_d14";
+const TG_CHAT_ID = "2141064153";
+const PANTRY_KEY = "20d841d1-e6e5-442e-aebc-70c2152b1a01";
+const PANTRY_API = `https://getpantry.cloud/apiv1/pantry/${PANTRY_KEY}/basket/newBasket29`;
+
+let bounds = null, flyerCount = 0, lfcNeeded = 0, earnings = 0, distributorKey = "";
+let drawnRectCoords = null;
+let previousBoxes = [];
+let prevRectLayers = [];
+
+async function fetchPreviousBoxes() {
+  try {
+    let r = await fetch(PANTRY_API);
+    if (!r.ok) throw new Error("Failed to fetch previous");
+    let data = await r.json();
+    previousBoxes = Array.isArray(data.boxes) ? data.boxes : [];
+  } catch (e) {
+    previousBoxes = [];
+  }
+  renderPreviousBoxesOnMap();
+}
+
+// --- Map Logic ---
+let map1, drawnItems, drawControl;
+function rectangleAreaMeters(bounds) {
+  function haversine(latlng1, latlng2) {
+    let R = 6378137;
+    let dLat = (latlng2.lat-latlng1.lat)*Math.PI/180;
+    let dLng = (latlng2.lng-latlng1.lng)*Math.PI/180;
+    let a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(latlng1.lat*Math.PI/180)*Math.cos(latlng2.lat*Math.PI/180)*
+            Math.sin(dLng/2)*Math.sin(dLng/2);
+    let c = 2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    return R*c;
+  }
+  let sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+  let width = haversine(sw, L.latLng(sw.lat, ne.lng));
+  let height = haversine(sw, L.latLng(ne.lat, sw.lng));
+  return width * height;
+}
+
+function setupDrawMap() {
+  map1 = L.map('map1').setView([50.85, 4.35], 9);
+  window.step1map = map1;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map1);
+  drawnItems = new L.FeatureGroup().addTo(map1);
+  drawControl = new L.Control.Draw({
+    draw: { marker: false, circle: false, circlemarker: false, polyline: false, polygon: false, rectangle: { shapeOptions: { color: "#3b82f6", fillOpacity: 0.12 } } },
+    edit: { featureGroup: drawnItems, edit: true, remove: true }
+  });
+  map1.addControl(drawControl);
+
+  map1.on(L.Draw.Event.CREATED, function (e) {
+    drawnItems.clearLayers();
+    if (e.layerType === 'rectangle') {
+      let b = e.layer.getBounds();
+      let area = rectangleAreaMeters(b) / 1e6;
+      if (area > 30) {
+        alert("Area too large (" + area.toFixed(2) + " km²). Max 30km².");
+        return;
+      }
+      bounds = b;
+      drawnRectCoords = [[b.getSouthWest().lat, b.getSouthWest().lng], [b.getNorthEast().lat, b.getNorthEast().lng]];
+      drawnItems.addLayer(e.layer);
+      document.getElementById('analyzeBtn').classList.remove('hidden');
+    }
+  });
+  map1.on('draw:edited', function (e) {
+    if (drawnItems.getLayers().length) {
+      let b = drawnItems.getLayers()[0].getBounds();
+      let area = rectangleAreaMeters(b) / 1e6;
+      if (area > 30) {
+        alert("Area too large (" + area.toFixed(2) + " km²). Max 30km².");
+        return;
+      }
+      bounds = b;
+      drawnRectCoords = [[b.getSouthWest().lat, b.getSouthWest().lng], [b.getNorthEast().lat, b.getNorthEast().lng]];
+      document.getElementById('analyzeBtn').classList.remove('hidden');
+    }
+  });
+  map1.on('draw:deleted', function () {
+    bounds = null;
+    drawnRectCoords = null;
+    document.getElementById('analyzeBtn').classList.add('hidden');
+    showStep(1);
+  });
+  fetchPreviousBoxes();
+}
+setupDrawMap();
+
+function renderPreviousBoxesOnMap() {
+  // Remove existing previous rectangles
+  if (prevRectLayers && prevRectLayers.length) {
+    prevRectLayers.forEach(l => map1.removeLayer(l));
+  }
+  prevRectLayers = [];
+  if (!previousBoxes.length) return;
+  previousBoxes.forEach((box, idx) => {
+    if (!box.sw || !box.ne) return;
+    let sw = L.latLng(box.sw[0], box.sw[1]), ne = L.latLng(box.ne[0], box.ne[1]);
+    let bounds = L.latLngBounds(sw, ne);
+    let rect = L.rectangle(bounds, {
+      color: "#10b981",
+      weight: 2,
+      fillOpacity: 0.13,
+      dashArray: "6 5"
+    }).addTo(map1);
+    prevRectLayers.push(rect);
+    // Always show label
+    let labelContent = `<div class="leaflet-label-tooltip">
+      <b>Area:</b> ${box.areaKm2?.toFixed(2) ?? "?"} km²<br>
+      <b>Earnings:</b> €${box.earnings?.toFixed(2) ?? "?"}
+      <br><b>Flyers:</b> ${box.flyerCount ?? "?"} <b>LFC:</b> ${box.lfcNeeded ?? "?"}
+      </div>`;
+    // Place the label at the northWest corner
+    let labelLatLng = L.latLng(box.ne[0], box.sw[1]);
+    let tooltip = L.tooltip({permanent:true, direction:'top', className:'leaflet-label-tooltip', offset:[0,-8]})
+      .setContent(labelContent)
+      .setLatLng(labelLatLng);
+    rect.bindTooltip(tooltip);
+    rect.openTooltip();
+  });
+}
+
+// --- Show current box on other step maps ---
+function drawStaticRect(mapId, rectCoords) {
+  if (!rectCoords) return;
+  setTimeout(() => {
+    let map = L.map(mapId, {zoomControl:false, attributionControl:false, dragging:false, scrollWheelZoom:false, doubleClickZoom:false, boxZoom:false, keyboard:false, tap:false});
+    let sw = L.latLng(rectCoords[0][0], rectCoords[0][1]);
+    let ne = L.latLng(rectCoords[1][0], rectCoords[1][1]);
+    let bounds = L.latLngBounds(sw, ne);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, minZoom: 1
+    }).addTo(map);
+    let rect = L.rectangle(bounds, {color:"#3b82f6", weight:2, fillOpacity:0.16});
+    rect.addTo(map);
+    map.fitBounds(bounds.pad(0.18));
+    map.dragging.disable();
+    map.touchZoom.disable();
+    map.doubleClickZoom.disable();
+    map.scrollWheelZoom.disable();
+    map.boxZoom.disable();
+    map.keyboard.disable();
+    map.zoomControl.remove();
+    map.on('unload', () => map.remove());
+  }, 25);
+}
+
+// --- Analyze area ---
+async function countBuildings(bounds) {
+  let sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+  const query = `
+    [out:json][timeout:25];
+    (
+      way["building"](${sw.lat},${sw.lng},${ne.lat},${ne.lng});
+      node["building"](${sw.lat},${sw.lng},${ne.lat},${ne.lng});
+    );
+    out count;
+  `;
+  const url = "https://overpass-api.de/api/interpreter";
+  try {
+    const response = await fetch(url, { method: "POST", body: query, headers: { "Content-Type": "text/plain" } });
+    if (!response.ok) throw new Error("Overpass API error");
+    const data = await response.json();
+    let count = 0;
+    if (data.elements) {
+      data.elements.forEach(el => {
+        if (el.type === "count" && el.tags && el.tags.total) count += parseInt(el.tags.total);
+      });
+    }
+    return count;
+  } catch (e) { return null; }
+}
+
+async function analyzeArea() {
+  document.getElementById('analysisResult').innerHTML = "Analyzing area...";
+  let buildings = await countBuildings(bounds);
+  if (buildings == null) {
+    document.getElementById('analysisResult').innerHTML = `<span class="error">Error analyzing area. Try again.</span>`;
+    return;
+  }
+  flyerCount = Math.ceil(buildings * 1.5);
+  lfcNeeded = Math.ceil(flyerCount * LFC_PER_FLYERS);
+  earnings = lfcNeeded * LFC_EURO;
+  document.getElementById('analysisResult').innerHTML = `
+    <b>Estimated buildings:</b> ${buildings}<br>
+    <b>Flyers to distribute:</b> ${flyerCount}<br>
+    For every <b>5 flyers</b>, you earn <b>1 LFC</b>.<br>
+    <span class="success"><b>Potential earnings:</b> ${lfcNeeded} LFC = €${earnings.toFixed(2)}</span>
+    <br><span class="example">All calculations are based on real address data for your selected area.</span>
+  `;
+}
+document.getElementById('analyzeBtn').onclick = async function() {
+  if (bounds) {
+    await sendBoxToTelegram(bounds, rectangleAreaMeters(bounds)/1e6, null);
+    await analyzeArea();
+    showStep(2);
+  }
+};
+document.getElementById('nextToContact').onclick = () => showStep(3);
+
+// --- Telegram send ---
+async function sendBoxToTelegram(bounds, areaKm2, distributorKey) {
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+  const keyLine = distributorKey ? `Distributor Key: ${distributorKey}\n` : "";
+  const msg = `${keyLine}Flyer Distributor: Area drawn\nSW (SouthWest): ${sw.lat.toFixed(6)}, ${sw.lng.toFixed(6)}\nNE (NorthEast): ${ne.lat.toFixed(6)}, ${ne.lng.toFixed(6)}\nArea: ${areaKm2.toFixed(2)} km²\nLink: https://www.openstreetmap.org/#map=14/${((sw.lat+ne.lat)/2).toFixed(6)}/${((sw.lng+ne.lng)/2).toFixed(6)}`;
+  try {
+    await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: TG_CHAT_ID, text: msg })
+    });
+  } catch (e) {}
+}
+
+// --- Contact info ---
+document.getElementById('contactForm').onsubmit = async function(e) {
+  e.preventDefault();
+  let name = document.getElementById('nameInput').value.trim();
+  let wa = document.getElementById('waInput').value.trim();
+  document.getElementById('contactStatus').innerHTML = "Sending...";
+  if (!distributorKey) distributorKey = randomKey();
+  let text = `Flyer Distributor Registration\nName: ${name}\nWhatsApp: ${wa}\nDistributor Key: ${distributorKey}`;
+  if (drawnRectCoords) {
+    text += `\nArea SW: ${drawnRectCoords[0][0]},${drawnRectCoords[0][1]}\nArea NE: ${drawnRectCoords[1][0]},${drawnRectCoords[1][1]}`;
+  }
+  try {
+    await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: TG_CHAT_ID, text })
+    });
+    document.getElementById('contactStatus').innerHTML = `<span class="success">Sent to Telegram!</span>`;
+    await saveBoxToPantry();
+    fetchPreviousBoxes();
+    showStep(4);
+  } catch (err) {
+    document.getElementById('contactStatus').innerHTML = `<span class="error">Failed to send. Try again.</span>`;
+  }
+};
+
+// --- Wallet check & LFC balance live ---
+async function checkWalletAndShowBalance(wallet) {
+  let lfcBalancePanel = document.getElementById('lfcBalancePanel');
+  let status = document.getElementById('walletStatus');
+  lfcBalancePanel.classList.add('hidden');
+  status.innerHTML = "";
+  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+    status.innerHTML = `<span class="error">Enter a valid wallet address.</span>`;
+    return null;
+  }
+  try {
+    lfcBalancePanel.innerHTML = "Checking wallet...";
+    lfcBalancePanel.classList.remove('hidden');
+    const provider = new ethers.JsonRpcProvider(POLYGON_RPC);
+    const contract = new ethers.Contract(TOKEN_CA, TOKEN_ABI, provider);
+    const bal = await contract.balanceOf(wallet);
+    let balance = Number(ethers.formatUnits(bal, TOKEN_DECIMALS));
+    lfcBalancePanel.innerHTML = `Your LFC balance (nftfan): <b>${balance.toLocaleString()} LFC</b>`;
+    if (balance < MIN_LFC) {
+      lfcBalancePanel.innerHTML += `<br><span class="error">Minimum 10,000 LFC required to start distribution.</span>`;
+    }
+    return balance;
+  } catch (e) {
+    lfcBalancePanel.classList.add('hidden');
+    status.innerHTML = `<span class="error">Failed to check wallet. Try again.</span>`;
+    return null;
+  }
+}
+// Show balance as user types, debounce
+let walletInput = document.getElementById('walletInput');
+let walletInputTimeout = null;
+walletInput.addEventListener('input', function() {
+  clearTimeout(walletInputTimeout);
+  let wallet = walletInput.value.trim();
+  if (wallet.length >= 42) {
+    walletInputTimeout = setTimeout(() => {
+      checkWalletAndShowBalance(wallet);
+    }, 600);
+  } else {
+    document.getElementById('lfcBalancePanel').classList.add('hidden');
+    document.getElementById('walletStatus').innerHTML = "";
+  }
+});
+document.getElementById('checkWalletBtn').onclick = async function() {
+  let wallet = document.getElementById('walletInput').value.trim();
+  let status = document.getElementById('walletStatus');
+  let lfcBalancePanel = document.getElementById('lfcBalancePanel');
+  lfcBalancePanel.classList.add('hidden');
+  let balance = await checkWalletAndShowBalance(wallet);
+  if (balance == null) return;
+  if (balance < MIN_LFC) {
+    status.innerHTML = `<span class="error">Minimum 10,000 LFC required to start distribution.</span>`;
+  } else {
+    if (drawnRectCoords && bounds && distributorKey) {
+      await sendBoxToTelegram(bounds, rectangleAreaMeters(bounds)/1e6, distributorKey);
+    }
+    showStep(5);
+    document.getElementById('distributorKey').innerText = distributorKey;
+  }
+};
+
+// --- Step navigation & utility ---
+function showStep(n) {
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById('step' + i).classList.toggle('hidden', i !== n);
+    if (i === n && n !== 1 && drawnRectCoords) {
+      drawStaticRect("map"+i, drawnRectCoords);
+    }
+  }
+  if (n === 1 && window.step1map) setTimeout(() => { window.step1map.invalidateSize(); }, 50);
+}
+function randomKey() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  for (let i = 0; i < 8; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+document.getElementById('showActivityBtn').onclick = function() {
+  let key = document.getElementById('activityKeyInput').value.trim();
+  if (!/^[a-z0-9]{8}$/i.test(key)) {
+    document.getElementById('activityLink').innerHTML = `<span class="error">Enter a valid distributor key (8 chars).</span>`;
+    return;
+  }
+  document.getElementById('activityLink').innerHTML =
+    `<a href="https://leuvenflyer.com/fd/${key}" target="_blank" style="color:#3b82f6;">Go to your activity page</a>`;
+};
+window.addEventListener('resize', () => {
+  if (window.step1map) window.step1map.invalidateSize();
+  for (let i = 2; i <= 5; i++) {
+    let elem = document.getElementById("map"+i);
+    if (elem && elem._leaflet_id) elem.invalidateSize();
+  }
+});
+
+// --- Pantry save ---
+async function saveBoxToPantry() {
+  if (!drawnRectCoords || !bounds) return;
+  let sw = drawnRectCoords[0], ne = drawnRectCoords[1];
+  let areaKm2 = rectangleAreaMeters(bounds) / 1e6;
+  let box = {
+    sw, ne,
+    areaKm2,
+    flyerCount,
+    lfcNeeded,
+    earnings,
+    date: (new Date()).toISOString()
+  };
+  let boxes = [];
+  try {
+    let resp = await fetch(PANTRY_API);
+    let data = await resp.json();
+    if (data && Array.isArray(data.boxes)) boxes = data.boxes;
+  } catch (e) {}
+  boxes.push(box);
+  try {
+    await fetch(PANTRY_API, {
+      method: "PUT",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({boxes})
+    });
+  } catch (e) { }
+}
+</script>
+</body>
+</html>
