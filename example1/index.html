@@ -679,7 +679,7 @@
         icon: 'task_alt',
         message: 'Zone 3 is completed'
       },
-	  {
+      {
         icon: 'task_alt',
         message: 'Zone 2 is completed'
       },
@@ -742,46 +742,69 @@
 
     // -------- MAP + IMAGE LOGIC ---------
     document.addEventListener('DOMContentLoaded', function() {
-      // Centered on Antwerp area
-      var map = L.map('map').setView([51.168, 4.45], 13);
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-      }).addTo(map);
-
-      // ZONE 1 (blue, completed)
-      var zone1 = [
-        [51.17390788442244, 4.438954437656327], 
+      // Paste your polygons coordinates here:
+      var polygonCoordinates = [
+        [[51.170006701840045, 4.456501007080079], [51.16475926089442, 4.459204673767091], [51.16578188596654, 4.462251663208009], [51.16562042035723, 4.462809562683106], [51.165835707710684, 4.463882446289063], [51.16640083223255, 4.463882446289063], [51.16758488020661, 4.469933509826661], [51.1687688977834, 4.469976425170899]],
+        [[51.17390788442244, 4.438954437656327], 
         [51.17374644727535, 4.447753350251698], 
         [51.171109560530326, 4.44886930989791], 
         [51.166911756281955, 4.444705921986963], 
         [51.16742304774701, 4.4426027672690624], 
-        [51.16723467786671, 4.43878275155691]
-      ];
-      var zone1Polygon = L.polygon(zone1, {
-        color: 'black',
-        fillColor: '#2196f3',
-        fillOpacity: 0.5,
-        weight: 2
-      }).addTo(map);
-
-      // ZONE 2 (orange, in progress)
-      var zone2 = [
-        [51.16163742306019, 4.469976425170899], 
+        [51.16723467786671, 4.43878275155691]],
+        [[51.16163742306019, 4.469976425170899], 
         [51.16158359641715, 4.461050033569337], 
         [51.16508219757714, 4.459247589111329], 
         [51.16605099405929, 4.462080001831056], 
         [51.16599717256636, 4.46371078491211], 
         [51.16712741072914, 4.467315673828126], 
-        [51.16766560964336, 4.469976425170899]
+        [51.16766560964336, 4.469976425170899]],
+        [[51.17361228952437, 4.448304176330567], [51.17129828804342, 4.448518753051759], [51.17062559140977, 4.450750350952149], [51.16882271604194, 4.4698476791381845], [51.173639195835385, 4.46971893310547]],
+		[[51.17067940750161, 4.4495487213134775], [51.16997979340948, 4.456501007080079], [51.16158359641715, 4.46122169494629], [51.16174507615788, 4.457702636718751]],
+		[[51.167181230903175, 4.438905715942384], [51.16707359049229, 4.44474220275879], [51.16163742306019, 4.44448471069336], [51.161691249640434, 4.438734054565431]],
+		[[51.16701977019263, 4.444570541381837], [51.170787039496794, 4.449377059936524], [51.16174507615788, 4.4577884674072275], [51.16174507615788, 4.444141387939454]]
+        // ...add more polygons as needed...
       ];
-      var zone2Polygon = L.polygon(zone2, {
-        color: 'black',
-        fillColor: '#ff9800',
-        fillOpacity: 0.45,
-        weight: 2,
-        dashArray: "4 6"
+
+      // Define colors for each polygon or use a default color
+      var polygonColors = [
+        'blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'red', // Add more colors for more polygons if you want
+      ];
+
+      // Center the map on the first polygon or a default location
+      var mapCenter = polygonCoordinates.length > 0 && polygonCoordinates[0].length > 0
+        ? polygonCoordinates[0][0]
+        : [50.8772, 4.7330];
+
+      var map = L.map('map').setView(mapCenter, 13);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
       }).addTo(map);
+
+      var allLatLngs = [];
+
+      polygonCoordinates.forEach(function(coords, index) {
+        var color = polygonColors[index % polygonColors.length] || 'blue';
+        var polygon = L.polygon(coords, {
+          color: 'black',
+          fillColor: color,
+          fillOpacity: 0.5,
+          weight: 2
+        }).addTo(map);
+        allLatLngs = allLatLngs.concat(coords);
+
+        // Add label at center
+        var center = polygon.getBounds().getCenter();
+        L.marker(center, {
+          icon: L.divIcon({
+            className: 'leaflet-label-zone',
+            html: `<span>Zone ${index + 1}</span>`,
+            iconSize: [80, 20],
+            iconAnchor: [40, 10]
+          }),
+          interactive: false
+        }).addTo(map);
+      });
 
       // Draw campaign progress rectangle (covers all zones)
       var sw = [51.161594, 4.438646];
@@ -793,34 +816,11 @@
         fillOpacity: 0.12
       }).addTo(map);
 
-      // Always show small, beautiful labels for each zone (not the rectangle)
-      function getPolygonCenter(latlngs) {
-        return L.polygon(latlngs).getBounds().getCenter();
+      // Fit map to all polygons and rectangle
+      allLatLngs = allLatLngs.concat([sw, ne]);
+      if (allLatLngs.length > 0) {
+        map.fitBounds(L.latLngBounds(allLatLngs).pad(0.12));
       }
-      var zone1Center = getPolygonCenter(zone1);
-      var zone2Center = getPolygonCenter(zone2);
-
-      L.marker(zone1Center, {
-        icon: L.divIcon({
-          className: 'leaflet-label-zone',
-          html: '<span>Zone 1</span>',
-          iconAnchor: [32, 10]
-        }),
-        interactive: false
-      }).addTo(map);
-
-      L.marker(zone2Center, {
-        icon: L.divIcon({
-          className: 'leaflet-label-zone',
-          html: '<span>Zone 2</span>',
-          iconAnchor: [32, 10]
-        }),
-        interactive: false
-      }).addTo(map);
-
-      // Fit map to show both polygons and the rectangle
-      var group = L.featureGroup([zone1Polygon, zone2Polygon, campaignRectangle]);
-      map.fitBounds(group.getBounds().pad(0.12));
 
       // Register click listeners for all popup-img
       document.querySelectorAll('.popup-img').forEach(function(img) {
