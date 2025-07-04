@@ -253,6 +253,11 @@
       padding: 10px 14px 10px 14px;
       align-items: center;
       flex-shrink: 0;
+      /* Always anchored to the bottom, but can be moved up via JS */
+      position: relative;
+      transition: transform 0.2s;
+      will-change: transform;
+      z-index: 3;
     }
     .chatbox-inputbar input {
       flex: 1 1 auto;
@@ -422,6 +427,50 @@
         input.value = "";
         addUserMessage(idx, msg);
       };
+
+      // Move input bar up with keyboard (mobile)
+      const inputBar = document.getElementById('chatbox-inputbar');
+      const msgArea = document.getElementById('chatbox-messages');
+      const input = document.getElementById('chatbox-input');
+      // Remove previous listeners if any
+      window.removeEventListener('resize', fixInputBarOnKeyboard);
+      input && input.removeEventListener('focus', fixInputBarOnKeyboard);
+      input && input.removeEventListener('blur', fixInputBarOnKeyboard);
+
+      // Track last window.innerHeight for keyboard detection
+      let lastWindowHeight = window.innerHeight;
+
+      function fixInputBarOnKeyboard() {
+        // On mobile, when keyboard comes up, window.innerHeight shrinks
+        const safeBottom = window.visualViewport && window.visualViewport.height < window.innerHeight
+          ? window.innerHeight - window.visualViewport.height
+          : 0;
+        const keyboardHeight = Math.max(0, lastWindowHeight - window.innerHeight, safeBottom);
+
+        // If keyboard is open, move input bar up
+        if (keyboardHeight > 100) {
+          inputBar.style.transform = `translateY(-${keyboardHeight}px)`;
+          // Optionally, reduce chatbox-messages height so it's still visible
+          msgArea.style.maxHeight = `calc(100vh - ${keyboardHeight + inputBar.offsetHeight + 60}px)`;
+          setTimeout(() => {
+            msgArea.scrollTop = msgArea.scrollHeight;
+          }, 50);
+        } else {
+          inputBar.style.transform = '';
+          msgArea.style.maxHeight = '';
+        }
+        lastWindowHeight = window.innerHeight;
+      }
+
+      // Listen for resize and input focus/blur
+      window.addEventListener('resize', fixInputBarOnKeyboard);
+      input && input.addEventListener('focus', fixInputBarOnKeyboard);
+      input && input.addEventListener('blur', fixInputBarOnKeyboard);
+
+      // For iOS, listen to visualViewport changes
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', fixInputBarOnKeyboard);
+      }
     }
 
     function openChat(idx) {
@@ -432,6 +481,11 @@
     function closeChat() {
       openChatIdx = null;
       document.getElementById('chatbox-overlay-root').innerHTML = "";
+      // Remove all event listeners on close if possible
+      window.removeEventListener('resize', fixInputBarOnKeyboard);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', fixInputBarOnKeyboard);
+      }
     }
 
     function addUserMessage(idx, msg) {
