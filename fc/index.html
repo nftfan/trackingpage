@@ -330,6 +330,24 @@
   </div>
   <div id="chatbox-overlay-root"></div>
   <script type="module">
+    // Firebase imports and config
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+      authDomain: "trackingclients.firebaseapp.com",
+      projectId: "trackingclients",
+      storageBucket: "trackingclients.appspot.com",
+      messagingSenderId: "27490943622",
+      appId: "1:27490943622:web:d6c87547aa5df440508707",
+      databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
     // Single logo for all chats except Domino's
     const commonLogo = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRbqjPqjigJwHu4VvBHRbIMuIO7TD9qgiE-kw&s";
     const dominosLogo = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Domino%27s_pizza_logo.svg/512px-Domino%27s_pizza_logo.svg.png";
@@ -367,6 +385,17 @@
     // State
     let openChatIdx = null;
     let chatUserMessages = {}; // { idx: [msg, ...] }
+
+    // Save user message to Firebase
+    function saveUserMessageToFirebase(chatIdx, msg) {
+      const chatName = chats[chatIdx].name;
+      const chatRef = ref(db, `foodchat/${chatName}/messages`);
+      push(chatRef, {
+        message: msg,
+        chatName,
+        timestamp: Date.now()
+      });
+    }
 
     // Render chat entries
     function renderChatList() {
@@ -442,6 +471,7 @@
         if (!msg) return;
         input.value = "";
         addUserMessage(idx, msg);
+        saveUserMessageToFirebase(idx, msg); // Save to Firebase
       };
     }
 
