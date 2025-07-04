@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FoodChat (with Notifications)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #181624;
+      color: #ffd6e0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 10px;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+    body {
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .container {
+      width: 100vw;
+      min-height: 100vh;
+      max-width: 430px;
+      margin: 0 auto;
+      background: #191825;
+      border-radius: 0;
+      box-shadow: none;
+      display: flex;
+      flex-direction: column;
+      min-height: 100svh;
+      position: relative;
+    }
+    .header {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 16px 0 10px 0;
+      background: #1c1a2b;
+      border-bottom: 1px solid #232526;
+      gap: 10px;
+    }
+    .header .material-icons {
+      color: #00ffc2;
+      font-size: 2rem;
+      margin-left: 18px;
+      margin-right: 4px;
+      text-shadow: 0 1px 10px #00ffc255;
+    }
+    .header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #00ffc2;
+      margin: 0 0 0 0;
+      letter-spacing: 1px;
+      text-shadow: 0 1px 10px #00ffc244;
+    }
+    .chatlist {
+      flex: 1 1 auto;
+      background: #191825;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow-y: auto;
+      min-height: 150px;
+      max-height: 100svh;
+      scrollbar-width: thin;
+      scrollbar-color: #00ffc2 #232526;
+      transition: background 0.2s;
+    }
+    .chatlist::-webkit-scrollbar {
+      width: 4px;
+    }
+    .chatlist::-webkit-scrollbar-thumb {
+      background: #00ffc2;
+      border-radius: 3px;
+    }
+    .chatlist::-webkit-scrollbar-track {
+      background: #232526;
+      border-radius: 3px;
+    }
+    .chat-entry {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      padding: 14px 16px 12px 16px;
+      border-bottom: 1px solid #232526;
+      gap: 13px;
+      background: #191825;
+      cursor: pointer;
+      transition: background 0.12s;
+      position: relative;
+    }
+    .chat-entry:hover, .chat-entry:active {
+      background: #232526;
+    }
+    .chat-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #232526;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #00ffc2;
+      box-shadow: 0 1px 6px #0005;
+      flex-shrink: 0;
+    }
+    .chat-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
+      background: #232526;
+    }
+    .chat-info {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+      flex: 1 1 0;
+    }
+    .chat-name {
+      font-size: 1.03rem;
+      font-weight: 600;
+      color: #00ffc2;
+      margin-bottom: 2px;
+      text-shadow: 0 1px 7px #00ffc233;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: 0.02em;
+    }
+    .chat-desc {
+      font-size: 0.91rem;
+      color: #ffe7f8cc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+    .chat-last-msg {
+      font-size: .93rem;
+      color: #ffe7f899;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .badge {
+      background: #ff1755;
+      color: #fff;
+      border-radius: 10px;
+      padding: 2px 7px;
+      font-size: 0.83rem;
+      font-weight: bold;
+      position: absolute;
+      top: 6px;
+      right: 10px;
+      min-width: 20px;
+      text-align: center;
+      box-shadow: 0 0 8px #ff175544;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* Chat Box Styles */
+    .chatbox-overlay {
+      position: fixed;
+      inset: 0;
+      background: #191825aa;
+      z-index: 1000;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      animation: fadeIn 0.24s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .chatbox {
+      width: 100vw;
+      max-width: 420px;
+      background: #19181f;
+      border-radius: 18px 18px 0 0;
+      box-shadow: 0 -6px 40px #000a;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      display: flex;
+      flex-direction: column;
+      max-height: 95vh;
+      min-height: 340px;
+      overflow: hidden;
+      animation: slideUp 0.23s;
+      margin-bottom: 0;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(60px); opacity: 0.7; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+    .chatbox-header {
+      display: flex;
+      align-items: center;
+      padding: 14px 18px 12px 18px;
+      background: #19181f;
+      border-bottom: 1px solid #232526;
+      gap: 13px;
+      box-shadow: 0 2px 12px #0002;
+    }
+    .chatbox-header .chat-logo {
+      width: 38px;
+      height: 38px;
+      border-width: 2px;
+    }
+    .chatbox-header .chatbox-title {
+      font-size: 1.13rem;
+      color: #00ffc2;
+      font-weight: 700;
+      text-shadow: 0 1px 10px #00ffc222;
+      letter-spacing: 0.01em;
+    }
+    .chatbox-header .close-btn {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: #ffd6e0bb;
+      font-size: 2.1rem;
+      cursor: pointer;
+      transition: color 0.18s;
+      padding: 4px 8px;
+    }
+    .chatbox-header .close-btn:hover {
+      color: #00ffc2;
+    }
+    .chatbox-messages {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 17px 14px;
+      background: #1c1a2b;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: #232526 #00ffc2;
+      max-height: 320px;
+      min-height: 120px;
+      height: 320px;
+    }
+    .chatbox-message {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      border-radius: 12px;
+      padding: 10px 13px;
+      width: fit-content;
+      max-width: 85%;
+      box-shadow: 0 1px 7px #0001;
+      font-size: 1.01rem;
+      word-break: break-word;
+    }
+    .chatbox-message.user-message {
+      margin-left: auto;
+      background: #00ffc2;
+      color: #191825;
+      flex-direction: row-reverse;
+      box-shadow: 0 1px 8px #00ffc210;
+    }
+   .chatbox-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 10px 13px;
+  width: fit-content;
+  max-width: 85%;
+  box-shadow: 0 1px 7px #0001;
+  font-size: 1.01rem;
+  word-break: break-word;
+}
+.chatbox-message.user-message {
+  margin-left: auto;
+  background: #00ffc2;
+  color: #191825;
+  flex-direction: row-reverse;
+  box-shadow: 0 1px 8px #00ffc210;
+}
+.chatbox-message.bot-message {
+  margin-right: auto;
+  margin-left: 0;
+  background: #27243a;
+  color: #ffd6e0;
+}
+    .chatbox-message .chat-logo {
+      width: 26px;
+      height: 26px;
+      border-width: 1.5px;
+      box-shadow: none;
+      margin-left: 4px;
+      margin-right: 4px;
+    }
+    .chatbox-inputbar {
+      display: flex;
+      gap: 10px;
+      background: #191825;
+      border-top: 1px solid #232526;
+      padding: 10px 14px 10px 14px;
+      align-items: center;
+    }
+    .chatbox-inputbar input {
+      flex: 1 1 auto;
+      border: none;
+      border-radius: 12px;
+      padding: 11px 13px;
+      font-size: 1.02rem;
+      background: #232526;
+      color: #ffd6e0;
+      outline: none;
+    }
+    .chatbox-inputbar button {
+      background: #00ffc2;
+      color: #191825;
+      border: none;
+      border-radius: 10px;
+      padding: 9px 16px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      box-shadow: 0 2px 8px #00ffc233;
+    }
+    .chatbox-inputbar button:active {
+      background: #00b38f;
+    }
+    @media (max-width: 430px) {
+      .container {
+        max-width: 100vw;
+        border-radius: 0;
+      }
+      .header h1 { font-size: 1.08rem; }
+      .chat-logo { width: 36px; height: 36px; }
+      .chat-name { font-size: 0.98rem; }
+      .chat-desc { font-size: 0.85rem; }
+      .chatbox { max-width: 100vw; }
+      .chatbox-header .chat-logo { width: 30px; height: 30px; }
+      .chatbox-header .chatbox-title { font-size: 1.01rem; }
+      .chatbox-message { font-size: 0.97rem; }
+      .chatbox-messages {
+        max-height: 38vh;
+        min-height: 80px;
+        height: 38vh;
+      }
+    }
+    @media (max-width: 340px) {
+      .header h1 { font-size: .88rem; }
+      .chat-logo { width: 28px; height: 28px; }
+      .chatbox-header .chatbox-title { font-size: 0.93rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span class="material-icons">restaurant</span>
+      <h1>FoodChat</h1>
+    </div>
+    <div class="chatlist" id="chatlist"></div>
+  </div>
+  <div id="chatbox-overlay-root"></div>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue, query, orderByChild } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+      authDomain: "trackingclients.firebaseapp.com",
+      projectId: "trackingclients",
+      storageBucket: "trackingclients.appspot.com",
+      messagingSenderId: "27490943622",
+      appId: "1:27490943622:web:d6c87547aa5df440508707",
+      databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const commonLogo = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRbqjPqjigJwHu4VvBHRbIMuIO7TD9qgiE-kw&s";
+    const dominosLogo = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Domino%27s_pizza_logo.svg/512px-Domino%27s_pizza_logo.svg.png";
+    const chats = [
+      {
+        name: "McDonald's",
+        logo: commonLogo,
+        botMessages: [
+          "Welcome to McDonald's! 🍔 How can I help you today?",
+          "Would you like to see our latest deals?"
+        ]
+      },
+      {
+        name: "KFC",
+        logo: commonLogo,
+        botMessages: [
+          "Welcome to KFC! 🍗 How can I assist you?",
+          "Check out our crispy bucket offers today!"
+        ]
+      },
+      {
+        name: "Domino's",
+        logo: dominosLogo,
+        botMessages: [
+          "Hi! This is Domino's Pizza 🍕. What would you like to order?",
+          "Our 2-for-1 deal is hot right now!"
+        ]
+      }
+    ];
+
+    // State
+    let openChatIdx = null;
+    let chatMessages = [[], [], []]; // All messages (user and bot) per chat
+    let unreadCounts = [0, 0, 0];
+
+    // Listen for all messages (user and bot) for all chats
+    function listenForAllMessages() {
+      chats.forEach((chat, idx) => {
+        const chatName = chat.name;
+        const chatRef = ref(db, `foodchat/${chatName}/messages`);
+        onValue(query(chatRef, orderByChild('timestamp')), (snapshot) => {
+          const msgs = [];
+          snapshot.forEach(child => {
+            const val = child.val();
+            if (val && val.message) {
+              msgs.push({
+                message: val.message,
+                sender: val.sender || "user", // fallback for legacy
+                timestamp: val.timestamp || 0
+              });
+            }
+          });
+          chatMessages[idx] = msgs;
+          // Only update badge and list if not in chat view
+          if (openChatIdx === null) renderChatList();
+          if (openChatIdx === idx) renderChatBox(idx);
+        });
+      });
+    }
+
+    // Save message to Firebase
+    function saveMessage(idx, msg, sender) {
+      const chatName = chats[idx].name;
+      const chatRef = ref(db, `foodchat/${chatName}/messages`);
+      push(chatRef, {
+        message: msg,
+        sender: sender,
+        chatName,
+        timestamp: Date.now()
+      });
+    }
+
+    // Render chat list with notification badges and last user message
+    function renderChatList() {
+      const chatlist = document.getElementById('chatlist');
+      chatlist.innerHTML = "";
+      chats.forEach((chat, idx) => {
+        // Only show last USER message in preview
+        const lastUserMsg = (() => {
+          let arr = chatMessages[idx];
+          for (let i = arr.length - 1; i >= 0; --i) {
+            if (arr[i].sender === "user") return arr[i].message;
+          }
+          return "<i>No messages yet</i>";
+        })();
+        const badge = unreadCounts[idx] ? `<span class="badge">${unreadCounts[idx]}</span>` : "";
+        const entry = document.createElement('div');
+        entry.className = 'chat-entry';
+        entry.innerHTML = `
+          <div class="chat-logo"><img src="${chat.logo}" alt="${chat.name} Logo"></div>
+          <div class="chat-info">
+            <div class="chat-name">${chat.name}</div>
+            <div class="chat-last-msg">${lastUserMsg}</div>
+          </div>
+          ${badge}
+        `;
+        entry.onclick = () => openChat(idx);
+        chatlist.appendChild(entry);
+      });
+    }
+
+    // Render chatbox overlay with all messages (bot/user) from database
+    function renderChatBox(idx) {
+      if (typeof idx !== 'number') return;
+      const root = document.getElementById('chatbox-overlay-root');
+      const chat = chats[idx];
+      const messages = chatMessages[idx];
+      root.innerHTML = `
+        <div class="chatbox-overlay" id="chatbox-overlay">
+          <div class="chatbox">
+            <div class="chatbox-header">
+              <div class="chat-logo"><img src="${chat.logo}" alt="${chat.name} Logo"></div>
+              <span class="chatbox-title">${chat.name}</span>
+              <button class="close-btn" id="closeChatBtn" title="Close">&times;</button>
+            </div>
+            <div class="chatbox-messages" id="chatbox-messages">
+              ${messages.map(m => `
+                <div class="chatbox-message ${m.sender === "user" ? "user-message" : "bot-message"}">
+                  <div class="chat-logo"><img src="${chat.logo}" alt="${chat.name}"></div>
+                  <div>${m.message}</div>
+                </div>
+              `).join('')}
+            </div>
+            <form class="chatbox-inputbar" id="chatbox-inputbar" autocomplete="off">
+              <input type="text" id="chatbox-input" placeholder="Type your message..." maxlength="200" required />
+              <button type="submit">Send</button>
+            </form>
+          </div>
+        </div>
+      `;
+      setTimeout(() => {
+        const msgArea = document.getElementById('chatbox-messages');
+        if (msgArea) msgArea.scrollTop = msgArea.scrollHeight;
+      }, 30);
+
+      document.getElementById('closeChatBtn').onclick = closeChat;
+      document.getElementById('chatbox-overlay').onclick = (e) => {
+        if (e.target.id === 'chatbox-overlay') closeChat();
+      };
+      document.getElementById('chatbox-inputbar').onsubmit = (e) => {
+        e.preventDefault();
+        const input = document.getElementById('chatbox-input');
+        const msg = input.value.trim();
+        if (!msg) return;
+        input.value = "";
+        addUserMessage(idx, msg);
+        saveMessage(idx, msg, "user");
+      };
+    }
+
+    // When opening a chat, if it is empty, insert initial bot messages
+    function openChat(idx) {
+      openChatIdx = idx;
+      unreadCounts[idx] = 0;
+      // If the chat is empty, insert the botMessages in order
+      if (!chatMessages[idx] || chatMessages[idx].length === 0) {
+        chats[idx].botMessages.forEach((msg) => saveMessage(idx, msg, "bot"));
+      }
+      renderChatBox(idx);
+      renderChatList();
+    }
+
+    function closeChat() {
+      openChatIdx = null;
+      document.getElementById('chatbox-overlay-root').innerHTML = "";
+      renderChatList();
+    }
+
+    function addUserMessage(idx, msg) {
+      // Notification count logic
+      if (openChatIdx !== idx) unreadCounts[idx] = (unreadCounts[idx] || 0) + 1;
+      renderChatList();
+    }
+
+    listenForAllMessages();
+    renderChatList();
+  </script>
+</body>
+</html>
