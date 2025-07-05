@@ -1,24 +1,29 @@
 <!DOCTYPE html>
 <html lang="ur" dir="rtl">
 <head>
-
     <meta charset="UTF-8">
     <title>قرآن | Quran Verse App</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
- <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Personal Delivery">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/nftfan/MENU/refs/heads/main/play/Copy%20of%20Copy%20of%20Copy%20of%20Untitled%20Design.png">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@700&display=swap" rel="stylesheet">
     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
         body {
             background: #181818;
             color: #aee9fd;
             font-family: 'Jameel Noori Nastaleeq', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
             width: 100vw;
             height: 100vh;
-            overflow: hidden;
+            box-sizing: border-box;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
         #container {
             max-width: 400px;
@@ -28,6 +33,8 @@
             box-shadow: 0 6px 24px #0006;
             padding: 24px 18px 22px 18px;
             text-align: center;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
         }
         .quran-title {
             font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif;
@@ -36,22 +43,26 @@
             font-size: clamp(2.5rem, 8vw, 4.5rem);
             font-weight: 700;
             margin-top: 0.2em;
-            margin-bottom: 2.4em; /* Even more space below title */
+            margin-bottom: 2.4em;
             letter-spacing: 0.05em;
-            line-height: 1.7; /* Extra line height for the title */
+            line-height: 1.7;
         }
         #verse {
             font-size: 2em;
             font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin-bottom: 3em; /* Extra space below verse */
+            margin-bottom: 3em;
             color: #aee9fd;
-            line-height: 2.8; /* Extra line height for ayah text */
+            line-height: 2.8;
+            word-break: break-word;
+            max-height: 40vh;
+            overflow-y: auto;
+            padding: 0 0.3em;
         }
         #surahinfo {
             color: #7ee0d2;
             font-size: 1.1em;
-            margin-bottom: 2.8em; /* Extra space below surah info */
-            line-height: 2.4; /* More line height */
+            margin-bottom: 2.8em;
+            line-height: 2.4;
         }
         .btns {
             display: flex;
@@ -79,19 +90,35 @@
                 border-radius: 0;
                 max-width: 100vw;
                 padding: 11vw 2vw 13vw 2vw;
+                max-height: 100vh;
             }
             .quran-title {
                 font-size: clamp(2.2rem, 11vw, 3.3rem);
                 margin-bottom: 2em;
             }
-            #verse { font-size: 1.16em; margin-bottom: 2.5em; line-height: 2.2; }
-            #surahinfo { margin-bottom: 2em; line-height: 2; }
+            #verse {
+                font-size: 1.16em;
+                margin-bottom: 2.5em;
+                line-height: 2.2;
+                max-height: 35vh;
+            }
+            #surahinfo {
+                margin-bottom: 2em;
+                line-height: 2;
+            }
         }
-    </style>
-    <!-- Google Fonts fallback for Urdu -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@700&display=swap" rel="stylesheet">
-    <style>
-        #verse { font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif; }
+
+        /* Hide scrollbar but allow scrolling */
+        body, #container, #verse {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none;  /* IE 10+ */
+        }
+
+        body::-webkit-scrollbar,
+        #container::-webkit-scrollbar,
+        #verse::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+        }
     </style>
 </head>
 <body>
@@ -105,63 +132,57 @@
         </div>
     </div>
     <script>
-    // --- Configuration ---
-    const QURAN_URDU_EDITION = "ur.jalandhry";
-    const QURAN_TOTAL_AYAT = 6236;
-    const STORAGE_KEY = "last_ayah_number";
+        const QURAN_URDU_EDITION = "ur.jalandhry";
+        const QURAN_TOTAL_AYAT = 6236;
+        const STORAGE_KEY = "last_ayah_number";
+        let ayahNumber = getSavedAyahNumber();
+        const verseDiv = document.getElementById("verse");
+        const surahInfoDiv = document.getElementById("surahinfo");
+        const prevBtn = document.getElementById("prevBtn");
+        const nextBtn = document.getElementById("nextBtn");
 
-    // --- State ---
-    let ayahNumber = getSavedAyahNumber();
+        function getSavedAyahNumber() {
+            let n = parseInt(localStorage.getItem(STORAGE_KEY));
+            if (isNaN(n) || n < 1 || n > QURAN_TOTAL_AYAT) return 1;
+            return n;
+        }
+        function saveAyahNumber(n) {
+            localStorage.setItem(STORAGE_KEY, n);
+        }
 
-    // --- DOM Elements ---
-    const verseDiv = document.getElementById("verse");
-    const surahInfoDiv = document.getElementById("surahinfo");
-    const prevBtn = document.getElementById("prevBtn");
-    const nextBtn = document.getElementById("nextBtn");
-
-    // --- Functions ---
-    function getSavedAyahNumber() {
-        let n = parseInt(localStorage.getItem(STORAGE_KEY));
-        if (isNaN(n) || n < 1 || n > QURAN_TOTAL_AYAT) return 1;
-        return n;
-    }
-    function saveAyahNumber(n) {
-        localStorage.setItem(STORAGE_KEY, n);
-    }
-
-    async function fetchAyah(n) {
-        verseDiv.textContent = "... آیت حاصل کی جا رہی ہے ...";
-        surahInfoDiv.textContent = "";
-        try {
-            const url = `https://api.alquran.cloud/v1/ayah/${n}/${QURAN_URDU_EDITION}`;
-            const resp = await fetch(url, {cache: "reload"});
-            const data = await resp.json();
-            if (data.status === "OK") {
-                verseDiv.textContent = data.data.text;
-                const surah = data.data.surah.name;
-                const numberInSurah = data.data.numberInSurah;
-                surahInfoDiv.textContent = `${surah}، آیت ${numberInSurah}`;
-            } else {
+        async function fetchAyah(n) {
+            verseDiv.textContent = "... آیت حاصل کی جا رہی ہے ...";
+            surahInfoDiv.textContent = "";
+            try {
+                const url = `https://api.alquran.cloud/v1/ayah/${n}/${QURAN_URDU_EDITION}`;
+                const resp = await fetch(url, {cache: "reload"});
+                const data = await resp.json();
+                if (data.status === "OK") {
+                    verseDiv.textContent = data.data.text;
+                    const surah = data.data.surah.name;
+                    const numberInSurah = data.data.numberInSurah;
+                    surahInfoDiv.textContent = `${surah}، آیت ${numberInSurah}`;
+                } else {
+                    verseDiv.textContent = "آیت حاصل نہیں ہو سکی۔";
+                }
+            } catch (e) {
                 verseDiv.textContent = "آیت حاصل نہیں ہو سکی۔";
             }
-        } catch (e) {
-            verseDiv.textContent = "آیت حاصل نہیں ہو سکی۔";
         }
-    }
 
-    function gotoAyah(n) {
-        if (n < 1) n = QURAN_TOTAL_AYAT;
-        if (n > QURAN_TOTAL_AYAT) n = 1;
-        ayahNumber = n;
-        saveAyahNumber(n);
-        fetchAyah(n);
-    }
+        function gotoAyah(n) {
+            if (n < 1) n = QURAN_TOTAL_AYAT;
+            if (n > QURAN_TOTAL_AYAT) n = 1;
+            ayahNumber = n;
+            saveAyahNumber(n);
+            fetchAyah(n);
+        }
 
-    prevBtn.onclick = () => gotoAyah(ayahNumber - 1);
-    nextBtn.onclick = () => gotoAyah(ayahNumber + 1);
+        prevBtn.onclick = () => gotoAyah(ayahNumber - 1);
+        nextBtn.onclick = () => gotoAyah(ayahNumber + 1);
 
-    // --- Initial Load ---
-    fetchAyah(ayahNumber);
+        fetchAyah(ayahNumber);
     </script>
 </body>
 </html>
+
