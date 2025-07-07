@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Zone Completion Tracker</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Material Icons (Outlined) -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
+  <!-- Inter Font for professional look -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --secondary: #64748b;
+      --success: #059669;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8fafc;
+      --bg-tertiary: #f1f5f9;
+      --border: #e2e8f0;
+      --border-light: #f1f5f9;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 10px;
+      line-height: 1.4;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Map Styles */
+    #map {
+      width: 100vw;
+      height: 280px;
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      margin-bottom: 12px;
+      background: var(--bg-tertiary);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Container */
+    .container {
+      max-width: 768px;
+      margin: 0 auto;
+      padding: 12px 16px 24px;
+      background: var(--bg-primary);
+      box-shadow: var(--shadow-lg);
+      border-radius: var(--radius-lg);
+      margin-top: -20px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Header */
+    h2 {
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 16px 0;
+      color: var(--primary);
+      letter-spacing: -0.025em;
+      text-align: center;
+    }
+
+    /* Campaign Input Section */
+    .campaign-section {
+      background: var(--bg-secondary);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-light);
+    }
+
+    .campaign-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    label {
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    #campaignIdInput {
+      flex: 1;
+      min-width: 120px;
+      padding: 8px 10px;
+      font-size: 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-primary);
+      font-weight: 500;
+      color: var(--text-primary);
+      transition: all 0.15s ease;
+    }
+
+    #campaignIdInput:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1);
+      background: var(--bg-primary);
+    }
+
+    #campaignIdInput::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* Table Styles */
+    .table-container {
+      background: var(--bg-primary);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-light);
+      margin-bottom: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0;
+    }
+
+    th {
+      background: var(--bg-tertiary);
+      padding: 8px 4px;
+      text-align: center;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 8px 4px;
+      text-align: center;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 9px;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Status Buttons */
+    .status-btn {
+      padding: 4px 8px;
+      border: none;
+      border-radius: 6px;
+      font-size: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      min-width: 60px;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    .status-btn.completed {
+      background: var(--success);
+      color: white;
+    }
+
+    .status-btn.pending {
+      background: var(--danger);
+      color: white;
+    }
+
+    .status-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+
+    .status-btn:active {
+      transform: translateY(0);
+    }
+
+    .status-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Input Fields */
+    .flyer-input, .gps-url-input {
+      padding: 4px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-size: 9px;
+      background: var(--bg-primary);
+      transition: border-color 0.15s ease;
+    }
+
+    .flyer-input {
+      width: 45px;
+      text-align: center;
+    }
+
+    .gps-url-input {
+      width: 80px;
+      text-align: left;
+    }
+
+    .flyer-input:focus, .gps-url-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgb(37 99 235 / 0.1);
+    }
+
+    /* Action Buttons */
+    .save-btn, .proof-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      letter-spacing: 0.025em;
+      text-transform: uppercase;
+      width: 100%;
+      margin-bottom: 8px;
+    }
+
+    .save-btn {
+      background: var(--primary);
+      color: white;
+    }
+
+    .proof-btn {
+      background: var(--success);
+      color: white;
+    }
+
+    .save-btn:hover, .proof-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .save-btn:active, .proof-btn:active {
+      transform: translateY(0);
+      background: var(--primary-dark);
+    }
+
+    .proof-btn:active {
+      background: #047857;
+    }
+
+    /* Status Indicators */
+    .status-text {
+      font-weight: 600;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    .status-completed {
+      color: var(--success);
+    }
+
+    .status-pending {
+      color: var(--danger);
+    }
+
+    /* Messages */
+    #saveMsg, #campaignMsg {
+      font-size: 9px;
+      font-weight: 500;
+      margin-top: 4px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      text-align: center;
+      display: none;
+    }
+
+    #saveMsg {
+      background: rgb(5 150 105 / 0.1);
+      color: var(--success);
+      border: 1px solid rgb(5 150 105 / 0.2);
+    }
+
+    #campaignMsg {
+      background: rgb(220 38 38 / 0.1);
+      color: var(--danger);
+      border: 1px solid rgb(220 38 38 / 0.2);
+    }
+
+    #campaignMsg.success {
+      background: rgb(5 150 105 / 0.1);
+      color: var(--success);
+      border: 1px solid rgb(5 150 105 / 0.2);
+    }
+
+    /* GPS Link */
+    .gps-url-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 12px;
+      margin-left: 4px;
+      opacity: 0.8;
+      transition: opacity 0.15s ease;
+    }
+
+    .gps-url-link:hover {
+      opacity: 1;
+    }
+
+    /* Map Labels */
+    .leaflet-label-zone {
+      background: rgba(37, 99, 235, 0.95);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 8px;
+      pointer-events: none;
+      box-shadow: var(--shadow);
+      text-align: center;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0.025em;
+    }
+
+    /* Modal Styles */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .modal {
+      background: var(--bg-primary);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      min-width: 280px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal h3 {
+      margin: 0 0 16px 0;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      text-align: center;
+    }
+
+    .modal label {
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 10px;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .modal input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+      font-size: 10px;
+      background: var(--bg-secondary);
+      transition: all 0.15s ease;
+    }
+
+    .modal input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1);
+      background: var(--bg-primary);
+    }
+
+    .modal button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      font-weight: 600;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      width: 100%;
+    }
+
+    .modal button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    .close-btn {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      font-size: 18px;
+      background: transparent !important;
+      color: var(--text-muted) !important;
+      border: none;
+      cursor: pointer;
+      width: auto !important;
+      padding: 4px !important;
+      transform: none !important;
+    }
+
+    .close-btn:hover {
+      color: var(--text-primary) !important;
+      background: transparent !important;
+    }
+
+    .modal-error {
+      color: var(--danger);
+      font-size: 9px;
+      margin-bottom: 8px;
+      padding: 6px 8px;
+      background: rgb(220 38 38 / 0.1);
+      border-radius: 4px;
+      border: 1px solid rgb(220 38 38 / 0.2);
+    }
+
+    .modal-success {
+      color: var(--success);
+      font-weight: 600;
+      font-size: 9px;
+      text-align: center;
+      margin-top: 8px;
+      padding: 6px 8px;
+      background: rgb(5 150 105 / 0.1);
+      border-radius: 4px;
+      border: 1px solid rgb(5 150 105 / 0.2);
+    }
+
+    /* Mobile Optimizations */
+    @media (max-width: 768px) {
+      .container {
+        margin: 0 8px;
+        margin-top: -20px;
+        padding: 12px;
+        border-radius: var(--radius);
+      }
+
+      #map {
+        height: 240px;
+        border-radius: 0 0 var(--radius) var(--radius);
+      }
+
+      th, td {
+        padding: 6px 2px;
+        font-size: 8px;
+      }
+
+      .flyer-input {
+        width: 35px;
+        font-size: 8px;
+      }
+
+      .gps-url-input {
+        width: 60px;
+        font-size: 8px;
+      }
+
+      .status-btn {
+        font-size: 7px;
+        padding: 3px 6px;
+        min-width: 50px;
+      }
+
+      #campaignIdInput {
+        font-size: 9px;
+        min-width: 100px;
+      }
+
+      h2 {
+        font-size: 12px;
+      }
+
+      .campaign-row {
+        justify-content: center;
+      }
+
+      .modal {
+        margin: 8px;
+        min-width: auto;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        margin: 0 4px;
+        margin-top: -20px;
+        padding: 8px;
+      }
+
+      #map {
+        height: 200px;
+      }
+
+      th, td {
+        padding: 4px 1px;
+        font-size: 7px;
+      }
+
+      .flyer-input, .gps-url-input {
+        font-size: 7px;
+      }
+
+      .flyer-input {
+        width: 30px;
+      }
+
+      .gps-url-input {
+        width: 50px;
+      }
+
+      .status-btn {
+        font-size: 6px;
+        padding: 2px 4px;
+        min-width: 40px;
+      }
+
+      h2 {
+        font-size: 11px;
+        margin-bottom: 12px;
+      }
+    }
+
+    /* Loading States */
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    /* Smooth Animations */
+    * {
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-tertiary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="container">
+    <h2>Zone Completion & Flyers Entry</h2>
+    
+    <form id="zoneForm" autocomplete="off">
+      <div class="campaign-section">
+        <div class="campaign-row">
+          <label for="campaignIdInput">Campaign ID:</label>
+          <input type="text" id="campaignIdInput" placeholder="Enter Campaign ID" required />
+        </div>
+        <div id="campaignMsg"></div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Zone</th>
+              <th>Status</th>
+              <th>Action</th>
+              <th>Flyers</th>
+              <th>GPS URL</th>
+            </tr>
+          </thead>
+          <tbody id="zoneTableBody"></tbody>
+        </table>
+      </div>
+
+      <button type="submit" class="save-btn">Save All Changes</button>
+      <div id="saveMsg">Changes saved successfully!</div>
+    </form>
+
+    <button id="openProofModalBtn" class="proof-btn">Submit Photo Proof</button>
+  </div>
+
+  <!-- Proof Modal -->
+  <div class="modal-backdrop" id="proofModalBackdrop">
+    <div class="modal">
+      <button class="close-btn" id="closeProofModalBtn" title="Close">&times;</button>
+      <h3>Submit Image Proof</h3>
+      <form id="proofForm" autocomplete="off">
+        <label for="proofUrlInput">Image URL:</label>
+        <input type="text" id="proofUrlInput" placeholder="Paste image URL (https://...)" required />
+        <div class="modal-error" id="proofErrorMsg"></div>
+        <button type="submit">Submit Proof</button>
+      </form>
+      <div class="modal-success" id="proofSuccessMsg" style="display:none;">Proof submitted successfully!</div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Firebase App (the core Firebase SDK) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, get, set, push, onValue, child } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+      authDomain: "trackingclients.firebaseapp.com",
+      projectId: "trackingclients",
+      storageBucket: "trackingclients.appspot.com",
+      messagingSenderId: "27490943622",
+      appId: "1:27490943622:web:d6c87547aa5df440508707",
+      databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // --- Map config ---
+    const polygonCoordinates = [
+      [[51.170006701840045, 4.456501007080079], [51.16475926089442, 4.459204673767091], [51.16578188596654, 4.462251663208009], [51.16562042035723, 4.462809562683106], [51.165835707710684, 4.463882446289063], [51.16640083223255, 4.463882446289063], [51.16758488020661, 4.469933509826661], [51.1687688977834, 4.469976425170899]],
+      [[51.17390788442244, 4.438954437656327], [51.17374644727535, 4.447753350251698], [51.171109560530326, 4.44886930989791], [51.166911756281955, 4.444705921986963], [51.16742304774701, 4.4426027672690624], [51.16723467786671, 4.43878275155691]],
+      [[51.16163742306019, 4.469976425170899], [51.16158359641715, 4.461050033569337], [51.16508219757714, 4.459247589111329], [51.16605099405929, 4.462080001831056], [51.16599717256636, 4.46371078491211], [51.16712741072914, 4.467315673828126], [51.16766560964336, 4.469976425170899]],
+      [[51.17361228952437, 4.448304176330567], [51.17129828804342, 4.448518753051759], [51.17062559140977, 4.450750350952149], [51.16882271604194, 4.4698476791381845], [51.173639195835385, 4.46971893310547]],
+      [[51.17067940750161, 4.4495487213134775], [51.16997979340948, 4.456501007080079], [51.16158359641715, 4.46122169494629], [51.16174507615788, 4.457702636718751]],
+      [[51.167181230903175, 4.438905715942384], [51.16707359049229, 4.44474220275879], [51.16163742306019, 4.44448471069336], [51.161691249640434, 4.438734054565431]],
+      [[50.90162548670739,4.630136489868165],[50.90379061432616,4.651679992675782],[50.889823771452626,4.652109146118165],[50.89345122246481,4.632625579833985],[50.89881067027647,4.629878997802735]],
+      [[51.16701977019263, 4.444570541381837], [51.170787039496794, 4.449377059936524], [51.16174507615788, 4.4577884674072275], [51.16174507615788, 4.444141387939454]]
+    ];
+
+    // --- App State ---
+    const ZONES = polygonCoordinates.length;
+    let zoneData = Array.from({length: ZONES}, (_,i) => ({
+      status: "pending", // pending | completed
+      flyers: "",
+      gpsUrl: ""
+    }));
+
+    let currentCampaignId = '';
+    let loadedCampaignId = '';
+
+    // --- DOM refs ---
+    const campaignIdInput = document.getElementById('campaignIdInput');
+    const zoneTableBody = document.getElementById('zoneTableBody');
+    const saveBtn = document.querySelector('.save-btn');
+    const saveMsg = document.getElementById('saveMsg');
+    const campaignMsg = document.getElementById('campaignMsg');
+
+    // --- Map logic ---
+    let map = L.map('map').setView(polygonCoordinates[0][0], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
+
+    // Draw polygons and keep references
+    let zonePolys = [];
+    polygonCoordinates.forEach((coords, idx) => {
+      let poly = L.polygon(coords, {
+        color: '#dc2626',
+        fillColor: '#dc2626',
+        fillOpacity: 0.3,
+        weight: 2
+      }).addTo(map);
+      zonePolys.push(poly);
+      // Label
+      let center = poly.getBounds().getCenter();
+      L.marker(center, {
+        icon: L.divIcon({
+          className: 'leaflet-label-zone',
+          html: `Zone ${idx+1}`,
+          iconSize: [60, 16], iconAnchor: [30, 8]
+        }),
+        interactive: false
+      }).addTo(map);
+    });
+
+    function colorPolygons() {
+      zoneData.forEach((zone, idx) => {
+        const color = zone.status === "completed" ? "#2563eb" : "#dc2626";
+        zonePolys[idx].setStyle({
+          fillColor: color,
+          color: color,
+          fillOpacity: zone.status === "completed" ? 0.4 : 0.3
+        });
+      });
+    }
+
+    function isValidUrl(str) {
+      try {
+        if (!str) return false;
+        let url = new URL(str);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function renderZoneTable() {
+      zoneTableBody.innerHTML = "";
+      zoneData.forEach((zone, i) => {
+        const statusClass = zone.status === 'completed' ? 'status-completed' : 'status-pending';
+        const statusText = zone.status.charAt(0).toUpperCase() + zone.status.slice(1);
+        
+        zoneTableBody.innerHTML += `
+          <tr>
+            <td><strong>Zone ${i+1}</strong></td>
+            <td>
+              <span class="status-text ${statusClass}">
+                ${statusText}
+              </span>
+            </td>
+            <td>
+              <button type="button" class="status-btn ${zone.status}" data-zone="${i}">
+                ${zone.status === 'completed' ? 'Pending' : 'Complete'}
+              </button>
+            </td>
+            <td>
+              <input class="flyer-input" type="number" min="0" data-flyer="${i}" value="${zone.flyers||''}" placeholder="0">
+            </td>
+            <td>
+              <input class="gps-url-input" type="text" data-gps="${i}" value="${zone.gpsUrl||''}" placeholder="GPS URL">
+              ${
+                isValidUrl(zone.gpsUrl)
+                  ? `<a href="${zone.gpsUrl}" target="_blank" class="gps-url-link" title="Open GPS URL">📍</a>`
+                  : ""
+              }
+            </td>
+          </tr>
+        `;
+      });
+      
+      // Add listeners
+      document.querySelectorAll('.status-btn').forEach(btn => {
+        btn.onclick = () => {
+          const idx = parseInt(btn.getAttribute('data-zone'));
+          zoneData[idx].status = (zoneData[idx].status==='completed') ? 'pending' : 'completed';
+          colorPolygons();
+          renderZoneTable();
+        };
+      });
+      
+      document.querySelectorAll('.flyer-input').forEach(input => {
+        input.oninput = () => {
+          const idx = parseInt(input.getAttribute('data-flyer'));
+          zoneData[idx].flyers = input.value;
+        }
+      });
+      
+      document.querySelectorAll('.gps-url-input').forEach(input => {
+        input.oninput = () => {
+          const idx = parseInt(input.getAttribute('data-gps'));
+          zoneData[idx].gpsUrl = input.value;
+        }
+      });
+    }
+
+    // --- Save to Firebase ---
+    document.getElementById('zoneForm').onsubmit = async function(e) {
+      e.preventDefault();
+      currentCampaignId = campaignIdInput.value.trim();
+      if (!currentCampaignId) {
+        campaignMsg.textContent = "Enter a Campaign ID to save!";
+        campaignMsg.className = "";
+        campaignMsg.style.display = "block";
+        campaignIdInput.focus();
+        return;
+      }
+      
+      saveBtn.classList.add('loading');
+      campaignMsg.style.display = "none";
+      
+      try {
+        const campaignRef = ref(db, `campaigns/${currentCampaignId}/zone_statuses`);
+        await set(campaignRef, zoneData);
+        saveMsg.style.display = "block";
+        setTimeout(()=>saveMsg.style.display="none", 3000);
+        loadedCampaignId = currentCampaignId;
+      } catch (error) {
+        console.error('Save error:', error);
+      } finally {
+        saveBtn.classList.remove('loading');
+      }
+    };
+
+    // --- Load zoneData from Firebase by Campaign ID ---
+    async function loadCampaignZones(campaignId) {
+      if (!campaignId) return;
+      const campaignRef = ref(db, `campaigns/${campaignId}/zone_statuses`);
+      const snap = await get(campaignRef);
+      if (snap.exists()) {
+        const data = snap.val();
+        zoneData = zoneData.map((z,i) => ({
+          ...z,
+          ...(data[i]||{})
+        }));
+        renderZoneTable();
+        colorPolygons();
+        campaignMsg.textContent = "Campaign loaded successfully!";
+        campaignMsg.className = "success";
+        campaignMsg.style.display = "block";
+        setTimeout(()=>{campaignMsg.style.display="none"}, 2000);
+        loadedCampaignId = campaignId;
+      } else {
+        zoneData = Array.from({length: ZONES}, (_,i) => ({
+          status: "pending",
+          flyers: "",
+          gpsUrl: ""
+        }));
+        renderZoneTable();
+        colorPolygons();
+        campaignMsg.textContent = "New campaign - no existing data found";
+        campaignMsg.className = "";
+        campaignMsg.style.display = "block";
+        setTimeout(()=>{campaignMsg.style.display="none"}, 2000);
+        loadedCampaignId = '';
+      }
+    }
+
+    // --- Campaign ID Input logic ---
+    let loadTimeout = null;
+    campaignIdInput.addEventListener('input', () => {
+      const val = campaignIdInput.value.trim();
+      if (val === loadedCampaignId) return;
+      if (loadTimeout) clearTimeout(loadTimeout);
+      loadTimeout = setTimeout(() => {
+        loadCampaignZones(val);
+      }, 800);
+    });
+
+    campaignIdInput.addEventListener('keydown', (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const val = campaignIdInput.value.trim();
+        loadCampaignZones(val);
+      }
+    });
+
+    // --- Initial render ---
+    renderZoneTable();
+
+    // --- Geolocation: show moving user dot ---
+    let userMarker = null;
+    let userLatLng = null;
+    function showUserLocation(lat, lng) {
+      userLatLng = [lat, lng];
+      if (!userMarker) {
+        userMarker = L.circleMarker([lat, lng], {
+          radius: 8, 
+          color: '#2563eb', 
+          fillColor: '#2563eb', 
+          fillOpacity: 0.8, 
+          weight: 2
+        }).addTo(map);
+      } else {
+        userMarker.setLatLng([lat, lng]);
+      }
+    }
+    
+    function errorLoc(err) { 
+      console.warn("Location error:", err.message); 
+    }
+    
+    function askLocation() {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.watchPosition(
+          pos => showUserLocation(pos.coords.latitude, pos.coords.longitude),
+          errorLoc,
+          { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
+        );
+      }
+    }
+    askLocation();
+
+    // --- Load proofs as pins on map ---
+    let proofMarkers = [];
+    function clearProofMarkers() {
+      proofMarkers.forEach(m => map.removeLayer(m));
+      proofMarkers = [];
+    }
+    
+    function renderProofsOnMap(proofs) {
+      clearProofMarkers();
+      proofs.forEach((proof, idx) => {
+        let marker = L.marker([proof.lat, proof.lng], {
+          icon: L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/61/61168.png',
+            iconSize: [24, 24],
+            iconAnchor: [12, 24],
+            popupAnchor: [0, -20]
+          })
+        });
+        marker.bindPopup(`
+          <div style="text-align:center;font-size:10px;">
+            <b>Proof #${idx+1}</b><br/>
+            <a href="${proof.url}" target="_blank">
+              <img src="${proof.url}" style="max-width:120px;max-height:80px;display:block;margin:4px auto;border-radius:4px;border:1px solid #2563eb;" loading="lazy"/>
+            </a>
+            <a href="${proof.url}" target="_blank" style="font-size:9px;color:#2563eb;text-decoration:underline;">Open Image</a>
+          </div>
+        `);
+        marker.addTo(map);
+        proofMarkers.push(marker);
+      });
+    }
+
+    // --- Fetch proofs from Firebase and render as pins ---
+    async function fetchAndRenderProofs() {
+      currentCampaignId = campaignIdInput.value.trim();
+      if (!currentCampaignId) {
+        clearProofMarkers();
+        return;
+      }
+      const proofsRef = ref(db, `campaigns/${currentCampaignId}/proofs`);
+      onValue(proofsRef, (snap) => {
+        let proofs = [];
+        snap.forEach(childSnap => {
+          const {lat, lng, url, timestamp} = childSnap.val();
+          if (lat && lng && url) {
+            proofs.push({lat, lng, url, timestamp});
+          }
+        });
+        proofs.sort((a,b) => (b.timestamp||0)-(a.timestamp||0));
+        renderProofsOnMap(proofs);
+      });
+    }
+
+    // --- Watch campaignIdInput for proof fetch ---
+    campaignIdInput.addEventListener('input', () => {
+      setTimeout(fetchAndRenderProofs, 1000);
+    });
+    
+    document.getElementById('zoneForm').addEventListener('submit', () => {
+      setTimeout(fetchAndRenderProofs, 500);
+    });
+
+    // --- Modal for Proof submission ---
+    const openProofModalBtn = document.getElementById('openProofModalBtn');
+    const proofModalBackdrop = document.getElementById('proofModalBackdrop');
+    const closeProofModalBtn = document.getElementById('closeProofModalBtn');
+    const proofForm = document.getElementById('proofForm');
+    const proofUrlInput = document.getElementById('proofUrlInput');
+    const proofErrorMsg = document.getElementById('proofErrorMsg');
+    const proofSuccessMsg = document.getElementById('proofSuccessMsg');
+
+    // Show modal
+    openProofModalBtn.addEventListener('click', () => {
+      proofModalBackdrop.style.display = "flex";
+      proofErrorMsg.textContent = "";
+      proofSuccessMsg.style.display = "none";
+      proofUrlInput.value = "";
+      setTimeout(() => proofUrlInput.focus(), 100);
+    });
+    
+    // Close modal
+    closeProofModalBtn.addEventListener('click', () => {
+      proofModalBackdrop.style.display = "none";
+    });
+    
+    proofModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === proofModalBackdrop) {
+        proofModalBackdrop.style.display = "none";
+      }
+    });
+
+    // --- Submit proof ---
+    proofForm.onsubmit = async function(e) {
+      e.preventDefault();
+      proofErrorMsg.textContent = "";
+      proofSuccessMsg.style.display = "none";
+      
+      const url = proofUrlInput.value.trim();
+      if (!isValidUrl(url)) {
+        proofErrorMsg.textContent = "Please enter a valid image URL (http/https)";
+        return;
+      }
+      
+      if (!userLatLng) {
+        proofErrorMsg.textContent = "Waiting for your location. Please allow location access.";
+        return;
+      }
+      
+      currentCampaignId = campaignIdInput.value.trim();
+      if (!currentCampaignId) {
+        proofErrorMsg.textContent = "Enter a Campaign ID above before submitting proof.";
+        return;
+      }
+      
+      try {
+        const proofsRef = ref(db, `campaigns/${currentCampaignId}/proofs`);
+        await push(proofsRef, {
+          url,
+          lat: userLatLng[0],
+          lng: userLatLng[1],
+          timestamp: Date.now()
+        });
+        proofSuccessMsg.style.display = "block";
+        proofErrorMsg.textContent = "";
+        proofUrlInput.value = "";
+        fetchAndRenderProofs();
+        setTimeout(() => {
+          proofModalBackdrop.style.display = "none";
+        }, 1500);
+      } catch (err) {
+        proofErrorMsg.textContent = "Failed to save proof: " + err.message;
+      }
+    };
+
+    // --- Initial coloring ---
+    colorPolygons();
+
+    // --- Optionally: Load last entered campaign from localStorage ---
+    if (localStorage.getItem('lastCampaignId')) {
+      campaignIdInput.value = localStorage.getItem('lastCampaignId');
+      loadCampaignZones(campaignIdInput.value.trim());
+      setTimeout(fetchAndRenderProofs, 1000);
+    }
+    
+    // Save campaign ID to localStorage on save
+    document.getElementById('zoneForm').addEventListener('submit', () => {
+      localStorage.setItem('lastCampaignId', campaignIdInput.value.trim());
+    });
+  </script>
+</body>
+</html>
