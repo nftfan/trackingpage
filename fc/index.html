@@ -155,6 +155,7 @@
       justify-content: center;
       min-width: 0;
       flex: 1 1 0;
+      position: relative;
     }
     .chat-name {
       font-size: 1.05rem;
@@ -166,6 +167,25 @@
       letter-spacing: 0.02em;
       transition: color var(--anim-fast) ease;
       color: var(--default-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+    }
+    .chat-notify-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-left: 4px;
+      box-shadow: 0 0 8px 1px rgba(0,0,0,0.15);
+      border: 2px solid #fff3;
+      background: var(--default-primary);
+      animation: popIn var(--anim-fast) cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes popIn {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
     }
     .chat-last-msg {
       font-size: 0.9rem;
@@ -470,7 +490,6 @@
     <div class="header">
       <span class="material-icons-round">chat</span>
       <h1>DeliveryChat <span style="font-size:10px;">LEUVEN</span></h1>
-
     </div>
     <div class="chatlist" id="chatlist"></div>
   </div>
@@ -522,6 +541,7 @@
     let openChatIdx = null;
     let chatMessages = Array(chats.length).fill().map(() => []);
     let unreadCounts = Array(chats.length).fill(0);
+    let riderUnreadDots = Array(chats.length).fill(false); // Track unread 'rider' messages for dot
 
     function listenForAllMessages() {
       chats.forEach((chat, idx) => {
@@ -540,6 +560,23 @@
             }
           });
           chatMessages[idx] = msgs;
+
+          // --- Rider notification dot logic ---
+          // If there is at least one new 'rider' message that was not seen in this chat, show dot
+          // Find last 'rider' message
+          let lastRiderMsg = msgs.filter(m => m.sender === "rider").pop();
+          // Track last seen timestamp per chat for 'rider' messages
+          if (!window._lastSeenRider) window._lastSeenRider = Array(chats.length).fill(0);
+          let lastSeen = window._lastSeenRider[idx] || 0;
+          if (lastRiderMsg && lastRiderMsg.timestamp > lastSeen && openChatIdx !== idx) {
+            riderUnreadDots[idx] = true;
+          } else if (openChatIdx === idx) {
+            riderUnreadDots[idx] = false;
+            // Mark all as seen for this chat
+            if (lastRiderMsg) window._lastSeenRider[idx] = lastRiderMsg.timestamp;
+          }
+          // --- End rider dot logic ---
+
           if (openChatIdx === null) renderChatList();
           if (openChatIdx === idx) renderChatBox(idx);
         });
@@ -556,52 +593,75 @@
       });
     }
     function renderChatList() {
-      const chatlist = document.getElementById('chatlist');
-      if (chatMessages.every(msgs => msgs.length === 0)) {
-        chatlist.innerHTML = `
-          <div class="empty-state">
-            <span class="material-icons-round">chat_bubble_outline</span>
-            <h3>No conversations yet</h3>
-            <p>Start chatting with your favorite restaurants to place an order or get information.</p>
-          </div>
-        `;
-        return;
+  const chatlist = document.getElementById('chatlist');
+  if (chatMessages.every(msgs => msgs.length === 0)) {
+    chatlist.innerHTML = `
+      <div class="empty-state">
+        <span class="material-icons-round">chat_bubble_outline</span>
+        <h3>No conversations yet</h3>
+        <p>Start chatting with your favorite restaurants to place an order or get information.</p>
+      </div>
+    `;
+    return;
+  }
+  chatlist.innerHTML = "";
+  chats.forEach((chat, idx) => {
+    let lastMsg = "<i>No messages yet</i>";
+    let lastMsgTime = "";
+    if (chatMessages[idx].length > 0) {
+      const msgs = chatMessages[idx];
+
+      // Find the latest message from user or rider
+      let userMsgs = msgs.filter(m => m.sender === "user");
+      let riderMsgs = msgs.filter(m => m.sender === "rider");
+      let lastUserMsg = userMsgs.length > 0 ? userMsgs[userMsgs.length - 1] : null;
+      let lastRiderMsg = riderMsgs.length > 0 ? riderMsgs[riderMsgs.length - 1] : null;
+
+      let msgToShow = null;
+      if (lastUserMsg && lastRiderMsg) {
+        // Pick the most recent one by timestamp
+        msgToShow = lastUserMsg.timestamp > lastRiderMsg.timestamp ? lastUserMsg : lastRiderMsg;
+      } else {
+        msgToShow = lastUserMsg || lastRiderMsg;
       }
-      chatlist.innerHTML = "";
-      chats.forEach((chat, idx) => {
-        let lastMsg = "<i>No messages yet</i>";
-        let lastMsgTime = "";
-        if (chatMessages[idx].length > 0) {
-          const msgs = chatMessages[idx];
-          let lastUserMsg = msgs.filter(m => m.sender === "user").pop();
-          let lastRiderMsg = msgs.filter(m => m.sender === "rider").pop();
-          let lastBotMsg = msgs.filter(m => m.sender === "bot").pop();
-          const msgToShow = lastUserMsg || lastRiderMsg || lastBotMsg || msgs[msgs.length - 1];
-          if (msgToShow) {
-            lastMsg = msgToShow.message;
-            if (msgToShow.timestamp) {
-              const date = new Date(msgToShow.timestamp);
-              lastMsgTime = formatTimestamp(date);
-            }
-          }
+      // If neither user nor rider, fall back to bot or last message
+      if (!msgToShow) {
+        let lastBotMsg = msgs.filter(m => m.sender === "bot").pop();
+        msgToShow = lastBotMsg || msgs[msgs.length - 1];
+      }
+
+      if (msgToShow) {
+        lastMsg = msgToShow.message;
+        if (msgToShow.timestamp) {
+          const date = new Date(msgToShow.timestamp);
+          lastMsgTime = formatTimestamp(date);
         }
-        const badge = unreadCounts[idx] ? `<div class="badge" style="background:${chat.color};">${unreadCounts[idx]}</div>` : "";
-        const entry = document.createElement('div');
-        entry.className = `chat-entry`;
-        entry.style.borderLeftColor = chat.color;
-        entry.innerHTML = `
-          <div class="chat-logo" style="border-color:${chat.color}"><img src="${chat.logo}" alt="${chat.name} Logo"></div>
-          <div class="chat-info">
-            <div class="chat-name" style="color:${chat.color}">${chat.name}</div>
-            <div class="chat-last-msg">${lastMsg}</div>
-          </div>
-          <div class="chat-time">${lastMsgTime}</div>
-          ${badge}
-        `;
-        entry.onclick = () => openChat(idx);
-        chatlist.appendChild(entry);
-      });
+      }
     }
+    const badge = unreadCounts[idx] ? `<div class="badge" style="background:${chat.color};">${unreadCounts[idx]}</div>` : "";
+
+    // --- Rider notification dot logic ---
+    const notifyDot = riderUnreadDots[idx]
+      ? `<span class="chat-notify-dot" style="background:${chat.color};"></span>`
+      : "";
+    // --- End dot logic ---
+
+    const entry = document.createElement('div');
+    entry.className = `chat-entry`;
+    entry.style.borderLeftColor = chat.color;
+    entry.innerHTML = `
+      <div class="chat-logo" style="border-color:${chat.color}"><img src="${chat.logo}" alt="${chat.name} Logo"></div>
+      <div class="chat-info">
+        <div class="chat-name" style="color:${chat.color}">${chat.name} ${notifyDot}</div>
+        <div class="chat-last-msg">${lastMsg}</div>
+      </div>
+      <div class="chat-time">${lastMsgTime}</div>
+      ${badge}
+    `;
+    entry.onclick = () => openChat(idx);
+    chatlist.appendChild(entry);
+  });
+}
     function formatTimestamp(date) {
       const now = new Date();
       const diff = now - date;
@@ -627,6 +687,14 @@
       const root = document.getElementById('chatbox-overlay-root');
       const chat = chats[idx];
       const messages = chatMessages[idx];
+      // Mark rider messages as seen, remove dot
+      let lastRiderMsg = messages.filter(m => m.sender === "rider").pop();
+      if (lastRiderMsg) {
+        if (!window._lastSeenRider) window._lastSeenRider = Array(chats.length).fill(0);
+        window._lastSeenRider[idx] = lastRiderMsg.timestamp;
+      }
+      riderUnreadDots[idx] = false;
+
       root.innerHTML = `
         <div class="chatbox-overlay" id="chatbox-overlay">
           <div class="chatbox">
@@ -717,6 +785,11 @@
     function openChat(idx) {
       openChatIdx = idx;
       unreadCounts[idx] = 0;
+      // Mark all rider messages as seen
+      if (!window._lastSeenRider) window._lastSeenRider = Array(chats.length).fill(0);
+      let lastRiderMsg = chatMessages[idx].filter(m => m.sender === "rider").pop();
+      if (lastRiderMsg) window._lastSeenRider[idx] = lastRiderMsg.timestamp;
+      riderUnreadDots[idx] = false;
       renderChatBox(idx);
       renderChatList();
     }
@@ -734,3 +807,4 @@
   </script>
 </body>
 </html>
+
