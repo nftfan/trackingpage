@@ -638,42 +638,26 @@
       {
         name: "McDonald's",
         logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/McDonald%27s_Golden_Arches.svg/2048px-McDonald%27s_Golden_Arches.svg.png",
-        theme: "mcdonalds",
-        botMessages: [
-          "Welcome to McDonald's! 🍔 How can I help you today?",
-          "Would you like to see our latest deals and offers?"
-        ],
-        typingDelay: 1500
+        theme: "mcdonalds"
       },
       {
         name: "KFC",
         logo: "https://upload.wikimedia.org/wikipedia/en/thumb/b/bf/KFC_logo.svg/1200px-KFC_logo.svg.png",
-        theme: "kfc",
-        botMessages: [
-          "Welcome to KFC! 🍗 How can I assist you?",
-          "Check out our crispy bucket offers today!"
-        ],
-        typingDelay: 2000
+        theme: "kfc"
       },
       {
         name: "Domino's",
         logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Domino%27s_pizza_logo.svg/512px-Domino%27s_pizza_logo.svg.png",
-        theme: "dominos",
-        botMessages: [
-          "Hi! This is Domino's Pizza 🍕. What would you like to order?",
-          "Our 2-for-1 deal is hot right now!"
-        ],
-        typingDelay: 1800
+        theme: "dominos"
       }
     ];
 
     // State
     let openChatIdx = null;
-    let chatMessages = [[], [], []]; // All messages per chat (user & bot)
+    let chatMessages = [[], [], []]; // All messages per chat (user, bot & rider)
     let unreadCounts = [0, 0, 0];
-    let isTyping = false;
 
-    // Listen for all messages for all chats (user & bot)
+    // Listen for all messages for all chats (user, bot, rider)
     function listenForAllMessages() {
       chats.forEach((chat, idx) => {
         const chatName = chat.name;
@@ -711,7 +695,7 @@
       });
     }
 
-    // Render chat list with notification badges and last user message
+    // Render chat list with notification badges and last user or rider message
     function renderChatList() {
       const chatlist = document.getElementById('chatlist');
       
@@ -729,21 +713,21 @@
       
       chatlist.innerHTML = "";
       chats.forEach((chat, idx) => {
-        // Show last message in preview (prioritize user message)
+        // Show last message in preview (prioritize user, then rider, then bot)
         let lastMsg = "<i>No messages yet</i>";
         let lastMsgTime = "";
         
         if (chatMessages[idx].length > 0) {
           const msgs = chatMessages[idx];
-          // Find last user message for preview if possible
+          // Find last user or rider message for preview if possible
           let lastUserMsg = msgs.filter(m => m.sender === "user").pop();
-          
-          // If no user message, show last bot message
-          const msgToShow = lastUserMsg || msgs[msgs.length - 1];
+          let lastRiderMsg = msgs.filter(m => m.sender === "rider").pop();
+          let lastBotMsg = msgs.filter(m => m.sender === "bot").pop();
+          // Show last user > rider > bot message
+          const msgToShow = lastUserMsg || lastRiderMsg || lastBotMsg || msgs[msgs.length - 1];
           
           if (msgToShow) {
             lastMsg = msgToShow.message;
-            
             // Format timestamp
             if (msgToShow.timestamp) {
               const date = new Date(msgToShow.timestamp);
@@ -777,34 +761,24 @@
       const now = new Date();
       const diff = now - date;
       const isToday = date.toDateString() === now.toDateString();
-      
-      // If less than 1 minute
       if (diff < 60000) {
         return "Just now";
       }
-      
-      // If less than 1 hour
       if (diff < 3600000) {
         const minutes = Math.floor(diff / 60000);
         return `${minutes}m ago`;
       }
-      
-      // If today
       if (isToday) {
         return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       }
-      
-      // If this week
       if (diff < 604800000) {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         return days[date.getDay()];
       }
-      
-      // Otherwise show date
       return date.toLocaleDateString([], {month: 'short', day: 'numeric'});
     }
 
-    // Render chatbox overlay with all messages (bot/user) from database
+    // Render chatbox overlay with all messages (user/bot/rider) from database
     function renderChatBox(idx) {
       if (typeof idx !== 'number') return;
       const root = document.getElementById('chatbox-overlay-root');
@@ -824,7 +798,6 @@
             </div>
             <div class="chatbox-messages ${theme}" id="chatbox-messages">
               ${renderMessages(messages, chat)}
-              ${isTyping ? renderTypingIndicator() : ''}
             </div>
             <form class="chatbox-inputbar" id="chatbox-inputbar" autocomplete="off">
               <input type="text" id="chatbox-input" placeholder="Type your message..." maxlength="200" required />
@@ -852,17 +825,13 @@
         const input = document.getElementById('chatbox-input');
         const msg = input.value.trim();
         if (!msg) return;
-        
         input.value = "";
         addUserMessage(idx, msg);
         saveMessage(idx, msg, "user");
-        
-        // Show typing indicator after user message
-        showTypingThenReply(idx);
       };
     }
     
-    // Render individual messages with proper formatting
+    // Render individual messages with proper formatting (user, bot, rider)
     function renderMessages(messages, chat) {
       if (!messages || messages.length === 0) {
         return `
@@ -871,10 +840,8 @@
           </div>
         `;
       }
-      
       let output = '';
       let lastDate = null;
-      
       messages.forEach((msg, i) => {
         // Add date separator if needed
         const msgDate = new Date(msg.timestamp || 0);
@@ -882,17 +849,18 @@
           output += `<div class="system-message">${formatDateHeader(msgDate)}</div>`;
           lastDate = msgDate;
         }
-        
         // Render the message
+        let senderClass = "bot-message";
+        if (msg.sender === "user") senderClass = "user-message";
+        else if (msg.sender === "rider") senderClass = "bot-message"; // Use bot color, but you can customize if needed
+
         output += `
-          <div class="chatbox-message ${msg.sender === "user" ? "user-message" : "bot-message"}" 
-               style="animation-delay: ${i * 0.1}s">
+          <div class="chatbox-message ${senderClass}" style="animation-delay: ${i * 0.1}s">
             <div class="chat-logo"><img src="${chat.logo}" alt="${chat.name}"></div>
             <div>${msg.message}</div>
           </div>
         `;
       });
-      
       return output;
     }
     
@@ -901,7 +869,6 @@
       const now = new Date();
       const yesterday = new Date(now);
       yesterday.setDate(now.getDate() - 1);
-      
       if (isSameDay(date, now)) {
         return "Today";
       } else if (isSameDay(date, yesterday)) {
@@ -910,106 +877,28 @@
         return date.toLocaleDateString([], {weekday: 'long', month: 'long', day: 'numeric'});
       }
     }
-    
     // Check if two dates are the same day
     function isSameDay(date1, date2) {
       return date1.getDate() === date2.getDate() && 
              date1.getMonth() === date2.getMonth() && 
              date1.getFullYear() === date2.getFullYear();
     }
-    
-    // Render typing indicator
-    function renderTypingIndicator() {
-      return `
-        <div class="chatbox-message bot-message" style="max-width: 60px">
-          <div class="typing-indicator">
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-          </div>
-        </div>
-      `;
-    }
-    
-    // Show typing indicator then auto-reply
-    function showTypingThenReply(idx) {
-      // Check if it's the first message, if so, we use the predefined bot messages
-      const isFirstUserMsg = chatMessages[idx].filter(m => m.sender === "user").length === 1;
-      
-      // If we already have the predefined bot messages, don't add more
-      if (isFirstUserMsg && chatMessages[idx].some(m => m.message === chats[idx].botMessages[0])) {
-        return;
-      }
-      
-      // Show typing indicator
-      isTyping = true;
-      renderChatBox(idx);
-      
-      // After delay, add bot response
-      setTimeout(() => {
-        isTyping = false;
-        
-        // For the first user message, use the predefined bot messages
-        if (isFirstUserMsg) {
-          chats[idx].botMessages.forEach((msg, i) => {
-            setTimeout(() => {
-              saveMessage(idx, msg, "bot");
-            }, i * 1500); // Stagger bot messages
-          });
-        } else {
-          // Generate a contextual response based on the last user message
-          const userMessages = chatMessages[idx].filter(m => m.sender === "user");
-          const lastUserMsg = userMessages[userMessages.length - 1].message.toLowerCase();
-          
-          let botResponse = "";
-          
-          if (lastUserMsg.includes("menu") || lastUserMsg.includes("offer") || lastUserMsg.includes("deal")) {
-            botResponse = `Here are our latest offers! Check out our app for the complete menu. Would you like me to send you a direct link?`;
-          } else if (lastUserMsg.includes("price") || lastUserMsg.includes("cost") || lastUserMsg.includes("how much")) {
-            botResponse = `Our prices start from $4.99. Would you like to see our full price list?`;
-          } else if (lastUserMsg.includes("location") || lastUserMsg.includes("address") || lastUserMsg.includes("near me")) {
-            botResponse = `We have multiple locations nearby! Can I use your current location to find the closest store?`;
-          } else if (lastUserMsg.includes("delivery") || lastUserMsg.includes("takeout") || lastUserMsg.includes("pickup")) {
-            botResponse = `Yes, we offer both delivery and pickup options! Would you like to place an order now?`;
-          } else if (lastUserMsg.includes("thank")) {
-            botResponse = `You're welcome! Is there anything else I can help you with today?`;
-          } else if (lastUserMsg.includes("bye") || lastUserMsg.includes("goodbye")) {
-            botResponse = `Thank you for chatting with us! Have a great day. 😊`;
-          } else {
-            botResponse = `Thank you for your message! How else can I assist you with your order today?`;
-          }
-          
-          saveMessage(idx, botResponse, "bot");
-        }
-      }, chats[idx].typingDelay);
-    }
-
-    // When opening a chat, if it is empty, insert initial bot messages
+    // When opening a chat, do not send any automatic message, just load from db
     function openChat(idx) {
       openChatIdx = idx;
       unreadCounts[idx] = 0;
-      
-      // If the chat is empty, insert the botMessages in order
-      if (!chatMessages[idx] || chatMessages[idx].length === 0) {
-        chats[idx].botMessages.forEach((msg) => saveMessage(idx, msg, "bot"));
-      }
-      
       renderChatBox(idx);
       renderChatList();
     }
-
     function closeChat() {
       openChatIdx = null;
       document.getElementById('chatbox-overlay-root').innerHTML = "";
       renderChatList();
     }
-
     function addUserMessage(idx, msg) {
-      // Update notification count logic
       if (openChatIdx !== idx) unreadCounts[idx] = (unreadCounts[idx] || 0) + 1;
       renderChatList();
     }
-
     // Initialize the app
     listenForAllMessages();
     renderChatList();
