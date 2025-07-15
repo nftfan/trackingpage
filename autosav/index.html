@@ -42,6 +42,11 @@
       background-color: #aaa;
       cursor: not-allowed;
     }
+    #deleteAllBtn {
+      background-color: #dc3545;
+      margin-bottom: 24px;
+      width: 100%;
+    }
     ul {
       list-style-type: none;
       padding-left: 0;
@@ -64,12 +69,14 @@
   <button type="submit">Save</button>
 </form>
 
+<button id="deleteAllBtn">Delete All Emails</button>
+
 <h2>Saved Emails</h2>
 <ul id="emailList">Loading emails...</ul>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
@@ -88,6 +95,7 @@
   const emailForm = document.getElementById('emailForm');
   const emailInput = document.getElementById('emailInput');
   const emailList = document.getElementById('emailList');
+  const deleteAllBtn = document.getElementById('deleteAllBtn');
 
   // Submit email handler
   emailForm.addEventListener('submit', e => {
@@ -115,6 +123,7 @@
     const data = snapshot.val();
     if (!data) {
       emailList.innerHTML = '<li>No emails saved yet.</li>';
+      deleteAllBtn.disabled = true;
       return;
     }
 
@@ -124,10 +133,24 @@
       li.textContent = email;
       emailList.appendChild(li);
     });
+
+    deleteAllBtn.disabled = false;
   }, (error) => {
     emailList.innerHTML = `<li>Error loading emails: ${error.message}</li>`;
+    deleteAllBtn.disabled = true;
   });
 
+  // Delete all handler
+  deleteAllBtn.addEventListener('click', async () => {
+    if (confirm('Are you sure you want to delete all saved emails? This cannot be undone.')) {
+      try {
+        await remove(emailsRef);
+        // UI will update automatically due to the onValue listener
+      } catch (err) {
+        alert('Error deleting emails: ' + err.message);
+      }
+    }
+  });
 </script>
 
 </body>
