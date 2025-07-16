@@ -44,11 +44,44 @@
       box-shadow: 0 8px 32px rgba(0,0,0,0.15);
       padding: 1.5rem 1rem 2rem 1rem;
     }
+    .tabs {
+      display: flex;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .tab-btn {
+      flex: 1;
+      background: #e3f2fd;
+      color: #1976d2;
+      border: none;
+      padding: 0.7rem 0;
+      font-size: 1.1rem;
+      cursor: pointer;
+      font-family: 'Roboto', Arial, sans-serif;
+      transition: background 0.2s;
+      outline: none;
+    }
+    .tab-btn.active {
+      background: #1976d2;
+      color: #fff;
+      font-weight: 500;
+    }
+    .tab-pane {
+      display: none;
+    }
+    .tab-pane.active {
+      display: block;
+    }
     .buttons {
       display: flex;
       justify-content: space-around;
       margin-bottom: 2rem;
       gap: 1rem;
+    }
+    button, .tab-btn {
+      border-radius: 8px;
     }
     button {
       flex: 1;
@@ -57,13 +90,13 @@
       border: none;
       font-size: 1.1rem;
       padding: 0.8rem 0;
-      border-radius: 8px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
       transition: background 0.2s;
+      outline: none;
     }
     button:disabled {
       background: #aaa;
@@ -109,6 +142,52 @@
       font-size: 1.4em;
       vertical-align: middle;
     }
+    .modal-bg {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.22);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      max-width: 90vw;
+      width: 320px;
+      padding: 1.5rem 1rem;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.17);
+      text-align: center;
+      font-size: 1rem;
+      font-family: 'Roboto', Arial, sans-serif;
+      color: #333;
+      z-index: 1001;
+    }
+    .modal button {
+      font-size: 1rem;
+      padding: 0.5rem 1.2rem;
+      margin: 0 0.6rem;
+      border-radius: 7px;
+    }
+    .session-number {
+      font-weight: 700;
+      color: #1976d2;
+      font-size: 1.1em;
+    }
+    .feedback-list {
+      margin-top: 1.2em;
+      padding-left: 0;
+      list-style: none;
+    }
+    .feedback-list li {
+      background: #e3f2fd;
+      margin-bottom: 0.6em;
+      padding: 0.5em 0.9em;
+      border-radius: 8px;
+      font-size: 9px;
+      color: #1976d2;
+    }
     @media (max-width: 600px) {
       .container {
         max-width: 98vw;
@@ -130,6 +209,10 @@
         font-size: 0.95rem;
         padding: 0.18rem 0;
       }
+      .modal {
+        font-size: 0.95rem;
+        padding: 1.1rem 0.4rem;
+      }
     }
   </style>
 </head>
@@ -142,16 +225,54 @@
     </div>
   </header>
   <div class="container">
-    <div class="buttons">
-      <button id="clockInBtn" onclick="clockIn()" disabled>
-        <span class="material-icons">login</span> Clock In
+    <div class="tabs">
+      <button class="tab-btn active" id="tabMainBtn" onclick="showTab('main')">
+        <span class="material-icons" style="font-size:1em;vertical-align:middle;">timer</span> Sessions
       </button>
-      <button id="clockOutBtn" onclick="clockOut()" disabled>
-        <span class="material-icons">logout</span> Clock Out
+      <button class="tab-btn" id="tabFeedbackBtn" onclick="showTab('feedback')">
+        <span class="material-icons" style="font-size:1em;vertical-align:middle;">feedback</span> Feedback
       </button>
     </div>
-    <h3 style="margin-bottom:0.3rem;color:#1976d2;">Sessions</h3>
-    <div id="tableDiv"></div>
+    <div id="mainTab" class="tab-pane active">
+      <div class="buttons">
+        <button id="clockInBtn" onclick="confirmClock('in')" disabled>
+          <span class="material-icons">login</span> Clock In
+        </button>
+        <button id="clockOutBtn" onclick="confirmClock('out')" disabled>
+          <span class="material-icons">logout</span> Clock Out
+        </button>
+      </div>
+      <h3 style="margin-bottom:0.3rem;color:#1976d2;">Sessions</h3>
+      <div id="tableDiv"></div>
+    </div>
+    <div id="feedbackTab" class="tab-pane">
+      <h3 style="margin-bottom:0.3rem;color:#1976d2;">Give Feedback</h3>
+      <div>
+        <label for="sessionSelect" style="font-size:10px;color:#333;">
+          Completed Session Number:
+        </label>
+        <select id="sessionSelect" style="font-size:10px;margin:0 0 0.7em 0;padding:0.2em 0.3em;border-radius:4px;border:1px solid #ccc;">
+        </select>
+        <input class="feedback-input" type="text" id="feedbackInput" placeholder="Enter feedback..." />
+        <button class="feedback-btn" onclick="submitTabFeedback()">
+          <span class="material-icons" style="font-size:1em;">send</span>
+        </button>
+      </div>
+      <div style="margin-top:1.6em;">
+        <h4 style="color:#1976d2;font-size:1.05em;margin:0 0 0.3em 0;">All Feedback</h4>
+        <ul class="feedback-list" id="feedbackList"></ul>
+      </div>
+    </div>
+  </div>
+  <!-- Modal -->
+  <div id="modalBg" class="modal-bg" style="display:none;">
+    <div class="modal" id="modalBox">
+      <div id="modalMsg"></div>
+      <div style="margin-top:1.2em;">
+        <button id="modalYes" onclick="modalAction(true)">Yes</button>
+        <button onclick="modalAction(false)">Cancel</button>
+      </div>
+    </div>
   </div>
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -176,6 +297,9 @@
     // Session state
     let sessions = [];
     let currentSessionKey = null;
+    let tab = 'main';
+    let modalType = '';
+    let modalCallback = null;
 
     // Util: Format date/time
     function formatDT(dt) {
@@ -202,13 +326,43 @@
       return `${cost.toFixed(2)} €`;
     }
 
+    // Tabs
+    function showTab(nextTab) {
+      tab = nextTab;
+      document.getElementById('mainTab').classList.remove('active');
+      document.getElementById('feedbackTab').classList.remove('active');
+      document.getElementById('tabMainBtn').classList.remove('active');
+      document.getElementById('tabFeedbackBtn').classList.remove('active');
+      if(nextTab === 'main') {
+        document.getElementById('mainTab').classList.add('active');
+        document.getElementById('tabMainBtn').classList.add('active');
+      } else {
+        document.getElementById('feedbackTab').classList.add('active');
+        document.getElementById('tabFeedbackBtn').classList.add('active');
+        renderFeedbackTab();
+      }
+    }
+
+    // Modal
+    function confirmClock(type) {
+      modalType = type;
+      document.getElementById('modalMsg').innerHTML =
+        type === 'in'
+          ? '<span class="material-icons" style="color:#1976d2;">help_outline</span> Are you sure you want to Clock In?'
+          : '<span class="material-icons" style="color:#1976d2;">help_outline</span> Are you sure you want to Clock Out?';
+      document.getElementById('modalBg').style.display = 'flex';
+      modalCallback = (type === 'in') ? clockIn : clockOut;
+    }
+    function modalAction(yes) {
+      document.getElementById('modalBg').style.display = 'none';
+      if(yes && modalCallback) modalCallback();
+    }
+
     // Load sessions and UI state
     function refreshSessions() {
       db.ref('jobs/' + JOB_ID + '/sessions').on('value', snapshot => {
         const vals = snapshot.val() || {};
-        // sort by clockIn desc
         sessions = Object.entries(vals).map(([key, v]) => ({...v, key})).sort((a,b)=>b.clockIn-a.clockIn);
-        // Find open session
         currentSessionKey = null;
         for (const s of sessions) {
           if (s.clockIn && !s.clockOut) {
@@ -218,6 +372,7 @@
         }
         updateButtons();
         renderTable();
+        if(tab==='feedback') renderFeedbackTab();
       });
     }
 
@@ -240,11 +395,14 @@
       db.ref('jobs/' + JOB_ID + '/sessions/' + currentSessionKey).update({ clockOut: now });
     }
 
-    // Feedback
-    function sendFeedback(key) {
-      const val = document.getElementById('fb_' + key).value.trim();
-      if (!val) return;
+    // Feedback in feedback tab
+    function submitTabFeedback() {
+      const sel = document.getElementById('sessionSelect');
+      const key = sel.value;
+      const val = document.getElementById('feedbackInput').value.trim();
+      if (!key || !val) return;
       db.ref('jobs/' + JOB_ID + '/sessions/' + key).update({ feedback: val });
+      document.getElementById('feedbackInput').value = '';
     }
 
     // Table
@@ -254,33 +412,43 @@
         '<th><span class="material-icons">access_time</span> Clock Out</th>' +
         '<th><span class="material-icons">timer</span> Duration</th>' +
         '<th><span class="material-icons">euro</span> Cost</th>' +
-        '<th><span class="material-icons">feedback</span> Feedback</th>' +
         '</tr></thead><tbody>';
       if (sessions.length === 0) {
-        html += '<tr><td colspan="5" style="text-align:center;color:#888;">No sessions yet.</td></tr>';
+        html += '<tr><td colspan="4" style="text-align:center;color:#888;">No sessions yet.</td></tr>';
       }
+      let idx = 1;
       for (const s of sessions) {
         const duration = (s.clockIn && s.clockOut) ? (s.clockOut - s.clockIn) : null;
         html += '<tr>';
-        html += `<td>${formatDT(s.clockIn)}</td>`;
+        html += `<td>${formatDT(s.clockIn)}${s.clockOut ? `<span style="color:#aaa;font-size:8px;"> (#${idx})</span>` : ''}</td>`;
         html += `<td>${s.clockOut ? formatDT(s.clockOut) : '<span style="color:#a00;">In Progress</span>'}</td>`;
         html += `<td>${duration ? formatDuration(duration) : '-'}</td>`;
         html += `<td>${duration ? formatCost(duration) : '-'}</td>`;
-        html += '<td>';
-        if (s.clockOut) {
-          if (!s.feedback) {
-            html += `<input class="feedback-input" type="text" id="fb_${s.key}" placeholder="Enter feedback..." />`;
-            html += `<button class="feedback-btn" onclick="sendFeedback('${s.key}')"><span class="material-icons" style="font-size:1em;">send</span></button>`;
-          } else {
-            html += `<span style="color:#43a047;">${s.feedback}</span>`;
-          }
-        } else {
-          html += '<span style="color:#aaa;">-</span>';
-        }
-        html += '</td></tr>';
+        html += '</tr>';
+        if(s.clockOut) idx++;
       }
       html += '</tbody></table>';
       document.getElementById('tableDiv').innerHTML = html;
+    }
+
+    // Feedback Tab
+    function renderFeedbackTab() {
+      // Completed sessions for feedback
+      const completedSessions = sessions.filter(s => s.clockIn && s.clockOut);
+      const sel = document.getElementById('sessionSelect');
+      sel.innerHTML = '';
+      completedSessions.forEach((s, i) => {
+        sel.innerHTML += `<option value="${s.key}">Session #${i+1} (${formatDT(s.clockIn)})</option>`;
+      });
+      if (completedSessions.length === 0) sel.innerHTML = '<option value="">No completed sessions</option>';
+      // Feedback list
+      const feedbackList = document.getElementById('feedbackList');
+      feedbackList.innerHTML = '';
+      completedSessions.forEach((s, i) => {
+        if(s.feedback) {
+          feedbackList.innerHTML += `<li><span class="session-number">#${i+1}</span>: ${s.feedback}</li>`;
+        }
+      });
     }
 
     // Initial load
