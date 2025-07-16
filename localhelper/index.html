@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LocalHelpers - Find Temporary Jobs Near You</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    html, body {
+      font-family: 'Inter', 'Roboto', 'Arial', sans-serif;
+      background: #f6f8fa;
+      color: #222;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-size: 10px;
+      -webkit-tap-highlight-color: transparent;
+      width: 100vw;
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }
+    body {
+      width: 100vw;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+    h1 {
+      text-align: center;
+      margin: 12px 0 4px 0;
+      font-size: 1.22rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #d32f2f;
+      text-shadow: 0 2px 8px #0002;
+      line-height: 1.18;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .help-icon {
+      margin-left: 5px;
+      cursor: pointer;
+      vertical-align: middle;
+      color: #1976d2;
+      transition: color 0.15s;
+      border-radius: 50%;
+      background: #f1f8ff;
+      padding: 3px;
+      box-shadow: 0 1px 7px #1976d233;
+      font-size: 18px !important;
+    }
+    .help-icon:hover {
+      color: #d32f2f;
+      background: #e3ecfa;
+    }
+    .mainbox {
+      width: 97vw;
+      max-width: 410px;
+      margin: 10px auto 0 auto;
+      background: #fff;
+      border-radius: 13px;
+      box-shadow: 0 2px 18px #0001;
+      padding: 11px 7px 15px 7px;
+      border: 1px solid #e0e5eb;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-sizing: border-box;
+    }
+    .description-job {
+      background: #fce4ec;
+      color: #c62828;
+      font-size: 13px;
+      border-radius: 8px;
+      padding: 16px 14px 16px 14px;
+      margin: 0 0 18px 0;
+      text-align: left;
+      font-weight: 500;
+      line-height: 1.44;
+      box-shadow: 0 1px 7px #0001;
+      border: 1px solid #d32f2f;
+    }
+    .mapbox {
+      width: 100%;
+      max-width: 370px;
+      height: 41vw;
+      max-height: 270px;
+      min-height: 120px;
+      border: 1px solid #d32f2f;
+      border-radius: 8px;
+      margin-bottom: 9px;
+      background: #f8fafc;
+      overflow: hidden;
+      box-shadow: 0 3px 18px #0001;
+      position: relative;
+      box-sizing: border-box;
+    }
+    .legend {
+      background: rgba(255,255,255,0.94);
+      color: #d32f2f;
+      padding: 4px 10px 4px 7px;
+      border-radius: 7px;
+      font-size: 8.5px;
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 1000;
+      box-shadow: 0 1px 6px #0001;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid #e0e5eb;
+    }
+    .legend-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 3px;
+      background: #d32f2f;
+      box-shadow: 0 0 9px #d32f2f77,0 1px 2px #0001;
+    }
+    .location-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 210px;
+      margin: 0 auto 10px auto;
+      background: linear-gradient(90deg, #d32f2f 50%, #f9a825 100%);
+      color: #fff;
+      font-size: 1.07rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      border: none;
+      border-radius: 8px;
+      padding: 13px 7px 12px 7px;
+      box-shadow: 0 2px 12px #d32f2f35, 0 1.5px 7px #0001;
+      cursor: pointer;
+      transition: background 0.13s, transform 0.09s;
+      outline: none;
+      gap: 7px;
+      position: relative;
+      z-index: 2;
+    }
+    .location-btn:active {
+      background: linear-gradient(90deg, #f9a825 60%, #d32f2f 100%);
+      transform: scale(0.98);
+    }
+    .location-btn[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+      background: #e0e5eb !important;
+      color: #888 !important;
+    }
+    .form-step-box {
+      width: 100%;
+      max-width: 330px;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 11px;
+      padding-left: 5px;
+      padding-right: 5px;
+      box-sizing: border-box;
+    }
+    .inputbox {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 12px;
+      width: 100%;
+      align-items: flex-start;
+    }
+    label {
+      color: #b71c1c;
+      font-weight: 600;
+      margin-bottom: 1px;
+      font-size: 11px;
+      text-align: left;
+    }
+    input[type="text"], input[type="number"], textarea, input[type="date"], input[type="time"] {
+      background: #f3f6fa;
+      border: 1.2px solid #e0e5eb;
+      color: #222;
+      border-radius: 7px;
+      padding: 10px 9px;
+      font-size: 15px;
+      margin-bottom: 2px;
+      outline: none;
+      transition: border 0.1s;
+      width: 100%;
+      box-sizing: border-box;
+      appearance: none;
+      caret-color: #d32f2f;
+    }
+    input[type="text"]:focus, input[type="number"]:focus, textarea:focus, input[type="date"]:focus, input[type="time"]:focus {
+      border: 1.6px solid #d32f2f;
+      background: #fff;
+    }
+    textarea {
+      min-height: 70px;
+      max-height: 180px;
+      resize: vertical;
+      font-size: 15px;
+    }
+    .btn, button[type="submit"].btn, .submit-btn, .step-btn, .back-btn {
+      background: linear-gradient(90deg, #f9a825 0%, #d32f2f 100%);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 11px 0 10px 0;
+      font-size: 1.13rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin: 9px 0 7px 0;
+      box-shadow: 0 2px 9px #f9a82544, 0 1.5px 7px #0001;
+      width: 100%;
+      transition: background 0.13s, transform 0.09s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 34px;
+      cursor: pointer;
+      outline: none;
+      position: relative;
+      z-index: 2;
+    }
+    .btn:active, button[type="submit"].btn:active, .submit-btn:active, .step-btn:active, .back-btn:active {
+      background: linear-gradient(90deg, #d32f2f 60%, #f9a825 100%);
+      transform: scale(0.98);
+    }
+    .btn[disabled], button[type="submit"].btn[disabled], .submit-btn[disabled], .step-btn[disabled], .back-btn[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+      background: #e0e5eb !important;
+      color: #888 !important;
+    }
+    .back-btn {
+      width: 100%;
+      background: linear-gradient(90deg, #e0e5eb 0%, #bdbdbd 100%);
+      color: #d32f2f;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 10px;
+      margin-top: 2px;
+      margin-bottom: 6px;
+      box-shadow: 0 1px 4px #0001;
+      gap: 5px;
+    }
+    .info-message {
+      color: #d32f2f;
+      background: #fce4ec;
+      border-radius: 7px;
+      padding: 7px 9px;
+      margin: 7px 0 0 0;
+      font-size: 10.5px;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid #d32f2f;
+    }
+    .success-message {
+      color: #fff;
+      background: #388e3c;
+      border: 1px solid #388e3c;
+    }
+    .job-table-container {
+      display: none !important;
+    }
+    /* Correct help popup overlay */
+    .popup-help-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.13);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .popup-help {
+      background: #fff;
+      border-radius: 13px;
+      box-shadow: 0 2px 18px #0002;
+      border: 1.5px solid #d32f2f;
+      max-width: 340px;
+      width: 92vw;
+      padding: 23px 15px 19px 15px;
+      color: #222;
+      font-size: 13px;
+      line-height: 1.52;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      animation: pop-in 0.22s;
+    }
+    @keyframes pop-in {
+      from {transform: scale(0.88); opacity: 0;}
+      to {transform: scale(1); opacity: 1;}
+    }
+    .popup-help-close {
+      position: absolute;
+      top: 8px;
+      right: 9px;
+      background: #fce4ec;
+      color: #d32f2f;
+      border-radius: 50%;
+      border: none;
+      font-size: 17px;
+      cursor: pointer;
+      transition: background 0.12s;
+      padding: 2px 5px 2px 5px;
+    }
+    .popup-help-close:hover {
+      background: #d32f2f;
+      color: #fff;
+    }
+    .popup-help-title {
+      font-weight: 700;
+      font-size: 15px;
+      color: #d32f2f;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    @media (max-width: 600px) {
+      html, body { font-size: 10px; width: 100vw; max-width: 100vw; overflow-x: hidden !important; box-sizing: border-box; }
+      h1 { font-size: 1rem; }
+      .mainbox { max-width: 99vw; width: 99vw; padding: 6px 1.3vw 13px 1.3vw;}
+      .mapbox { max-width: 99vw; width: 99vw; height: 270px; min-height: 90px;}
+      .legend { font-size: 8px; top: 4px; left: 4px;}
+      .job-table-container { max-width: 99vw; width: 99vw; }
+      table.job-table { font-size: 9.3px; min-width: 120px;}
+      table.job-table th, table.job-table td { font-size: 9.3px; padding: 3px 1px;}
+      .location-btn, .btn, .submit-btn, .step-btn, .back-btn { font-size: 1rem; padding: 11px 7px 10px 7px; }
+      input[type="text"], input[type="number"], textarea, input[type="date"], input[type="time"] { font-size: 13px; }
+      #map { width: 100% !important; }
+      .form-step-box { max-width: 99vw; }
+      .popup-help { max-width: 98vw; font-size: 12px;}
+    }
+    @media (max-width: 400px) {
+      .mainbox, .job-table-container, .mapbox { max-width: 100vw; width: 100vw; }
+      html, body { padding: 0; margin: 0; }
+    }
+    .leaflet-container {
+      background: #f8fafc !important;
+      background-repeat: no-repeat !important;
+      background-size: cover !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>
+    <span style="display:inline-flex;align-items:center;">
+      <span class="material-icons" style="font-size:15px;color:#d32f2f;margin-right:3px;">work</span>
+      LocalHelpers
+    </span>
+    <span class="material-icons help-icon" id="helpIcon" title="Help">help_outline</span>
+  </h1>
+  <div class="mainbox">
+    <div class="description-job">
+      <span class="material-icons" style="font-size:13px;vertical-align:-2px;color:#d32f2f;">info</span>
+      To post a temporary job, <b>share your location</b> and fill out the form step by step.<br>
+      Wage: <b>€11/hour</b>
+      <br>Our Fee: <b>€0.65/hour</b>
+      <br>Invoice Amount (Inc 21% VAT): <b>€13.96/hour</b>
+      <br> To delete a Job please contact us : <a href="mailto:info@leuvenflyers.com" style="color:#1976d2;text-decoration:underline;">info@leuvenflyers.com</a>
+    </div>
+    <div class="mapbox">
+      <div class="legend">
+        <span class="legend-dot"></span> Temporary Jobs
+      </div>
+      <div id="map" style="width:100%;height:100%;"></div>
+    </div>
+    <div id="step1">
+      <button class="location-btn" id="shareLocationBtn" type="button">
+        <span class="material-icons" style="font-size:15px;">my_location</span>
+        SHARE YOUR LOCATION
+      </button>
+      <div id="locError" class="info-message" style="display:none"></div>
+    </div>
+    <div id="stepForm" style="display:none;">
+      <form id="multiStepForm" autocomplete="off">
+        <div class="form-step-box" id="formStepBox"></div>
+        <button type="button" class="back-btn" id="backStepBtn" style="display:none;">
+          <span class="material-icons" style="font-size:14px;color:#d32f2f;">arrow_back</span>
+          Back
+        </button>
+        <button type="button" class="step-btn" id="nextStepBtn">
+          <span class="material-icons" style="font-size:13px;">arrow_forward</span>
+          Next
+        </button>
+        <button class="btn submit-btn" type="submit" id="submitStepBtn" style="display:none;">
+          <span class="material-icons" style="font-size:13px;">send</span>
+          Post Job
+        </button>
+      </form>
+      <div id="stepFormError" class="info-message" style="display:none"></div>
+    </div>
+    <div id="step3" style="display:none;">
+      <div class="info-message success-message">
+        <span class="material-icons" style="font-size:14px;color:#fff;">check_circle</span>
+        Job posted! Thank you.<br>
+        <span style="font-size:9px;color:#d1fae5;">See all jobs on the map.</span>
+      </div>
+    </div>
+  </div>
+  <div class="job-table-container" id="job-table-container" style="display:none;">
+    <div class="job-table-title">
+      <span class="material-icons" style="font-size:13px;color:#d32f2f;">list_alt</span>
+      Jobs (<span id="job-count">0</span>)
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="job-table" id="job-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Business</th>
+            <th>Category</th>
+            <th>Job</th>
+            <th>Duration</th>
+            <th>Wage</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Job rows go here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <!-- Help Popup -->
+  <div class="popup-help-bg" id="popupHelpBg" style="display:none;">
+    <div class="popup-help" id="popupHelp">
+      <button class="popup-help-close" id="popupHelpClose" title="Close">
+        <span class="material-icons">close</span>
+      </button>
+      <div class="popup-help-title">
+        <span class="material-icons" style="color:#d32f2f;font-size:17px;">help_outline</span>
+        How LocalHelpers Works
+      </div>
+      <div>
+        <span class="material-icons" style="font-size:13px;color:#d32f2f;vertical-align:middle;">person_search</span>
+        You can hire a worker for a temporary job in your business.
+        <br>
+        <span class="material-icons" style="font-size:13px;color:#d32f2f;vertical-align:middle;">email</span>
+        To confirm your job, send your job details to <a href="mailto:info@leuvenflyers.com" style="color:#1976d2;text-decoration:underline;">info@leuvenflyers.com</a>.
+        <br><br>
+        <span class="material-icons" style="font-size:13px;color:#d32f2f;vertical-align:middle;">timer</span>
+        Once confirmed, a worker will arrive at your business on time.
+        <br>
+        <span class="material-icons" style="font-size:13px;color:#d32f2f;vertical-align:middle;">receipt_long</span>
+        After completion, you'll receive an invoice from the <a href="https://www.tentoo.be/" target="_blank" style="color:#1976d2;">TENTOO freelance platform</a>.
+        <br>
+        <span class="material-icons" style="font-size:13px;color:#d32f2f;vertical-align:middle;">assignment_turned_in</span>
+        We handle all administrative processes for you for a seamless experience.
+      </div>
+    </div>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+      authDomain: "trackingclients.firebaseapp.com",
+      projectId: "trackingclients",
+      storageBucket: "trackingclients.appspot.com",
+      messagingSenderId: "27490943622",
+      appId: "1:27490943622:web:d6c87547aa5df440508707",
+      databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const jobsRef = ref(db, 'localHelpersJobs');
+
+    let mapHasFitInitial = false;
+    const belgiumSouthWest = L.latLng(49.495, 2.5);
+    const belgiumNorthEast = L.latLng(51.505, 6.4);
+    const belgiumBounds = L.latLngBounds(belgiumSouthWest, belgiumNorthEast);
+    const belgiumCenter = [50.85, 4.35];
+
+    const map = L.map('map', {
+      zoomControl: false,
+      attributionControl: false,
+      scrollWheelZoom: true,
+      dragging: true,
+      doubleClickZoom: true,
+      maxBounds: belgiumBounds,
+      maxBoundsViscosity: 1.0,
+      worldCopyJump: false,
+      minZoom: 7,
+      maxZoom: 18,
+    }).setView(belgiumCenter, 8);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      minZoom: 7,
+      maxZoom: 18,
+      attribution: '© OpenStreetMap, © CartoDB',
+      noWrap: true,
+      bounds: belgiumBounds,
+      continuousWorld: false
+    }).addTo(map);
+
+    function fitBelgiumOnce() {
+      if (!mapHasFitInitial) {
+        map.fitBounds(belgiumBounds, { animate: false });
+        mapHasFitInitial = true;
+      }
+    }
+    fitBelgiumOnce();
+
+    const redDotIcon = L.divIcon({
+      html: '<div style="width:14px;height:14px;background:#d32f2f;border-radius:50%;box-shadow:0 0 10px #d32f2f99,0 1.5px 4px #0001;"></div>',
+      iconSize: [14, 14], className: ''
+    });
+
+    let markers = [];
+    let userMarker = null;
+    let userEntryLatLng = null;
+
+    // Help Popup logic
+    const helpIcon = document.getElementById('helpIcon');
+    const popupHelpBg = document.getElementById('popupHelpBg');
+    const popupHelpClose = document.getElementById('popupHelpClose');
+    helpIcon.addEventListener('click', () => {
+      popupHelpBg.style.display = "flex";
+    });
+    popupHelpClose.addEventListener('click', () => {
+      popupHelpBg.style.display = "none";
+    });
+    popupHelpBg.addEventListener('click', e => {
+      if (e.target === popupHelpBg) popupHelpBg.style.display = "none";
+    });
+
+    function generateJobId() {
+      const prefix = "HF";
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let code = "";
+      for (let i = 0; i < 4; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return prefix + code;
+    }
+
+    const shareLocationBtn = document.getElementById('shareLocationBtn');
+    const step1 = document.getElementById('step1');
+    const stepForm = document.getElementById('stepForm');
+    const step3 = document.getElementById('step3');
+    const multiStepForm = document.getElementById('multiStepForm');
+    const formStepBox = document.getElementById('formStepBox');
+    const nextStepBtn = document.getElementById('nextStepBtn');
+    const backStepBtn = document.getElementById('backStepBtn');
+    const submitStepBtn = document.getElementById('submitStepBtn');
+    const stepFormError = document.getElementById('stepFormError');
+    const locError = document.getElementById('locError');
+
+    let userLocation = null;
+    let formData = {
+      businessName: "",
+      businessCategory: "",
+      jobDescription: "",
+      jobDuration: "",
+      jobDate: "",
+      jobStartTime: ""
+    };
+    let currentStep = 0;
+    let postedJobId = null;
+
+    const steps = [
+      {
+        label: "Business Name",
+        type: "text",
+        id: "bizName",
+        name: "businessName",
+        placeholder: "Your business name",
+        maxlength: 60,
+        required: true,
+        validate: v => v && v.trim().length >= 2,
+        error: "Enter business name (min 2 chars)."
+      },
+      {
+        label: "Business Category",
+        type: "text",
+        id: "bizCat",
+        name: "businessCategory",
+        placeholder: "e.g. Cafe, Store, Repair, Event",
+        maxlength: 40,
+        required: true,
+        validate: v => v && v.trim().length >= 2,
+        error: "Enter business category (min 2 chars)."
+      },
+      {
+        label: "Temporary Job Description",
+        type: "textarea",
+        id: "jobDesc",
+        name: "jobDescription",
+        placeholder: "Describe the job",
+        maxlength: 120,
+        required: true,
+        validate: v => v && v.trim().length >= 5,
+        error: "Describe the job (min 5 chars)."
+      },
+      {
+        label: "Job Duration (hours)",
+        type: "number",
+        id: "jobDuration",
+        name: "jobDuration",
+        placeholder: "e.g. 6",
+        min: 1,
+        max: 48,
+        required: true,
+        validate: v => !isNaN(Number(v)) && Number(v) >= 1 && Number(v) <= 48,
+        error: "Enter valid job duration (1-48 hours)."
+      },
+      {
+        label: "Job Date",
+        type: "date",
+        id: "jobDate",
+        name: "jobDate",
+        required: true,
+        validate: v => {
+          if (!v) return false;
+          const d = new Date(v);
+          const today = new Date();
+          return d.toString() !== "Invalid Date" && d >= new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        },
+        error: "Select a valid job date (today or future)."
+      },
+      {
+        label: "Job Start Time",
+        type: "time",
+        id: "jobStartTime",
+        name: "jobStartTime",
+        required: true,
+        validate: v => !!v,
+        error: "Select a valid job start time."
+      }
+    ];
+
+    function showStep(stepIdx) {
+      formStepBox.innerHTML = "";
+      const step = steps[stepIdx];
+      let inputEl;
+      if (step.type === "textarea") {
+        inputEl = document.createElement("textarea");
+      } else {
+        inputEl = document.createElement("input");
+        inputEl.type = step.type;
+      }
+      inputEl.id = step.id;
+      inputEl.name = step.name;
+      inputEl.placeholder = step.placeholder || "";
+      inputEl.required = step.required;
+      inputEl.style.marginBottom = "2px";
+      inputEl.value = formData[step.name] || "";
+      if (step.maxlength) inputEl.maxLength = step.maxlength;
+      if (step.min) inputEl.min = step.min;
+      if (step.max) inputEl.max = step.max;
+
+      formStepBox.appendChild(createLabel(step.label, step.id));
+      formStepBox.appendChild(inputEl);
+
+      stepFormError.style.display = "none";
+      nextStepBtn.style.display = stepIdx < steps.length - 1 ? "" : "none";
+      submitStepBtn.style.display = stepIdx === steps.length - 1 ? "" : "none";
+      backStepBtn.style.display = stepIdx > 0 ? "" : "none";
+      setTimeout(() => { inputEl.focus(); }, 180);
+    }
+
+    function createLabel(text, forId) {
+      const lbl = document.createElement("label");
+      lbl.setAttribute("for", forId);
+      lbl.textContent = text + ":";
+      return lbl;
+    }
+
+    shareLocationBtn.addEventListener('click', () => {
+      locError.style.display = "none";
+      shareLocationBtn.disabled = true;
+      if (!navigator.geolocation) {
+        locError.innerHTML = '<span class="material-icons" style="font-size:12px;">error</span> Geolocation not supported.';
+        locError.style.display = "";
+        shareLocationBtn.disabled = false;
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          userLocation = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            timestamp: Date.now(),
+            userAgent: navigator.userAgent
+          };
+          step1.style.display = "none";
+          stepForm.style.display = "";
+          currentStep = 0;
+          showStep(currentStep);
+        },
+        (err) => {
+          locError.innerHTML = '<span class="material-icons" style="font-size:12px;">error</span> Unable to get location: ' + (err.message || "Permission denied.");
+          locError.style.display = "";
+          shareLocationBtn.disabled = false;
+        },
+        { enableHighAccuracy: true, timeout: 12000 }
+      );
+    });
+
+    nextStepBtn.addEventListener("click", () => {
+      const step = steps[currentStep];
+      const inputValue = multiStepForm[step.name].value.trim();
+      if (!step.validate(inputValue)) {
+        stepFormError.innerHTML = `<span class="material-icons" style="font-size:12px;">warning</span> ${step.error}`;
+        stepFormError.style.display = "";
+        return;
+      }
+      formData[step.name] = inputValue;
+      currentStep += 1;
+      showStep(currentStep);
+    });
+
+    backStepBtn.addEventListener("click", () => {
+      if (currentStep > 0) {
+        currentStep -= 1;
+        showStep(currentStep);
+      }
+    });
+
+    multiStepForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const step = steps[currentStep];
+      const inputValue = multiStepForm[step.name].value.trim();
+      if (!step.validate(inputValue)) {
+        stepFormError.innerHTML = `<span class="material-icons" style="font-size:12px;">warning</span> ${step.error}`;
+        stepFormError.style.display = "";
+        return;
+      }
+      formData[step.name] = inputValue;
+      if (!userLocation) {
+        stepFormError.innerHTML = '<span class="material-icons" style="font-size:12px;">error</span> Location missing. Please start again.';
+        stepFormError.style.display = "";
+        return;
+      }
+      try {
+        postedJobId = generateJobId();
+        const entry = {
+          ...userLocation,
+          jobId: postedJobId,
+          businessName: formData.businessName,
+          businessCategory: formData.businessCategory,
+          jobDescription: formData.jobDescription,
+          jobDuration: Number(formData.jobDuration),
+          jobDate: formData.jobDate,
+          jobStartTime: formData.jobStartTime,
+          wage: 11
+        };
+        await push(jobsRef, entry);
+        userEntryLatLng = [userLocation.lat, userLocation.lng];
+        stepForm.style.display = "none";
+        step3.style.display = "";
+        setTimeout(() => { step3.querySelector('.info-message').scrollIntoView({behavior: 'smooth', block: 'center'}); }, 200);
+      } catch (err) {
+        stepFormError.innerHTML = '<span class="material-icons" style="font-size:12px;">error</span> Failed to post job. Please try again.';
+        stepFormError.style.display = "";
+      }
+    });
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    // Map popups with material icons and jobId shown with other options
+    onValue(jobsRef, (snapshot) => {
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+      if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+      const data = snapshot.val();
+      if (!data) return;
+
+      const jobPoints = Object.values(data)
+        .filter(e => e.lat && e.lng && e.businessName && e.jobDescription)
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+      jobPoints.forEach(point => {
+        // Job ID is now shown with other items, not as tab
+        const popupHtml = `
+          <div style="font-size:13px;color:#222;">
+            <div style="font-weight:700;color:#d32f2f;display:flex;align-items:center;gap:6px;">
+              <span class="material-icons" style="font-size:16px;vertical-align:middle;color:#d32f2f;">business</span>
+              ${escapeHtml(point.businessName)}
+            </div>
+            <div style="font-size:12px;color:#333;display:flex;align-items:center;gap:3px;">
+              <span class="material-icons" style="font-size:14px;vertical-align:middle;color:#f9a825;">category</span>
+              ${escapeHtml(point.businessCategory)}
+            </div>
+            <div style="font-size:12px;margin-top:3px;color:#1976d2;display:flex;align-items:center;gap:3px;">
+              <span class="material-icons" style="font-size:14px;vertical-align:middle;color:#1976d2;">work_outline</span>
+              ${escapeHtml(point.jobDescription)}
+            </div>
+            <div style="font-size:12px;margin-top:2px;display:flex;flex-wrap:wrap;gap:8px;">
+              <div style="display:flex;align-items:center;gap:2px;">
+                <span class="material-icons" style="font-size:13px;vertical-align:middle;color:#d32f2f;">schedule</span>
+                <b>Duration:</b> ${point.jobDuration} hours
+              </div>
+              <div style="display:flex;align-items:center;gap:2px;">
+                <span class="material-icons" style="font-size:13px;vertical-align:middle;color:#388e3c;">calendar_today</span>
+                <b>Date:</b> ${escapeHtml(point.jobDate || '')}
+              </div>
+              <div style="display:flex;align-items:center;gap:2px;">
+                <span class="material-icons" style="font-size:13px;vertical-align:middle;color:#388e3c;">access_time</span>
+                <b>Start Time:</b> ${escapeHtml(point.jobStartTime || '')}
+              </div>
+              <div style="display:flex;align-items:center;gap:2px;">
+                <span class="material-icons" style="font-size:13px;vertical-align:middle;color:#f9a825;">attach_money</span>
+                <b>Wage:</b> 11 €/hour
+              </div>
+              <div style="display:flex;align-items:center;gap:2px;">
+                <span class="material-icons" style="font-size:13px;vertical-align:middle;color:#d32f2f;">badge</span>
+                <b>Job ID:</b> ${escapeHtml(point.jobId || '')}
+              </div>
+            </div>
+          </div>
+        `;
+        const marker = L.marker([point.lat, point.lng], { icon: redDotIcon }).addTo(map);
+        marker.bindPopup(popupHtml, {
+          closeButton: true, minWidth: 180, maxWidth: 270, autoClose: true, closeOnClick: true, className: ''
+        });
+        markers.push(marker);
+      });
+
+      if (userEntryLatLng) {
+        const popupHtml = `
+          <div style="font-size:13px;color:#222;">
+            <div style="font-weight:700;color:#d32f2f;display:flex;align-items:center;gap:6px;">
+              <span class="material-icons" style="font-size:16px;vertical-align:middle;color:#d32f2f;">business</span>
+              Your Job
+            </div>
+            <div style="font-size:12px;color:#333;display:flex;align-items:center;gap:3px;">
+              <span class="material-icons" style="font-size:14px;vertical-align:middle;color:#f9a825;">category</span>
+              ${escapeHtml(formData.businessCategory)}
+            </div>
+            <div style="font-size:12px;margin-top:3px;color:#1976d2;display:flex;align-items:center;gap:3px;">
+              <span class="material-icons" style="font-size:14px;vertical-align:middle;color:#1976d2;">work_outline</span>
+              ${escapeHtml(formData.jobDescription)}
+            </div>
+            <div style="font-size:12px;margin-top:2px;display:flex;flex-wrap:wrap;gap:8px;">
+              <div style="display:flex;align-items:center;gap:2px;">
+                <span class="material-icons" style="font-size:13px;vertical-align:middle;color:#d32f2f;">schedule</span>
+                <b>Duration:</b> ${formData.jobDuration} hours
+              </div>
+              <div style="display:flex;align-items:center;gap:2px;">
+                <span class="material-icons" style="font-size:13px;vertical-align:middle;color:#388e3c;">calendar_today</span>
+                <b>Date:</b> ${escapeHtml(formData.jobDate || '')}
+              </div>
+              <div style="display:flex;align-items:center;gap:2px;">
+                <span class="material-icons" style="font-size:13px;vertical-align:middle;color:#388e3c;">access_time</span>
+                <b>Start Time:</b> ${escapeHtml(formData.jobStartTime || '')}
+              </div>
+              <div style="display:flex;align-items:center;gap:2px;">
+                <span class="material-icons" style="font-size:13px;vertical-align:middle;color:#f9a825;">attach_money</span>
+                <b>Wage:</b> 11 €/hour
+              </div>
+              <div style="display:flex;align-items:center;gap:2px;">
+                <span class="material-icons" style="font-size:13px;vertical-align:middle;color:#d32f2f;">badge</span>
+                <b>Job ID:</b> ${escapeHtml(postedJobId)}
+              </div>
+            </div>
+          </div>
+        `;
+        userMarker = L.marker(userEntryLatLng, { icon: redDotIcon }).addTo(map);
+        userMarker.bindPopup(popupHtml, {
+          closeButton: true, minWidth: 180, maxWidth: 270, autoClose: true, closeOnClick: true, className: ''
+        });
+        map.setView(userEntryLatLng, 14, { animate: true });
+      } else if (jobPoints.length > 0 && !mapHasFitInitial) {
+        fitBelgiumOnce();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      setTimeout(() => { map.invalidateSize(); }, 400);
+    });
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => { map.invalidateSize(); }, 300);
+    });
+  </script>
+</body>
+</html>
