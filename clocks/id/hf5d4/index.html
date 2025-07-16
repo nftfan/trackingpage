@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>LocalHelper Dashboard</title>
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #1976d2;
+      color: white;
+      padding: 1rem 0;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: 500;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .container {
+      max-width: 500px;
+      margin: 1.5rem auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      padding: 1.5rem 1rem 2rem 1rem;
+    }
+    .buttons {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 2rem;
+      gap: 1rem;
+    }
+    button {
+      flex: 1;
+      background: #1976d2;
+      color: white;
+      border: none;
+      font-size: 1.1rem;
+      padding: 0.8rem 0;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.7rem 0.6rem;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background: #e3f2fd;
+      font-weight: 500;
+      font-size: 1rem;
+    }
+    td {
+      font-size: 0.99rem;
+      vertical-align: middle;
+    }
+    .feedback-input {
+      width: 95%;
+      padding: 0.5rem;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      font-size: 0.98rem;
+      margin-right: 0.4rem;
+    }
+    .feedback-btn {
+      background: #43a047;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 0.5rem 0.8rem;
+      cursor: pointer;
+      font-size: 1.03rem;
+      margin-left: 2px;
+      vertical-align: middle;
+      transition: background 0.2s;
+    }
+    .material-icons {
+      font-size: 1.4em;
+      vertical-align: middle;
+    }
+    @media (max-width: 600px) {
+      .container {
+        max-width: 98vw;
+        padding: 1rem 0.3rem 1.2rem 0.3rem;
+      }
+      th, td {
+        font-size: 0.95rem;
+        padding: 0.5rem 0.3rem;
+      }
+      button {
+        font-size: 1rem;
+        padding: 0.6rem 0;
+      }
+      .feedback-input {
+        font-size: 0.96rem;
+        padding: 0.3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="material-icons" style="vertical-align:middle;">dashboard</span>
+    LocalHelper Dashboard
+  </header>
+  <div class="container">
+    <div class="buttons">
+      <button id="clockInBtn" onclick="clockIn()" disabled>
+        <span class="material-icons">login</span> Clock In
+      </button>
+      <button id="clockOutBtn" onclick="clockOut()" disabled>
+        <span class="material-icons">logout</span> Clock Out
+      </button>
+    </div>
+    <h3 style="margin-bottom:0.3rem;color:#1976d2;">Sessions</h3>
+    <div id="tableDiv"></div>
+  </div>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script>
+    // Init Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+      authDomain: "trackingclients.firebaseapp.com",
+      projectId: "trackingclients",
+      storageBucket: "trackingclients.appspot.com",
+      messagingSenderId: "27490943622",
+      appId: "1:27490943622:web:d6c87547aa5df440508707",
+      databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Session state
+    let sessions = [];
+    let currentSessionKey = null;
+
+    // Util: Format date/time
+    function formatDT(dt) {
+      if (!dt) return "";
+      const d = new Date(dt);
+      return d.toLocaleString();
+    }
+
+    // Util: Format duration (ms) as hh:mm:ss
+    function formatDuration(ms) {
+      if (!ms || ms < 0) return "-";
+      const hrs = Math.floor(ms / 3600000);
+      const mins = Math.floor((ms % 3600000) / 60000);
+      const secs = Math.floor((ms % 60000) / 1000);
+      return `${hrs.toString().padStart(2,"0")}:${mins.toString().padStart(2,"0")}:${secs.toString().padStart(2,"0")}`;
+    }
+
+    // Util: Format cost
+    function formatCost(ms) {
+      if (!ms || ms < 0) return "-";
+      const hourRate = 19.53;
+      const hours = ms / 3600000;
+      const cost = hours * hourRate;
+      return `${cost.toFixed(2)} €`;
+    }
+
+    // Load sessions and UI state
+    function refreshSessions() {
+      db.ref('sessions').on('value', snapshot => {
+        const vals = snapshot.val() || {};
+        // sort by clockIn desc
+        sessions = Object.entries(vals).map(([key, v]) => ({...v, key})).sort((a,b)=>b.clockIn-a.clockIn);
+        // Find open session
+        currentSessionKey = null;
+        for (const s of sessions) {
+          if (s.clockIn && !s.clockOut) {
+            currentSessionKey = s.key;
+            break;
+          }
+        }
+        updateButtons();
+        renderTable();
+      });
+    }
+
+    function updateButtons() {
+      document.getElementById('clockInBtn').disabled = !!currentSessionKey;
+      document.getElementById('clockOutBtn').disabled = !currentSessionKey;
+    }
+
+    // Clock In
+    function clockIn() {
+      if (currentSessionKey) return;
+      const now = Date.now();
+      db.ref('sessions').push({ clockIn: now });
+    }
+
+    // Clock Out
+    function clockOut() {
+      if (!currentSessionKey) return;
+      const now = Date.now();
+      db.ref('sessions/' + currentSessionKey).update({ clockOut: now });
+    }
+
+    // Feedback
+    function sendFeedback(key) {
+      const val = document.getElementById('fb_' + key).value.trim();
+      if (!val) return;
+      db.ref('sessions/' + key).update({ feedback: val });
+    }
+
+    // Table
+    function renderTable() {
+      let html = '<table><thead><tr>' +
+        '<th><span class="material-icons">access_time</span>In</th>' +
+        '<th><span class="material-icons">access_time</span>Out</th>' +
+        '<th><span class="material-icons">timer</span></th>' +
+        '<th><span class="material-icons">euro</span></th>' +
+        '<th><span class="material-icons">feedback</span></th>' +
+        '</tr></thead><tbody>';
+      if (sessions.length === 0) {
+        html += '<tr><td colspan="5" style="text-align:center;color:#888;">No sessions yet.</td></tr>';
+      }
+      for (const s of sessions) {
+        const duration = (s.clockIn && s.clockOut) ? (s.clockOut - s.clockIn) : null;
+        html += '<tr>';
+        html += `<td>${formatDT(s.clockIn)}</td>`;
+        html += `<td>${s.clockOut ? formatDT(s.clockOut) : '<span style="color:#a00;">In Progress</span>'}</td>`;
+        html += `<td>${duration ? formatDuration(duration) : '-'}</td>`;
+        html += `<td>${duration ? formatCost(duration) : '-'}</td>`;
+        html += '<td>';
+        if (s.clockOut) {
+          if (!s.feedback) {
+            html += `<input class="feedback-input" type="text" id="fb_${s.key}" placeholder="Enter feedback..." />`;
+            html += `<button class="feedback-btn" onclick="sendFeedback('${s.key}')"><span class="material-icons" style="font-size:1em;">send</span></button>`;
+          } else {
+            html += `<span style="color:#43a047;">${s.feedback}</span>`;
+          }
+        } else {
+          html += '<span style="color:#aaa;">-</span>';
+        }
+        html += '</td></tr>';
+      }
+      html += '</tbody></table>';
+      document.getElementById('tableDiv').innerHTML = html;
+    }
+
+    // Initial load
+    refreshSessions();
+  </script>
+</body>
+</html>
