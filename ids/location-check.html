@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Location-Based QR Scan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f6f8fa;
+      text-align: center;
+      padding: 30px;
+    }
+    h2 {
+      color: #333;
+    }
+    .status {
+      font-size: 16px;
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 12px;
+    }
+    .success {
+      background-color: #d0f0d0;
+      color: #2e7d32;
+    }
+    .error {
+      background-color: #fce4e4;
+      color: #c62828;
+    }
+  </style>
+</head>
+<body>
+  <h2>📍 Location Check</h2>
+  <p>We are checking if you are at the correct location…</p>
+  <div id="status" class="status"></div>
+
+  <script>
+    const allowedLat = 48.89889;
+    const allowedLng = 2.35112;
+    const allowedRadius = 50; // meters
+
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // Earth radius in meters
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function showStatus(message, isSuccess) {
+      const statusDiv = document.getElementById("status");
+      statusDiv.className = "status " + (isSuccess ? "success" : "error");
+      statusDiv.innerHTML = message;
+    }
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          const distance = getDistance(userLat, userLng, allowedLat, allowedLng);
+
+          if (distance <= allowedRadius) {
+            showStatus(`✅ Access granted.<br>You are ${distance.toFixed(2)} meters from the target.`, true);
+            // Optionally redirect:
+            // window.location.href = "https://your-reward-page.com";
+          } else {
+            showStatus(`❌ Access denied.<br>You are ${distance.toFixed(2)} meters away from the target location.<br><small>Get closer to access the content.</small>`, false);
+          }
+        },
+        (error) => {
+          showStatus(`❌ Could not get your location. Please allow location access.`, false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    } else {
+      showStatus("❌ Geolocation is not supported by your browser.", false);
+    }
+  </script>
+</body>
+</html>
