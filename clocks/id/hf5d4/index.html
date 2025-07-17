@@ -118,7 +118,7 @@
       background: #e3f2fd;
       font-weight: 500;
     }
-    .feedback-input {
+    .feedback-input, .instructions-input {
       width: 95%;
       padding: 0.5rem;
       border-radius: 5px;
@@ -126,7 +126,7 @@
       font-size: 9px;
       margin-right: 0.4rem;
     }
-    .feedback-btn {
+    .feedback-btn, .instructions-btn {
       background: #43a047;
       color: white;
       border: none;
@@ -137,6 +137,10 @@
       margin-left: 2px;
       vertical-align: middle;
       transition: background 0.2s;
+    }
+    .instructions-btn {
+      background: #ff9800;
+      margin-left: 3px;
     }
     .material-icons {
       font-size: 1.4em;
@@ -175,18 +179,29 @@
       color: #1976d2;
       font-size: 1.1em;
     }
-    .feedback-list {
+    .feedback-list, .instructions-list {
       margin-top: 1.2em;
       padding-left: 0;
       list-style: none;
     }
-    .feedback-list li {
+    .feedback-list li, .instructions-list li {
       background: #e3f2fd;
       margin-bottom: 0.6em;
       padding: 0.5em 0.9em;
       border-radius: 8px;
       font-size: 9px;
       color: #1976d2;
+    }
+    .instructions-list li {
+      background: #fff3e0;
+      color: #ff9800;
+    }
+    .instructions-headline {
+      color: #ff9800;
+      font-weight: 700;
+      margin-bottom: 0.4em;
+      font-size: 1.07em;
+      padding-left: 2px;
     }
     @media (max-width: 600px) {
       .container {
@@ -201,7 +216,7 @@
         font-size: 1rem;
         padding: 0.6rem 0;
       }
-      .feedback-input {
+      .feedback-input, .instructions-input {
         font-size: 9px;
         padding: 0.3rem;
       }
@@ -246,8 +261,8 @@
       <div id="tableDiv"></div>
     </div>
     <div id="feedbackTab" class="tab-pane">
-      <h3 style="margin-bottom:0.3rem;color:#1976d2;">Give Feedback</h3>
       <div>
+        <h3 style="margin-bottom:0.4rem;color:#1976d2;">Give Feedback</h3>
         <label for="sessionSelect" style="font-size:10px;color:#333;">
           Completed Session Number:
         </label>
@@ -257,6 +272,19 @@
         <button class="feedback-btn" onclick="submitTabFeedback()">
           <span class="material-icons" style="font-size:1em;">send</span>
         </button>
+      </div>
+      <div style="margin-top:2em;">
+        <div class="instructions-headline">
+          <span class="material-icons" style="font-size:1em;vertical-align:middle;">assignment</span>
+          Job Instructions
+        </div>
+        <div>
+          <input class="instructions-input" type="text" id="instructionsInput" placeholder="Add job instruction..." />
+          <button class="instructions-btn" onclick="submitInstruction()">
+            <span class="material-icons" style="font-size:1em;">add</span>
+          </button>
+        </div>
+        <ul class="instructions-list" id="instructionsList"></ul>
       </div>
       <div style="margin-top:1.6em;">
         <h4 style="color:#1976d2;font-size:1.05em;margin:0 0 0.3em 0;">All Feedback</h4>
@@ -294,12 +322,13 @@
     // Job unique id
     const JOB_ID = "HF0RTJ";
 
-    // Session state
+    // Session, feedback, and instructions state
     let sessions = [];
     let currentSessionKey = null;
     let tab = 'main';
     let modalType = '';
     let modalCallback = null;
+    let instructions = [];
 
     // Util: Format date/time
     function formatDT(dt) {
@@ -358,7 +387,7 @@
       if(yes && modalCallback) modalCallback();
     }
 
-    // Load sessions and UI state
+    // Load sessions, feedback and instructions
     function refreshSessions() {
       db.ref('jobs/' + JOB_ID + '/sessions').on('value', snapshot => {
         const vals = snapshot.val() || {};
@@ -373,6 +402,17 @@
         updateButtons();
         renderTable();
         if(tab==='feedback') renderFeedbackTab();
+      });
+    }
+
+    // Load and listen for instructions changes
+    function refreshInstructions() {
+      db.ref('jobs/' + JOB_ID + '/instructions').on('value', snapshot => {
+        const vals = snapshot.val() || {};
+        // Store as array of {text, ts} sorted by ts desc
+        instructions = Object.entries(vals).map(([key, v]) => ({...v, key}))
+          .sort((a,b)=>(b.ts||0)-(a.ts||0));
+        if(tab==='feedback') renderInstructions();
       });
     }
 
@@ -403,6 +443,15 @@
       if (!key || !val) return;
       db.ref('jobs/' + JOB_ID + '/sessions/' + key).update({ feedback: val });
       document.getElementById('feedbackInput').value = '';
+    }
+
+    // Instructions in feedback tab
+    function submitInstruction() {
+      const val = document.getElementById('instructionsInput').value.trim();
+      if (!val) return;
+      const now = Date.now();
+      db.ref('jobs/' + JOB_ID + '/instructions').push({ text: val, ts: now });
+      document.getElementById('instructionsInput').value = '';
     }
 
     // Table
@@ -449,10 +498,26 @@
           feedbackList.innerHTML += `<li><span class="session-number">#${i+1}</span>: ${s.feedback}</li>`;
         }
       });
+      // Instructions
+      renderInstructions();
+    }
+
+    // Render job instructions
+    function renderInstructions() {
+      const instructionsList = document.getElementById('instructionsList');
+      instructionsList.innerHTML = '';
+      if (instructions.length === 0) {
+        instructionsList.innerHTML = '<li style="background:#fff3e0;color:#bbb;">No instructions yet.</li>';
+      } else {
+        instructions.forEach((ins, i) => {
+          instructionsList.innerHTML += `<li>${ins.text}</li>`;
+        });
+      }
     }
 
     // Initial load
     refreshSessions();
+    refreshInstructions();
   </script>
 </body>
 </html>
