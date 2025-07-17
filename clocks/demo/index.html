@@ -83,6 +83,31 @@
       color: #1976d2;
       font-size: 1.2rem;
     }
+    .instructions-section {
+      margin-bottom: 1em;
+    }
+    .instructions-title {
+      font-size: 1.02em;
+      font-weight: bold;
+      color: #ff9800;
+      margin-bottom: 0.2em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: 0.2px;
+    }
+    .instructions-box {
+      background: #fff8e1;
+      color: #ad7900;
+      border: 1px solid #ffe082;
+      border-radius: 8px;
+      padding: 0.8em 1em;
+      font-size: 10px;
+      font-family: inherit;
+      white-space: pre-line;
+      box-shadow: 0 2px 6px rgba(255,193,7,0.05);
+      margin-bottom: 0.5em;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -118,7 +143,7 @@
       color: #1976d2;
     }
     .material-icons {
-      font-size: 1.1em !important; /* Make icon size equal to text */
+      font-size: 1.1em !important;
       vertical-align: middle;
       line-height: 1;
       display: inline-block;
@@ -135,6 +160,10 @@
       .job-id-bar {
         font-size: 0.95rem;
         padding: 0.18rem 0;
+      }
+      .instructions-box {
+        font-size: 10px;
+        padding: 0.7em 0.7em;
       }
     }
   </style>
@@ -162,6 +191,13 @@
     </div>
     <div id="feedbackTab" class="tab-pane">
       <h3>Feedback</h3>
+      <div class="instructions-section">
+        <div class="instructions-title">
+          <span class="material-icons" style="color:#ffb300;">info</span>
+          Job Instructions
+        </div>
+        <div id="instructionsBox" class="instructions-box" style="display:none;"></div>
+      </div>
       <ul class="feedback-list" id="feedbackList"></ul>
     </div>
   </div>
@@ -188,6 +224,7 @@
     // Session state
     let sessions = [];
     let currentTab = 'sessions';
+    let jobInstructions = "";
 
     // Util: Format date/time
     function formatDT(dt) {
@@ -242,15 +279,26 @@
 
     // Render feedback list (only show feedback, no form)
     function renderFeedbackList() {
-      // Completed sessions for feedback
-      const completedSessions = sessions.filter(s => s.clockIn && s.clockOut && s.feedback && s.feedback.trim() !== '');
       const feedbackList = document.getElementById('feedbackList');
+      const completedSessions = sessions.filter(s => s.clockIn && s.clockOut && s.feedback && s.feedback.trim() !== '');
       feedbackList.innerHTML = '';
       completedSessions.forEach((s, i) => {
         feedbackList.innerHTML += `<li><span class="session-number">#${i+1}</span>: ${s.feedback}</li>`;
       });
       if (feedbackList.innerHTML === '') {
         feedbackList.innerHTML = `<li style="color:#888;">No feedback yet.</li>`;
+      }
+    }
+
+    // Show job instructions in feedback tab
+    function showInstructions(instructions) {
+      const box = document.getElementById('instructionsBox');
+      if (instructions && instructions.trim() !== "") {
+        box.textContent = instructions;
+        box.style.display = 'block';
+      } else {
+        box.textContent = "No instructions provided for this job.";
+        box.style.display = 'block';
       }
     }
 
@@ -268,6 +316,7 @@
         document.getElementById('feedbackTab').classList.add('active');
         document.getElementById('tabFeedbackBtn').classList.add('active');
         renderFeedbackList();
+        showInstructions(jobInstructions);
       }
     }
 
@@ -281,8 +330,28 @@
       });
     }
 
+    // Fetch and show latest instructions from instructions child nodes
+    function fetchLatestInstructions() {
+      db.ref('jobs/' + JOB_ID + '/instructions').on('value', snap => {
+        let latestTs = -Infinity, latestText = "";
+        const val = snap.val();
+        if (val && typeof val === 'object') {
+          Object.values(val).forEach(instr => {
+            if (instr && instr.text && instr.ts && instr.ts > latestTs) {
+              latestTs = instr.ts;
+              latestText = instr.text;
+            }
+          });
+        }
+        jobInstructions = latestText;
+        if(currentTab === 'feedback') showInstructions(jobInstructions);
+      });
+    }
+
     // Initial load
     refreshSessions();
+    fetchLatestInstructions();
   </script>
 </body>
 </html>
+
