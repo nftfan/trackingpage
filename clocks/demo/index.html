@@ -96,17 +96,21 @@
       gap: 6px;
       letter-spacing: 0.2px;
     }
-    .instructions-box {
-      background: #fff8e1;
+    .instructions-list {
+      padding-left: 1em;
+      margin: 0 0 0.5em 0;
+      font-size: 10px;
       color: #ad7900;
+    }
+    .instructions-item {
+      background: #fff8e1;
       border: 1px solid #ffe082;
       border-radius: 8px;
-      padding: 0.8em 1em;
-      font-size: 10px;
-      font-family: inherit;
+      padding: 0.7em 1em;
+      margin-bottom: 0.6em;
       white-space: pre-line;
       box-shadow: 0 2px 6px rgba(255,193,7,0.05);
-      margin-bottom: 0.5em;
+      list-style-type: disc;
     }
     table {
       width: 100%;
@@ -161,7 +165,7 @@
         font-size: 0.95rem;
         padding: 0.18rem 0;
       }
-      .instructions-box {
+      .instructions-item {
         font-size: 10px;
         padding: 0.7em 0.7em;
       }
@@ -196,7 +200,7 @@
           <span class="material-icons" style="color:#ffb300;">info</span>
           Job Instructions
         </div>
-        <div id="instructionsBox" class="instructions-box" style="display:none;"></div>
+        <ul id="instructionsList" class="instructions-list"></ul>
       </div>
       <ul class="feedback-list" id="feedbackList"></ul>
     </div>
@@ -224,7 +228,7 @@
     // Session state
     let sessions = [];
     let currentTab = 'sessions';
-    let jobInstructions = "";
+    let allInstructions = [];
 
     // Util: Format date/time
     function formatDT(dt) {
@@ -290,16 +294,17 @@
       }
     }
 
-    // Show job instructions in feedback tab
-    function showInstructions(instructions) {
-      const box = document.getElementById('instructionsBox');
-      if (instructions && instructions.trim() !== "") {
-        box.textContent = instructions;
-        box.style.display = 'block';
-      } else {
-        box.textContent = "No instructions provided for this job.";
-        box.style.display = 'block';
+    // Show all job instructions in feedback tab
+    function showAllInstructions(instructionsArr) {
+      const list = document.getElementById('instructionsList');
+      list.innerHTML = '';
+      if (instructionsArr.length === 0) {
+        list.innerHTML = '<li class="instructions-item">No instructions provided for this job.</li>';
+        return;
       }
+      instructionsArr.forEach((instr, idx) => {
+        list.innerHTML += `<li class="instructions-item">${instr.text ? instr.text : ''}</li>`;
+      });
     }
 
     // Tabs
@@ -316,7 +321,7 @@
         document.getElementById('feedbackTab').classList.add('active');
         document.getElementById('tabFeedbackBtn').classList.add('active');
         renderFeedbackList();
-        showInstructions(jobInstructions);
+        showAllInstructions(allInstructions);
       }
     }
 
@@ -330,28 +335,24 @@
       });
     }
 
-    // Fetch and show latest instructions from instructions child nodes
-    function fetchLatestInstructions() {
+    // Fetch and show all instructions from instructions child nodes
+    function fetchAllInstructions() {
       db.ref('jobs/' + JOB_ID + '/instructions').on('value', snap => {
-        let latestTs = -Infinity, latestText = "";
+        let instructionsArr = [];
         const val = snap.val();
         if (val && typeof val === 'object') {
-          Object.values(val).forEach(instr => {
-            if (instr && instr.text && instr.ts && instr.ts > latestTs) {
-              latestTs = instr.ts;
-              latestText = instr.text;
-            }
-          });
+          instructionsArr = Object.values(val)
+            .filter(instr => instr && instr.text)
+            .sort((a, b) => (a.ts || 0) - (b.ts || 0)); // sort by timestamp ascending
         }
-        jobInstructions = latestText;
-        if(currentTab === 'feedback') showInstructions(jobInstructions);
+        allInstructions = instructionsArr;
+        if(currentTab === 'feedback') showAllInstructions(allInstructions);
       });
     }
 
     // Initial load
     refreshSessions();
-    fetchLatestInstructions();
+    fetchAllInstructions();
   </script>
 </body>
 </html>
-
