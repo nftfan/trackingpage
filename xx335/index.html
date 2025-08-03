@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>
+ <style>
     /* --- All your provided CSS remains here, unchanged --- */
     /* ... (unchanged CSS from your code above) ... */
     /* Add this for the custom marker icon */
@@ -720,7 +720,7 @@
       <div class="flyers-titlebar-summary" id="flyersTitlebarSummary">
         <span class="material-icons-outlined" style="color:#fff200;">mail</span>
         <span>Total Flyers:</span>
-        <span class="flyers-total" id="flyersTotal">0</span>
+        <span class="flyers-total" id="flyersTotal">10000</span>
         <span class="material-icons-outlined" style="color:#fff200;margin-left:12px;">send</span>
         <span>Distributed:</span>
         <span class="flyers-distributed" id="flyersDistributed">0</span>
@@ -762,15 +762,15 @@
             <th>Flyer Design Sent for Printing</th>
             <td>
               <span class="material-icons-outlined progress-icon">design_services</span>
-              Sent on: x<br>
-              Quantity: <strong id="flyersTotalProgress">Pending</strong>
+              Sent on: 02-08-2025<br>
+              Quantity: <strong id="flyersTotalProgress">10000 flyers</strong>
             </td>
           </tr>
           <tr>
             <th>Printed Flyers Received</th>
             <td>
               <span class="material-icons-outlined progress-icon">inventory_2</span>
-              Received on: 02-Aug-2025<br>
+              Received on: x<br>
               <img src="" alt="Printed Flyers Proof" class="progress-img-thumb popup-img" />
             </td>
           </tr>
@@ -838,7 +838,7 @@
     let distributedFlyers = 0;
     let zoneStatusArr = [];
 
-    // --- MAP POLYGONS ---
+     // --- MAP POLYGONS ---
 const polygonCoordinates = [
   [
     [51.01163514848006, 4.61803436279297],
@@ -1352,21 +1352,82 @@ const polygonCoordinates = [
     [51.00816542515887, 4.585461616516114]
   ]
 ];
-  
 
 
     let map, polygons = [];
     let proofMarkers = [];
+
+    // -------- REAL-TIME NOTIFICATIONS LOGIC --------
+    // Array to store notification objects
+    let notificationsArr = [];
+
+    // --- Notifications DOM
+    const bellBtn = document.getElementById('notifBell');
+    const notifDropdown = document.getElementById('notifDropdown');
+    const notifBadge = document.getElementById('notifBadge');
+    const notifList = document.getElementById('notifList');
+
+    // Show notifications dropdown
+    bellBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (notifDropdown.style.display === 'block') {
+        notifDropdown.style.display = 'none';
+      } else {
+        renderNotifications();
+        notifDropdown.style.display = 'block';
+      }
+    });
+    document.addEventListener('click', function(e) {
+      if (!notifDropdown.contains(e.target) && !bellBtn.contains(e.target)) {
+        notifDropdown.style.display = 'none';
+      }
+    });
+
+    function renderNotifications() {
+      notifList.innerHTML = '';
+      if (!notificationsArr.length) {
+        notifList.innerHTML = `<div class="notif-item"><span class="notif-message" style="color:#888;">No notifications yet.</span></div>`;
+        updateNotifCount(0);
+        return;
+      }
+      notificationsArr.forEach(function(notif) {
+        const div = document.createElement('div');
+        div.className = 'notif-item';
+        div.innerHTML = `
+          <span class="material-icons-outlined notif-icon">${notif.icon}</span>
+          <span class="notif-message">${notif.message}</span>
+        `;
+        notifList.appendChild(div);
+      });
+      updateNotifCount(notificationsArr.length);
+    }
+
+    function updateNotifCount(count) {
+      notifBadge.textContent = count;
+      notifBadge.style.display = count > 0 ? "inline-block" : "none";
+    }
 
     // --- RENDER ZONES TABLE ---
     function renderZoneTable(zones) {
       zoneTableBody.innerHTML = '';
       distributedFlyers = 0;
       zoneStatusArr = zones;
+      // Track completed zones for notifications
+      let newNotifications = [];
+
       zones.forEach((zone, idx) => {
         let statusClass = "zone-status-pending", statusIcon = "pending_actions", statusText = "Pending";
         if (zone.status === "completed") {
           statusClass = "zone-status-completed"; statusIcon = "task_alt"; statusText = "Completed";
+          // Add notification for completed zones if not already notified
+          const notifKey = `zone-${idx}-completed`;
+          if (!notificationsArr.some(n => n.key === notifKey)) {
+            newNotifications.push({
+              key: notifKey,
+              icon: "task_alt",
+              message: `Zone ${idx + 1} marked as completed!`
+            });
+          }
         } else if (zone.status === "inprogress") {
           statusClass = "zone-status-inprogress"; statusIcon = "hourglass_top"; statusText = "In Progress";
         }
@@ -1404,6 +1465,13 @@ const polygonCoordinates = [
           });
         });
       }, 150);
+
+      // Add any new notifications and render
+      if (newNotifications.length) {
+        notificationsArr = notificationsArr.concat(newNotifications);
+        updateNotifCount(notificationsArr.length);
+        renderNotifications();
+      }
     }
 
     function updateZoneColorsOnMap() {
@@ -1526,9 +1594,7 @@ const polygonCoordinates = [
         }).addTo(map);
       });
 
-      
-
-      allLatLngs = allLatLngs.concat([sw, ne]);
+      allLatLngs = allLatLngs.concat([polygonCoordinates[0][0], polygonCoordinates[polygonCoordinates.length-1][polygonCoordinates[polygonCoordinates.length-1].length-1]]);
       if (allLatLngs.length > 0) {
         map.fitBounds(L.latLngBounds(allLatLngs).pad(0.12));
       }
@@ -1627,54 +1693,6 @@ const polygonCoordinates = [
       }
     });
 
-    // --------- Notifications Dropdown Logic ----------
-    const bellBtn = document.getElementById('notifBell');
-    const notifDropdown = document.getElementById('notifDropdown');
-    const notifBadge = document.getElementById('notifBadge');
-    const notifList = document.getElementById('notifList');
-
-    const notifications = [
-      { icon: 'task_alt', message: 'Zone x is pending' },
-      { icon: 'task_alt', message: 'Zone x is pending' },
-      { icon: 'task_alt', message: 'Zone x is pending' },
-      { icon: 'navigation', message: 'Distribution pending' },
-      { icon: 'print', message: 'x Flyers printed' }
-    ];
-
-    function renderNotifications() {
-      notifList.innerHTML = '';
-      notifications.forEach(function(notif) {
-        const div = document.createElement('div');
-        div.className = 'notif-item';
-        div.innerHTML = `
-          <span class="material-icons-outlined notif-icon">${notif.icon}</span>
-          <span class="notif-message">${notif.message}</span>
-        `;
-        notifList.appendChild(div);
-      });
-      updateNotifCount(notifications.length);
-    }
-
-    function updateNotifCount(count) {
-      notifBadge.textContent = count;
-      notifBadge.style.display = count > 0 ? "inline-block" : "none";
-    }
-
-    bellBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      if (notifDropdown.style.display === 'block') {
-        notifDropdown.style.display = 'none';
-      } else {
-        renderNotifications();
-        notifDropdown.style.display = 'block';
-      }
-    });
-    document.addEventListener('click', function(e) {
-      if (!notifDropdown.contains(e.target) && !bellBtn.contains(e.target)) {
-        notifDropdown.style.display = 'none';
-      }
-    });
-
     // --- SHOW MODAL IMAGE ---
     function showModal(imgSrc) {
       var modal = document.getElementById('imgModal');
@@ -1683,8 +1701,6 @@ const polygonCoordinates = [
       modal.style.display = "flex";
       document.body.style.overflow = "hidden";
     }
-
-    renderNotifications();
   </script>
   <script>
     function hideModal() {
