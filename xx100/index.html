@@ -1,0 +1,1272 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>LEUVENFLYERS - CAMPAIGN XX334</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Material Icons (Outlined) -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    :root {
+      --primary: #0b272d;
+      --primary-light: #17404b;
+      --accent: #1976d2;
+      --accent-light: #2196f3;
+      --success: #388e3c;
+      --warning: #f9a825;
+      --danger: #d32f2f;
+      --text-dark: #212121;
+      --text-medium: #505050;
+      --text-light: #757575;
+      --background: #f5f5f5;
+      --card: #ffffff;
+      --highlight: #fff200;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      max-width: 100vw;
+      overflow-x: hidden;
+      height: 100%;
+      font-family: 'Roboto', sans-serif;
+      font-size: 11px;
+      color: var(--text-dark);
+      background: var(--background);
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Titlebar */
+    .titlebar {
+      width: 100%;
+      height: 46px;
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+    }
+
+    .titlebar-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .titlebar-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .titlebar-campaign {
+      font-size: 10px;
+      letter-spacing: 0.2px;
+      opacity: 0.9;
+      font-weight: 400;
+      white-space: nowrap;
+    }
+
+    .titlebar-right {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Flyers Summary */
+    .flyers-titlebar-summary {
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,0.08);
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      gap: 4px;
+      color: #fff;
+      line-height: 1;
+      user-select: none;
+    }
+
+    .flyers-titlebar-summary .material-icons-outlined {
+      font-size: 12px;
+      vertical-align: middle;
+    }
+
+    .flyers-titlebar-summary .flyers-total,
+    .flyers-titlebar-summary .flyers-distributed {
+      font-weight: 700;
+      color: var(--highlight);
+      font-size: 10px;
+    }
+
+    /* QR code scans in titlebar */
+    .qr-titlebar-counter {
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      gap: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      color: #fff;
+      line-height: 1;
+      user-select: none;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .qr-titlebar-counter .material-icons-outlined {
+      font-size: 13px;
+      color: var(--highlight);
+      vertical-align: middle;
+    }
+
+    .qr-titlebar-counter .qr-scan-number {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--highlight);
+      letter-spacing: 0.5px;
+    }
+
+    .bell-icon-btn {
+      background: none;
+      border: none;
+      outline: none;
+      position: relative;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .material-icons-outlined.bell {
+      font-size: 18px;
+      color: #fff;
+      transition: color 0.15s;
+    }
+
+    .bell-icon-btn:hover .material-icons-outlined.bell {
+      color: var(--highlight);
+    }
+
+    .notification-badge {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 8px;
+      border: 1px solid var(--primary);
+      min-width: 16px;
+      text-align: center;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .notifications-dropdown, .qr-dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 40px;
+      width: 240px;
+      max-width: 95vw;
+      background: var(--card);
+      color: var(--text-dark);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border-radius: 6px;
+      padding: 8px 0 5px 0;
+      z-index: 101;
+      animation: dropdown-in 0.18s;
+    }
+
+    .qr-dropdown {
+      width: 260px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    @keyframes dropdown-in {
+      from {transform: translateY(-8px) scale(0.98); opacity: 0;}
+      to {transform: translateY(0) scale(1); opacity: 1;}
+    }
+
+    .notif-title, .qr-dropdown-title {
+      font-weight: 600;
+      font-size: 10px;
+      margin: 0 0 5px 12px;
+      color: var(--accent);
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .qr-dropdown-title {
+      position: sticky;
+      top: 0;
+      background: var(--card);
+      z-index: 1;
+      padding: 3px 0;
+    }
+
+    .notif-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 6px 12px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      font-size: 10px;
+      cursor: pointer;
+      gap: 6px;
+      transition: background 0.13s;
+    }
+
+    .notif-item:last-child {
+      border-bottom: none;
+    }
+
+    .notif-item:hover {
+      background: rgba(0,0,0,0.03);
+    }
+
+    .notif-icon {
+      color: var(--success);
+      font-size: 14px;
+      margin-top: 1px;
+    }
+
+    .notif-message {
+      flex: 1;
+      color: var(--text-medium);
+    }
+
+    .notif-count-footer {
+      font-size: 9px;
+      color: var(--text-light);
+      text-align: right;
+      padding: 5px 12px 0 0;
+      opacity: 0.8;
+    }
+
+    .qr-scan-item {
+      font-size: 10px;
+      padding: 6px 12px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .qr-scan-item:last-child {
+      border-bottom: none;
+    }
+
+    .qr-scan-serial {
+      font-weight: 600;
+      color: var(--accent);
+      min-width: 24px;
+    }
+
+    .qr-scan-datetime {
+      color: var(--text-medium);
+      font-size: 9px;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+
+    .qr-scan-promo {
+      color: #fff;
+      font-size: 8px;
+      background: var(--success);
+      border-radius: 3px;
+      padding: 1px 4px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .qr-scan-device {
+      color: var(--accent);
+      font-size: 8px;
+      background: rgba(33, 150, 243, 0.1);
+      border-radius: 3px;
+      padding: 1px 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .qr-scan-empty {
+      color: var(--text-light);
+      font-size: 10px;
+      padding: 8px 12px;
+    }
+
+    .qr-dropdown::-webkit-scrollbar {
+      width: 4px;
+      background: rgba(0,0,0,0.05);
+      border-radius: 4px;
+    }
+
+    .qr-dropdown::-webkit-scrollbar-thumb {
+      background: rgba(25, 118, 210, 0.3);
+      border-radius: 4px;
+    }
+
+    .container {
+      margin: 46px auto 0 auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      flex: 1 0 auto;
+    }
+
+    .card {
+      background: var(--card);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      border-radius: 6px;
+      width: 100%;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 8px 10px;
+      background: var(--accent);
+      color: white;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      border-radius: 6px 6px 0 0;
+    }
+
+    .card-body {
+      padding: 0;
+    }
+
+    #map {
+      width: 100%;
+      height: 260px;
+      background: #e9e9e9;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Tables */
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      font-size: 10px;
+    }
+
+    .table th, .table td {
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    .table th {
+      background: rgba(0,0,0,0.05);
+      font-size: 9px;
+      color: var(--text-medium);
+      font-weight: 600;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .table td {
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .progress-icon {
+      vertical-align: middle;
+      font-size: 14px;
+      margin-right: 6px;
+      color: var(--accent);
+    }
+
+    .progress-img-thumb {
+      max-width: 50px;
+      border-radius: 3px;
+      background: #eee;
+      border: 1px solid rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: transform 0.2s;
+      display: block;
+      margin-top: 4px;
+    }
+
+    .progress-img-thumb:hover {
+      transform: scale(1.05);
+    }
+
+    .zone-status-table {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 500;
+      font-size: 9px;
+    }
+
+    .zone-status-completed {
+      color: var(--success);
+    }
+
+    .zone-status-inprogress {
+      color: var(--warning);
+    }
+
+    .zone-status-pending {
+      color: var(--danger);
+    }
+
+    .gps-proof-link {
+      display: inline-block;
+      padding: 2px 6px;
+      background: var(--accent);
+      color: #fff !important;
+      border-radius: 3px;
+      text-decoration: none;
+      font-size: 8px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    .gps-proof-link:hover {
+      background: var(--primary);
+    }
+
+    .zone-img-thumb {
+      max-width: 40px;
+      border-radius: 3px;
+      background: #eee;
+      border: 1px solid rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: transform 0.2s;
+      margin: 0 auto;
+      display: block;
+    }
+
+    .zone-img-thumb:hover {
+      transform: scale(1.05);
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 200;
+      left: 0; top: 0; right: 0; bottom: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.75);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: var(--card);
+      border-radius: 8px;
+      max-width: 95vw;
+      max-height: 95vh;
+      padding: 10px 10px 5px 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      animation: popup-in 0.2s;
+    }
+
+    @keyframes popup-in {
+      from {transform: scale(0.85); opacity: 0;}
+      to {transform: scale(1); opacity: 1;}
+    }
+
+    .modal-content img {
+      max-width: 90vw;
+      max-height: 70vh;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 5px; right: 10px;
+      font-size: 20px;
+      color: var(--text-dark);
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+
+    .modal-close:hover {
+      color: var(--danger);
+    }
+
+    .footer {
+      width: 100%;
+      background: var(--primary);
+      color: #fff;
+      text-align: center;
+      font-size: 9px;
+      padding: 10px 0;
+      letter-spacing: 0.5px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      font-weight: 400;
+      flex-shrink: 0;
+    }
+
+    .material-icons-outlined {
+      font-family: 'Material Icons Outlined', 'Material Icons', sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 18px;
+      line-height: 1;
+      text-transform: none;
+      letter-spacing: normal;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    .leaflet-label-zone {
+      background: rgba(33, 150, 243, 0.9);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 8px;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      display: inline-block;
+      text-align: center;
+      line-height: 1.3;
+      margin: 0;
+      letter-spacing: 0.3px;
+    }
+
+    .leaflet-div-icon.custom-img-pin {
+      background: none !important;
+      border: none !important;
+      box-shadow: none !important;
+      width: 36px;
+      height: 46px;
+    }
+
+    .pin-image-thumb {
+      width: 30px;
+      height: 30px;
+      border-radius: 4px;
+      object-fit: cover;
+      border: 2px solid var(--accent);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      margin-bottom: 3px;
+    }
+
+    .pin-img-icon {
+      display: block;
+      font-size: 16px;
+      color: var(--accent);
+      margin: 0 auto;
+      text-align: center;
+      margin-top: 0;
+      margin-bottom: -2px;
+      text-shadow: 0 0 4px white;
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 6px !important;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.2) !important;
+    }
+
+    .leaflet-popup-content {
+      text-align: center;
+      min-width: 80px;
+      margin: 8px 10px;
+      font-size: 10px;
+    }
+
+    .popup-img-thumb {
+      max-width: 60px;
+      border-radius: 3px;
+      background: #eee;
+      border: 1px solid rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: transform 0.2s;
+      margin: 0 auto 5px auto;
+      display: block;
+    }
+
+    .popup-img-thumb:hover {
+      transform: scale(1.05);
+    }
+
+    .leaflet-bar a {
+      width: 24px !important;
+      height: 24px !important;
+      line-height: 24px !important;
+    }
+
+    .leaflet-control-zoom {
+      margin-top: 45px !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="titlebar">
+    <div class="titlebar-main">
+      <span class="titlebar-title">LEUVENFLYERS</span>
+      <span class="titlebar-campaign">XX334</span>
+    </div>
+    <div class="titlebar-right">
+      <div class="flyers-titlebar-summary" id="flyersTitlebarSummary">
+        <span class="material-icons-outlined" style="color:var(--highlight);">mail</span>
+        <span class="flyers-total" id="flyersTotal">2500</span>
+        <span class="material-icons-outlined" style="color:var(--highlight);">send</span>
+        <span class="flyers-distributed" id="flyersDistributed">0</span>
+      </div>
+      <div class="qr-titlebar-counter" id="qrTitlebarCounter">
+        <span class="material-icons-outlined">qr_code_2</span>
+        <span class="qr-scan-number" id="qrScanCountTitlebar">0</span>
+        <div class="qr-dropdown" id="qrDropdown">
+          <div class="qr-dropdown-title">QR Scan Details</div>
+          <div id="qrScanList"></div>
+        </div>
+      </div>
+      <button class="bell-icon-btn" id="notifBell" aria-label="Notifications">
+        <span class="material-icons-outlined bell">notifications</span>
+        <span class="notification-badge" id="notifBadge"></span>
+      </button>
+      <div class="notifications-dropdown" id="notifDropdown" aria-label="Notifications Dropdown">
+        <div class="notif-title">Notifications</div>
+        <div id="notifList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="card-header">
+        Distribution Map
+      </div>
+      <div class="card-body">
+        <div id="map"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        Campaign Progress
+      </div>
+      <div class="card-body">
+        <table class="table progress-table">
+          <tbody>
+            <tr>
+              <th>Campaign Started</th>
+              <td>
+                <span class="material-icons-outlined progress-icon">flag</span>
+                Started on: x<br>
+                Initial planning completed
+              </td>
+            </tr>
+            <tr>
+              <th>Flyers Printing</th>
+              <td>
+                <span class="material-icons-outlined progress-icon">design_services</span>
+                Sent on: x<br>
+                <strong id="flyersTotalProgress">2500 flyers</strong>
+              </td>
+            </tr>
+            <tr>
+              <th>Flyers Received</th>
+              <td>
+                <span class="material-icons-outlined progress-icon">inventory_2</span>
+                Received on: x<br>
+                <img src="" alt="Printed Flyers" class="progress-img-thumb popup-img" />
+              </td>
+            </tr>
+            <tr>
+              <th>Campaign End</th>
+              <td>
+                <span class="material-icons-outlined progress-icon">celebration</span>
+                Pending
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        Zone Distribution Progress
+      </div>
+      <div class="card-body">
+        <table class="table zone-table" id="zoneTable">
+          <thead>
+            <tr>
+              <th>Zone</th>
+              <th>Status</th>
+              <th>Flyers</th>
+              <th>Proof</th>
+              <th>GPS</th>
+            </tr>
+          </thead>
+          <tbody id="zoneTableBody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    © 2025 LEUVENFLYERS
+  </footer>
+
+  <div id="imgModal" class="modal">
+    <div class="modal-content" id="modalContent">
+      <button class="modal-close" id="modalCloseBtn" aria-label="Close">×</button>
+      <img src="" alt="Large preview" id="modalImg"/>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    // --- FIREBASE ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+      authDomain: "trackingclients.firebaseapp.com",
+      projectId: "trackingclients",
+      storageBucket: "trackingclients.appspot.com",
+      messagingSenderId: "27490943622",
+      appId: "1:27490943622:web:d6c87547aa5df440508707",
+      databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // --- DOM ELEMENTS ---
+    const flyersTotal = document.getElementById('flyersTotal');
+    const flyersTotalProgress = document.getElementById('flyersTotalProgress');
+    const flyersDistributed = document.getElementById('flyersDistributed');
+    const zoneTableBody = document.getElementById('zoneTableBody');
+    const TOTAL_FLYERS = 2500;
+    flyersTotal.textContent = TOTAL_FLYERS;
+    flyersTotalProgress.textContent = `${TOTAL_FLYERS} flyers`;
+    let distributedFlyers = 0;
+    let zoneStatusArr = [];
+
+    // --- MAP POLYGONS ---
+    const polygonCoordinates = [
+      [
+        [51.07133578994357, 4.7013330459594735],
+        [51.06831550429792, 4.708285331726075],
+        [51.066454694486765, 4.716782569885255],
+        [51.06747949755077, 4.721846580505372],
+        [51.07004140594439, 4.7246789932250985],
+        [51.07184814027555, 4.725708961486817],
+        [51.07397837820157, 4.717082977294922],
+        [51.07387052041028, 4.712791442871095],
+        [51.07376266236756, 4.707298278808595]
+      ],
+      [
+        [51.07389748488166, 4.707341194152833],
+        [51.07737576994599, 4.715023040771485],
+        [51.075353543004496, 4.726781845092774],
+        [51.07268406811372, 4.724078178405763],
+        [51.07400534261013, 4.71712589263916],
+        [51.0735199808523, 4.7123193740844735],
+        [51.07314247374335, 4.708628654479981]
+      ],
+      [
+        [51.06925936473507, 4.696397781372071],
+        [51.0775645066179, 4.7151517868042],
+        [51.080125856756254, 4.704809188842774],
+        [51.07837336934887, 4.6994876861572275],
+        [51.07837336934887, 4.69493865966797],
+        [51.07422105731288, 4.6906471252441415],
+        [51.07273799842348, 4.689230918884278]
+      ],
+      [
+        [51.07529961574291, 4.726824760437013],
+        [51.084088929616556, 4.728970527648926],
+        [51.08166259877696, 4.721846580505372],
+        [51.08115035710853, 4.716138839721681],
+        [51.07964055919712, 4.713478088378907],
+        [51.077780204728775, 4.711933135986329]
+      ],
+      [
+        [51.081797398273345, 4.722189903259278],
+        [51.084142846634236, 4.72914218902588],
+        [51.086110774770894, 4.7301721572875985],
+        [51.08780905640578, 4.733090400695801],
+        [51.08950727568543, 4.730429649353027],
+        [51.089669007602865, 4.7251081466674805],
+        [51.08964205232258, 4.721288681030274],
+        [51.086865574306856, 4.7164392471313485],
+        [51.08403501253602, 4.713263511657716],
+        [51.082255713623056, 4.710988998413087],
+        [51.080961635064114, 4.71639633178711]
+      ],
+      [
+        [51.08977682856697, 4.73339080810547],
+        [51.08980378376871, 4.734034538269044],
+        [51.08772818726572, 4.734978675842286],
+        [51.085409878458556, 4.73313331604004],
+        [51.08473592968102, 4.733176231384278],
+        [51.08411588813325, 4.73587989807129],
+        [51.07902044935245, 4.731631278991699],
+        [51.07915525654745, 4.729442596435548],
+        [51.07710614479349, 4.729657173156739],
+        [51.07662081555961, 4.7269535064697275],
+        [51.08309145345393, 4.728584289550782],
+        [51.085814243011825, 4.72914218902588],
+        [51.08710818582759, 4.732017517089845],
+        [51.08856382822822, 4.73313331604004]
+      ],
+      [
+        [51.07260317253122, 4.7242069244384775], 
+        [51.07187510592536, 4.725708961486817], 
+        [51.06955600261142, 4.724335670471192], 
+        [51.069475101560954, 4.727811813354493], 
+        [51.06901665960392, 4.733777046203614], 
+        [51.06834247200611, 4.737467765808106], 
+        [51.069205430371454, 4.741244316101075], 
+        [51.07031107226295, 4.743390083312989], 
+        [51.07187510592536, 4.740943908691406], 
+        [51.07346605145386, 4.734849929809571], 
+        [51.07416712873144, 4.730086326599122], 
+        [51.074949087010616, 4.727168083190919]
+      ],
+      [
+        [51.07616244438666, 4.729743003845216],
+        [51.074517663387226, 4.729571342468263],
+        [51.07244138094202, 4.739742279052735],
+        [51.07629725990889, 4.739184379577638],
+        [51.07791501553744, 4.751415252685548],
+        [51.07918221793932, 4.750385284423829],
+        [51.07810375000971, 4.741716384887696],
+        [51.08055722809085, 4.737081527709962],
+        [51.077968939750946, 4.7351932525634775],
+        [51.07670170411876, 4.7310733795166025]
+      ]
+    ];
+
+    let map, polygons = [];
+    let proofMarkers = [];
+
+    // -------- REAL-TIME NOTIFICATIONS LOGIC --------
+    // Array to store notification objects
+    let notificationsArr = [];
+
+    // --- Notifications DOM
+    const bellBtn = document.getElementById('notifBell');
+    const notifDropdown = document.getElementById('notifDropdown');
+    const notifBadge = document.getElementById('notifBadge');
+    const notifList = document.getElementById('notifList');
+
+    // Show notifications dropdown
+    bellBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (notifDropdown.style.display === 'block') {
+        notifDropdown.style.display = 'none';
+      } else {
+        renderNotifications();
+        notifDropdown.style.display = 'block';
+      }
+    });
+    document.addEventListener('click', function(e) {
+      if (!notifDropdown.contains(e.target) && !bellBtn.contains(e.target)) {
+        notifDropdown.style.display = 'none';
+      }
+    });
+
+    function renderNotifications() {
+      notifList.innerHTML = '';
+      if (!notificationsArr.length) {
+        notifList.innerHTML = `<div class="notif-item"><span class="notif-message" style="color:#888;">No notifications yet.</span></div>`;
+        updateNotifCount(0);
+        return;
+      }
+      notificationsArr.forEach(function(notif) {
+        const div = document.createElement('div');
+        div.className = 'notif-item';
+        div.innerHTML = `
+          <span class="material-icons-outlined notif-icon">${notif.icon}</span>
+          <span class="notif-message">${notif.message}</span>
+        `;
+        notifList.appendChild(div);
+      });
+      updateNotifCount(notificationsArr.length);
+    }
+
+    function updateNotifCount(count) {
+      notifBadge.textContent = count;
+      notifBadge.style.display = count > 0 ? "inline-block" : "none";
+    }
+
+    // --- RENDER ZONES TABLE ---
+    function renderZoneTable(zones) {
+      zoneTableBody.innerHTML = '';
+      distributedFlyers = 0;
+      zoneStatusArr = zones;
+      // Track completed zones for notifications
+      let newNotifications = [];
+
+      zones.forEach((zone, idx) => {
+        let statusClass = "zone-status-pending", statusIcon = "pending_actions", statusText = "Pending";
+        if (zone.status === "completed") {
+          statusClass = "zone-status-completed"; statusIcon = "task_alt"; statusText = "Done";
+          // Add notification for completed zones if not already notified
+          const notifKey = `zone-${idx}-completed`;
+          if (!notificationsArr.some(n => n.key === notifKey)) {
+            newNotifications.push({
+              key: notifKey,
+              icon: "task_alt",
+              message: `Zone ${idx + 1} completed!`
+            });
+          }
+        } else if (zone.status === "inprogress") {
+          statusClass = "zone-status-inprogress"; statusIcon = "hourglass_top"; statusText = "Active";
+        }
+        let flyersVal = zone.flyers && zone.flyers !== "" ? parseInt(zone.flyers) : 0;
+        if (zone.status === "completed" && flyersVal > 0) distributedFlyers += flyersVal;
+        let gpsLink = zone.gpsProof || zone.gpsUrl;
+        zoneTableBody.innerHTML += `
+          <tr>
+            <td>Zone ${idx + 1}</td>
+            <td>
+              <span class="zone-status-table ${statusClass}">
+                <span class="material-icons-outlined" style="font-size:11px;vertical-align:middle;">${statusIcon}</span>
+                ${statusText}
+              </span>
+            </td>
+            <td>${zone.flyers || '-'}</td>
+            <td>
+              ${zone.proofImage ? `<img src="${zone.proofImage}" alt="Zone ${idx + 1} Proof" class="zone-img-thumb popup-img" />` : ''}
+            </td>
+            <td>
+              ${gpsLink ? `<a href="${gpsLink}" class="gps-proof-link" target="_blank">
+                <span class="material-icons-outlined" style="font-size:10px;vertical-align:middle;">location_on</span>
+                GPS
+              </a>` : ''}
+            </td>
+          </tr>
+        `;
+      });
+      flyersDistributed.textContent = distributedFlyers;
+      updateZoneColorsOnMap();
+      setTimeout(() => {
+        document.querySelectorAll('.popup-img').forEach(function(img) {
+          img.addEventListener('click', function() {
+            showModal(img.src);
+          });
+        });
+      }, 150);
+
+      // Add any new notifications and render
+      if (newNotifications.length) {
+        notificationsArr = notificationsArr.concat(newNotifications);
+        updateNotifCount(notificationsArr.length);
+        renderNotifications();
+      }
+    }
+
+    function updateZoneColorsOnMap() {
+      if (!polygons.length) return;
+      zoneStatusArr.forEach((zone, idx) => {
+        let color = (zone.status === "completed") ? "#1976D2"
+                  : (zone.status === "inprogress") ? "#F9A825"
+                  : "#D32F2F";
+        polygons[idx].setStyle({
+          fillColor: color,
+          fillOpacity: 0.5
+        });
+      });
+    }
+
+    // --- FETCH ZONES DATA ---
+    function fetchCampaignData() {
+      const zoneStatusesRef = ref(db, 'campaigns/XX334/zone_statuses');
+      onValue(zoneStatusesRef, snapshot => {
+        const val = snapshot.val();
+        let zones = [];
+        if (val && Array.isArray(val)) {
+          zones = val;
+        } else if (val && typeof val === 'object') {
+          zones = Object.values(val);
+        }
+        renderZoneTable(zones);
+      });
+    }
+
+    fetchCampaignData();
+
+    // --------- PROOF PINS (EXTRA DATA) ---------
+    function addProofPins() {
+      // Remove previous markers
+      for (let marker of proofMarkers) {
+        map.removeLayer(marker);
+      }
+      proofMarkers = [];
+      const proofsRef = ref(db, 'campaigns/XX334/proofs');
+      onValue(proofsRef, snapshot => {
+        const val = snapshot.val();
+        if (!val) return;
+        for (const key in val) {
+          const proof = val[key];
+          if (typeof proof.lat === "number" && typeof proof.lng === "number" && proof.url) {
+            // Custom marker with image icon
+            const iconHtml = `
+              <span class="material-icons-outlined pin-img-icon">photo_camera</span>
+              <img src="${proof.url}" class="pin-image-thumb" alt="Proof image"/>
+            `;
+            const icon = L.divIcon({
+              className: 'custom-img-pin',
+              html: iconHtml,
+              iconSize: [36, 46],
+              iconAnchor: [18, 42]
+            });
+            const marker = L.marker([proof.lat, proof.lng], {icon: icon}).addTo(map);
+
+            // Pop-up with image in it
+            marker.bindPopup(`
+              <div>
+                <img src="${proof.url}" class="popup-img-thumb" style="cursor:pointer;" data-proof-src="${proof.url}" alt="Proof" />
+                <div style="font-size:9px;color:#555;">
+                  <span class="material-icons-outlined" style="font-size:10px;vertical-align:middle;">calendar_today</span>
+                  ${proof.timestamp ? formatDateTime(proof.timestamp) : ''}
+                </div>
+              </div>
+            `, { closeButton: true });
+
+            proofMarkers.push(marker);
+
+            // Click the image in popup to open modal large
+            marker.on('popupopen', function(e) {
+              setTimeout(() => {
+                const popupImg = document.querySelector('.leaflet-popup .popup-img-thumb[data-proof-src]');
+                if (popupImg) {
+                  popupImg.addEventListener('click', function(ev) {
+                    showModal(proof.url);
+                  });
+                }
+              }, 100);
+            });
+          }
+        }
+      });
+    }
+
+    // --- INIT MAP AND POLYGONS ---
+    document.addEventListener('DOMContentLoaded', function() {
+      var mapCenter = polygonCoordinates[0][0];
+      map = L.map('map', {
+        zoomControl: true,
+        attributionControl: false
+      }).setView(mapCenter, 13);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+      }).addTo(map);
+
+      var allLatLngs = [];
+      polygons = [];
+
+      polygonCoordinates.forEach(function(coords, index) {
+        var polygon = L.polygon(coords, {
+          color: 'black',
+          fillColor: '#D32F2F',
+          fillOpacity: 0.5,
+          weight: 1
+        }).addTo(map);
+        polygons.push(polygon);
+        allLatLngs = allLatLngs.concat(coords);
+
+        var center = polygon.getBounds().getCenter();
+        L.marker(center, {
+          icon: L.divIcon({
+            className: 'leaflet-label-zone',
+            html: `<span>${index + 1}</span>`,
+            iconSize: [24, 16],
+            iconAnchor: [12, 8]
+          }),
+          interactive: false
+        }).addTo(map);
+      });
+
+      allLatLngs = allLatLngs.concat([polygonCoordinates[0][0], polygonCoordinates[polygonCoordinates.length-1][polygonCoordinates[polygonCoordinates.length-1].length-1]]);
+      if (allLatLngs.length > 0) {
+        map.fitBounds(L.latLngBounds(allLatLngs).pad(0.12));
+      }
+
+      setTimeout(() => {
+        document.querySelectorAll('.popup-img').forEach(function(img) {
+          img.addEventListener('click', function() {
+            showModal(img.src);
+          });
+        });
+      }, 200);
+
+      addProofPins();
+    });
+
+    // --------- QR CODE SCANS LOGIC ----------
+    const qrScanCountTitlebar = document.getElementById('qrScanCountTitlebar');
+    const qrTitlebarCounter = document.getElementById('qrTitlebarCounter');
+    const qrDropdown = document.getElementById('qrDropdown');
+    const qrScanList = document.getElementById('qrScanList');
+
+    const qrScansRef = ref(db, 'qr_scans');
+    let qrScansArr = [];
+
+    function formatDateTime(ts) {
+      const d = new Date(ts);
+      const pad = n => n < 10 ? '0' + n : n;
+      const date = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      return `${date} ${time}`;
+    }
+
+    function getDeviceType(ua) {
+      ua = ua || "";
+      const uaLc = ua.toLowerCase();
+      if (/iphone|ipad|macintosh|mac os|ios|applewebkit.*mobile/.test(uaLc)) return "IOS";
+      if (/android/.test(uaLc)) return "AND";
+      if (/windows|linux|cros|x11/.test(uaLc)) return "PC";
+      return "OTH";
+    }
+
+    function renderQrDropdown() {
+      qrScanList.innerHTML = '';
+      if (!qrScansArr.length) {
+        qrScanList.innerHTML = `<div class="qr-scan-empty">No scans yet.</div>`;
+        return;
+      }
+      qrScansArr.forEach((scan, idx) => {
+        const serial = idx + 1;
+        const dt = scan.timestamp ? formatDateTime(scan.timestamp) : 'n/a';
+        const promo = scan.promoCode ? scan.promoCode : '';
+        const device = getDeviceType(scan.userAgent);
+        const html = `
+          <div class="qr-scan-item">
+            <span class="qr-scan-serial">#${serial}</span>
+            <span class="qr-scan-datetime">${dt}</span>
+            ${promo ? `<span class="qr-scan-promo">${promo}</span>` : ``}
+            <span class="qr-scan-device">${device}</span>
+          </div>
+        `;
+        qrScanList.innerHTML += html;
+      });
+    }
+
+    onValue(qrScansRef, snapshot => {
+      const val = snapshot.val();
+      qrScansArr = [];
+      if (val) {
+        for (const key in val) {
+          const s = val[key];
+          if (s.promoCode && s.promoCode === "XX334") {
+            qrScansArr.push({
+              id: key,
+              ...s
+            });
+          }
+        }
+        qrScansArr.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      }
+      qrScanCountTitlebar.textContent = qrScansArr.length;
+      if (qrDropdown.style.display === 'block') renderQrDropdown();
+    });
+
+    qrTitlebarCounter.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (qrDropdown.style.display === 'block') {
+        qrDropdown.style.display = 'none';
+      } else {
+        renderQrDropdown();
+        qrDropdown.style.display = 'block';
+      }
+    });
+    document.addEventListener('click', function(e) {
+      if (!qrDropdown.contains(e.target) && !qrTitlebarCounter.contains(e.target)) {
+        qrDropdown.style.display = 'none';
+      }
+    });
+
+    // --- SHOW MODAL IMAGE ---
+    function showModal(imgSrc) {
+      var modal = document.getElementById('imgModal');
+      var modalImg = document.getElementById('modalImg');
+      modalImg.src = imgSrc;
+      modal.style.display = "flex";
+      document.body.style.overflow = "hidden";
+    }
+  </script>
+  <script>
+    function hideModal() {
+      var modal = document.getElementById('imgModal');
+      modal.style.display = "none";
+      document.getElementById('modalImg').src = "";
+      document.body.style.overflow = "";
+    }
+
+    document.getElementById('modalCloseBtn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      hideModal();
+    });
+
+    document.getElementById('imgModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        hideModal();
+      }
+    });
+  </script>
+</body>
+</html>
