@@ -1,1637 +1,614 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Zone Completion Tracker</title>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Material Icons (Outlined) -->
-  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
-  <!-- Inter Font for professional look -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>
-    :root {
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
-      --secondary: #64748b;
-      --success: #059669;
-      --danger: #dc2626;
-      --warning: #d97706;
-      --bg-primary: #ffffff;
-      --bg-secondary: #f8fafc;
-      --bg-tertiary: #f1f5f9;
-      --border: #e2e8f0;
-      --border-light: #f1f5f9;
-      --text-primary: #0f172a;
-      --text-secondary: #475569;
-      --text-muted: #64748b;
-      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-      --radius: 8px;
-      --radius-lg: 12px;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      line-height: 1.4;
-      background: var(--bg-secondary);
-      color: var(--text-primary);
-      min-height: 100vh;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    /* Map Styles */
-    #map {
-      width: 100vw;
-      height: 480px;
-      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-      box-shadow: var(--shadow-lg);
-      margin-bottom: 12px;
-      background: var(--bg-tertiary);
-      position: relative;
-      z-index: 1;
-    }
-
-    /* Container */
-    .container {
-      max-width: 768px;
-      margin: 0 auto;
-      padding: 12px 16px 24px;
-      background: var(--bg-primary);
-      box-shadow: var(--shadow-lg);
-      border-radius: var(--radius-lg);
-      margin-top: -20px;
-      position: relative;
-      z-index: 2;
-    }
-
-    /* Header */
-    h2 {
-      font-size: 14px;
-      font-weight: 700;
-      margin: 0 0 16px 0;
-      color: var(--primary);
-      letter-spacing: -0.025em;
-      text-align: center;
-    }
-
-    /* Campaign Input Section */
-    .campaign-section {
-      background: var(--bg-secondary);
-      border-radius: var(--radius);
-      padding: 12px;
-      margin-bottom: 16px;
-      border: 1px solid var(--border-light);
-    }
-
-    .campaign-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    label {
-      font-weight: 600;
-      color: var(--text-secondary);
-      font-size: 10px;
-      white-space: nowrap;
-    }
-
-    #campaignIdInput {
-      flex: 1;
-      min-width: 120px;
-      padding: 8px 10px;
-      font-size: 10px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--bg-primary);
-      font-weight: 500;
-      color: var(--text-primary);
-      transition: all 0.15s ease;
-    }
-
-    #campaignIdInput:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1);
-      background: var(--bg-primary);
-    }
-
-    #campaignIdInput::placeholder {
-      color: var(--text-muted);
-    }
-
-    /* Table Styles */
-    .table-container {
-      background: var(--bg-primary);
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border-light);
-      margin-bottom: 16px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 0;
-    }
-
-    th {
-      background: var(--bg-tertiary);
-      padding: 8px 4px;
-      text-align: center;
-      font-size: 9px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-    }
-
-    td {
-      padding: 8px 4px;
-      text-align: center;
-      border-bottom: 1px solid var(--border-light);
-      font-size: 9px;
-      vertical-align: middle;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    /* Status Buttons */
-    .status-btn, .work-btn {
-      padding: 4px 8px;
-      border: none;
-      border-radius: 6px;
-      font-size: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      white-space: nowrap;
-      min-width: 60px;
-      text-transform: uppercase;
-      letter-spacing: 0.025em;
-      margin: 0 2px;
-    }
-
-    .status-btn.completed {
-      background: var(--success);
-      color: white;
-    }
-
-    .status-btn.pending {
-      background: var(--danger);
-      color: white;
-    }
-
-    .status-btn:hover:not(:disabled),
-    .work-btn:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow);
-    }
-
-    .status-btn:active,
-    .work-btn:active {
-      transform: translateY(0);
-    }
-
-    .status-btn:disabled,
-    .work-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* Work Button Styles */
-    .work-btn {
-      background: var(--border);
-      color: var(--text-primary);
-    }
-    .work-btn.working {
-      background: var(--warning);
-      color: white;
-    }
-
-    /* Input Fields */
-    .flyer-input, .gps-url-input {
-      padding: 4px 6px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      font-size: 9px;
-      background: var(--bg-primary);
-      transition: border-color 0.15s ease;
-    }
-
-    .flyer-input {
-      width: 45px;
-      text-align: center;
-    }
-
-    .gps-url-input {
-      width: 80px;
-      text-align: left;
-    }
-
-    .flyer-input:focus, .gps-url-input:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgb(37 99 235 / 0.1);
-    }
-
-    /* Action Buttons */
-    .save-btn, .proof-btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: var(--radius);
-      font-size: 10px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      letter-spacing: 0.025em;
-      text-transform: uppercase;
-      width: 100%;
-      margin-bottom: 8px;
-    }
-
-    .save-btn {
-      background: var(--primary);
-      color: white;
-    }
-
-    .proof-btn {
-      background: var(--success);
-      color: white;
-    }
-
-    .save-btn:hover, .proof-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .save-btn:active, .proof-btn:active {
-      transform: translateY(0);
-      background: var(--primary-dark);
-    }
-
-    .proof-btn:active {
-      background: #047857;
-    }
-
-    /* Status Indicators */
-    .status-text {
-      font-weight: 600;
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.025em;
-    }
-
-    .status-completed {
-      color: var(--success);
-    }
-
-    .status-pending {
-      color: var(--danger);
-    }
-
-    .status-working {
-      color: var(--warning);
-    }
-
-    /* Messages */
-    #saveMsg, #campaignMsg {
-      font-size: 9px;
-      font-weight: 500;
-      margin-top: 4px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      text-align: center;
-      display: none;
-    }
-
-    #saveMsg {
-      background: rgb(5 150 105 / 0.1);
-      color: var(--success);
-      border: 1px solid rgb(5 150 105 / 0.2);
-    }
-
-    #campaignMsg {
-      background: rgb(220 38 38 / 0.1);
-      color: var(--danger);
-      border: 1px solid rgb(220 38 38 / 0.2);
-    }
-
-    #campaignMsg.success {
-      background: rgb(5 150 105 / 0.1);
-      color: var(--success);
-      border: 1px solid rgb(5 150 105 / 0.2);
-    }
-
-    /* GPS Link */
-    .gps-url-link {
-      color: var(--primary);
-      text-decoration: none;
-      font-size: 12px;
-      margin-left: 4px;
-      opacity: 0.8;
-      transition: opacity 0.15s ease;
-    }
-
-    .gps-url-link:hover {
-      opacity: 1;
-    }
-
-    /* Map Labels */
-    .leaflet-label-zone {
-      background: rgba(37, 99, 235, 0.95);
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 9px;
-      font-weight: 600;
-      padding: 2px 8px;
-      pointer-events: none;
-      box-shadow: var(--shadow);
-      text-align: center;
-      font-family: 'Inter', sans-serif;
-      letter-spacing: 0.025em;
-    }
-
-    /* Modal Styles */
-    .modal-backdrop {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(15, 23, 42, 0.5);
-      backdrop-filter: blur(4px);
-      z-index: 1000;
-      display: none;
-      justify-content: center;
-      align-items: center;
-      padding: 16px;
-    }
-
-    .modal {
-      background: var(--bg-primary);
-      border-radius: var(--radius-lg);
-      padding: 20px;
-      min-width: 280px;
-      max-width: 400px;
-      width: 100%;
-      box-shadow: var(--shadow-lg);
-      position: relative;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    .modal h3 {
-      margin: 0 0 16px 0;
-      color: var(--primary);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: -0.025em;
-      text-align: center;
-    }
-
-    .modal label {
-      color: var(--text-secondary);
-      font-weight: 600;
-      font-size: 10px;
-      display: block;
-      margin-bottom: 4px;
-    }
-
-    .modal input[type="text"] {
-      width: 100%;
-      padding: 8px 10px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      margin-bottom: 12px;
-      font-size: 10px;
-      background: var(--bg-secondary);
-      transition: all 0.15s ease;
-    }
-
-    .modal input[type="text"]:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1);
-      background: var(--bg-primary);
-    }
-
-    .modal button {
-      background: var(--primary);
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: var(--radius);
-      font-weight: 600;
-      font-size: 10px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      text-transform: uppercase;
-      letter-spacing: 0.025em;
-      width: 100%;
-    }
-
-    .modal button:hover {
-      background: var(--primary-dark);
-      transform: translateY(-1px);
-    }
-
-    .close-btn {
-      position: absolute;
-      right: 12px;
-      top: 12px;
-      font-size: 18px;
-      background: transparent !important;
-      color: var(--text-muted) !important;
-      border: none;
-      cursor: pointer;
-      width: auto !important;
-      padding: 4px !important;
-      transform: none !important;
-    }
-
-    .close-btn:hover {
-      color: var(--text-primary) !important;
-      background: transparent !important;
-    }
-
-    .modal-error {
-      color: var(--danger);
-      font-size: 9px;
-      margin-bottom: 8px;
-      padding: 6px 8px;
-      background: rgb(220 38 38 / 0.1);
-      border-radius: 4px;
-      border: 1px solid rgb(220 38 38 / 0.2);
-    }
-
-    .modal-success {
-      color: var(--success);
-      font-weight: 600;
-      font-size: 9px;
-      text-align: center;
-      margin-top: 8px;
-      padding: 6px 8px;
-      background: rgb(5 150 105 / 0.1);
-      border-radius: 4px;
-      border: 1px solid rgb(5 150 105 / 0.2);
-    }
-
-    /* Mobile Optimizations */
-    @media (max-width: 768px) {
-      .container {
-        margin: 0 8px;
-        margin-top: -20px;
-        padding: 12px;
-        border-radius: var(--radius);
-      }
-
-      #map {
-        height: 240px;
-        border-radius: 0 0 var(--radius) var(--radius);
-      }
-
-      th, td {
-        padding: 6px 2px;
-        font-size: 8px;
-      }
-
-      .flyer-input {
-        width: 35px;
-        font-size: 8px;
-      }
-
-      .gps-url-input {
-        width: 60px;
-        font-size: 8px;
-      }
-
-      .status-btn, .work-btn {
-        font-size: 7px;
-        padding: 3px 6px;
-        min-width: 50px;
-      }
-
-      #campaignIdInput {
-        font-size: 9px;
-        min-width: 100px;
-      }
-
-      h2 {
-        font-size: 12px;
-      }
-
-      .campaign-row {
-        justify-content: center;
-      }
-
-      .modal {
-        margin: 8px;
-        min-width: auto;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .container {
-        margin: 0 4px;
-        margin-top: -20px;
-        padding: 8px;
-      }
-
-      #map {
-        height: 200px;
-      }
-
-      th, td {
-        padding: 4px 1px;
-        font-size: 7px;
-      }
-
-      .flyer-input, .gps-url-input {
-        font-size: 7px;
-      }
-
-      .flyer-input {
-        width: 30px;
-      }
-
-      .gps-url-input {
-        width: 50px;
-      }
-
-      .status-btn, .work-btn {
-        font-size: 6px;
-        padding: 2px 4px;
-        min-width: 40px;
-      }
-
-      h2 {
-        font-size: 11px;
-        margin-bottom: 12px;
-      }
-    }
-
-    /* Loading States */
-    .loading {
-      opacity: 0.6;
-      pointer-events: none;
-    }
-
-    /* Smooth Animations */
-    * {
-      transition: opacity 0.15s ease, transform 0.15s ease;
-    }
-
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: var(--bg-tertiary);
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 2px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-muted);
-    }
-
-    input,
-textarea,
-select {
-  font-size: 16px;
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --secondary: #64748b;
+  --success: #059669;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --radius: 8px;
+  --radius-lg: 12px;
 }
 
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <div class="container">
-    <h2>Zone Completion & Flyers Entry</h2>
-    
-    <form id="zoneForm" autocomplete="off">
-      <div class="campaign-section">
-        <div class="campaign-row">
-          <label for="campaignIdInput">Campaign ID:</label>
-          <input type="text" id="campaignIdInput" placeholder="Enter Campaign ID" required />
-        </div>
-        <div id="campaignMsg"></div>
-      </div>
+* {
+  box-sizing: border-box;
+}
 
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Zone</th>
-              <th>Status</th>
-              <th>Action</th>
-              <th>Work</th>
-              <th>Flyers</th>
-              <th>GPS URL</th>
-            </tr>
-          </thead>
-          <tbody id="zoneTableBody"></tbody>
-        </table>
-      </div>
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  line-height: 1.4;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-      <button type="submit" class="save-btn">Save All Changes</button>
-      <div id="saveMsg">Changes saved successfully!</div>
-    </form>
+/* Map Styles */
+#map {
+  width: 100vw;
+  height: 480px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  margin-bottom: 12px;
+  background: var(--bg-tertiary);
+  position: relative;
+  z-index: 1;
+}
 
-    <button id="openProofModalBtn" class="proof-btn">Submit Photo Proof</button>
-  </div>
+/* Container */
+.container {
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 12px 16px 24px;
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+  margin-top: -20px;
+  position: relative;
+  z-index: 2;
+}
 
-  <!-- Proof Modal -->
-  <div class="modal-backdrop" id="proofModalBackdrop">
-    <div class="modal">
-      <button class="close-btn" id="closeProofModalBtn" title="Close">&times;</button>
-      <h3>Submit Image Proof</h3>
-      <form id="proofForm" autocomplete="off">
-        <label for="proofUrlInput">Image URL:</label>
-        <input type="text" id="proofUrlInput" placeholder="Paste image URL (https://...)" required />
-        <div class="modal-error" id="proofErrorMsg"></div>
-        <button type="submit">Submit Proof</button>
-      </form>
-      <div class="modal-success" id="proofSuccessMsg" style="display:none;">Proof submitted successfully!</div>
-    </div>
-  </div>
+/* Header */
+h2 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: var(--primary);
+  letter-spacing: -0.025em;
+  text-align: center;
+}
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <!-- Firebase App (the core Firebase SDK) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getDatabase, ref, get, set, push, onValue, child } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+/* Campaign Input Section */
+.campaign-section {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-light);
+}
 
-    // Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
-      authDomain: "trackingclients.firebaseapp.com",
-      projectId: "trackingclients",
-      storageBucket: "trackingclients.appspot.com",
-      messagingSenderId: "27490943622",
-      appId: "1:27490943622:web:d6c87547aa5df440508707",
-      databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+.campaign-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
-    // --- MAP POLYGONS ---
-const polygonCoordinates = [
-  [
-    [51.01163514848006, 4.61803436279297],
-    [51.010825119568665, 4.617540836334229],
-    [51.01031209394063, 4.615395069122315],
-    [51.009340029819754, 4.614064693450929],
-    [51.00902950504324, 4.613549709320069],
-    [51.00665324662724, 4.618957042694093],
-    [51.00576211833617, 4.623570442199708],
-    [51.00881348658125, 4.625480175018311]
-  ],
-  [
-    [51.008759481808575, 4.625630378723145],
-    [51.00576211833617, 4.623613357543946],
-    [51.006518228289636, 4.628977775573731],
-    [51.006059163002, 4.630866050720216],
-    [51.00669375205191, 4.631638526916505],
-    [51.00731483080078, 4.630157947540284],
-    [51.009947572282755, 4.629664421081544],
-    [51.00997457398527, 4.626724720001222]
-  ],
-  [
-    [51.009947572282755, 4.62977170944214],
-    [51.00734183403602, 4.630243778228761],
-    [51.00674775922977, 4.631702899932862],
-    [51.00722031935373, 4.632990360260011],
-    [51.00716631272608, 4.634857177734376],
-    [51.00713930938868, 4.636487960815431],
-    [51.00757136090074, 4.637947082519532],
-    [51.00963705157371, 4.637281894683839],
-    [51.01044710123504, 4.63749647140503],
-    [51.010352596170215, 4.634599685668946],
-    [51.010231089375374, 4.631788730621339]
-  ],
-  [
-    [51.00900250279051, 4.613399505615235],
-    [51.0072743259185, 4.6106958389282235],
-    [51.00445239871811, 4.611403942108155],
-    [51.0031696477858, 4.612348079681397],
-    [51.004789958857764, 4.617798328399659],
-    [51.00577562040769, 4.623720645904542],
-    [51.006896278644604, 4.618055820465089]
-  ],
-  [
-    [51.00565410162243, 4.623785018920899],
-    [51.00299411068876, 4.626832008361817],
-    [51.00267004045691, 4.62925672531128],
-    [51.0029265962438, 4.6321964263916025],
-    [51.00554608465718, 4.632325172424317],
-    [51.006275194291526, 4.630351066589356],
-    [51.00645071897343, 4.62850570678711]
-  ],
-  [
-    [51.00612667288805, 4.631102085113526],
-    [51.005681105824465, 4.632389545440675],
-    [51.00299411068876, 4.632153511047364],
-    [51.003466709052326, 4.634878635406495],
-    [51.00308863074662, 4.636294841766358],
-    [51.00399331298627, 4.636337757110597],
-    [51.00454691580479, 4.6392560005188],
-    [51.00485747059093, 4.638869762420655],
-    [51.00495198685232, 4.637067317962647],
-    [51.00709880435308, 4.636530876159669],
-    [51.00713930938868, 4.633462429046632],
-    [51.006882776899275, 4.631853103637696]
-  ],
-  [
-    [51.00762536705678, 4.6381616592407235],
-    [51.008840488944024, 4.645843505859376],
-    [51.00916451607109, 4.6473026275634775],
-    [51.00816542515887, 4.648418426513673],
-    [51.00665324662724, 4.649877548217774],
-    [51.005573088922084, 4.6492338180542],
-    [51.004816963562824, 4.643268585205079],
-    [51.00460092548218, 4.639320373535157],
-    [51.00500599605808, 4.639019966125489],
-    [51.00506000520096, 4.6373891830444345],
-    [51.00700429246584, 4.636659622192384]
-  ],
-  [
-    [51.00308863074662, 4.626874923706056],
-    [51.00195437734215, 4.625501632690431],
-    [50.99987484074296, 4.626917839050294],
-    [50.99722802299161, 4.6271753311157235],
-    [50.99682288450194, 4.625287055969239],
-    [50.99668783755265, 4.62751865386963],
-    [50.997065968020216, 4.630050659179688],
-    [50.99817333237815, 4.629878997802735],
-    [51.00079308917475, 4.629192352294923],
-    [51.00163029984739, 4.631724357604981],
-    [51.00181934532778, 4.6327543258667],
-    [51.00287258461709, 4.632368087768556],
-    [51.00271054935972, 4.629063606262208]
-  ],
-  [
-    [51.003007613565956, 4.632282257080079],
-    [51.00061754308549, 4.634363651275636],
-    [50.99791675030602, 4.639706611633302],
-    [50.99751161782971, 4.6402859687805185],
-    [50.997754697739964, 4.642410278320313],
-    [50.99766016681507, 4.643912315368653],
-    [50.997363068368756, 4.64399814605713],
-    [50.99842991303143, 4.646422863006593],
-    [50.999199646478345, 4.646100997924806],
-    [51.00262953151877, 4.638097286224366],
-    [51.00291309334305, 4.638140201568604],
-    [51.003048122173986, 4.636337757110597],
-    [51.00341269805444, 4.6349430084228525]
-  ],
-  [
-    [51.00179233887776, 4.632711410522462],
-    [51.00022593787747, 4.635157585144044],
-    [50.99679587514352, 4.641380310058595],
-    [50.995904557496196, 4.639320373535157],
-    [50.99552641756439, 4.639964103698731],
-    [50.994986212316554, 4.640049934387208],
-    [50.995094253869205, 4.639234542846681],
-    [50.993959805020566, 4.639277458190919],
-    [50.994770128456615, 4.635672569274903],
-    [50.99622867498518, 4.633355140686036],
-    [50.99717400473071, 4.630479812622071],
-    [50.997795210934534, 4.630050659179688],
-    [51.00087411022269, 4.629406929016114]
-  ],
-  [
-    [51.00327767028464, 4.636359214782716],
-    [51.002413483251274, 4.639964103698731],
-    [51.001387240240724, 4.647474288940431],
-    [51.005573088922084, 4.649190902709962],
-    [51.00492498222586, 4.646015167236329],
-    [51.00484396825216, 4.642152786254884],
-    [51.00451991094253, 4.639406204223634],
-    [51.004141841220196, 4.636702537536622]
-  ],
-  [
-    [51.00268354342846, 4.638419151306153],
-    [50.99922665443757, 4.646015167236329],
-    [50.99695793105821, 4.647088050842286],
-    [50.99301440979523, 4.646100997924806],
-    [50.99269026985588, 4.648890495300294],
-    [50.993149467435124, 4.649705886840821],
-    [50.994689096749724, 4.6500492095947275],
-    [50.99612063607375, 4.651079177856446],
-    [50.99752512230258, 4.652366638183595],
-    [50.99941570971206, 4.654340744018556],
-    [51.000982138066554, 4.64949131011963],
-    [51.001495266889776, 4.647173881530763]
-  ],
-  [
-    [51.008543462088994, 4.64824676513672],
-    [51.00924552249916, 4.653310775756837],
-    [51.010406599087965, 4.65747356414795],
-    [51.01108163025465, 4.661164283752442],
-    [51.007895396893815, 4.6648550033569345],
-    [51.007463348399995, 4.6602201461792],
-    [51.00762536705678, 4.656057357788087],
-    [51.006329201956696, 4.653353691101075],
-    [51.005816126598724, 4.649877548217774],
-    [51.007490351548775, 4.649362564086915]
-  ],
-  [
-    [51.005816126598724, 4.6494483947753915],
-    [51.006545231988575, 4.6532678604125985],
-    [51.00765237011124, 4.65622901916504],
-    [51.00757136090074, 4.658203125000001],
-    [51.0058431307064, 4.657902717590333],
-    [51.004573920651346, 4.657173156738282],
-    [51.003223659066656, 4.6549415588378915],
-    [51.00254851353636, 4.655799865722657],
-    [51.000414989080234, 4.65597152709961],
-    [50.99936169399795, 4.654512405395509],
-    [51.00157628671151, 4.647688865661622]
-  ],
-  [
-    [50.99390578295509, 4.639406204223634],
-    [50.995067243504636, 4.639406204223634],
-    [50.995067243504636, 4.640049934387208],
-    [50.99576950787427, 4.639878273010255],
-    [50.996309704003735, 4.640307426452638],
-    [50.99668783755265, 4.641380310058595],
-    [50.99741708640959, 4.640693664550782],
-    [50.9976871756704, 4.642667770385743],
-    [50.99752512230258, 4.6439552307128915],
-    [50.99838940039102, 4.646315574645997],
-    [50.996714846973944, 4.6470022201538095],
-    [50.993068432898326, 4.646186828613282],
-    [50.98826013045302, 4.644899368286134],
-    [50.99304142135464, 4.639320373535157]
-  ],
-  [
-    [50.999334686117315, 4.654598236083985],
-    [51.00076608212733, 4.656529426574708],
-    [51.00254851353636, 4.655842781066895],
-    [51.003466709052326, 4.655413627624513],
-    [51.00551908037659, 4.658117294311524],
-    [51.0073013291773, 4.658117294311524],
-    [51.00803041122285, 4.665284156799317],
-    [51.00740934205531, 4.665756225585938],
-    [51.00686927515001, 4.66421127319336],
-    [51.00460092548218, 4.6648550033569345],
-    [51.003709757764625, 4.661593437194825],
-    [51.00303461930857, 4.660906791687013],
-    [51.00154928012, 4.65871810913086],
-    [50.99946972536328, 4.658374786376954],
-    [50.9981193152177, 4.657816886901856]
-  ],
-  [
-    [51.011432642578555, 4.661636352539063],
-    [51.0153206013974, 4.669532775878907],
-    [51.016130551790816, 4.678544998168946],
-    [51.01418664707929, 4.68120574951172],
-    [51.01213465925657, 4.686355590820313],
-    [51.01181065287947, 4.681549072265626],
-    [51.012026657382386, 4.675798416137696],
-    [51.009488540934484, 4.672880172729493],
-    [51.00819242789891, 4.665069580078126]
-  ],
-  [
-    [50.99817333237815, 4.658160209655763],
-    [51.001684312920396, 4.6587610244750985],
-    [51.00281857292752, 4.661078453063966],
-    [51.00065805378042, 4.663267135620118],
-    [51.00025294523934, 4.665884971618653],
-    [50.9985514507404, 4.666185379028321],
-    [50.998011280708205, 4.664382934570313],
-    [50.9974981133529, 4.663953781127931],
-    [50.9959585772349, 4.670176506042481],
-    [50.994527032911485, 4.6689748764038095],
-    [50.99504023312434, 4.665884971618653],
-    [50.99612063607375, 4.6593618392944345],
-    [50.99660680919443, 4.6573877334594735]
-  ],
-  [
-    [50.992609234517275, 4.648890495300294],
-    [50.99936169399795, 4.654383659362794],
-    [50.9981193152177, 4.658203125000001],
-    [50.996471761616284, 4.6573877334594735],
-    [50.99552641756439, 4.657087326049806],
-    [50.9929603866292, 4.658031463623048],
-    [50.99190692232253, 4.657516479492188],
-    [50.99190692232253, 4.655156135559083],
-    [50.992555210879615, 4.651207923889161]
-  ],
-  [
-    [51.01051460473487, 4.62876319885254],
-    [51.01596856284392, 4.631853103637696],
-    [51.01964017335258, 4.647645950317384],
-    [51.01434864225096, 4.649190902709962],
-    [51.009434536947786, 4.648418426513673],
-    [51.00803041122285, 4.638633728027345],
-    [51.010946624807275, 4.637603759765626]
-  ],
-  [
-    [50.9882331161108, 4.644899368286134],
-    [50.99287935176229, 4.6464014053344735],
-    [50.992041983185366, 4.65373992919922],
-    [50.99182588561614, 4.656786918640138],
-    [50.99166381177892, 4.659919738769532],
-    [50.98982693540058, 4.658503532409669],
-    [50.98815207298984, 4.652152061462403],
-    [50.98636908852883, 4.647130966186524],
-    [50.986261026663385, 4.644083976745606]
-  ],
-  [
-    [51.0032506646835, 4.612240791320802],
-    [51.004384886395414, 4.6170902252197275],
-    [51.003358686993685, 4.617261886596681],
-    [51.002953602033585, 4.61653232574463],
-    [50.9989835822385, 4.618592262268067],
-    [50.999145630512714, 4.617176055908204],
-    [51.000712067985326, 4.616746902465821],
-    [50.99979381794999, 4.614644050598145],
-    [50.9975521312365, 4.6143436431884775],
-    [50.99847042563647, 4.613013267517091],
-    [50.999604764216194, 4.613614082336427],
-    [51.00027995258543, 4.612798690795899],
-    [51.001873358180696, 4.616231918334962],
-    [51.002764561175056, 4.615073204040528],
-    [51.002251446390346, 4.612240791320802],
-    [51.00122519979551, 4.610395431518556],
-    [51.0001179082729, 4.61052417755127],
-    [50.997038958803294, 4.608936309814454],
-    [50.9940408380009, 4.609365463256837],
-    [50.99393279399569, 4.60803508758545],
-    [50.996012596910745, 4.607219696044923],
-    [50.997633157944016, 4.606919288635255],
-    [50.99936169399795, 4.606962203979493],
-    [51.00076608212733, 4.609193801879884],
-    [51.00173832593053, 4.6096229553222665]
-  ],
-  [
-    [51.001657306391756, 4.60953712463379],
-    [51.00003688590442, 4.607820510864259],
-    [50.99938870186288, 4.60704803466797],
-    [50.99679587514352, 4.607133865356446],
-    [50.993959805020566, 4.6082496643066415],
-    [50.99414888175456, 4.604601860046388],
-    [50.9945540435905, 4.601340293884278],
-    [50.99633671364512, 4.602928161621095],
-    [50.99836239194443, 4.603614807128907],
-    [50.999631771939605, 4.603614807128907],
-    [51.000306959915854, 4.605245590209962]
-  ],
-  [
-    [51.00306162503546, 4.661121368408204],
-    [51.00446590117084, 4.6648550033569345],
-    [51.00695028558667, 4.6645545959472665],
-    [51.007598363986624, 4.665756225585938],
-    [51.00827343602473, 4.66545581817627],
-    [51.00913751389696, 4.671978950500489],
-    [51.011999656874536, 4.675755500793458],
-    [51.01218866009935, 4.6857547760009775],
-    [51.01291766532272, 4.6912479400634775],
-    [51.00792239979108, 4.689960479736329],
-    [51.00665324662724, 4.684209823608399],
-    [51.006680250247605, 4.6788883209228525],
-    [51.00600515502241, 4.673223495483399],
-    [51.0044118913363, 4.670004844665528],
-    [51.00260252554035, 4.669489860534669],
-    [51.00022593787747, 4.666399955749513],
-    [51.001414246926565, 4.662837982177735]
-  ],
-  [
-    [51.00025294523934, 4.666657447814942],
-    [51.00246749541245, 4.669575691223145],
-    [50.996174655560914, 4.687213897705079],
-    [50.99444600078013, 4.689359664916993],
-    [50.99444600078013, 4.684038162231446],
-    [50.99563445785934, 4.672751426696778],
-    [50.996012596910745, 4.669919013977052],
-    [50.997471104387515, 4.664511680603028],
-    [50.99863247570286, 4.6662282943725595],
-    [51.000171923106635, 4.665884971618653]
-  ],
-  [
-    [51.00238647714707, 4.669618606567384],
-    [50.99622867498518, 4.686999320983888],
-    [51.00109016565885, 4.685668945312501],
-    [51.00254851353636, 4.681248664855958],
-    [51.00287258461709, 4.677815437316895],
-    [51.002413483251274, 4.67245101928711]
-  ],
-  [
-    [51.00254851353636, 4.66970443725586],
-    [51.005168023298054, 4.671335220336915],
-    [51.00597815100905, 4.676184654235841],
-    [51.00638320955899, 4.68094825744629],
-    [51.00684227163969, 4.685711860656739],
-    [51.00784139105217, 4.690003395080567],
-    [51.00821943062325, 4.694895744323731],
-    [51.00792239979108, 4.6961402893066415],
-    [51.004816963562824, 4.694724082946778],
-    [51.002089408963506, 4.695024490356446],
-    [51.00127921334013, 4.685969352722169],
-    [51.002737555275225, 4.680047035217286],
-    [51.00265653748148, 4.674553871154786]
-  ],
-  [
-    [51.0012522065757, 4.685883522033692],
-    [50.994500022216776, 4.689402580261231],
-    [50.9946350755332, 4.692535400390626],
-    [50.99863247570286, 4.69493865966797],
-    [50.99944271754552, 4.695582389831544],
-    [51.002089408963506, 4.694809913635255]
-  ],
-  [
-    [51.01105462919659, 4.597949981689454],
-    [51.00873247939865, 4.606232643127442],
-    [51.00905650728027, 4.613099098205567],
-    [51.01032559468777, 4.616146087646485],
-    [51.01148664423874, 4.617948532104493],
-    [51.012458663370104, 4.613571166992188],
-    [51.01351166110605, 4.606833457946778],
-    [51.01343066212905, 4.601898193359376],
-    [51.01313366466965, 4.60005283355713]
-  ],
-  [
-    [51.008840488944024, 4.605460166931153],
-    [51.00902950504324, 4.612841606140138],
-    [51.007193316047754, 4.610738754272462],
-    [51.004330876466526, 4.611425399780274],
-    [51.003223659066656, 4.61228370666504],
-    [51.001684312920396, 4.609494209289552],
-    [51.003466709052326, 4.6085500717163095],
-    [51.00379077371909, 4.6074771881103525],
-    [51.005816126598724, 4.606661796569825],
-    [51.005438067440416, 4.6047306060791025]
-  ],
-  [
-    [51.004681939880314, 4.589796066284181],
-    [51.01121663530898, 4.5978641510009775],
-    [51.008840488944024, 4.605932235717774],
-    [51.0072743259185, 4.603185653686524],
-    [51.00673425744119, 4.599924087524415],
-    [51.00560009317126, 4.600095748901368],
-    [51.00506000520096, 4.598207473754884],
-    [51.003817779005814, 4.597606658935548],
-    [51.002737555275225, 4.594259262084962],
-    [51.00268354342846, 4.592113494873048]
-  ],
-  [
-    [51.002521507510785, 4.592285156250001],
-    [51.00397981039598, 4.59880828857422],
-    [51.00484396825216, 4.59829330444336],
-    [51.00554608465718, 4.600696563720704],
-    [51.00684227163969, 4.599838256835938],
-    [51.00738233885939, 4.603013992309571],
-    [51.008408449253345, 4.605331420898438],
-    [51.00549207608026, 4.604816436767579],
-    [51.00538405873772, 4.6068763732910165],
-    [51.00397981039598, 4.607391357421876],
-    [51.00311563644208, 4.6088504791259775],
-    [51.001495266889776, 4.609107971191407],
-    [50.99982082556338, 4.603872299194337]
-  ],
-  [
-    [51.01964017335258, 4.648160934448243],
-    [51.01964017335258, 4.655113220214845],
-    [51.01845233117927, 4.663524627685548],
-    [51.02136788946308, 4.6761417388916025],
-    [51.0242832644076, 4.6857547760009775],
-    [51.01618454798072, 4.68069076538086],
-    [51.01618454798072, 4.677000045776368],
-    [51.01483462437068, 4.6679019927978525],
-    [51.01089262251831, 4.660778045654298],
-    [51.00846245443476, 4.648332595825196],
-    [51.009542544858334, 4.647645950317384],
-    [51.01181065287947, 4.6494483947753915],
-    [51.01715646864693, 4.649105072021485]
-  ],
-  [
-    [51.0243912377365, 4.685969352722169],
-    [51.027495363393406, 4.692878723144532],
-    [51.024607183639915, 4.694509506225587],
-    [51.018614311449404, 4.692234992980958],
-    [51.01718346615241, 4.6936941146850595],
-    [51.01618454798072, 4.692234992980958],
-    [51.01305266503245, 4.691205024719239],
-    [51.01232366193122, 4.6857547760009775],
-    [51.01569858000821, 4.67970371246338]
-  ],
-  [
-    [50.99495920188909, 4.669446945190431],
-    [50.99039421380563, 4.673438072204591],
-    [50.98850325882542, 4.670863151550294],
-    [50.98693640919524, 4.674081802368165],
-    [50.98512636188829, 4.680004119873048],
-    [50.98553160249181, 4.6807336807250985],
-    [50.98828714477951, 4.6779870986938485],
-    [50.99025914814761, 4.6766996383667],
-    [50.992339115700126, 4.681549072265626],
-    [50.99490518098698, 4.679574966430665],
-    [50.9959585772349, 4.670004844665528]
-  ],
-  [
-    [50.98577474515584, 4.680647850036622],
-    [50.98790894277794, 4.6834802627563485],
-    [50.989853948815195, 4.68369483947754],
-    [50.99152874981553, 4.68468189239502],
-    [50.99287935176229, 4.6868276596069345],
-    [50.99431094691342, 4.686999320983888],
-    [50.9949321914459, 4.679875373840333],
-    [50.99220405570197, 4.681849479675294],
-    [50.99009706883912, 4.676828384399415]
-  ],
-  [
-    [50.98884093500774, 4.683587551116944],
-    [50.991164080551144, 4.684402942657472],
-    [50.99291986921343, 4.687063694000245],
-    [50.99440548466139, 4.687085151672364],
-    [50.99467559145149, 4.692084789276124],
-    [50.99048875953239, 4.690089225769044],
-    [50.989408225463755, 4.689381122589112],
-    [50.98658521150502, 4.690239429473878],
-    [50.98665274972872, 4.687042236328126],
-    [50.98767931863068, 4.685068130493165],
-    [50.98749021553885, 4.683029651641847]
-  ],
-  [
-    [51.00111717251761, 4.584989547729493],
-    [51.0110006270334, 4.597392082214356],
-    [51.01172965093148, 4.586663246154786],
-    [51.010217588600725, 4.5873498916625985],
-    [51.00757136090074, 4.588036537170411],
-    [51.003871789532084, 4.5862770080566415]
-  ],
-  [
-    [51.001144179360665, 4.585032463073731],
-    [50.998848541577686, 4.585375785827638],
-    [51.00082009620645, 4.589452743530274],
-    [51.0014412535967, 4.593358039855958],
-    [51.003547725431254, 4.5909976959228525],
-    [51.004735949400484, 4.589838981628419]
-  ],
-  [
-    [51.01170265025073, 4.586534500122071],
-    [51.00695028558667, 4.587779045104981],
-    [51.00127921334013, 4.585118293762208],
-    [50.99982082556338, 4.58357334136963],
-    [51.002008390037865, 4.573531150817872],
-    [51.00341269805444, 4.572200775146485],
-    [51.00389879477164, 4.574260711669923],
-    [51.002413483251274, 4.580397605895997],
-    [51.004438896261426, 4.585332870483399],
-    [51.00659923933936, 4.58507537841797],
-    [51.00697728903412, 4.581255912780763],
-    [51.00524903670584, 4.577436447143556],
-    [51.006680250247605, 4.574689865112306],
-    [51.00881348658125, 4.57507610321045],
-    [51.01010958226217, 4.57756519317627],
-    [51.00816542515887, 4.585461616516114]
-  ]
-];
-    // --- App State ---
-    const ZONES = polygonCoordinates.length;
-    let zoneData = Array.from({length: ZONES}, (_,i) => ({
-      status: "pending", // pending | completed
-      flyers: "",
-      gpsUrl: "",
-      working: false // new field for working status
-    }));
+label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+}
 
-    let currentCampaignId = '';
-    let loadedCampaignId = '';
+#campaignIdInput {
+  flex: 1;
+  min-width: 120px;
+  padding: 8px 10px;
+  font-size: 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+}
 
-    // --- DOM refs ---
-    const campaignIdInput = document.getElementById('campaignIdInput');
-    const zoneTableBody = document.getElementById('zoneTableBody');
-    const saveBtn = document.querySelector('.save-btn');
-    const saveMsg = document.getElementById('saveMsg');
-    const campaignMsg = document.getElementById('campaignMsg');
+#campaignIdInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1);
+  background: var(--bg-primary);
+}
 
-    // --- Map logic ---
-    let map = L.map('map').setView(polygonCoordinates[0][0], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
+#campaignIdInput::placeholder {
+  color: var(--text-muted);
+}
 
-    // Draw polygons and keep references
-    let zonePolys = [];
-    polygonCoordinates.forEach((coords, idx) => {
-      let poly = L.polygon(coords, {
-        color: '#dc2626',
-        fillColor: '#dc2626',
-        fillOpacity: 0.3,
-        weight: 2
-      }).addTo(map);
-      zonePolys.push(poly);
-      // Label
-      let center = poly.getBounds().getCenter();
-      L.marker(center, {
-        icon: L.divIcon({
-          className: 'leaflet-label-zone',
-          html: `Zone ${idx+1}`,
-          iconSize: [60, 16], iconAnchor: [30, 8]
-        }),
-        interactive: false
-      }).addTo(map);
-    });
+/* Table Styles */
+.table-container {
+  background: var(--bg-primary);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-light);
+  margin-bottom: 16px;
+}
 
-    function colorPolygons() {
-      zoneData.forEach((zone, idx) => {
-        let color;
-        if (zone.working) {
-          color = "#00a000"; // yellow for working
-        } else if (zone.status === "completed") {
-          color = "#2563eb";
-        } else {
-          color = "#dc2626";
-        }
-        zonePolys[idx].setStyle({
-          fillColor: color,
-          color: color,
-          fillOpacity: zone.working ? 0.5 : (zone.status === "completed" ? 0.4 : 0.3)
-        });
-      });
-    }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
 
-    function isValidUrl(str) {
-      try {
-        if (!str) return false;
-        let url = new URL(str);
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch (e) {
-        return false;
-      }
-    }
+th {
+  background: var(--bg-tertiary);
+  padding: 8px 4px;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
 
-    function renderZoneTable() {
-      zoneTableBody.innerHTML = "";
-      zoneData.forEach((zone, i) => {
-        let statusClass = zone.status === 'completed'
-          ? 'status-completed'
-          : zone.working
-            ? 'status-working'
-            : 'status-pending';
-        let statusText = zone.working
-          ? "Working"
-          : zone.status.charAt(0).toUpperCase() + zone.status.slice(1);
+td {
+  padding: 8px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 9px;
+  vertical-align: middle;
+}
 
-        zoneTableBody.innerHTML += `
-          <tr>
-            <td><strong>Zone ${i+1}</strong></td>
-            <td>
-              <span class="status-text ${statusClass}">
-                ${statusText}
-              </span>
-            </td>
-            <td>
-              <button type="button" class="status-btn ${zone.status}" data-zone="${i}">
-                ${zone.status === 'completed' ? 'Pending' : 'Complete'}
-              </button>
-            </td>
-            <td>
-              <button type="button" class="work-btn${zone.working ? ' working' : ''}" data-work="${i}">
-                ${zone.working ? 'Working' : 'Work'}
-              </button>
-            </td>
-            <td>
-              <input class="flyer-input" type="number" min="0" data-flyer="${i}" value="${zone.flyers||''}" placeholder="0">
-            </td>
-            <td>
-              <input class="gps-url-input" type="text" data-gps="${i}" value="${zone.gpsUrl||''}" placeholder="GPS URL">
-              ${
-                isValidUrl(zone.gpsUrl)
-                  ? `<a href="${zone.gpsUrl}" target="_blank" class="gps-url-link" title="Open GPS URL">📍</a>`
-                  : ""
-              }
-            </td>
-          </tr>
-        `;
-      });
-      
-      // Status button listeners
-      document.querySelectorAll('.status-btn').forEach(btn => {
-        btn.onclick = () => {
-          const idx = parseInt(btn.getAttribute('data-zone'));
-          // If was working, remove working status when toggling complete
-          if (zoneData[idx].working) zoneData[idx].working = false;
-          zoneData[idx].status = (zoneData[idx].status==='completed') ? 'pending' : 'completed';
-          colorPolygons();
-          renderZoneTable();
-        };
-      });
+tr:last-child td {
+  border-bottom: none;
+}
 
-      // Work button listeners
-      document.querySelectorAll('.work-btn').forEach(btn => {
-        btn.onclick = () => {
-          const idx = parseInt(btn.getAttribute('data-work'));
-          // Toggle working; if switched on, set status to pending
-          zoneData[idx].working = !zoneData[idx].working;
-          if (zoneData[idx].working) zoneData[idx].status = "pending";
-          colorPolygons();
-          renderZoneTable();
-        };
-      });
+/* Status Buttons */
+.status-btn, .work-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  font-size: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  min-width: 60px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin: 0 2px;
+}
 
-      document.querySelectorAll('.flyer-input').forEach(input => {
-        input.oninput = () => {
-          const idx = parseInt(input.getAttribute('data-flyer'));
-          zoneData[idx].flyers = input.value;
-        }
-      });
+.status-btn.completed {
+  background: var(--success);
+  color: white;
+}
 
-      document.querySelectorAll('.gps-url-input').forEach(input => {
-        input.oninput = () => {
-          const idx = parseInt(input.getAttribute('data-gps'));
-          zoneData[idx].gpsUrl = input.value;
-        }
-      });
-    }
+.status-btn.pending {
+  background: var(--danger);
+  color: white;
+}
 
-    // --- Save to Firebase ---
-    document.getElementById('zoneForm').onsubmit = async function(e) {
-      e.preventDefault();
-      currentCampaignId = campaignIdInput.value.trim();
-      if (!currentCampaignId) {
-        campaignMsg.textContent = "Enter a Campaign ID to save!";
-        campaignMsg.className = "";
-        campaignMsg.style.display = "block";
-        campaignIdInput.focus();
-        return;
-      }
-      
-      saveBtn.classList.add('loading');
-      campaignMsg.style.display = "none";
-      
-      try {
-        const campaignRef = ref(db, `campaigns/${currentCampaignId}/zone_statuses`);
-        await set(campaignRef, zoneData);
-        saveMsg.style.display = "block";
-        setTimeout(()=>saveMsg.style.display="none", 3000);
-        loadedCampaignId = currentCampaignId;
-      } catch (error) {
-        console.error('Save error:', error);
-      } finally {
-        saveBtn.classList.remove('loading');
-      }
-    };
+.status-btn:hover:not(:disabled),
+.work-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
 
-    // --- Load zoneData from Firebase by Campaign ID ---
-    async function loadCampaignZones(campaignId) {
-      if (!campaignId) return;
-      const campaignRef = ref(db, `campaigns/${campaignId}/zone_statuses`);
-      const snap = await get(campaignRef);
-      if (snap.exists()) {
-        const data = snap.val();
-        zoneData = zoneData.map((z,i) => ({
-          ...z,
-          ...(data[i]||{})
-        }));
-        renderZoneTable();
-        colorPolygons();
-        campaignMsg.textContent = "Campaign loaded successfully!";
-        campaignMsg.className = "success";
-        campaignMsg.style.display = "block";
-        setTimeout(()=>{campaignMsg.style.display="none"}, 2000);
-        loadedCampaignId = campaignId;
-      } else {
-        zoneData = Array.from({length: ZONES}, (_,i) => ({
-          status: "pending",
-          flyers: "",
-          gpsUrl: "",
-          working: false
-        }));
-        renderZoneTable();
-        colorPolygons();
-        campaignMsg.textContent = "New campaign - no existing data found";
-        campaignMsg.className = "";
-        campaignMsg.style.display = "block";
-        setTimeout(()=>{campaignMsg.style.display="none"}, 2000);
-        loadedCampaignId = '';
-      }
-    }
+.status-btn:active,
+.work-btn:active {
+  transform: translateY(0);
+}
 
-    // --- Campaign ID Input logic ---
-    let loadTimeout = null;
-    campaignIdInput.addEventListener('input', () => {
-      const val = campaignIdInput.value.trim();
-      if (val === loadedCampaignId) return;
-      if (loadTimeout) clearTimeout(loadTimeout);
-      loadTimeout = setTimeout(() => {
-        loadCampaignZones(val);
-      }, 800);
-    });
+.status-btn:disabled,
+.work-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
-    campaignIdInput.addEventListener('keydown', (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        const val = campaignIdInput.value.trim();
-        loadCampaignZones(val);
-      }
-    });
+/* Work Button Styles */
+.work-btn {
+  background: var(--border);
+  color: var(--text-primary);
+}
+.work-btn.working {
+  background: var(--warning);
+  color: white;
+}
 
-    // --- Initial render ---
-    renderZoneTable();
+/* Input Fields */
+.flyer-input, .gps-url-input {
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-size: 9px;
+  background: var(--bg-primary);
+  transition: border-color 0.15s ease;
+}
 
-    // --- Geolocation: show moving user dot ---
-    let userMarker = null;
-    let userLatLng = null;
-    function showUserLocation(lat, lng) {
-      userLatLng = [lat, lng];
-      if (!userMarker) {
-        userMarker = L.circleMarker([lat, lng], {
-          radius: 8, 
-          color: '#2563eb', 
-          fillColor: '#2563eb', 
-          fillOpacity: 0.8, 
-          weight: 2
-        }).addTo(map);
-      } else {
-        userMarker.setLatLng([lat, lng]);
-      }
-    }
-    
-    function errorLoc(err) { 
-      console.warn("Location error:", err.message); 
-    }
-    
-    function askLocation() {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.watchPosition(
-          pos => showUserLocation(pos.coords.latitude, pos.coords.longitude),
-          errorLoc,
-          { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
-        );
-      }
-    }
-    askLocation();
+.flyer-input {
+  width: 45px;
+  text-align: center;
+}
 
-    // --- Load proofs as pins on map ---
-    let proofMarkers = [];
-    function clearProofMarkers() {
-      proofMarkers.forEach(m => map.removeLayer(m));
-      proofMarkers = [];
-    }
-    
-    function renderProofsOnMap(proofs) {
-      clearProofMarkers();
-      proofs.forEach((proof, idx) => {
-        let marker = L.marker([proof.lat, proof.lng], {
-          icon: L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/61/61168.png',
-            iconSize: [24, 24],
-            iconAnchor: [12, 24],
-            popupAnchor: [0, -20]
-          })
-        });
-        marker.bindPopup(`
-          <div style="text-align:center;font-size:10px;">
-            <b>Proof #${idx+1}</b><br/>
-            <a href="${proof.url}" target="_blank">
-              <img src="${proof.url}" style="max-width:120px;max-height:80px;display:block;margin:4px auto;border-radius:4px;border:1px solid #2563eb;" loading="lazy"/>
-            </a>
-            <a href="${proof.url}" target="_blank" style="font-size:9px;color:#2563eb;text-decoration:underline;">Open Image</a>
-          </div>
-        `);
-        marker.addTo(map);
-        proofMarkers.push(marker);
-      });
-    }
+.gps-url-input {
+  width: 80px;
+  text-align: left;
+}
 
-    // --- Fetch proofs from Firebase and render as pins ---
-    async function fetchAndRenderProofs() {
-      currentCampaignId = campaignIdInput.value.trim();
-      if (!currentCampaignId) {
-        clearProofMarkers();
-        return;
-      }
-      const proofsRef = ref(db, `campaigns/${currentCampaignId}/proofs`);
-      onValue(proofsRef, (snap) => {
-        let proofs = [];
-        snap.forEach(childSnap => {
-          const {lat, lng, url, timestamp} = childSnap.val();
-          if (lat && lng && url) {
-            proofs.push({lat, lng, url, timestamp});
-          }
-        });
-        proofs.sort((a,b) => (b.timestamp||0)-(a.timestamp||0));
-        renderProofsOnMap(proofs);
-      });
-    }
+.flyer-input:focus, .gps-url-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 0.1);
+}
 
-    // --- Watch campaignIdInput for proof fetch ---
-    campaignIdInput.addEventListener('input', () => {
-      setTimeout(fetchAndRenderProofs, 1000);
-    });
-    
-    document.getElementById('zoneForm').addEventListener('submit', () => {
-      setTimeout(fetchAndRenderProofs, 500);
-    });
+/* Action Buttons */
+.save-btn, .proof-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  width: 100%;
+  margin-bottom: 8px;
+}
 
-    // --- Modal for Proof submission ---
-    const openProofModalBtn = document.getElementById('openProofModalBtn');
-    const proofModalBackdrop = document.getElementById('proofModalBackdrop');
-    const closeProofModalBtn = document.getElementById('closeProofModalBtn');
-    const proofForm = document.getElementById('proofForm');
-    const proofUrlInput = document.getElementById('proofUrlInput');
-    const proofErrorMsg = document.getElementById('proofErrorMsg');
-    const proofSuccessMsg = document.getElementById('proofSuccessMsg');
+.save-btn {
+  background: var(--primary);
+  color: white;
+}
 
-    // Show modal
-    openProofModalBtn.addEventListener('click', () => {
-      proofModalBackdrop.style.display = "flex";
-      proofErrorMsg.textContent = "";
-      proofSuccessMsg.style.display = "none";
-      proofUrlInput.value = "";
-      setTimeout(() => proofUrlInput.focus(), 100);
-    });
-    
-    // Close modal
-    closeProofModalBtn.addEventListener('click', () => {
-      proofModalBackdrop.style.display = "none";
-    });
-    
-    proofModalBackdrop.addEventListener('click', (e) => {
-      if (e.target === proofModalBackdrop) {
-        proofModalBackdrop.style.display = "none";
-      }
-    });
+.proof-btn {
+  background: var(--success);
+  color: white;
+}
 
-    // --- Submit proof ---
-    proofForm.onsubmit = async function(e) {
-      e.preventDefault();
-      proofErrorMsg.textContent = "";
-      proofSuccessMsg.style.display = "none";
-      
-      const url = proofUrlInput.value.trim();
-      if (!isValidUrl(url)) {
-        proofErrorMsg.textContent = "Please enter a valid image URL (http/https)";
-        return;
-      }
-      
-      if (!userLatLng) {
-        proofErrorMsg.textContent = "Waiting for your location. Please allow location access.";
-        return;
-      }
-      
-      currentCampaignId = campaignIdInput.value.trim();
-      if (!currentCampaignId) {
-        proofErrorMsg.textContent = "Enter a Campaign ID above before submitting proof.";
-        return;
-      }
-      
-      try {
-        const proofsRef = ref(db, `campaigns/${currentCampaignId}/proofs`);
-        await push(proofsRef, {
-          url,
-          lat: userLatLng[0],
-          lng: userLatLng[1],
-          timestamp: Date.now()
-        });
-        proofSuccessMsg.style.display = "block";
-        proofErrorMsg.textContent = "";
-        proofUrlInput.value = "";
-        fetchAndRenderProofs();
-        setTimeout(() => {
-          proofModalBackdrop.style.display = "none";
-        }, 1500);
-      } catch (err) {
-        proofErrorMsg.textContent = "Failed to save proof: " + err.message;
-      }
-    };
+.save-btn:hover, .proof-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
 
-    // --- Initial coloring ---
-    colorPolygons();
+.save-btn:active, .proof-btn:active {
+  transform: translateY(0);
+  background: var(--primary-dark);
+}
 
-    // --- Optionally: Load last entered campaign from localStorage ---
-    if (localStorage.getItem('lastCampaignId')) {
-      campaignIdInput.value = localStorage.getItem('lastCampaignId');
-      loadCampaignZones(campaignIdInput.value.trim());
-      setTimeout(fetchAndRenderProofs, 1000);
-    }
-    
-    // Save campaign ID to localStorage on save
-    document.getElementById('zoneForm').addEventListener('submit', () => {
-      localStorage.setItem('lastCampaignId', campaignIdInput.value.trim());
-    });
-  </script>
-</body>
-</html>
+.proof-btn:active {
+  background: #047857;
+}
+
+/* Status Indicators */
+.status-text {
+  font-weight: 600;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.status-completed {
+  color: var(--success);
+}
+
+.status-pending {
+  color: var(--danger);
+}
+
+.status-working {
+  color: var(--warning);
+}
+
+/* Messages */
+#saveMsg, #campaignMsg {
+  font-size: 9px;
+  font-weight: 500;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  text-align: center;
+  display: none;
+}
+
+#saveMsg {
+  background: rgb(5 150 105 / 0.1);
+  color: var(--success);
+  border: 1px solid rgb(5 150 105 / 0.2);
+}
+
+#campaignMsg {
+  background: rgb(220 38 38 / 0.1);
+  color: var(--danger);
+  border: 1px solid rgb(220 38 38 / 0.2);
+}
+
+#campaignMsg.success {
+  background: rgb(5 150 105 / 0.1);
+  color: var(--success);
+  border: 1px solid rgb(5 150 105 / 0.2);
+}
+
+/* GPS Link */
+.gps-url-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 12px;
+  margin-left: 4px;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+
+.gps-url-link:hover {
+  opacity: 1;
+}
+
+/* Map Labels */
+.leaflet-label-zone {
+  background: rgba(37, 99, 235, 0.95);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 8px;
+  pointer-events: none;
+  box-shadow: var(--shadow);
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.025em;
+}
+
+/* Modal Styles */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+
+.modal {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  min-width: 280px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal h3 {
+  margin: 0 0 16px 0;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  text-align: center;
+}
+
+.modal label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 10px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.modal input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  font-size: 10px;
+  background: var(--bg-secondary);
+  transition: all 0.15s ease;
+}
+
+.modal input[type="text"]:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1);
+  background: var(--bg-primary);
+}
+
+.modal button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  width: 100%;
+}
+
+.modal button:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+.close-btn {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  font-size: 18px;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  border: none;
+  cursor: pointer;
+  width: auto !important;
+  padding: 4px !important;
+  transform: none !important;
+}
+
+.close-btn:hover {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+}
+
+.modal-error {
+  color: var(--danger);
+  font-size: 9px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: rgb(220 38 38 / 0.1);
+  border-radius: 4px;
+  border: 1px solid rgb(220 38 38 / 0.2);
+}
+
+.modal-success {
+  color: var(--success);
+  font-weight: 600;
+  font-size: 9px;
+  text-align: center;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: rgb(5 150 105 / 0.1);
+  border-radius: 4px;
+  border: 1px solid rgb(5 150 105 / 0.2);
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .container {
+    margin: 0 8px;
+    margin-top: -20px;
+    padding: 12px;
+    border-radius: var(--radius);
+  }
+
+  #map {
+    height: 240px;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  th, td {
+    padding: 6px 2px;
+    font-size: 8px;
+  }
+
+  .flyer-input {
+    width: 35px;
+    font-size: 8px;
+  }
+
+  .gps-url-input {
+    width: 60px;
+    font-size: 8px;
+  }
+
+  .status-btn, .work-btn {
+    font-size: 7px;
+    padding: 3px 6px;
+    min-width: 50px;
+  }
+
+  #campaignIdInput {
+    font-size: 9px;
+    min-width: 100px;
+  }
+
+  h2 {
+    font-size: 12px;
+  }
+
+  .campaign-row {
+    justify-content: center;
+  }
+
+  .modal {
+    margin: 8px;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    margin: 0 4px;
+    margin-top: -20px;
+    padding: 8px;
+  }
+
+  #map {
+    height: 200px;
+  }
+
+  th, td {
+    padding: 4px 1px;
+    font-size: 7px;
+  }
+
+  .flyer-input, .gps-url-input {
+    font-size: 7px;
+  }
+
+  .flyer-input {
+    width: 30px;
+  }
+
+  .gps-url-input {
+    width: 50px;
+  }
+
+  .status-btn, .work-btn {
+    font-size: 6px;
+    padding: 2px 4px;
+    min-width: 40px;
+  }
+
+  h2 {
+    font-size: 11px;
+    margin-bottom: 12px;
+  }
+}
+
+/* Loading States */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Smooth Animations */
+* {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Prevent mobile input zoom */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+/* Add this meta tag to your HTML for best results: 
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+*/
