@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tentoo Clients Directory</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .title-section {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        .title-section h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        .clients-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .client-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(33, 150, 243, 0.08);
+            padding: 32px 28px 24px 28px;
+            position: relative;
+            overflow: hidden;
+            transition: box-shadow 0.3s;
+        }
+        .client-card:hover {
+            box-shadow: 0 12px 36px rgba(33, 150, 243, 0.18);
+        }
+        .company-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        .company-icon {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            color: white;
+            border-radius: 50%;
+            padding: 12px;
+            font-size: 32px;
+            margin-right: 16px;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.12);
+        }
+        .company-name {
+            font-size: 22px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .company-city {
+            font-size: 16px;
+            color: #1976D2;
+            font-weight: 500;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #667eea;
+            margin: 18px 0 6px 0;
+            letter-spacing: 0.5px;
+        }
+        .info-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        .info-row .material-icons {
+            font-size: 18px;
+            color: #2196F3;
+            margin-right: 8px;
+        }
+        .label {
+            font-weight: 500;
+            color: #555;
+            margin-right: 6px;
+        }
+        .value {
+            color: #333;
+        }
+        .contact-wrap {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .gender-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #764ba2, #2196F3);
+            color: white;
+            border-radius: 10px;
+            padding: 2px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            margin-left: 12px;
+            box-shadow: 0 2px 6px rgba(33, 150, 243, 0.08);
+        }
+        .submitted-at {
+            font-size: 13px;
+            color: #757575;
+            margin-top: 10px;
+            text-align: right;
+        }
+        @media (max-width: 700px) {
+            .clients-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            .client-card {
+                padding: 20px 12px 18px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="title-section">
+        <h1>Tentoo Clients Directory</h1>
+        <p>All submitted clients are beautifully listed here.</p>
+    </div>
+    <div id="clientsList" class="clients-grid"></div>
+    <script>
+      // Firebase config
+      const firebaseConfig = {
+        apiKey: "AIzaSyCYSOx_niWPHLDisCjAQzK8UJSe5TfwtLI",
+        authDomain: "nftfanactive.firebaseapp.com",
+        databaseURL: "https://nftfanactive-default-rtdb.firebaseio.com",
+        projectId: "nftfanactive",
+        storageBucket: "nftfanactive.appspot.com",
+        messagingSenderId: "311309982791",
+        appId: "1:311309982791:web:3e55bba6b78feb57ea6562",
+        measurementId: "G-3TRDL9749N"
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+
+      function formatDateTime(isoString) {
+        if (!isoString) return "";
+        const d = new Date(isoString);
+        return d.toLocaleString();
+      }
+
+      function createClientCard(data) {
+        const { company = {}, contact = {}, submittedAt = "" } = data;
+        return `
+        <div class="client-card">
+            <div class="company-header">
+                <span class="material-icons company-icon">business_center</span>
+                <div>
+                    <div class="company-name">${company.name || ""}</div>
+                    <div class="company-city">${company.city || ""}, ${company.country || ""}</div>
+                </div>
+            </div>
+            <div class="section-title">Company Info</div>
+            <div class="info-row"><span class="material-icons">location_on</span>
+                <span class="label">Address:</span> 
+                <span class="value">${company.street || ""} ${company.houseNo || ""}${company.houseExt ? " - " + company.houseExt : ""}</span>
+            </div>
+            <div class="info-row"><span class="material-icons">markunread_mailbox</span>
+                <span class="label">Postal Code:</span> <span class="value">${company.postcode || ""}</span>
+            </div>
+            ${company.vat ? `<div class="info-row"><span class="material-icons">receipt</span>
+                <span class="label">VAT:</span> <span class="value">${company.vat}</span></div>` : ""}
+            ${company.additional ? `<div class="info-row"><span class="material-icons">info</span>
+                <span class="label">Info:</span> <span class="value">${company.additional}</span></div>` : ""}
+            <div class="info-row"><span class="material-icons">phone</span>
+                <span class="label">Phone:</span> <span class="value">${company.phone || ""}</span>
+            </div>
+            ${company.mobile ? `<div class="info-row"><span class="material-icons">smartphone</span>
+                <span class="label">Mobile:</span> <span class="value">${company.mobile}</span></div>` : ""}
+            ${company.fax ? `<div class="info-row"><span class="material-icons">print</span>
+                <span class="label">Fax:</span> <span class="value">${company.fax}</span></div>` : ""}
+            <div class="contact-wrap">
+                <div class="section-title">Contact Person</div>
+                <div class="info-row"><span class="material-icons">person</span>
+                    <span class="label">Name:</span> <span class="value">${contact.firstName || ""} ${contact.lastName || ""}</span>
+                    ${contact.gender ? `<span class="gender-tag">${contact.gender}</span>` : ""}
+                </div>
+                <div class="info-row"><span class="material-icons">email</span>
+                    <span class="label">Email:</span> <span class="value">${contact.email || ""}</span>
+                </div>
+                ${contact.telephone ? `<div class="info-row"><span class="material-icons">local_phone</span>
+                    <span class="label">Telephone:</span> <span class="value">${contact.telephone}</span></div>` : ""}
+            </div>
+            <div class="submitted-at">Submitted: ${formatDateTime(submittedAt)}</div>
+        </div>
+        `;
+      }
+
+      function renderClients(clientsData) {
+        const clientsList = document.getElementById('clientsList');
+        if (!clientsData || Object.keys(clientsData).length === 0) {
+          clientsList.innerHTML = `<div style="text-align:center;color:#fff;font-size:18px;">No clients found yet.</div>`;
+          return;
+        }
+        // Sort by submittedAt descending
+        const sortedClients = Object.values(clientsData).sort((a, b) => {
+            return (b.submittedAt || "") > (a.submittedAt || "") ? 1 : -1;
+        });
+        clientsList.innerHTML = sortedClients.map(createClientCard).join("");
+      }
+
+      // Fetch all clients
+      db.ref('tentooPaymentDetails').on('value', function(snapshot) {
+        renderClients(snapshot.val());
+      });
+    </script>
+</body>
+</html>
