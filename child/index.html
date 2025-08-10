@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Boy Conception Planner</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Arial:400,700&display=swap">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 0;
+      background: #f9f9f9;
+      min-height: 100vh;
+    }
+    .container {
+      padding: 16px;
+    }
+    h1 {
+      text-align: center;
+      color: #2a8cff;
+      font-size: 2em;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+    }
+    label {
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 4px;
+      font-weight: 500;
+      font-size: 1.05em;
+    }
+    input, select {
+      padding: 10px;
+      font-size: 1em;
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-bottom: 8px;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus {
+      border-color: #2a8cff;
+    }
+    button {
+      margin-top: 18px;
+      padding: 14px;
+      font-size: 1.1em;
+      width: 100%;
+      background-color: #2a8cff;
+      color: white;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      box-shadow: 0 2px 6px rgba(42,140,255,0.08);
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      background-color: #176fe5;
+      box-shadow: 0 4px 12px rgba(42,140,255,0.13);
+    }
+    .plan {
+      margin-top: 22px;
+      background: white;
+      padding: 18px;
+      border-radius: 9px;
+      box-shadow: 0 0 10px 2px rgba(0,0,0,0.08);
+      font-size: 1em;
+    }
+    .month {
+      margin-bottom: 22px;
+      border-left: 3px solid #2a8cff;
+      padding-left: 10px;
+      background: #f3f8fe;
+      border-radius: 6px;
+    }
+    .month h3 {
+      color: #2a8cff;
+      margin-bottom: 8px;
+      font-size: 1.15em;
+    }
+    .month ul {
+      padding-left: 16px;
+      margin: 0 0 7px 0;
+    }
+    .month li {
+      margin-bottom: 4px;
+      line-height: 1.36;
+    }
+    .tips {
+      background: #dbefff;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 9px;
+      font-size: 0.97em;
+      color: #2561a8;
+    }
+    @media (max-width: 480px) {
+      body, .container {
+        max-width: 100vw;
+        padding: 0;
+      }
+      .plan {
+        padding: 11px;
+      }
+      .month {
+        padding-left: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Boy Conception Planner</h1>
+
+    <label for="periodStart">Period Start Date:</label>
+    <input type="date" id="periodStart" required />
+
+    <label for="periodEnd">Period End Date:</label>
+    <input type="date" id="periodEnd" required />
+
+    <label for="cycleLength">Cycle Length (days):</label>
+    <select id="cycleLength">
+      <option value="28" selected>28</option>
+      <option value="26">26</option>
+      <option value="27">27</option>
+      <option value="29">29</option>
+      <option value="30">30</option>
+    </select>
+
+    <button onclick="generatePlan()">Generate 6-Month Plan</button>
+
+    <div id="result" class="plan"></div>
+  </div>
+  <script>
+    function addDays(date, days) {
+      let result = new Date(date);
+      result.setDate(result.getDate() + days);
+      return result;
+    }
+
+    function formatDate(date) {
+      return date.toISOString().split('T')[0];
+    }
+
+    function generatePlan() {
+      const startInput = document.getElementById('periodStart').value;
+      const endInput = document.getElementById('periodEnd').value;
+      const cycleLength = parseInt(document.getElementById('cycleLength').value);
+
+      if (!startInput || !endInput) {
+        alert('Please enter both period start and end dates.');
+        return;
+      }
+
+      const periodStart = new Date(startInput);
+      let periodEnd = new Date(endInput);
+
+      if (periodEnd <= periodStart) {
+        alert('Period end date must be after start date.');
+        return;
+      }
+
+      // Estimated ovulation day is approx cycleLength - 14 days after period start
+      const ovulationOffset = cycleLength - 14;
+
+      let output = '';
+      output += `<p><strong>Cycle Length:</strong> ${cycleLength} days</p>`;
+      output += `<p><strong>Period Start Date:</strong> ${formatDate(periodStart)}</p>`;
+      output += `<p><strong>Period End Date:</strong> ${formatDate(periodEnd)}</p>`;
+      output += '<h2 style="margin-top:18px;font-size:1.12em;color:#2561a8;">6-Month Plan</h2>';
+
+      let currentPeriodStart = new Date(periodStart);
+
+      for (let month = 1; month <= 6; month++) {
+        // Calculate ovulation day for this cycle
+        let ovulationDay = addDays(currentPeriodStart, ovulationOffset);
+
+        // No sex days: from period end +1 to ovulation day - 1
+        let noSexStart = addDays(periodEnd, 1);
+        let noSexEnd = addDays(ovulationDay, -1);
+
+        // Ovulation test days: 3 days before ovulation
+        let testStart = addDays(ovulationDay, -3);
+        let testEnd = ovulationDay;
+
+        // Sex day = ovulation day
+
+        output += `<div class="month"><h3>Month ${month}</h3><ul>`;
+        output += `<li><strong>No sex days:</strong> ${formatDate(noSexStart)} to ${formatDate(noSexEnd)}</li>`;
+        output += `<li><strong>Start ovulation testing:</strong> ${formatDate(testStart)} to ${formatDate(testEnd)}</li>`;
+        output += `<li><strong>Sex day (try for boy):</strong> ${formatDate(ovulationDay)}</li>`;
+        output += `<li><strong>Post-sex tips:</strong> Deep penetration, her orgasm first or same time, stay lying down with hips raised 15-20 mins</li>`;
+        output += `</ul>`;
+
+        output += `<div class="tips">
+          <strong>Tips for this month:</strong><br>
+          - Use ovulation predictor kits during testing days.<br>
+          - Focus on deep penetration positions (doggy style, man on top with hips elevated).<br>
+          - Encourage her orgasm before or with you to increase chances for a boy.<br>
+          - Avoid alcohol, smoking, and stress.<br>
+          - Maintain healthy diet with alkaline-promoting foods (fruits, vegetables).<br>
+        </div></div>`;
+
+        // Prepare for next month: add cycleLength days to currentPeriodStart and periodEnd
+        currentPeriodStart = addDays(currentPeriodStart, cycleLength);
+        periodEnd = addDays(periodEnd, cycleLength);
+      }
+
+      document.getElementById('result').innerHTML = output;
+      // Scroll into view for better UX on mobile
+      setTimeout(() => {
+        document.getElementById('result').scrollIntoView({behavior: "smooth"});
+      }, 300);
+    }
+  </script>
+</body>
+</html>
