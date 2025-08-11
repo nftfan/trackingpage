@@ -1,0 +1,842 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Area Extractor</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        
+        #map {
+            height: 500px;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+        }
+        
+        .selection-panel {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .selection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .selection-category {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .category-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #495057;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .checkbox-item {
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 8px;
+            transform: scale(1.2);
+        }
+        
+        .checkbox-item label {
+            cursor: pointer;
+            font-size: 14px;
+            color: #495057;
+        }
+        
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .area-info {
+            background-color: #e8f4fd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .area-item {
+            padding: 12px;
+            margin: 8px 0;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            border-left: 4px solid #4CAF50;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .area-item:hover {
+            background-color: #e8f5e8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .area-item.country { border-left-color: #dc3545; }
+        .area-item.state { border-left-color: #fd7e14; }
+        .area-item.county { border-left-color: #ffc107; }
+        .area-item.city { border-left-color: #28a745; }
+        .area-item.town { border-left-color: #17a2b8; }
+        .area-item.village { border-left-color: #6f42c1; }
+        .area-item.hamlet { border-left-color: #e83e8c; }
+        .area-item.suburb { border-left-color: #6c757d; }
+        .area-item.neighbourhood { border-left-color: #20c997; }
+        
+        .area-name {
+            font-weight: bold;
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }
+        
+        .area-type {
+            color: #7f8c8d;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .area-details {
+            font-size: 12px;
+            color: #95a5a6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .population-badge {
+            background-color: #3498db;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .admin-badge {
+            background-color: #e74c3c;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background-color: #1976D2;
+        }
+        
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .type-section {
+            margin: 15px 0;
+        }
+        
+        .type-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .count-badge {
+            background-color: rgba(255,255,255,0.2);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .selection-controls {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .selection-controls button {
+            background-color: #6c757d;
+            font-size: 12px;
+            padding: 6px 12px;
+            margin-right: 8px;
+        }
+        
+        .selection-controls button:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <h1>Custom Area Extractor</h1>
+    <p>Select the types of areas you want to extract, then draw a polygon on the map.</p>
+    
+    <div class="selection-panel">
+        <h3>Select Area Types to Extract</h3>
+        
+        <div class="selection-controls">
+            <button onclick="selectAll()">Select All</button>
+            <button onclick="deselectAll()">Deselect All</button>
+            <button onclick="selectMajorOnly()">Major Areas Only</button>
+            <button onclick="selectSettlementsOnly()">Settlements Only</button>
+        </div>
+        
+        <div class="selection-grid">
+            <div class="selection-category">
+                <div class="category-title">Administrative Areas</div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="country" value="country">
+                    <label for="country">Countries</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="state" value="state" checked>
+                    <label for="state">States/Provinces</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="county" value="county" checked>
+                    <label for="county">Counties/Districts</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="municipality" value="municipality">
+                    <label for="municipality">Municipalities</label>
+                </div>
+            </div>
+            
+            <div class="selection-category">
+                <div class="category-title">Major Settlements</div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="city" value="city" checked>
+                    <label for="city">Cities</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="town" value="town" checked>
+                    <label for="town">Towns</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="village" value="village" checked>
+                    <label for="village">Villages</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="hamlet" value="hamlet">
+                    <label for="hamlet">Hamlets</label>
+                </div>
+            </div>
+            
+            <div class="selection-category">
+                <div class="category-title">Urban Areas</div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="suburb" value="suburb">
+                    <label for="suburb">Suburbs</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="neighbourhood" value="neighbourhood">
+                    <label for="neighbourhood">Neighbourhoods</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="quarter" value="quarter">
+                    <label for="quarter">Quarters</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="city_block" value="city_block">
+                    <label for="city_block">City Blocks</label>
+                </div>
+            </div>
+            
+            <div class="selection-category">
+                <div class="category-title">Other Areas</div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="isolated_dwelling" value="isolated_dwelling">
+                    <label for="isolated_dwelling">Isolated Dwellings</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="region" value="region">
+                    <label for="region">Regions</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="district" value="district">
+                    <label for="district">Districts</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button id="clearBtn">Clear All</button>
+        <button id="extractBtn" disabled>Extract Selected Areas</button>
+        <button id="clearMarkersBtn">Clear Markers</button>
+        <span id="status">Draw a polygon to get started</span>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div id="results" class="results" style="display: none;">
+        <h3>Extracted Areas</h3>
+        <div id="resultsContent"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([40.7128, -74.0060], 10);
+        
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Initialize drawing controls
+        const drawnItems = new L.FeatureGroup();
+        const markersGroup = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+        map.addLayer(markersGroup);
+        
+        const drawControl = new L.Control.Draw({
+            position: 'topright',
+            draw: {
+                polygon: {
+                    allowIntersection: false,
+                    drawError: {
+                        color: '#e1e100',
+                        message: '<strong>Error:</strong> shape edges cannot cross!'
+                    },
+                    shapeOptions: {
+                        color: '#2196F3',
+                        weight: 3,
+                        fillOpacity: 0.2
+                    }
+                },
+                rectangle: {
+                    shapeOptions: {
+                        color: '#2196F3',
+                        weight: 3,
+                        fillOpacity: 0.2
+                    }
+                },
+                circle: false,
+                circlemarker: false,
+                marker: false,
+                polyline: false
+            },
+            edit: {
+                featureGroup: drawnItems,
+                remove: true
+            }
+        });
+        map.addControl(drawControl);
+        
+        let currentPolygon = null;
+        let allAreas = [];
+        
+        // Handle drawing events
+        map.on(L.Draw.Event.CREATED, function(e) {
+            const layer = e.layer;
+            drawnItems.clearLayers();
+            drawnItems.addLayer(layer);
+            currentPolygon = layer;
+            
+            document.getElementById('extractBtn').disabled = false;
+            document.getElementById('status').textContent = 'Area drawn! Click "Extract Selected Areas" to find areas.';
+        });
+        
+        map.on(L.Draw.Event.DELETED, function(e) {
+            currentPolygon = null;
+            document.getElementById('extractBtn').disabled = true;
+            document.getElementById('status').textContent = 'Draw a polygon to get started';
+            document.getElementById('results').style.display = 'none';
+        });
+        
+        // Button event listeners
+        document.getElementById('clearBtn').addEventListener('click', function() {
+            drawnItems.clearLayers();
+            markersGroup.clearLayers();
+            currentPolygon = null;
+            allAreas = [];
+            document.getElementById('extractBtn').disabled = true;
+            document.getElementById('status').textContent = 'Draw a polygon to get started';
+            document.getElementById('results').style.display = 'none';
+        });
+        
+        document.getElementById('clearMarkersBtn').addEventListener('click', function() {
+            markersGroup.clearLayers();
+        });
+        
+        document.getElementById('extractBtn').addEventListener('click', function() {
+            if (currentPolygon) {
+                extractSelectedAreas(currentPolygon);
+            }
+        });
+        
+        // Selection control functions
+        function selectAll() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = true);
+        }
+        
+        function deselectAll() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+        }
+        
+        function selectMajorOnly() {
+            deselectAll();
+            ['country', 'state', 'county', 'city', 'town'].forEach(id => {
+                document.getElementById(id).checked = true;
+            });
+        }
+        
+        function selectSettlementsOnly() {
+            deselectAll();
+            ['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood'].forEach(id => {
+                document.getElementById(id).checked = true;
+            });
+        }
+        
+        // Function to get selected area types
+        function getSelectedAreaTypes() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+        
+        // Function to extract selected areas within the drawn area
+        async function extractSelectedAreas(polygon) {
+            const selectedTypes = getSelectedAreaTypes();
+            
+            if (selectedTypes.length === 0) {
+                alert('Please select at least one area type to extract.');
+                return;
+            }
+            
+            const extractBtn = document.getElementById('extractBtn');
+            const status = document.getElementById('status');
+            const results = document.getElementById('results');
+            const resultsContent = document.getElementById('resultsContent');
+            
+            extractBtn.disabled = true;
+            status.textContent = 'Extracting selected areas...';
+            results.style.display = 'block';
+            resultsContent.innerHTML = '<div class="loading">Searching for selected area types...</div>';
+            
+            try {
+                const bounds = polygon.getBounds();
+                const areas = await searchSelectedAreasInBounds(bounds, polygon, selectedTypes);
+                
+                allAreas = areas;
+                
+                if (areas.length === 0) {
+                    resultsContent.innerHTML = '<p>No areas of the selected types found in the drawn region.</p>';
+                } else {
+                    displayResults(areas, bounds);
+                }
+                
+                status.textContent = `Found ${areas.length} areas of selected types in the region`;
+            } catch (error) {
+                console.error('Error extracting areas:', error);
+                resultsContent.innerHTML = '<p>Error occurred while extracting areas. Please try again.</p>';
+                status.textContent = 'Error occurred during extraction';
+            } finally {
+                extractBtn.disabled = false;
+            }
+        }
+        
+        // Function to search for selected areas within bounds
+        async function searchSelectedAreasInBounds(bounds, polygon, selectedTypes) {
+            const areas = [];
+            const south = bounds.getSouth();
+            const west = bounds.getWest();
+            const north = bounds.getNorth();
+            const east = bounds.getEast();
+            
+            // Build dynamic query based on selected types
+            let placeQueries = [];
+            let adminQueries = [];
+            
+            selectedTypes.forEach(type => {
+                switch(type) {
+                    case 'country':
+                        placeQueries.push(`node["place"="country"]["name"](${south},${west},${north},${east});`);
+                        adminQueries.push(`relation["boundary"="administrative"]["admin_level"~"^[12]$"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'state':
+                        placeQueries.push(`node["place"="state"]["name"](${south},${west},${north},${east});`);
+                        adminQueries.push(`relation["boundary"="administrative"]["admin_level"~"^[34]$"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'county':
+                        adminQueries.push(`relation["boundary"="administrative"]["admin_level"~"^[56]$"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'municipality':
+                        adminQueries.push(`relation["boundary"="administrative"]["admin_level"~"^[78]$"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'city':
+                        placeQueries.push(`node["place"="city"]["name"](${south},${west},${north},${east});`);
+                        placeQueries.push(`way["place"="city"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'town':
+                        placeQueries.push(`node["place"="town"]["name"](${south},${west},${north},${east});`);
+                        placeQueries.push(`way["place"="town"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'village':
+                        placeQueries.push(`node["place"="village"]["name"](${south},${west},${north},${east});`);
+                        placeQueries.push(`way["place"="village"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'hamlet':
+                        placeQueries.push(`node["place"="hamlet"]["name"](${south},${west},${north},${east});`);
+                        placeQueries.push(`way["place"="hamlet"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'suburb':
+                        placeQueries.push(`node["place"="suburb"]["name"](${south},${west},${north},${east});`);
+                        placeQueries.push(`way["place"="suburb"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'neighbourhood':
+                        placeQueries.push(`node["place"~"^neighbo.?rhood$"]["name"](${south},${west},${north},${east});`);
+                        placeQueries.push(`way["place"~"^neighbo.?rhood$"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'quarter':
+                        placeQueries.push(`node["place"="quarter"]["name"](${south},${west},${north},${east});`);
+                        placeQueries.push(`way["place"="quarter"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'city_block':
+                        placeQueries.push(`node["place"="city_block"]["name"](${south},${west},${north},${east});`);
+                        placeQueries.push(`way["place"="city_block"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'isolated_dwelling':
+                        placeQueries.push(`node["place"="isolated_dwelling"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'region':
+                        placeQueries.push(`node["place"="region"]["name"](${south},${west},${north},${east});`);
+                        break;
+                    case 'district':
+                        placeQueries.push(`node["place"="district"]["name"](${south},${west},${north},${east});`);
+                        break;
+                }
+            });
+            
+            const overpassQuery = `
+                [out:json][timeout:30];
+                (
+                  ${placeQueries.join('\n  ')}
+                  ${adminQueries.join('\n  ')}
+                );
+                out center meta;
+            `;
+            
+            try {
+                const response = await fetch('https://overpass-api.de/api/interpreter', {
+                    method: 'POST',
+                    body: overpassQuery,
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch data from Overpass API');
+                }
+                
+                const data = await response.json();
+                
+                // Process the results
+                for (const element of data.elements) {
+                    let lat, lon;
+                    
+                    if (element.type === 'node') {
+                        lat = element.lat;
+                        lon = element.lon;
+                    } else if (element.center) {
+                        lat = element.center.lat;
+                        lon = element.center.lon;
+                    } else {
+                        continue;
+                    }
+                    
+                    const point = L.latLng(lat, lon);
+                    
+                    // Check if point is within the polygon
+                    if (isPointInPolygon(point, polygon)) {
+                        const areaType = determineAreaType(element.tags);
+                        const population = parseInt(element.tags.population) || null;
+                        const adminLevel = element.tags.admin_level || null;
+                        
+                        areas.push({
+                            name: element.tags.name,
+                            type: areaType,
+                            place: element.tags.place,
+                            adminLevel: adminLevel,
+                            population: population,
+                            lat: lat,
+                            lon: lon,
+                            tags: element.tags,
+                            isCapital: element.tags.capital ? true : false
+                        });
+                    }
+                }
+                
+                // Remove duplicates and sort
+                const uniqueAreas = areas.filter((area, index, self) =>
+                    index === self.findIndex(a => 
+                        a.name === area.name && 
+                        Math.abs(a.lat - area.lat) < 0.01 && 
+                        Math.abs(a.lon - area.lon) < 0.01
+                    )
+                );
+                
+                return uniqueAreas.sort((a, b) => {
+                    const typePriority = {
+                        'Country': 1, 'State': 2, 'County': 3, 'Municipality': 4,
+                        'City': 5, 'Town': 6, 'Village': 7, 'Hamlet': 8, 
+                        'Suburb': 9, 'Neighbourhood': 10, 'Other': 11
+                    };
+                    
+                    const aPriority = typePriority[a.type] || 11;
+                    const bPriority = typePriority[b.type] || 11;
+                    
+                    if (aPriority !== bPriority) {
+                        return aPriority - bPriority;
+                    }
+                    
+                    return a.name.localeCompare(b.name);
+                });
+                
+            } catch (error) {
+                console.error('Error fetching from Overpass API:', error);
+                return [];
+            }
+        }
+        
+        // Function to determine area type from tags
+        function determineAreaType(tags) {
+            if (tags.place) {
+                switch (tags.place) {
+                    case 'country': return 'Country';
+                    case 'state': return 'State';
+                    case 'city': return 'City';
+                    case 'town': return 'Town';
+                    case 'village': return 'Village';
+                    case 'hamlet': return 'Hamlet';
+                    case 'suburb': return 'Suburb';
+                    case 'neighbourhood':
+                    case 'neighborhood': return 'Neighbourhood';
+                    case 'quarter': return 'Quarter';
+                    case 'city_block': return 'City Block';
+                    case 'isolated_dwelling': return 'Isolated Dwelling';
+                    case 'region': return 'Region';
+                    case 'district': return 'District';
+                    default: return 'Place';
+                }
+            }
+            
+            if (tags.boundary === 'administrative') {
+                const adminLevel = parseInt(tags.admin_level);
+                switch (adminLevel) {
+                    case 1:
+                    case 2: return 'Country';
+                    case 3:
+                    case 4: return 'State';
+                    case 5:
+                    case 6: return 'County';
+                    case 7:
+                    case 8: return 'Municipality';
+                    case 9:
+                    case 10: return 'District';
+                    default: return 'Administrative';
+                }
+            }
+            
+            return 'Other';
+        }
+        
+        // Function to check if a point is within a polygon
+        function isPointInPolygon(point, polygon) {
+            const latlngs = polygon.getLatLngs()[0];
+            const x = point.lat;
+            const y = point.lng;
+            
+            let inside = false;
+            for (let i = 0, j = latlngs.length - 1; i < latlngs.length; j = i++) {
+                const xi = latlngs[i].lat;
+                const yi = latlngs[i].lng;
+                const xj = latlngs[j].lat;
+                const yj = latlngs[j].lng;
+                
+                if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+                    inside = !inside;
+                }
+            }
+            
+            return inside;
+        }
+        
+        // Function to display results
+        function displayResults(areas, bounds) {
+            const resultsContent = document.getElementById('resultsContent');
+            
+            let html = `
+                <div class="area-info">
+                    <strong>Search Area:</strong><br>
+                    Bounds: ${bounds.getSouth().toFixed(4)}, ${bounds.getWest().toFixed(4)} to ${bounds.getNorth().toFixed(4)}, ${bounds.getEast().toFixed(4)}<br>
+                    Total areas found: ${areas.length}
+                </div>
+            `;
+            
+            // Group areas by type
+            const groupedAreas = {};
+            areas.forEach(area => {
+                if (!groupedAreas[area.type]) {
+                    groupedAreas[area.type] = [];
+                }
+                groupedAreas[area.type].push(area);
+            });
+            
+            // Display grouped results
+            Object.keys(groupedAreas).forEach(type => {
+                html += `
+                    <div class="type-section">
+                        <div class="type-header">
+                            <span>${type}s</span>
+                            <span class="count-badge">${groupedAreas[type].length}</span>
+                        </div>
+                `;
+                
+                groupedAreas[type].forEach(area => {
+                    html += `
+                        <div class="area-item ${type.toLowerCase().replace(' ', '')}" onclick="zoomToLocation(${area.lat}, ${area.lon})">
+                            <div class="area-name">
+                                ${area.name}
+                                ${area.isCapital ? ' 🏛️' : ''}
+                                ${area.adminLevel ? `<span class="admin-badge">L${area.adminLevel}</span>` : ''}
+                            </div>
+                            <div class="area-type">${area.type}</div>
+                            <div class="area-details">
+                                <span>Coordinates: ${area.lat.toFixed(4)}, ${area.lon.toFixed(4)}</span>
+                                ${area.population ? `<span class="population-badge">${area.population.toLocaleString()}</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            });
+            
+            resultsContent.innerHTML = html;
+            
+            // Update markers
+            updateMarkers(areas);
+        }
+        
+        // Function to update markers on map
+        function updateMarkers(areas) {
+            markersGroup.clearLayers();
+            
+            const typeColors = {
+                'Country': '#dc3545', 'State': '#fd7e14', 'County': '#ffc107',
+                'Municipality': '#28a745', 'City': '#28a745', 'Town': '#17a2b8',
+                'Village': '#6f42c1', 'Hamlet': '#e83e8c', 'Suburb': '#6c757d',
+                'Neighbourhood': '#20c997', 'Quarter': '#6f42c1', 'Other': '#343a40'
+            };
+            
+            const typeSizes = {
+                'Country': 14, 'State': 12, 'County': 10, 'Municipality': 8,
+                'City': 8, 'Town': 7, 'Village': 6, 'Hamlet': 5, 'Suburb': 4,
+                'Neighbourhood': 3, 'Quarter': 3, 'Other': 2
+            };
+            
+            areas.forEach(area => {
+                const color = typeColors[area.type] || '#343a40';
+                const size = typeSizes[area.type] || 4;
+                
+                const marker = L.circleMarker([area.lat, area.lon], {
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.7,
+                    radius: size,
+                    weight: 2
+                }).bindPopup(`
+                    <strong>${area.name}</strong><br>
+                    Type: ${area.type}<br>
+                    ${area.adminLevel ? `Admin Level: ${area.adminLevel}<br>` : ''}
+                    ${area.population ? `Population: ${area.population.toLocaleString()}<br>` : ''}
+                    ${area.isCapital ? 'Administrative Capital<br>' : ''}
+                    Coordinates: ${area.lat.toFixed(4)}, ${area.lon.toFixed(4)}
+                `).addTo(markersGroup);
+            });
+        }
+        
+        // Function to zoom to a specific location
+        function zoomToLocation(lat, lon) {
+            map.setView([lat, lon], 14);
+        }
+        
+        // Get user's location for initial map positioning
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                map.setView([lat, lon], 12);
+            });
+        }
+    </script>
+</body>
+</html>
