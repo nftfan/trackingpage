@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -97,6 +98,62 @@
     }
     ::-webkit-scrollbar { width: 2px; background: #eee; }
     ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+    /* PIN popup styling */
+    #pin-popup-bg {
+      position: fixed;
+      left: 0; top: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.18);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+    }
+    #pin-popup {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.19);
+      padding: 22px 20px 18px 20px;
+      min-width: 260px;
+      max-width: 95vw;
+      text-align: center;
+    }
+    #pin-popup input[type="password"] {
+      font-size: 15px;
+      padding: 6px 12px;
+      margin: 8px 0 18px 0;
+      border-radius: 7px;
+      border: 1px solid #bbb;
+      width: 80%;
+      text-align: center;
+      letter-spacing: 0.18em;
+    }
+    #pin-popup button {
+      background: #007bff;
+      color: #fff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-right: 7px;
+      font-weight: 500;
+    }
+    #pin-popup button.cancel {
+      background: #eee;
+      color: #333;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    #pin-popup .err-msg {
+      color: #d32f2f;
+      font-size: 11px;
+      margin-bottom: 7px;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -118,6 +175,19 @@
       <span class="material-icons">done_all</span>
       Select All
     </button>
+  </div>
+
+  <!-- PIN popup for delete -->
+  <div id="pin-popup-bg">
+    <div id="pin-popup">
+      <div style="font-size:16px;font-weight:500;margin-bottom:7px;">
+        Enter PIN to Delete
+      </div>
+      <input id="pin-input" type="password" maxlength="6" autocomplete="off" placeholder="Enter PIN" />
+      <div id="pin-err-msg" class="err-msg">Incorrect PIN!</div>
+      <button id="pin-confirm">Confirm</button>
+      <button class="cancel" id="pin-cancel">Cancel</button>
+    </div>
   </div>
 
   <!-- Firebase SDK -->
@@ -284,22 +354,66 @@
       copyToClipboard(str);
     };
 
+    // --- PIN Popup Logic ---
+    const pinPopupBg = document.getElementById('pin-popup-bg');
+    const pinInput = document.getElementById('pin-input');
+    const pinConfirm = document.getElementById('pin-confirm');
+    const pinCancel = document.getElementById('pin-cancel');
+    const pinErrMsg = document.getElementById('pin-err-msg');
+    let deleteQueue = [];
+
+    function openPinPopup(queue) {
+      deleteQueue = queue;
+      pinInput.value = '';
+      pinErrMsg.style.display = 'none';
+      pinPopupBg.style.display = 'flex';
+      pinInput.focus();
+    }
+
+    function closePinPopup() {
+      pinPopupBg.style.display = 'none';
+      deleteQueue = [];
+    }
+
+    pinCancel.onclick = function() {
+      closePinPopup();
+    };
+
+    pinPopupBg.onclick = function(e) {
+      if (e.target === pinPopupBg) {
+        closePinPopup();
+      }
+    };
+
+    pinConfirm.onclick = function() {
+      const PIN = "000888";
+      if (pinInput.value === PIN) {
+        // Proceed to delete polygons
+        let promises = [];
+        deleteQueue.forEach(id => {
+          let ref = polygonRefs[id];
+          if (ref) {
+            promises.push(db.ref('polygons/' + ref.key).remove());
+            drawnItems.removeLayer(ref.layer);
+          }
+        });
+        Promise.all(promises).then(() => {
+          selectedPolygons.clear();
+          updateActionButtons();
+          loadPolygons();
+          showToast('Deleted polygons!');
+        });
+        closePinPopup();
+      } else {
+        pinErrMsg.style.display = 'block';
+        pinInput.value = '';
+        pinInput.focus();
+      }
+    };
+
     document.getElementById('delete-selected').onclick = function() {
       if (selectedPolygons.size === 0) return;
-      if (!confirm("Delete selected polygons? This cannot be undone.")) return;
-      let promises = [];
-      selectedPolygons.forEach(id => {
-        let ref = polygonRefs[id];
-        if (ref) {
-          promises.push(db.ref('polygons/' + ref.key).remove());
-          drawnItems.removeLayer(ref.layer);
-        }
-      });
-      Promise.all(promises).then(() => {
-        selectedPolygons.clear();
-        updateActionButtons();
-        loadPolygons();
-      });
+      openPinPopup(Array.from(selectedPolygons));
     };
 
     document.getElementById('copy-selected').onclick = function() {
