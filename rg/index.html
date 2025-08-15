@@ -1,0 +1,329 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LeuvenFlyers Receipt Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            min-height: 100vh;
+            padding: 0;
+        }
+        .container {
+            max-width: 500px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            padding: 32px 24px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            font-size: 2em;
+            margin-bottom: 16px;
+        }
+        label {
+            font-weight: 600;
+            color: #34495e;
+            display: block;
+            margin-bottom: 4px;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 18px;
+            border: 1px solid #dedede;
+            border-radius: 6px;
+            font-size: 1em;
+            font-family: inherit;
+        }
+        .row {
+            display: flex;
+            gap: 12px;
+        }
+        .row > div {
+            flex: 1;
+        }
+        button {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 0;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: linear-gradient(135deg, #2980b9 0%, #1abc9c 100%);
+        }
+        .info {
+            text-align: center;
+            margin: 24px 0 0 0;
+            font-size: 0.95em;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LeuvenFlyers<br>Receipt Generator</h1>
+        <form id="receiptForm">
+            <label for="lang">Language</label>
+            <select id="lang" name="lang">
+                <option value="en">English</option>
+                <option value="nl">Nederlands</option>
+                <option value="fr">Français</option>
+            </select>
+            <label for="custName">Customer Name</label>
+            <input type="text" id="custName" name="custName" required>
+            <label for="custEmail">Customer Email</label>
+            <input type="email" id="custEmail" name="custEmail" required>
+            <label for="custAddress">Customer Address</label>
+            <input type="text" id="custAddress" name="custAddress" required>
+            <label for="campaignId">Campaign ID</label>
+            <input type="text" id="campaignId" name="campaignId" required>
+            <div class="row">
+                <div>
+                    <label for="quantity">Flyers Quantity</label>
+                    <input type="number" id="quantity" name="quantity" min="1" value="2000" required>
+                </div>
+                <div>
+                    <label for="amount">Amount (€)</label>
+                    <input type="number" step="0.01" id="amount" name="amount" value="100.00" required>
+                </div>
+            </div>
+            <button type="submit">Generate & Download PDF</button>
+        </form>
+        <div class="info">
+            For support, contact info@leuvenflyers.com or 0465151179
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        const translations = {
+            en: {
+                companyName: "LeuvenFlyers",
+                receiptTitle: "Payment Receipt",
+                receiptNumber: "Receipt #:",
+                date: "Date:",
+                customerInfo: "Customer Information",
+                name: "Name:",
+                email: "Email:",
+                address: "Address:",
+                serviceDetails: "Service Details",
+                description: "Description",
+                campaignId: "Campaign ID",
+                quantity: "Quantity",
+                amount: "Amount",
+                serviceName: "Professional Flyer Distribution Service",
+                flyers: "flyers",
+                subtotal: "Subtotal:",
+                processingFee: "Processing Fee:",
+                totalPaid: "Total Paid:",
+                paymentMethod: "Payment Method: Online Payment (Individual Customer)",
+                transactionId: "Transaction ID:",
+                thankYou: "Thank you for choosing LeuvenFlyers for your marketing needs.",
+                support: "For support, contact us at info@leuvenflyers.com"
+            },
+            nl: {
+                companyName: "LeuvenFlyers",
+                receiptTitle: "Betalingsbewijs",
+                receiptNumber: "Ontvangst #:",
+                date: "Datum:",
+                customerInfo: "Klantinformatie",
+                name: "Naam:",
+                email: "E-mail:",
+                address: "Adres:",
+                serviceDetails: "Servicedetails",
+                description: "Beschrijving",
+                campaignId: "Campagne ID",
+                quantity: "Hoeveelheid",
+                amount: "Bedrag",
+                serviceName: "Professionele Flyerverdelingsdienst",
+                flyers: "flyers",
+                subtotal: "Subtotaal:",
+                processingFee: "Verwerkingskosten:",
+                totalPaid: "Totaal Betaald:",
+                paymentMethod: "Betaalmethode: Online Betaling (Particuliere Klant)",
+                transactionId: "Transactie ID:",
+                thankYou: "Bedankt voor het kiezen van LeuvenFlyers voor uw marketingbehoeften.",
+                support: "Voor ondersteuning, neem contact met ons op via info@leuvenflyers.com"
+            },
+            fr: {
+                companyName: "LeuvenFlyers",
+                receiptTitle: "Reçu de Paiement",
+                receiptNumber: "Reçu #:",
+                date: "Date:",
+                customerInfo: "Informations Client",
+                name: "Nom:",
+                email: "E-mail:",
+                address: "Adresse:",
+                serviceDetails: "Détails du Service",
+                description: "Description",
+                campaignId: "ID Campagne",
+                quantity: "Quantité",
+                amount: "Montant",
+                serviceName: "Service Professionnel de Distribution de Prospectus",
+                flyers: "prospectus",
+                subtotal: "Sous-total:",
+                processingFee: "Frais de Traitement:",
+                totalPaid: "Total Payé:",
+                paymentMethod: "Méthode de Paiement: Paiement en Ligne (Client Particulier)",
+                transactionId: "ID Transaction:",
+                thankYou: "Merci d'avoir choisi LeuvenFlyers pour vos besoins marketing.",
+                support: "Pour le support, contactez-nous à info@leuvenflyers.com"
+            }
+        };
+
+        document.getElementById('receiptForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const lang = document.getElementById('lang').value;
+            const custName = document.getElementById('custName').value;
+            const custEmail = document.getElementById('custEmail').value;
+            const custAddress = document.getElementById('custAddress').value;
+            const campaignId = document.getElementById('campaignId').value;
+            const quantity = document.getElementById('quantity').value;
+            const amount = parseFloat(document.getElementById('amount').value).toFixed(2);
+            generateReceiptPDF({ lang, custName, custEmail, custAddress, campaignId, quantity, amount });
+        });
+
+        function generateReceiptPDF({ lang, custName, custEmail, custAddress, campaignId, quantity, amount }) {
+            const { jsPDF } = window.jspdf;
+            const t = translations[lang];
+            const doc = new jsPDF();
+
+            const primaryBlue = [44, 62, 80];
+            const accentBlue = [52, 152, 219];
+            const lightGray = [248, 249, 250];
+            const darkGray = [52, 73, 94];
+            const textGray = [127, 140, 141];
+
+            // Header background
+            doc.setFillColor(...primaryBlue);
+            doc.rect(0, 0, 210, 35, 'F');
+
+            // Company name and title (no logo, no subtitle)
+            doc.setFontSize(24);
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.text(t.companyName, 20, 21);
+
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "normal");
+            doc.text(t.receiptTitle, 20, 28);
+
+            // Receipt metadata in header
+            doc.setFontSize(10);
+            doc.text(t.receiptNumber + " LF-2025-0847", 150, 18);
+            doc.text(t.date + " " + new Date().toLocaleDateString(lang === 'en' ? 'en-GB' : lang === 'nl' ? 'nl-BE' : 'fr-BE'), 150, 25);
+
+            // Company information section
+            doc.setFillColor(...lightGray);
+            doc.roundedRect(15, 45, 180, 22, 3, 3, 'F');
+
+            doc.setFontSize(12);
+            doc.setTextColor(...darkGray);
+            doc.setFont("helvetica", "bold");
+            doc.text(t.companyName, 20, 54);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(...textGray);
+            doc.text("Kiekenstraat 1 Bus 0302, 3000 Leuven, Belgium", 20, 60);
+            doc.text("Email: info@leuvenflyers.com  |  Phone: 0465151179", 20, 65);
+
+            // Customer information section
+            doc.setDrawColor(...accentBlue);
+            doc.setLineWidth(0.5);
+            doc.line(15, 75, 195, 75);
+
+            doc.setFontSize(12);
+            doc.setTextColor(...darkGray);
+            doc.setFont("helvetica", "bold");
+            doc.text(t.customerInfo, 15, 85);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(t.name, 15, 95);
+            doc.text(custName, 40, 95);
+            doc.text(t.email, 110, 95);
+            doc.text(custEmail, 130, 95);
+            doc.text(t.address, 15, 102);
+            doc.text(custAddress, 40, 102);
+
+            // Service details section
+            doc.line(15, 110, 195, 110);
+
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...darkGray);
+            doc.text(t.serviceDetails, 15, 120);
+
+            // Service table header
+            doc.setFillColor(...accentBlue);
+            doc.rect(15, 125, 180, 8, 'F');
+            doc.setFontSize(9);
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.text(t.description, 18, 130);
+            doc.text(t.campaignId, 80, 130);
+            doc.text(t.quantity, 130, 130);
+            doc.text(t.amount, 170, 130);
+
+            // Service details row
+            doc.setFillColor(255, 255, 255);
+            doc.rect(15, 133, 180, 12, 'F');
+            doc.setFontSize(9);
+            doc.setTextColor(...darkGray);
+            doc.setFont("helvetica", "normal");
+            doc.text(t.serviceName, 18, 140);
+            doc.text(campaignId, 80, 140);
+            doc.text(quantity + " " + t.flyers, 130, 140);
+            doc.text("€" + amount, 170, 140);
+
+            // Payment summary
+            doc.setFillColor(...lightGray);
+            doc.roundedRect(120, 155, 75, 27, 3, 3, 'F');
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(...darkGray);
+            doc.text(t.subtotal, 125, 165);
+            doc.text("€" + amount, 185, 165);
+            doc.text(t.processingFee, 125, 172);
+            doc.text("€0,00", 185, 172);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.text(t.totalPaid, 125, 179);
+            doc.text("€" + amount, 185, 179);
+
+            // Payment method
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(t.paymentMethod, 15, 200);
+            doc.text(t.transactionId + " TXN-" + Math.random().toString(36).substr(2, 9).toUpperCase(), 15, 206);
+
+            // Footer
+            doc.setFontSize(8);
+            doc.setTextColor(...textGray);
+            doc.setFont("helvetica", "normal");
+            doc.text(t.thankYou, 105, 250, {align: "center"});
+            doc.text(t.support, 105, 255, {align: "center"});
+
+            const filename = `LeuvenFlyers_Receipt_${lang.toUpperCase()}.pdf`;
+            doc.save(filename);
+        }
+    </script>
+</body>
+</html>
