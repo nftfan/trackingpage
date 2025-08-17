@@ -1,712 +1,423 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Zone Completion Tracker (Mobile Optimized)</title>
+  <title>Compact Zone Tracker</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
-  <link rel="apple-touch-icon" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
-  <link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     :root {
-      --primary:#2563eb; --primary-dark:#1d4ed8; --secondary:#64748b;
-      --success:#059669; --danger:#dc2626; --warning:#d97706;
-      --bg-primary:#ffffff; --bg-secondary:#f1f5f9; --bg-tertiary:#eef2f6;
-      --border:#dbe2ea; --text-primary:#0f172a; --text-secondary:#475569;
-      --radius:14px; --radius-sm:8px;
-      --shadow:0 2px 8px -2px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.08);
+      --p:#2563eb;--p2:#1d4ed8;--d:#dc2626;--s:#059669;--w:#d97706;
+      --bg:#ffffff;--bg2:#f1f5f9;--bd:#d9e0e7;
     }
-    *{box-sizing:border-box;font-family:'Inter',system-ui,sans-serif}
-    body{margin:0;background:var(--bg-secondary);color:var(--text-primary);-webkit-font-smoothing:antialiased}
-    #map{height:48vh;min-height:300px;width:100%;background:#d9e2ec}
-    .app-shell{position:relative;margin-top:-22px}
-    .card{background:var(--bg-primary);border-radius:24px 24px 0 0;padding:20px 16px 120px;box-shadow:0 -4px 16px -4px rgba(0,0,0,.08)}
-    h2{margin:4px 0 12px;font-size:18px;font-weight:700;letter-spacing:-0.5px;text-align:center;color:var(--primary)}
-    form{margin:0}
-    label{font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px}
-    input[type=text],input[type=number],select{
-      width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);
-      font-size:16px;background:var(--bg-tertiary);outline:none;transition:.18s;
+    *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;}
+    body{background:#fff;font-size:10px;line-height:1.25;color:#0f172a;-webkit-font-smoothing:antialiased;}
+    #map{height:400px;width:100%;background:#e2e8f0;}
+    /* BELOW AREA TOTAL TARGET ≈400px */
+    .panel{
+      height:400px;overflow:hidden;display:flex;flex-direction:column;
+      border-top:1px solid var(--bd);background:var(--bg);font-size:10px;
     }
-    input:focus,select:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
-    .row{display:flex;gap:10px;align-items:flex-end}
-    .row.stretch>div{flex:1}
-    #campaignMsg{font-size:12px;margin-top:6px;padding:8px 10px;border-radius:10px;font-weight:500;display:none}
-    #campaignMsg.success{background:rgba(5,150,105,.12);color:var(--success);border:1px solid rgba(5,150,105,.3)}
-    #campaignMsg:not(.success){background:rgba(220,38,38,.12);color:var(--danger);border:1px solid rgba(220,38,38,.3)}
-    .zone-select-wrap{margin-top:16px}
-    .zone-nav{display:flex;gap:8px;margin-top:10px}
-    .zone-nav button{
-      flex:1;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:var(--radius-sm);
-      padding:10px 0;font-size:14px;font-weight:600;color:var(--text-secondary);letter-spacing:.5px;
+    .scroller{overflow-y:auto;flex:1;padding:6px 6px 52px}
+    h2{font-size:10px;font-weight:700;color:var(--p);text-align:center;margin:2px 0 4px;}
+    label{font-size:9px;font-weight:600;display:block;margin-bottom:2px;}
+    input,select{
+      width:100%;padding:4px 5px;font-size:9px;border:1px solid var(--bd);border-radius:4px;
+      background:var(--bg2);outline:none;
     }
-    .zone-nav button:active{background:#fff}
-    .zone-detail{margin-top:18px;padding:16px 14px 18px;border:1px solid var(--border);border-radius:18px;background:#fff;box-shadow:var(--shadow)}
-    .zone-detail.hidden{display:none}
-    .zone-detail h3{margin:0 0 10px;font-size:16px;font-weight:600;letter-spacing:-0.25px;color:var(--text-primary)}
-    .badge{
-      display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
-      padding:6px 12px;border-radius:30px;letter-spacing:.5px
+    input:focus,select:focus{border-color:var(--p);background:#fff;box-shadow:0 0 0 2px rgba(37,99,235,.18);}
+    .row{display:flex;gap:4px;margin-bottom:4px;}
+    .row > div{flex:1;}
+    .zone-box{
+      border:1px solid var(--bd);border-radius:5px;padding:4px 5px;margin-top:4px;background:#fff;
     }
-    .badge.pending{background:rgba(220,38,38,.12);color:var(--danger)}
-    .badge.completed{background:rgba(37,99,235,.12);color:var(--primary)}
-    .badge.working{background:rgba(217,119,6,.15);color:var(--warning)}
-    .status-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 12px}
-    .chip-btn{
-      flex:1;min-width:120px;background:var(--bg-tertiary);border:1px solid var(--border);
-      padding:12px 10px;border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;
-      letter-spacing:.5px;display:flex;justify-content:center;align-items:center;gap:6px;transition:.18s
+    .zone-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+    .badge{padding:2px 6px;border-radius:20px;font-size:9px;font-weight:600;line-height:1;}
+    .pending{background:rgba(220,38,38,.15);color:var(--d);}
+    .completed{background:rgba(37,99,235,.18);color:var(--p);}
+    .working{background:rgba(217,119,6,.25);color:var(--w);}
+    .btns{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;}
+    button{
+      border:none;border-radius:4px;padding:4px 6px;font-size:9px;font-weight:600;
+      background:var(--p);color:#fff;cursor:pointer;line-height:1;letter-spacing:.3px;
     }
-    .chip-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
-    .chip-btn.warning{background:var(--warning);color:#fff;border-color:var(--warning)}
-    .chip-btn.success{background:var(--success);color:#fff;border-color:var(--success)}
-    .chip-btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
-    .chip-btn.outline{background:#fff;color:var(--text-secondary)}
-    .chip-btn:active{transform:scale(.97)}
-    .field{margin-bottom:14px}
-    .inline-link{
-      font-size:12px;color:var(--primary);text-decoration:none;font-weight:500;margin-top:4px;display:inline-block
+    button.small{padding:3px 5px;font-size:8px;}
+    button.alt{background:#64748b;}
+    button.dng{background:var(--d);}
+    button.wrk{background:var(--w);}
+    button.scs{background:var(--s);}
+    button.out{background:#fff;color:#334155;border:1px solid var(--bd);}
+    button:active{transform:scale(.95);}
+    .pair{display:flex;align-items:center;gap:4px;margin-bottom:4px;}
+    .pair input{flex:1;}
+    .link{font-size:8px;color:var(--p);text-decoration:none;display:inline-block;margin-top:2px;}
+    .save-bar{
+      position:absolute;left:0;right:0;bottom:0;padding:4px 6px 4px;
+      background:#ffffffef;border-top:1px solid var(--bd);display:flex;gap:4px;
     }
-    .inline-link:active{opacity:.6}
-    .save-fixed{
-      position:fixed;left:0;right:0;bottom:0;padding:16px 18px 30px;
-      background:linear-gradient(180deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.9) 40%,#fff 90%);
-      display:flex;flex-direction:column;gap:10px;z-index:20
-    }
-    .save-btn,.proof-btn{
-      width:100%;padding:16px 20px;font-size:15px;font-weight:700;letter-spacing:1px;border:none;
-      border-radius:18px;cursor:pointer;box-shadow:0 4px 14px -4px rgba(37,99,235,.4);transition:.2s
-    }
-    .save-btn{background:var(--primary);color:#fff}
-    .proof-btn{background:var(--success);color:#fff;box-shadow:0 4px 14px -4px rgba(5,150,105,.5)}
-    .save-btn.loading,.proof-btn.loading{opacity:.6}
-    .save-btn:active,.proof-btn:active{transform:translateY(2px);box-shadow:0 2px 10px -4px rgba(0,0,0,.25)}
-    #saveMsg{display:none;text-align:center;font-size:13px;font-weight:600;color:var(--success)}
+    .save-bar button{flex:1;padding:6px 4px;font-size:9px;}
+    #saveMsg{display:none;font-size:9px;font-weight:600;color:var(--s);text-align:center;margin-top:2px;}
+    #campaignMsg{display:none;margin-top:2px;font-size:9px;font-weight:600;padding:3px 4px;border-radius:4px;}
+    #campaignMsg.success{background:rgba(5,150,105,.15);color:var(--s);}
+    #campaignMsg.err{background:rgba(220,38,38,.15);color:var(--d);}
+    /* Modal */
+    .modal-backdrop{position:fixed;inset:0;display:none;background:rgba(0,0,0,.45);z-index:40;justify-content:center;align-items:center;}
+    .modal{background:#fff;width:260px;padding:8px 10px;border-radius:6px;border:1px solid var(--bd);font-size:9px;}
+    .modal h3{margin:0 0 4px;font-size:10px;text-align:center;color:var(--p);}
+    .modal input{margin-bottom:4px;}
+    .close-btn{position:absolute;right:6px;top:4px;background:#fff;border:1px solid var(--bd);width:18px;height:18px;font-size:11px;line-height:16px;padding:0;border-radius:3px;cursor:pointer;}
+    .modal-error,.modal-success{display:none;font-size:8px;font-weight:600;padding:4px;border-radius:4px;margin-top:2px;}
+    .modal-error{background:rgba(220,38,38,.18);color:var(--d);}
+    .modal-success{background:rgba(5,150,105,.2);color:var(--s);}
+    /* Scrollbar tiny */
+    .scroller::-webkit-scrollbar{width:5px}
+    .scroller::-webkit-scrollbar-track{background:transparent}
+    .scroller::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+    /* Leaflet label */
     .leaflet-label-zone{
-      background:rgba(37,99,235,.92);color:#fff;border:none;border-radius:10px;
-      font-size:11px;font-weight:600;padding:4px 10px;pointer-events:none;
-      box-shadow:0 2px 6px rgba(0,0,0,.25);font-family:'Inter',sans-serif
-    }
-    /* Proof Modal */
-    .modal-backdrop{position:fixed;inset:0;background:rgba(10,20,35,.55);backdrop-filter:blur(6px);z-index:200;display:none;justify-content:center;align-items:flex-end;padding:0}
-    .modal{background:#fff;width:100%;border-radius:24px 24px 0 0;padding:26px 20px 40px;max-height:80vh;overflow-y:auto;animation:slideUp .35s cubic-bezier(.4,.8,.4,1)}
-    @keyframes slideUp{from{transform:translateY(35px);opacity:0}to{transform:translateY(0);opacity:1}}
-    .modal h3{margin:0 0 14px;font-size:18px;font-weight:700;color:var(--primary);text-align:center}
-    .modal button[type=submit]{margin-top:4px;background:var(--primary);color:#fff;border:none;padding:14px 16px;font-size:15px;border-radius:16px;font-weight:600;letter-spacing:.5px}
-    .close-btn{
-      position:absolute;right:14px;top:14px;background:rgba(0,0,0,.06);border:none;width:38px;height:38px;
-      border-radius:50%;font-size:22px;font-weight:600;cursor:pointer;color:#334155
-    }
-    .close-btn:active{transform:scale(.92)}
-    .modal-error,.modal-success{
-      font-size:12px;padding:10px 12px;border-radius:12px;margin-top:10px;font-weight:500;display:none
-    }
-    .modal-error{background:rgba(220,38,38,.12);color:var(--danger);border:1px solid rgba(220,38,38,.3)}
-    .modal-success{background:rgba(5,150,105,.12);color:var(--success);border:1px solid rgba(5,150,105,.3)}
-    /* Improve tap targets */
-    button,input,select{touch-action:manipulation}
-    /* Prevent iOS zoom */
-    input,select{font-size:16px!important}
-    @media (min-width:768px){
-      .card{max-width:680px;margin:0 auto;padding-bottom:140px}
-      .modal{max-width:480px;margin:0 auto;border-radius:30px}
-      .modal-backdrop{align-items:center}
-      #map{height:420px}
+      background:rgba(37,99,235,.9);color:#fff;font-size:8px;font-weight:600;
+      padding:2px 4px;border-radius:4px;pointer-events:none;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="app-shell">
-    <div class="card">
-      <h2>Zone Tracker</h2>
-      <form id="zoneForm" autocomplete="off">
+  <div class="panel">
+    <div class="scroller">
+      <h2>Zones</h2>
+      <div class="row">
         <div>
           <label for="campaignIdInput">Campaign ID</label>
-          <input type="text" id="campaignIdInput" placeholder="Enter or load campaign" required />
+          <input id="campaignIdInput" type="text" placeholder="ID">
           <div id="campaignMsg"></div>
         </div>
-
-        <div class="zone-select-wrap">
-          <label for="zoneSelect">Select Zone</label>
-            <!-- Populated dynamically -->
+        <div>
+          <label for="zoneSelect">Zone</label>
           <select id="zoneSelect"></select>
-          <div class="zone-nav">
-            <button type="button" id="prevZoneBtn">◀ Prev</button>
-            <button type="button" id="nextZoneBtn">Next ▶</button>
-          </div>
         </div>
+      </div>
 
-        <div id="zoneDetail" class="zone-detail hidden">
-          <h3 id="zoneTitle">Zone</h3>
+      <div class="row" style="gap:2px;margin-bottom:2px;">
+        <button id="prevZoneBtn" class="out small" style="flex:1;">◀</button>
+        <button id="nextZoneBtn" class="out small" style="flex:1;">▶</button>
+        <button id="focusBtn" class="out small" style="flex:2;">Focus</button>
+      </div>
+
+      <div id="zoneBox" class="zone-box" style="display:none;">
+        <div class="zone-head">
+          <div id="zoneTitle" style="font-weight:700;font-size:9px;">Zone</div>
           <div id="zoneStatusBadge" class="badge pending">Pending</div>
-
-          <div class="status-actions">
-            <button type="button" id="toggleWorkBtn" class="chip-btn outline">Start Work</button>
-            <button type="button" id="toggleCompleteBtn" class="chip-btn primary">Mark Complete</button>
-            <button type="button" id="resetBtn" class="chip-btn danger">Reset</button>
-          </div>
-
-          <div class="field">
-            <label for="flyersInput">Flyers Delivered</label>
-            <input id="flyersInput" type="number" min="0" inputmode="numeric" placeholder="0">
-          </div>
-
-            <div class="field">
-            <label for="gpsUrlInput">GPS URL</label>
-            <input id="gpsUrlInput" type="text" placeholder="https://...">
-            <a id="gpsOpenLink" class="inline-link" href="#" target="_blank" style="display:none;">Open Link</a>
-          </div>
         </div>
-      </form>
+        <div class="btns">
+          <button id="toggleWorkBtn" class="wrk small" style="flex:1;">Work</button>
+          <button id="toggleCompleteBtn" class="small" style="flex:1;">Complete</button>
+          <button id="resetBtn" class="dng small" style="flex:1;">Reset</button>
+        </div>
+        <div class="pair">
+          <label style="flex:0 0 60px;" for="flyersInput">Flyers</label>
+          <input id="flyersInput" type="number" min="0" placeholder="0" style="max-width:90px;">
+        </div>
+        <div class="pair">
+          <label style="flex:0 0 60px;" for="gpsUrlInput">GPS URL</label>
+          <input id="gpsUrlInput" type="text" placeholder="https://">
+        </div>
+        <a id="gpsOpenLink" class="link" href="#" target="_blank" style="display:none;">Open GPS</a>
+      </div>
+      <div id="saveMsg">Saved!</div>
+    </div>
+    <div class="save-bar">
+      <button id="openProofModalBtn" class="scs">Proof</button>
+      <button id="saveAllBtn">Save</button>
     </div>
   </div>
 
-  <div class="save-fixed">
-    <button type="button" id="openProofModalBtn" class="proof-btn">Submit Photo Proof</button>
-    <button id="saveAllBtn" class="save-btn">Save All Changes</button>
-    <div id="saveMsg">Changes saved!</div>
-  </div>
-
   <!-- Proof Modal -->
-  <div class="modal-backdrop" id="proofModalBackdrop">
+  <div id="proofModalBackdrop" class="modal-backdrop">
     <div class="modal">
-      <button class="close-btn" id="closeProofModalBtn" aria-label="Close proof modal">&times;</button>
-      <h3>Submit Image Proof</h3>
-      <form id="proofForm" autocomplete="off">
-        <label for="proofUrlInput">Image URL</label>
-        <input type="text" id="proofUrlInput" placeholder="https://example.com/photo.jpg" required />
-        <div class="modal-error" id="proofErrorMsg"></div>
-        <button type="submit">Upload Proof</button>
-        <div class="modal-success" id="proofSuccessMsg">Uploaded!</div>
-      </form>
+      <button class="close-btn" id="closeProofModalBtn">×</button>
+      <h3>Photo Proof</h3>
+      <label for="proofUrlInput" style="margin-top:2px;">Image URL</label>
+      <input id="proofUrlInput" type="text" placeholder="https://img">
+      <div class="modal-error" id="proofErrorMsg"></div>
+      <div class="modal-success" id="proofSuccessMsg">Uploaded</div>
+      <button id="proofSubmitBtn" style="margin-top:2px;padding:6px 4px;font-size:9px;">Submit</button>
     </div>
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script type="module">
-    /***** FIREBASE IMPORTS *****/
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
     import { getDatabase, ref, get, set, push, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-    /***** PRIMARY (Campaign) FIREBASE APP *****/
     const campaignConfig = {
-      apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
-      authDomain: "trackingclients.firebaseapp.com",
-      projectId: "trackingclients",
-      storageBucket: "trackingclients.appspot.com",
-      messagingSenderId: "27490943622",
-      appId: "1:27490943622:web:d6c87547aa5df440508707",
-      databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+      apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+      authDomain:"trackingclients.firebaseapp.com",
+      projectId:"trackingclients",
+      storageBucket:"trackingclients.appspot.com",
+      messagingSenderId:"27490943622",
+      appId:"1:27490943622:web:d6c87547aa5df440508707",
+      databaseURL:"https://trackingclients-default-rtdb.firebaseio.com/"
     };
     const campaignApp = initializeApp(campaignConfig);
     const campaignDb = getDatabase(campaignApp);
 
-    /***** SECOND (Polygons Source) FIREBASE APP *****/
     const polygonsConfig = {
-      apiKey: "AIzaSyCYSOx_niWPHLDisCjAQzK8UJSe5TfwtLI",
-      authDomain: "nftfanactive.firebaseapp.com",
-      databaseURL: "https://nftfanactive-default-rtdb.firebaseio.com",
-      projectId: "nftfanactive",
-      storageBucket: "nftfanactive.appspot.com",
-      messagingSenderId: "311309982791",
-      appId: "1:311309982791:web:3e55bba6b78feb57ea6562",
-      measurementId: "G-3TRDL9749N"
+      apiKey:"AIzaSyCYSOx_niWPHLDisCjAQzK8UJSe5TfwtLI",
+      authDomain:"nftfanactive.firebaseapp.com",
+      databaseURL:"https://nftfanactive-default-rtdb.firebaseio.com",
+      projectId:"nftfanactive",
+      storageBucket:"nftfanactive.appspot.com",
+      messagingSenderId:"311309982791",
+      appId:"1:311309982791:web:3e55bba6b78feb57ea6562",
+      measurementId:"G-3TRDL9749N"
     };
-    const polygonsApp = initializeApp(polygonsConfig, 'polygonsApp');
+    const polygonsApp = initializeApp(polygonsConfig,'polys');
     const polygonsDb = getDatabase(polygonsApp);
 
-    /***** STATE *****/
-    let ZONES = 0;
-    let zoneData = [];
-    let zonePolys = [];
-    let polygonsLoaded = false;
-    let pendingCampaignToLoad = null;
-
-    let currentCampaignId = '';
-    let loadedCampaignId = '';
-    let selectedZoneIndex = 0;
-
-    /***** DOM REFS *****/
-    const campaignIdInput    = document.getElementById('campaignIdInput');
-    const saveAllBtn         = document.getElementById('saveAllBtn');
-    const saveMsg            = document.getElementById('saveMsg');
-    const campaignMsg        = document.getElementById('campaignMsg');
-    const zoneSelect         = document.getElementById('zoneSelect');
-    const prevZoneBtn        = document.getElementById('prevZoneBtn');
-    const nextZoneBtn        = document.getElementById('nextZoneBtn');
-    const zoneDetail         = document.getElementById('zoneDetail');
-    const zoneTitle          = document.getElementById('zoneTitle');
-    const zoneStatusBadge    = document.getElementById('zoneStatusBadge');
-    const flyersInput        = document.getElementById('flyersInput');
-    const gpsUrlInput        = document.getElementById('gpsUrlInput');
-    const gpsOpenLink        = document.getElementById('gpsOpenLink');
-    const toggleWorkBtn      = document.getElementById('toggleWorkBtn');
-    const toggleCompleteBtn  = document.getElementById('toggleCompleteBtn');
-    const resetBtn           = document.getElementById('resetBtn');
-
-    const proofModalBackdrop = document.getElementById('proofModalBackdrop');
-    const openProofModalBtn  = document.getElementById('openProofModalBtn');
-    const closeProofModalBtn = document.getElementById('closeProofModalBtn');
-    const proofForm          = document.getElementById('proofForm');
-    const proofUrlInput      = document.getElementById('proofUrlInput');
-    const proofErrorMsg      = document.getElementById('proofErrorMsg');
-    const proofSuccessMsg    = document.getElementById('proofSuccessMsg');
-
-    /***** MAP *****/
-    const map = L.map('map').setView([50.85, 4.35], 12);
+    let ZONES=0, zoneData=[], zonePolys=[], polygonsLoaded=false, pendingCampaign=null;
+    let selected=0, loadedCampaignId='';
+    const map=L.map('map').setView([50.85,4.35],12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
-    /***** UTILITIES *****/
-    function defaultZoneObject() {
-      return { status:"pending", flyers:"", gpsUrl:"", working:false };
-    }
-    function ensureZoneDataLength() {
-      if (zoneData.length < ZONES) {
-        for (let i = zoneData.length; i < ZONES; i++) zoneData.push(defaultZoneObject());
-      } else if (zoneData.length > ZONES) {
-        zoneData = zoneData.slice(0, ZONES);
-      }
-    }
-    function isValidUrl(str){
-      try {
-        if(!str) return false;
-        const u = new URL(str);
-        return ['http:','https:'].includes(u.protocol);
-      } catch { return false; }
-    }
+    // DOM
+    const campaignIdInput=document.getElementById('campaignIdInput');
+    const campaignMsg=document.getElementById('campaignMsg');
+    const zoneSelect=document.getElementById('zoneSelect');
+    const prevZoneBtn=document.getElementById('prevZoneBtn');
+    const nextZoneBtn=document.getElementById('nextZoneBtn');
+    const focusBtn=document.getElementById('focusBtn');
+    const zoneBox=document.getElementById('zoneBox');
+    const zoneTitle=document.getElementById('zoneTitle');
+    const zoneStatusBadge=document.getElementById('zoneStatusBadge');
+    const flyersInput=document.getElementById('flyersInput');
+    const gpsUrlInput=document.getElementById('gpsUrlInput');
+    const gpsOpenLink=document.getElementById('gpsOpenLink');
+    const toggleWorkBtn=document.getElementById('toggleWorkBtn');
+    const toggleCompleteBtn=document.getElementById('toggleCompleteBtn');
+    const resetBtn=document.getElementById('resetBtn');
+    const saveAllBtn=document.getElementById('saveAllBtn');
+    const saveMsg=document.getElementById('saveMsg');
+    const openProofModalBtn=document.getElementById('openProofModalBtn');
+    const proofModalBackdrop=document.getElementById('proofModalBackdrop');
+    const closeProofModalBtn=document.getElementById('closeProofModalBtn');
+    const proofUrlInput=document.getElementById('proofUrlInput');
+    const proofSubmitBtn=document.getElementById('proofSubmitBtn');
+    const proofErrorMsg=document.getElementById('proofErrorMsg');
+    const proofSuccessMsg=document.getElementById('proofSuccessMsg');
 
-    /***** RENDER SELECTOR *****/
-    function renderZoneSelect(){
-      zoneSelect.innerHTML = '';
-      for (let i=0;i<ZONES;i++){
-        const opt = document.createElement('option');
-        opt.value = i;
-        const z = zoneData[i] || defaultZoneObject();
-        const statusEmoji = z.working ? '🟡' : (z.status==='completed'?'✅':'🔴');
-        opt.textContent = `${statusEmoji} Zone ${i+1}`;
+    function defaultZone(){return {status:'pending',flyers:'',gpsUrl:'',working:false};}
+    function ensureLen(){
+      if(zoneData.length<ZONES) for(let i=zoneData.length;i<ZONES;i++) zoneData.push(defaultZone());
+      if(zoneData.length>ZONES) zoneData=zoneData.slice(0,ZONES);
+    }
+    function isValidUrl(u){try{const x=new URL(u);return ['http:','https:'].includes(x.protocol);}catch{return false;}}
+    function renderSelect(){
+      zoneSelect.innerHTML='';
+      for(let i=0;i<ZONES;i++){
+        const z=zoneData[i],opt=document.createElement('option');
+        const icon=z.working?'🟡':(z.status==='completed'?'✅':'🔴');
+        opt.value=i;opt.textContent=`${icon} Z${i+1}`;
         zoneSelect.appendChild(opt);
       }
-      if (ZONES > 0) {
-        zoneSelect.value = selectedZoneIndex;
-        zoneDetail.classList.remove('hidden');
-      } else {
-        zoneDetail.classList.add('hidden');
-      }
+      if(ZONES){zoneSelect.value=selected;zoneBox.style.display='block';} else zoneBox.style.display='none';
     }
-
-    /***** UPDATE ZONE DETAIL PANEL *****/
-    function updateZoneDetail(){
-      if (selectedZoneIndex < 0 || selectedZoneIndex >= ZONES) return;
-      const z = zoneData[selectedZoneIndex];
-      zoneTitle.textContent = `Zone ${selectedZoneIndex+1}`;
-      // Badge
-      zoneStatusBadge.className = 'badge';
-      if (z.working){
-        zoneStatusBadge.classList.add('working');
-        zoneStatusBadge.textContent = 'Working';
-      } else if (z.status === 'completed'){
-        zoneStatusBadge.classList.add('completed');
-        zoneStatusBadge.textContent = 'Completed';
-      } else {
-        zoneStatusBadge.classList.add('pending');
-        zoneStatusBadge.textContent = 'Pending';
-      }
-      // Buttons
-      toggleWorkBtn.textContent = z.working ? 'Stop Work' : 'Start Work';
-      toggleWorkBtn.className = 'chip-btn ' + (z.working ? 'warning':'outline');
-      toggleCompleteBtn.textContent = (z.status === 'completed') ? 'Mark Pending' : 'Mark Complete';
-      toggleCompleteBtn.className = 'chip-btn ' + (z.status==='completed' ? 'outline primary':'primary');
-      flyersInput.value = z.flyers || '';
-      gpsUrlInput.value = z.gpsUrl || '';
-      if (isValidUrl(z.gpsUrl)) {
-        gpsOpenLink.href = z.gpsUrl;
-        gpsOpenLink.style.display='inline-block';
-      } else {
-        gpsOpenLink.style.display='none';
-      }
+    function updatePanel(){
+      if(!ZONES) return;
+      const z=zoneData[selected];
+      zoneTitle.textContent='Zone '+(selected+1);
+      zoneStatusBadge.className='badge '+(z.working?'working':(z.status==='completed'?'completed':'pending'));
+      zoneStatusBadge.textContent=z.working?'Working':(z.status==='completed'?'Completed':'Pending');
+      toggleWorkBtn.textContent=z.working?'Stop':'Work';
+      toggleCompleteBtn.textContent=z.status==='completed'?'Undo':'Complete';
+      flyersInput.value=z.flyers||'';
+      gpsUrlInput.value=z.gpsUrl||'';
+      if(isValidUrl(z.gpsUrl)){gpsOpenLink.href=z.gpsUrl;gpsOpenLink.style.display='inline-block';}else gpsOpenLink.style.display='none';
     }
-
-    function selectZone(idx){
-      if (idx < 0) idx = 0;
-      if (idx >= ZONES) idx = ZONES-1;
-      selectedZoneIndex = idx;
-      if (ZONES > 0) {
-        zoneSelect.value = selectedZoneIndex;
-        updateZoneDetail();
-      }
-      colorPolygons();
-      focusPolygon(idx);
+    function selectZone(i){
+      if(!ZONES) return;
+      if(i<0)i=0; if(i>=ZONES)i=ZONES-1;
+      selected=i;zoneSelect.value=selected;updatePanel();colorPolys();focusPolygon(selected);
     }
-
-    function focusPolygon(idx){
-      if (!zonePolys[idx]) return;
-      map.fitBounds(zonePolys[idx].getBounds().pad(0.35));
-    }
-
-    /***** COLOR POLYGONS *****/
-    function colorPolygons() {
-      zoneData.forEach((zone, idx)=>{
-        if(!zonePolys[idx]) return;
-        let color;
-        if (idx === selectedZoneIndex) {
-          // highlight selection ring
-          color = zone.working ? "#d97706" : (zone.status === "completed" ? "#1d4ed8" : "#dc2626");
-          zonePolys[idx].setStyle({
-            fillColor: color,
-            color: '#000',
-            fillOpacity: zone.working ? 0.55 : (zone.status === "completed" ? 0.45 : 0.35),
-            weight: 3,
-            dashArray: zone.working ? "4 4" : null
-          });
-        } else {
-          if (zone.working) color = "#d97706";
-          else if (zone.status === "completed") color = "#2563eb";
-          else color = "#dc2626";
-          zonePolys[idx].setStyle({
-            fillColor: color,
-            color: color,
-            fillOpacity: zone.working ? 0.35 : (zone.status === "completed" ? 0.30 : 0.25),
-            weight: 2,
-            dashArray: null
-          });
-        }
+    function colorPolys(){
+      zoneData.forEach((z,i)=>{
+        if(!zonePolys[i])return;
+        let col=z.working?'#d97706':(z.status==='completed'?'#2563eb':'#dc2626');
+        zonePolys[i].setStyle({
+          fillColor:col,
+          color:i===selected?'#000':col,
+          weight:i===selected?3:2,
+          fillOpacity:z.working?0.4:(z.status==='completed'?0.35:0.3),
+          dashArray:z.working&&i===selected?'3 3':null
+        });
       });
     }
-
-    /***** LOAD POLYGONS *****/
-    async function loadPolygonsFromDb() {
-      try {
-        const snap = await get(ref(polygonsDb,'polygons'));
-        if (!snap.exists()) {
-          polygonsLoaded = true;
-          ZONES = 0;
-          renderZoneSelect();
-          return;
-        }
-        zonePolys.forEach(p => map.removeLayer(p));
-        zonePolys = [];
-
-        let allPoints = [];
-        let idx = 0;
-        snap.forEach(child=>{
-          const arr = child.val();
-          if (!Array.isArray(arr) || !arr.length) return;
-            const coords = arr.map(pt=>[pt.lat, pt.lng]);
-          const poly = L.polygon(coords,{
-            color:'#dc2626',fillColor:'#dc2626',fillOpacity:0.25,weight:2
-          }).addTo(map);
-          poly.on('click',()=> selectZone(idx));
-          zonePolys.push(poly);
-          allPoints.push(...coords);
-          const center = poly.getBounds().getCenter();
-          L.marker(center, {
-            icon: L.divIcon({
-              className:'leaflet-label-zone',
-              html:`Z${idx+1}`,
-              iconSize:[42,18],
-              iconAnchor:[21,9]
-            }),
-            interactive:false
-          }).addTo(map);
-          idx++;
-        });
-
-        if (allPoints.length) {
-          map.fitBounds(L.latLngBounds(allPoints).pad(0.12));
-        }
-
-        ZONES = zonePolys.length;
-        polygonsLoaded = true;
-        ensureZoneDataLength();
-        renderZoneSelect();
-        selectZone(0);
-
-        if (pendingCampaignToLoad) {
-          await loadCampaignZones(pendingCampaignToLoad);
-          pendingCampaignToLoad = null;
-        }
-      } catch (e) {
-        console.error('Error loading polygons:', e);
-        polygonsLoaded = true;
-      }
+    function focusPolygon(i){
+      if(zonePolys[i]) map.fitBounds(zonePolys[i].getBounds().pad(0.4));
     }
-    loadPolygonsFromDb();
 
-    /***** SAVE ALL *****/
-    saveAllBtn.addEventListener('click', async ()=>{
-      currentCampaignId = campaignIdInput.value.trim();
-      if (!currentCampaignId) {
-        campaignMsg.textContent = "Enter a Campaign ID to save.";
-        campaignMsg.className = "";
-        campaignMsg.style.display = "block";
-        return;
-      }
-      if (!polygonsLoaded || ZONES === 0) {
-        campaignMsg.textContent = "Polygons not ready.";
-        campaignMsg.className = "";
-        campaignMsg.style.display = "block";
-        return;
-      }
-      saveAllBtn.classList.add('loading');
-      campaignMsg.style.display = "none";
-      try {
-        await set(ref(campaignDb, `campaigns/${currentCampaignId}/zone_statuses`), zoneData);
-        saveMsg.style.display='block';
-        setTimeout(()=>saveMsg.style.display='none',2500);
-        loadedCampaignId = currentCampaignId;
-        localStorage.setItem('lastCampaignId', currentCampaignId);
-      } catch(err){
-        console.error('Save error:', err);
-      } finally {
-        saveAllBtn.classList.remove('loading');
-      }
-    });
+    async function loadPolygons(){
+      const snap=await get(ref(polygonsDb,'polygons'));
+      zonePolys.forEach(p=>map.removeLayer(p)); zonePolys=[];
+      if(!snap.exists()){ZONES=0;renderSelect();return;}
+      let all=[];
+      let idx=0;
+      snap.forEach(ch=>{
+        const arr=ch.val();
+        if(!Array.isArray(arr)||!arr.length)return;
+        const coords=arr.map(pt=>[pt.lat,pt.lng]);
+        const poly=L.polygon(coords,{color:'#dc2626',fillColor:'#dc2626',fillOpacity:0.3,weight:2}).addTo(map);
+        poly.on('click',()=>selectZone(idx));
+        zonePolys.push(poly);
+        all.push(...coords);
+        const center=poly.getBounds().getCenter();
+        L.marker(center,{icon:L.divIcon({className:'leaflet-label-zone',html:`Z${idx+1}`,iconSize:[24,12],iconAnchor:[12,6]}),interactive:false}).addTo(map);
+        idx++;
+      });
+      if(all.length) map.fitBounds(L.latLngBounds(all).pad(0.1));
+      ZONES=zonePolys.length;
+      polygonsLoaded=true;
+      ensureLen();
+      renderSelect();
+      selectZone(0);
+      if(pendingCampaign){await loadCampaign(pendingCampaign);pendingCampaign=null;}
+    }
+    loadPolygons();
 
-    /***** LOAD CAMPAIGN *****/
-    async function loadCampaignZones(campaignId) {
-      if (!campaignId) return;
-      if (!polygonsLoaded) {
-        pendingCampaignToLoad = campaignId;
-        return;
+    async function saveAll(){
+      const id=campaignIdInput.value.trim();
+      if(!id){
+        campaignMsg.textContent='Enter ID'; campaignMsg.className='err'; campaignMsg.style.display='block'; return;
       }
-      const snap = await get(ref(campaignDb, `campaigns/${campaignId}/zone_statuses`));
-      if (snap.exists()) {
-        const data = snap.val();
-        zoneData = [];
-        for (let i=0;i<ZONES;i++) {
-          zoneData.push({
-            ...defaultZoneObject(),
-            ...(Array.isArray(data) ? data[i] : (data[i] || {}))
-          });
+      await set(ref(campaignDb,`campaigns/${id}/zone_statuses`),zoneData);
+      loadedCampaignId=id; localStorage.setItem('lastCampaignId',id);
+      saveMsg.style.display='block'; setTimeout(()=>saveMsg.style.display='none',1500);
+    }
+
+    async function loadCampaign(id){
+      if(!id) return;
+      if(!polygonsLoaded){pendingCampaign=id;return;}
+      const snap=await get(ref(campaignDb,`campaigns/${id}/zone_statuses`));
+      if(snap.exists()){
+        const data=snap.val(); zoneData=[];
+        for(let i=0;i<ZONES;i++){
+          zoneData.push({ ...defaultZone(), ...(Array.isArray(data)?data[i]:(data[i]||{})) });
         }
-        renderZoneSelect();
-        selectZone(0);
-        campaignMsg.textContent = "Campaign loaded.";
-        campaignMsg.className = "success";
-        campaignMsg.style.display = "block";
-        setTimeout(()=>campaignMsg.style.display='none',2000);
-        loadedCampaignId = campaignId;
+        campaignMsg.textContent='Loaded'; campaignMsg.className='success';
       } else {
-        zoneData = Array.from({length:ZONES}, defaultZoneObject);
-        renderZoneSelect();
-        selectZone(0);
-        campaignMsg.textContent = "New campaign (no data).";
-        campaignMsg.className = "";
-        campaignMsg.style.display = "block";
-        setTimeout(()=>campaignMsg.style.display='none',2200);
-        loadedCampaignId = '';
+        zoneData=Array.from({length:ZONES},defaultZone);
+        campaignMsg.textContent='New'; campaignMsg.className='err';
       }
-      fetchAndRenderProofs();
+      campaignMsg.style.display='block'; setTimeout(()=>campaignMsg.style.display='none',1200);
+      renderSelect(); selectZone(0);
+      loadedCampaignId=id;
+      fetchProofs();
     }
 
-    /***** CAMPAIGN ID INPUT (DEBOUNCE) *****/
-    let loadTimeout = null;
-    campaignIdInput.addEventListener('input', ()=>{
-      const val = campaignIdInput.value.trim();
-      if (val === loadedCampaignId) return;
-      if (loadTimeout) clearTimeout(loadTimeout);
-      loadTimeout = setTimeout(()=> loadCampaignZones(val), 600);
+    // Debounce campaign input
+    let t=null;
+    campaignIdInput.addEventListener('input',()=>{
+      const v=campaignIdInput.value.trim();
+      if(v===loadedCampaignId) return;
+      clearTimeout(t);
+      t=setTimeout(()=>loadCampaign(v),500);
     });
-    campaignIdInput.addEventListener('keydown', e=>{
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        loadCampaignZones(campaignIdInput.value.trim());
-      }
+    campaignIdInput.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();loadCampaign(campaignIdInput.value.trim());}
     });
 
-    /***** ZONE INTERACTIONS *****/
-    zoneSelect.addEventListener('change', ()=>{
-      selectedZoneIndex = +zoneSelect.value;
-      updateZoneDetail();
-      colorPolygons();
-      focusPolygon(selectedZoneIndex);
+    zoneSelect.addEventListener('change',()=>{selected=+zoneSelect.value;updatePanel();colorPolys();focusPolygon(selected);});
+    prevZoneBtn.addEventListener('click',()=>selectZone((selected-1+ZONES)%ZONES));
+    nextZoneBtn.addEventListener('click',()=>selectZone((selected+1)%ZONES));
+    focusBtn.addEventListener('click',()=>focusPolygon(selected));
+
+    flyersInput.addEventListener('input',()=>{zoneData[selected].flyers=flyersInput.value;renderSelect();});
+    gpsUrlInput.addEventListener('input',()=>{
+      zoneData[selected].gpsUrl=gpsUrlInput.value.trim();
+      if(isValidUrl(zoneData[selected].gpsUrl)){gpsOpenLink.href=zoneData[selected].gpsUrl;gpsOpenLink.style.display='inline-block';}
+      else gpsOpenLink.style.display='none';
+    });
+    toggleWorkBtn.addEventListener('click',()=>{
+      const z=zoneData[selected];
+      z.working=!z.working;
+      if(z.working) z.status='pending';
+      updatePanel();renderSelect();colorPolys();
+    });
+    toggleCompleteBtn.addEventListener('click',()=>{
+      const z=zoneData[selected];
+      if(z.status==='completed'){z.status='pending';} else {z.status='completed';z.working=false;}
+      updatePanel();renderSelect();colorPolys();
+    });
+    resetBtn.addEventListener('click',()=>{
+      zoneData[selected]=defaultZone();
+      updatePanel();renderSelect();colorPolys();
     });
 
-    prevZoneBtn.addEventListener('click', ()=>{
-      if (ZONES === 0) return;
-      selectZone((selectedZoneIndex -1 + ZONES)%ZONES);
-    });
-    nextZoneBtn.addEventListener('click', ()=>{
-      if (ZONES === 0) return;
-      selectZone((selectedZoneIndex +1)%ZONES);
-    });
+    saveAllBtn.addEventListener('click',saveAll);
 
-    flyersInput.addEventListener('input', ()=>{
-      zoneData[selectedZoneIndex].flyers = flyersInput.value;
-      renderZoneSelect();
-    });
-    gpsUrlInput.addEventListener('input', ()=>{
-      zoneData[selectedZoneIndex].gpsUrl = gpsUrlInput.value.trim();
-      if (isValidUrl(zoneData[selectedZoneIndex].gpsUrl)) {
-        gpsOpenLink.href = zoneData[selectedZoneIndex].gpsUrl;
-        gpsOpenLink.style.display='inline-block';
-      } else {
-        gpsOpenLink.style.display='none';
-      }
-    });
-
-    toggleWorkBtn.addEventListener('click', ()=>{
-      const z = zoneData[selectedZoneIndex];
-      z.working = !z.working;
-      if (z.working) z.status = 'pending';
-      updateZoneDetail();
-      renderZoneSelect();
-      colorPolygons();
-    });
-
-    toggleCompleteBtn.addEventListener('click', ()=>{
-      const z = zoneData[selectedZoneIndex];
-      if (z.status === 'completed'){
-        z.status = 'pending';
-      } else {
-        z.status = 'completed';
-        z.working = false;
-      }
-      updateZoneDetail();
-      renderZoneSelect();
-      colorPolygons();
-    });
-
-    resetBtn.addEventListener('click', ()=>{
-      zoneData[selectedZoneIndex] = defaultZoneObject();
-      updateZoneDetail();
-      renderZoneSelect();
-      colorPolygons();
-    });
-
-    /***** USER LOCATION *****/
-    let userMarker = null;
-    let userLatLng = null;
-    function showUserLocation(lat,lng){
-      userLatLng=[lat,lng];
-      if(!userMarker){
-        userMarker = L.circleMarker([lat,lng],{
-          radius:10,color:'#2563eb',fillColor:'#2563eb',fillOpacity:0.85,weight:2
-        }).addTo(map).bindTooltip('You', {permanent:false});
-      } else userMarker.setLatLng([lat,lng]);
-    }
-    if ("geolocation" in navigator) {
-      navigator.geolocation.watchPosition(
-        pos=>showUserLocation(pos.coords.latitude,pos.coords.longitude),
-        err=>console.warn('Location error:', err.message),
-        { enableHighAccuracy:true, maximumAge:2000, timeout:20000 }
-      );
+    // Location
+    let userLatLng=null;
+    let userMarker=null;
+    if('geolocation' in navigator){
+      navigator.geolocation.watchPosition(p=>{
+        userLatLng=[p.coords.latitude,p.coords.longitude];
+        if(!userMarker){
+          userMarker=L.circleMarker(userLatLng,{radius:6,color:'#2563eb',fillColor:'#2563eb',fillOpacity:.9}).addTo(map);
+        } else userMarker.setLatLng(userLatLng);
+      },err=>console.warn(err),{enableHighAccuracy:true});
     }
 
-    /***** PROOFS (MAP PINS) *****/
-    let proofMarkers = [];
+    // Proofs
+    let proofMarkers=[];
     function clearProofMarkers(){proofMarkers.forEach(m=>map.removeLayer(m));proofMarkers=[];}
-    function renderProofsOnMap(proofs){
+    function renderProofs(proofs){
       clearProofMarkers();
-      proofs.forEach((proof,idx)=>{
-        const marker = L.marker([proof.lat, proof.lng], {
-          icon: L.icon({
-            iconUrl:'https://cdn-icons-png.flaticon.com/512/61/61168.png',
-            iconSize:[26,26],
-            iconAnchor:[13,26],
-            popupAnchor:[0,-22]
-          })
-        }).addTo(map);
-        marker.bindPopup(`
-          <div style="text-align:center;font-size:11px;">
-            <b>Proof #${idx+1}</b><br>
-            <a href="${proof.url}" target="_blank">
-              <img src="${proof.url}" style="max-width:140px;max-height:100px;display:block;margin:6px auto;border-radius:8px;border:2px solid #2563eb;" loading="lazy">
-            </a>
-            <a href="${proof.url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:underline;">Open Image</a>
-          </div>
-        `);
-        proofMarkers.push(marker);
+      proofs.forEach((p,i)=>{
+        const mk=L.marker([p.lat,p.lng],{icon:L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/61/61168.png',iconSize:[18,18],iconAnchor:[9,18]})})
+        .addTo(map)
+        .bindPopup(`<div style="font-size:8px;text-align:center;"><b>P${i+1}</b><br><img src="${p.url}" style="max-width:120px;max-height:80px;border:1px solid #2563eb;border-radius:3px;margin-top:2px"></div>`);
+        proofMarkers.push(mk);
       });
     }
-    function fetchAndRenderProofs() {
-      const cid = campaignIdInput.value.trim();
-      if (!cid) { clearProofMarkers(); return; }
-      onValue(ref(campaignDb, `campaigns/${cid}/proofs`), snap=>{
-        const proofs=[];
-        snap.forEach(ch=>{
-          const v=ch.val();
-          if(typeof v.lat==='number' && typeof v.lng==='number' && v.url) proofs.push(v);
-        });
-        proofs.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
-        renderProofsOnMap(proofs);
+    function fetchProofs(){
+      const id=campaignIdInput.value.trim(); if(!id){clearProofMarkers();return;}
+      onValue(ref(campaignDb,`campaigns/${id}/proofs`),snap=>{
+        const arr=[]; snap.forEach(ch=>{const v=ch.val(); if(v && typeof v.lat==='number' && typeof v.lng==='number' && v.url) arr.push(v);});
+        arr.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+        renderProofs(arr);
       });
     }
-    campaignIdInput.addEventListener('input', ()=> setTimeout(fetchAndRenderProofs, 1000));
-    saveAllBtn.addEventListener('click', ()=> setTimeout(fetchAndRenderProofs, 600));
+    campaignIdInput.addEventListener('input',()=>setTimeout(fetchProofs,700));
+    saveAllBtn.addEventListener('click',()=>setTimeout(fetchProofs,400));
 
-    /***** PROOF MODAL *****/
-    openProofModalBtn.addEventListener('click', ()=>{
+    // Proof modal
+    openProofModalBtn.addEventListener('click',()=>{
       proofModalBackdrop.style.display='flex';
-      proofErrorMsg.textContent='';
-      proofErrorMsg.style.display='none';
-      proofSuccessMsg.style.display='none';
-      proofUrlInput.value='';
-      setTimeout(()=>proofUrlInput.focus(),120);
+      proofUrlInput.value='';proofErrorMsg.style.display='none';proofSuccessMsg.style.display='none';
+      setTimeout(()=>proofUrlInput.focus(),80);
     });
-    closeProofModalBtn.addEventListener('click', ()=> proofModalBackdrop.style.display='none');
-    proofModalBackdrop.addEventListener('click', e=>{
-      if(e.target===proofModalBackdrop) proofModalBackdrop.style.display='none';
-    });
-
-    function isValidImageUrl(u){ return isValidUrl(u); }
-
-    proofForm.addEventListener('submit', async e=>{
-      e.preventDefault();
-      proofErrorMsg.style.display='none';
-      proofSuccessMsg.style.display='none';
-      const url = proofUrlInput.value.trim();
-      if(!isValidImageUrl(url)){
-        proofErrorMsg.textContent='Enter a valid image URL (http/https)';
-        proofErrorMsg.style.display='block';
-        return;
-      }
-      if(!userLatLng){
-        proofErrorMsg.textContent='Waiting for your location. Allow location access.';
-        proofErrorMsg.style.display='block';
-        return;
-      }
-      const cid = campaignIdInput.value.trim();
-      if(!cid){
-        proofErrorMsg.textContent='Enter a Campaign ID first.';
-        proofErrorMsg.style.display='block';
-        return;
-      }
-      try {
-        await push(ref(campaignDb, `campaigns/${cid}/proofs`), {
-          url,
-          lat: userLatLng[0],
-          lng: userLatLng[1],
-          timestamp: Date.now()
-        });
-        proofSuccessMsg.style.display='block';
-        proofUrlInput.value='';
-        fetchAndRenderProofs();
-        setTimeout(()=> proofModalBackdrop.style.display='none', 1400);
-      } catch(err){
-        proofErrorMsg.textContent='Failed to save proof: '+err.message;
-        proofErrorMsg.style.display='block';
+    closeProofModalBtn.addEventListener('click',()=>proofModalBackdrop.style.display='none');
+    proofModalBackdrop.addEventListener('click',e=>{if(e.target===proofModalBackdrop)proofModalBackdrop.style.display='none';});
+    function validImage(u){return isValidUrl(u);}
+    proofSubmitBtn.addEventListener('click',async ()=>{
+      proofErrorMsg.style.display='none';proofSuccessMsg.style.display='none';
+      const url=proofUrlInput.value.trim(); const id=campaignIdInput.value.trim();
+      if(!validImage(url)){proofErrorMsg.textContent='Bad URL';proofErrorMsg.style.display='block';return;}
+      if(!userLatLng){proofErrorMsg.textContent='No GPS';proofErrorMsg.style.display='block';return;}
+      if(!id){proofErrorMsg.textContent='No ID';proofErrorMsg.style.display='block';return;}
+      try{
+        await push(ref(campaignDb,`campaigns/${id}/proofs`),{url,lat:userLatLng[0],lng:userLatLng[1],timestamp:Date.now()});
+        proofSuccessMsg.style.display='block';proofUrlInput.value='';
+        fetchProofs();
+        setTimeout(()=>proofModalBackdrop.style.display='none',800);
+      }catch(e){
+        proofErrorMsg.textContent='Err';proofErrorMsg.style.display='block';
       }
     });
 
-    /***** LOCAL STORAGE RESTORE *****/
-    const storedId = localStorage.getItem('lastCampaignId');
-    if (storedId) {
-      campaignIdInput.value = storedId;
-      loadCampaignZones(storedId);
-      setTimeout(fetchAndRenderProofs, 1500);
-    }
-    saveAllBtn.addEventListener('click', ()=>{
-      localStorage.setItem('lastCampaignId', campaignIdInput.value.trim());
-    });
-
-    /***** INITIAL UI *****/
-    renderZoneSelect();
+    // Restore last campaign
+    const stored=localStorage.getItem('lastCampaignId');
+    if(stored){campaignIdInput.value=stored;loadCampaign(stored);setTimeout(fetchProofs,900);}
   </script>
 </body>
 </html>
