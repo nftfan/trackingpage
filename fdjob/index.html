@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Zone Completion Tracker (Mobile Optimized)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
+  <link rel="apple-touch-icon" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+  <link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    :root {
+      --primary:#2563eb; --primary-dark:#1d4ed8; --secondary:#64748b;
+      --success:#059669; --danger:#dc2626; --warning:#d97706;
+      --bg-primary:#ffffff; --bg-secondary:#f1f5f9; --bg-tertiary:#eef2f6;
+      --border:#dbe2ea; --text-primary:#0f172a; --text-secondary:#475569;
+      --radius:14px; --radius-sm:8px;
+      --shadow:0 2px 8px -2px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.08);
+    }
+    *{box-sizing:border-box;font-family:'Inter',system-ui,sans-serif}
+    body{margin:0;background:var(--bg-secondary);color:var(--text-primary);-webkit-font-smoothing:antialiased}
+    #map{height:48vh;min-height:300px;width:100%;background:#d9e2ec}
+    .app-shell{position:relative;margin-top:-22px}
+    .card{background:var(--bg-primary);border-radius:24px 24px 0 0;padding:20px 16px 120px;box-shadow:0 -4px 16px -4px rgba(0,0,0,.08)}
+    h2{margin:4px 0 12px;font-size:18px;font-weight:700;letter-spacing:-0.5px;text-align:center;color:var(--primary)}
+    form{margin:0}
+    label{font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px}
+    input[type=text],input[type=number],select{
+      width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);
+      font-size:16px;background:var(--bg-tertiary);outline:none;transition:.18s;
+    }
+    input:focus,select:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+    .row{display:flex;gap:10px;align-items:flex-end}
+    .row.stretch>div{flex:1}
+    #campaignMsg{font-size:12px;margin-top:6px;padding:8px 10px;border-radius:10px;font-weight:500;display:none}
+    #campaignMsg.success{background:rgba(5,150,105,.12);color:var(--success);border:1px solid rgba(5,150,105,.3)}
+    #campaignMsg:not(.success){background:rgba(220,38,38,.12);color:var(--danger);border:1px solid rgba(220,38,38,.3)}
+    .zone-select-wrap{margin-top:16px}
+    .zone-nav{display:flex;gap:8px;margin-top:10px}
+    .zone-nav button{
+      flex:1;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:var(--radius-sm);
+      padding:10px 0;font-size:14px;font-weight:600;color:var(--text-secondary);letter-spacing:.5px;
+    }
+    .zone-nav button:active{background:#fff}
+    .zone-detail{margin-top:18px;padding:16px 14px 18px;border:1px solid var(--border);border-radius:18px;background:#fff;box-shadow:var(--shadow)}
+    .zone-detail.hidden{display:none}
+    .zone-detail h3{margin:0 0 10px;font-size:16px;font-weight:600;letter-spacing:-0.25px;color:var(--text-primary)}
+    .badge{
+      display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+      padding:6px 12px;border-radius:30px;letter-spacing:.5px
+    }
+    .badge.pending{background:rgba(220,38,38,.12);color:var(--danger)}
+    .badge.completed{background:rgba(37,99,235,.12);color:var(--primary)}
+    .badge.working{background:rgba(217,119,6,.15);color:var(--warning)}
+    .status-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 12px}
+    .chip-btn{
+      flex:1;min-width:120px;background:var(--bg-tertiary);border:1px solid var(--border);
+      padding:12px 10px;border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;
+      letter-spacing:.5px;display:flex;justify-content:center;align-items:center;gap:6px;transition:.18s
+    }
+    .chip-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .chip-btn.warning{background:var(--warning);color:#fff;border-color:var(--warning)}
+    .chip-btn.success{background:var(--success);color:#fff;border-color:var(--success)}
+    .chip-btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+    .chip-btn.outline{background:#fff;color:var(--text-secondary)}
+    .chip-btn:active{transform:scale(.97)}
+    .field{margin-bottom:14px}
+    .inline-link{
+      font-size:12px;color:var(--primary);text-decoration:none;font-weight:500;margin-top:4px;display:inline-block
+    }
+    .inline-link:active{opacity:.6}
+    .save-fixed{
+      position:fixed;left:0;right:0;bottom:0;padding:16px 18px 30px;
+      background:linear-gradient(180deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.9) 40%,#fff 90%);
+      display:flex;flex-direction:column;gap:10px;z-index:20
+    }
+    .save-btn,.proof-btn{
+      width:100%;padding:16px 20px;font-size:15px;font-weight:700;letter-spacing:1px;border:none;
+      border-radius:18px;cursor:pointer;box-shadow:0 4px 14px -4px rgba(37,99,235,.4);transition:.2s
+    }
+    .save-btn{background:var(--primary);color:#fff}
+    .proof-btn{background:var(--success);color:#fff;box-shadow:0 4px 14px -4px rgba(5,150,105,.5)}
+    .save-btn.loading,.proof-btn.loading{opacity:.6}
+    .save-btn:active,.proof-btn:active{transform:translateY(2px);box-shadow:0 2px 10px -4px rgba(0,0,0,.25)}
+    #saveMsg{display:none;text-align:center;font-size:13px;font-weight:600;color:var(--success)}
+    .leaflet-label-zone{
+      background:rgba(37,99,235,.92);color:#fff;border:none;border-radius:10px;
+      font-size:11px;font-weight:600;padding:4px 10px;pointer-events:none;
+      box-shadow:0 2px 6px rgba(0,0,0,.25);font-family:'Inter',sans-serif
+    }
+    /* Proof Modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(10,20,35,.55);backdrop-filter:blur(6px);z-index:200;display:none;justify-content:center;align-items:flex-end;padding:0}
+    .modal{background:#fff;width:100%;border-radius:24px 24px 0 0;padding:26px 20px 40px;max-height:80vh;overflow-y:auto;animation:slideUp .35s cubic-bezier(.4,.8,.4,1)}
+    @keyframes slideUp{from{transform:translateY(35px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .modal h3{margin:0 0 14px;font-size:18px;font-weight:700;color:var(--primary);text-align:center}
+    .modal button[type=submit]{margin-top:4px;background:var(--primary);color:#fff;border:none;padding:14px 16px;font-size:15px;border-radius:16px;font-weight:600;letter-spacing:.5px}
+    .close-btn{
+      position:absolute;right:14px;top:14px;background:rgba(0,0,0,.06);border:none;width:38px;height:38px;
+      border-radius:50%;font-size:22px;font-weight:600;cursor:pointer;color:#334155
+    }
+    .close-btn:active{transform:scale(.92)}
+    .modal-error,.modal-success{
+      font-size:12px;padding:10px 12px;border-radius:12px;margin-top:10px;font-weight:500;display:none
+    }
+    .modal-error{background:rgba(220,38,38,.12);color:var(--danger);border:1px solid rgba(220,38,38,.3)}
+    .modal-success{background:rgba(5,150,105,.12);color:var(--success);border:1px solid rgba(5,150,105,.3)}
+    /* Improve tap targets */
+    button,input,select{touch-action:manipulation}
+    /* Prevent iOS zoom */
+    input,select{font-size:16px!important}
+    @media (min-width:768px){
+      .card{max-width:680px;margin:0 auto;padding-bottom:140px}
+      .modal{max-width:480px;margin:0 auto;border-radius:30px}
+      .modal-backdrop{align-items:center}
+      #map{height:420px}
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="app-shell">
+    <div class="card">
+      <h2>Zone Tracker</h2>
+      <form id="zoneForm" autocomplete="off">
+        <div>
+          <label for="campaignIdInput">Campaign ID</label>
+          <input type="text" id="campaignIdInput" placeholder="Enter or load campaign" required />
+          <div id="campaignMsg"></div>
+        </div>
+
+        <div class="zone-select-wrap">
+          <label for="zoneSelect">Select Zone</label>
+            <!-- Populated dynamically -->
+          <select id="zoneSelect"></select>
+          <div class="zone-nav">
+            <button type="button" id="prevZoneBtn">◀ Prev</button>
+            <button type="button" id="nextZoneBtn">Next ▶</button>
+          </div>
+        </div>
+
+        <div id="zoneDetail" class="zone-detail hidden">
+          <h3 id="zoneTitle">Zone</h3>
+          <div id="zoneStatusBadge" class="badge pending">Pending</div>
+
+          <div class="status-actions">
+            <button type="button" id="toggleWorkBtn" class="chip-btn outline">Start Work</button>
+            <button type="button" id="toggleCompleteBtn" class="chip-btn primary">Mark Complete</button>
+            <button type="button" id="resetBtn" class="chip-btn danger">Reset</button>
+          </div>
+
+          <div class="field">
+            <label for="flyersInput">Flyers Delivered</label>
+            <input id="flyersInput" type="number" min="0" inputmode="numeric" placeholder="0">
+          </div>
+
+            <div class="field">
+            <label for="gpsUrlInput">GPS URL</label>
+            <input id="gpsUrlInput" type="text" placeholder="https://...">
+            <a id="gpsOpenLink" class="inline-link" href="#" target="_blank" style="display:none;">Open Link</a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="save-fixed">
+    <button type="button" id="openProofModalBtn" class="proof-btn">Submit Photo Proof</button>
+    <button id="saveAllBtn" class="save-btn">Save All Changes</button>
+    <div id="saveMsg">Changes saved!</div>
+  </div>
+
+  <!-- Proof Modal -->
+  <div class="modal-backdrop" id="proofModalBackdrop">
+    <div class="modal">
+      <button class="close-btn" id="closeProofModalBtn" aria-label="Close proof modal">&times;</button>
+      <h3>Submit Image Proof</h3>
+      <form id="proofForm" autocomplete="off">
+        <label for="proofUrlInput">Image URL</label>
+        <input type="text" id="proofUrlInput" placeholder="https://example.com/photo.jpg" required />
+        <div class="modal-error" id="proofErrorMsg"></div>
+        <button type="submit">Upload Proof</button>
+        <div class="modal-success" id="proofSuccessMsg">Uploaded!</div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script type="module">
+    /***** FIREBASE IMPORTS *****/
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, get, set, push, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    /***** PRIMARY (Campaign) FIREBASE APP *****/
+    const campaignConfig = {
+      apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+      authDomain: "trackingclients.firebaseapp.com",
+      projectId: "trackingclients",
+      storageBucket: "trackingclients.appspot.com",
+      messagingSenderId: "27490943622",
+      appId: "1:27490943622:web:d6c87547aa5df440508707",
+      databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+    };
+    const campaignApp = initializeApp(campaignConfig);
+    const campaignDb = getDatabase(campaignApp);
+
+    /***** SECOND (Polygons Source) FIREBASE APP *****/
+    const polygonsConfig = {
+      apiKey: "AIzaSyCYSOx_niWPHLDisCjAQzK8UJSe5TfwtLI",
+      authDomain: "nftfanactive.firebaseapp.com",
+      databaseURL: "https://nftfanactive-default-rtdb.firebaseio.com",
+      projectId: "nftfanactive",
+      storageBucket: "nftfanactive.appspot.com",
+      messagingSenderId: "311309982791",
+      appId: "1:311309982791:web:3e55bba6b78feb57ea6562",
+      measurementId: "G-3TRDL9749N"
+    };
+    const polygonsApp = initializeApp(polygonsConfig, 'polygonsApp');
+    const polygonsDb = getDatabase(polygonsApp);
+
+    /***** STATE *****/
+    let ZONES = 0;
+    let zoneData = [];
+    let zonePolys = [];
+    let polygonsLoaded = false;
+    let pendingCampaignToLoad = null;
+
+    let currentCampaignId = '';
+    let loadedCampaignId = '';
+    let selectedZoneIndex = 0;
+
+    /***** DOM REFS *****/
+    const campaignIdInput    = document.getElementById('campaignIdInput');
+    const saveAllBtn         = document.getElementById('saveAllBtn');
+    const saveMsg            = document.getElementById('saveMsg');
+    const campaignMsg        = document.getElementById('campaignMsg');
+    const zoneSelect         = document.getElementById('zoneSelect');
+    const prevZoneBtn        = document.getElementById('prevZoneBtn');
+    const nextZoneBtn        = document.getElementById('nextZoneBtn');
+    const zoneDetail         = document.getElementById('zoneDetail');
+    const zoneTitle          = document.getElementById('zoneTitle');
+    const zoneStatusBadge    = document.getElementById('zoneStatusBadge');
+    const flyersInput        = document.getElementById('flyersInput');
+    const gpsUrlInput        = document.getElementById('gpsUrlInput');
+    const gpsOpenLink        = document.getElementById('gpsOpenLink');
+    const toggleWorkBtn      = document.getElementById('toggleWorkBtn');
+    const toggleCompleteBtn  = document.getElementById('toggleCompleteBtn');
+    const resetBtn           = document.getElementById('resetBtn');
+
+    const proofModalBackdrop = document.getElementById('proofModalBackdrop');
+    const openProofModalBtn  = document.getElementById('openProofModalBtn');
+    const closeProofModalBtn = document.getElementById('closeProofModalBtn');
+    const proofForm          = document.getElementById('proofForm');
+    const proofUrlInput      = document.getElementById('proofUrlInput');
+    const proofErrorMsg      = document.getElementById('proofErrorMsg');
+    const proofSuccessMsg    = document.getElementById('proofSuccessMsg');
+
+    /***** MAP *****/
+    const map = L.map('map').setView([50.85, 4.35], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+    /***** UTILITIES *****/
+    function defaultZoneObject() {
+      return { status:"pending", flyers:"", gpsUrl:"", working:false };
+    }
+    function ensureZoneDataLength() {
+      if (zoneData.length < ZONES) {
+        for (let i = zoneData.length; i < ZONES; i++) zoneData.push(defaultZoneObject());
+      } else if (zoneData.length > ZONES) {
+        zoneData = zoneData.slice(0, ZONES);
+      }
+    }
+    function isValidUrl(str){
+      try {
+        if(!str) return false;
+        const u = new URL(str);
+        return ['http:','https:'].includes(u.protocol);
+      } catch { return false; }
+    }
+
+    /***** RENDER SELECTOR *****/
+    function renderZoneSelect(){
+      zoneSelect.innerHTML = '';
+      for (let i=0;i<ZONES;i++){
+        const opt = document.createElement('option');
+        opt.value = i;
+        const z = zoneData[i] || defaultZoneObject();
+        const statusEmoji = z.working ? '🟡' : (z.status==='completed'?'✅':'🔴');
+        opt.textContent = `${statusEmoji} Zone ${i+1}`;
+        zoneSelect.appendChild(opt);
+      }
+      if (ZONES > 0) {
+        zoneSelect.value = selectedZoneIndex;
+        zoneDetail.classList.remove('hidden');
+      } else {
+        zoneDetail.classList.add('hidden');
+      }
+    }
+
+    /***** UPDATE ZONE DETAIL PANEL *****/
+    function updateZoneDetail(){
+      if (selectedZoneIndex < 0 || selectedZoneIndex >= ZONES) return;
+      const z = zoneData[selectedZoneIndex];
+      zoneTitle.textContent = `Zone ${selectedZoneIndex+1}`;
+      // Badge
+      zoneStatusBadge.className = 'badge';
+      if (z.working){
+        zoneStatusBadge.classList.add('working');
+        zoneStatusBadge.textContent = 'Working';
+      } else if (z.status === 'completed'){
+        zoneStatusBadge.classList.add('completed');
+        zoneStatusBadge.textContent = 'Completed';
+      } else {
+        zoneStatusBadge.classList.add('pending');
+        zoneStatusBadge.textContent = 'Pending';
+      }
+      // Buttons
+      toggleWorkBtn.textContent = z.working ? 'Stop Work' : 'Start Work';
+      toggleWorkBtn.className = 'chip-btn ' + (z.working ? 'warning':'outline');
+      toggleCompleteBtn.textContent = (z.status === 'completed') ? 'Mark Pending' : 'Mark Complete';
+      toggleCompleteBtn.className = 'chip-btn ' + (z.status==='completed' ? 'outline primary':'primary');
+      flyersInput.value = z.flyers || '';
+      gpsUrlInput.value = z.gpsUrl || '';
+      if (isValidUrl(z.gpsUrl)) {
+        gpsOpenLink.href = z.gpsUrl;
+        gpsOpenLink.style.display='inline-block';
+      } else {
+        gpsOpenLink.style.display='none';
+      }
+    }
+
+    function selectZone(idx){
+      if (idx < 0) idx = 0;
+      if (idx >= ZONES) idx = ZONES-1;
+      selectedZoneIndex = idx;
+      if (ZONES > 0) {
+        zoneSelect.value = selectedZoneIndex;
+        updateZoneDetail();
+      }
+      colorPolygons();
+      focusPolygon(idx);
+    }
+
+    function focusPolygon(idx){
+      if (!zonePolys[idx]) return;
+      map.fitBounds(zonePolys[idx].getBounds().pad(0.35));
+    }
+
+    /***** COLOR POLYGONS *****/
+    function colorPolygons() {
+      zoneData.forEach((zone, idx)=>{
+        if(!zonePolys[idx]) return;
+        let color;
+        if (idx === selectedZoneIndex) {
+          // highlight selection ring
+          color = zone.working ? "#d97706" : (zone.status === "completed" ? "#1d4ed8" : "#dc2626");
+          zonePolys[idx].setStyle({
+            fillColor: color,
+            color: '#000',
+            fillOpacity: zone.working ? 0.55 : (zone.status === "completed" ? 0.45 : 0.35),
+            weight: 3,
+            dashArray: zone.working ? "4 4" : null
+          });
+        } else {
+          if (zone.working) color = "#d97706";
+          else if (zone.status === "completed") color = "#2563eb";
+          else color = "#dc2626";
+          zonePolys[idx].setStyle({
+            fillColor: color,
+            color: color,
+            fillOpacity: zone.working ? 0.35 : (zone.status === "completed" ? 0.30 : 0.25),
+            weight: 2,
+            dashArray: null
+          });
+        }
+      });
+    }
+
+    /***** LOAD POLYGONS *****/
+    async function loadPolygonsFromDb() {
+      try {
+        const snap = await get(ref(polygonsDb,'polygons'));
+        if (!snap.exists()) {
+          polygonsLoaded = true;
+          ZONES = 0;
+          renderZoneSelect();
+          return;
+        }
+        zonePolys.forEach(p => map.removeLayer(p));
+        zonePolys = [];
+
+        let allPoints = [];
+        let idx = 0;
+        snap.forEach(child=>{
+          const arr = child.val();
+          if (!Array.isArray(arr) || !arr.length) return;
+            const coords = arr.map(pt=>[pt.lat, pt.lng]);
+          const poly = L.polygon(coords,{
+            color:'#dc2626',fillColor:'#dc2626',fillOpacity:0.25,weight:2
+          }).addTo(map);
+          poly.on('click',()=> selectZone(idx));
+          zonePolys.push(poly);
+          allPoints.push(...coords);
+          const center = poly.getBounds().getCenter();
+          L.marker(center, {
+            icon: L.divIcon({
+              className:'leaflet-label-zone',
+              html:`Z${idx+1}`,
+              iconSize:[42,18],
+              iconAnchor:[21,9]
+            }),
+            interactive:false
+          }).addTo(map);
+          idx++;
+        });
+
+        if (allPoints.length) {
+          map.fitBounds(L.latLngBounds(allPoints).pad(0.12));
+        }
+
+        ZONES = zonePolys.length;
+        polygonsLoaded = true;
+        ensureZoneDataLength();
+        renderZoneSelect();
+        selectZone(0);
+
+        if (pendingCampaignToLoad) {
+          await loadCampaignZones(pendingCampaignToLoad);
+          pendingCampaignToLoad = null;
+        }
+      } catch (e) {
+        console.error('Error loading polygons:', e);
+        polygonsLoaded = true;
+      }
+    }
+    loadPolygonsFromDb();
+
+    /***** SAVE ALL *****/
+    saveAllBtn.addEventListener('click', async ()=>{
+      currentCampaignId = campaignIdInput.value.trim();
+      if (!currentCampaignId) {
+        campaignMsg.textContent = "Enter a Campaign ID to save.";
+        campaignMsg.className = "";
+        campaignMsg.style.display = "block";
+        return;
+      }
+      if (!polygonsLoaded || ZONES === 0) {
+        campaignMsg.textContent = "Polygons not ready.";
+        campaignMsg.className = "";
+        campaignMsg.style.display = "block";
+        return;
+      }
+      saveAllBtn.classList.add('loading');
+      campaignMsg.style.display = "none";
+      try {
+        await set(ref(campaignDb, `campaigns/${currentCampaignId}/zone_statuses`), zoneData);
+        saveMsg.style.display='block';
+        setTimeout(()=>saveMsg.style.display='none',2500);
+        loadedCampaignId = currentCampaignId;
+        localStorage.setItem('lastCampaignId', currentCampaignId);
+      } catch(err){
+        console.error('Save error:', err);
+      } finally {
+        saveAllBtn.classList.remove('loading');
+      }
+    });
+
+    /***** LOAD CAMPAIGN *****/
+    async function loadCampaignZones(campaignId) {
+      if (!campaignId) return;
+      if (!polygonsLoaded) {
+        pendingCampaignToLoad = campaignId;
+        return;
+      }
+      const snap = await get(ref(campaignDb, `campaigns/${campaignId}/zone_statuses`));
+      if (snap.exists()) {
+        const data = snap.val();
+        zoneData = [];
+        for (let i=0;i<ZONES;i++) {
+          zoneData.push({
+            ...defaultZoneObject(),
+            ...(Array.isArray(data) ? data[i] : (data[i] || {}))
+          });
+        }
+        renderZoneSelect();
+        selectZone(0);
+        campaignMsg.textContent = "Campaign loaded.";
+        campaignMsg.className = "success";
+        campaignMsg.style.display = "block";
+        setTimeout(()=>campaignMsg.style.display='none',2000);
+        loadedCampaignId = campaignId;
+      } else {
+        zoneData = Array.from({length:ZONES}, defaultZoneObject);
+        renderZoneSelect();
+        selectZone(0);
+        campaignMsg.textContent = "New campaign (no data).";
+        campaignMsg.className = "";
+        campaignMsg.style.display = "block";
+        setTimeout(()=>campaignMsg.style.display='none',2200);
+        loadedCampaignId = '';
+      }
+      fetchAndRenderProofs();
+    }
+
+    /***** CAMPAIGN ID INPUT (DEBOUNCE) *****/
+    let loadTimeout = null;
+    campaignIdInput.addEventListener('input', ()=>{
+      const val = campaignIdInput.value.trim();
+      if (val === loadedCampaignId) return;
+      if (loadTimeout) clearTimeout(loadTimeout);
+      loadTimeout = setTimeout(()=> loadCampaignZones(val), 600);
+    });
+    campaignIdInput.addEventListener('keydown', e=>{
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        loadCampaignZones(campaignIdInput.value.trim());
+      }
+    });
+
+    /***** ZONE INTERACTIONS *****/
+    zoneSelect.addEventListener('change', ()=>{
+      selectedZoneIndex = +zoneSelect.value;
+      updateZoneDetail();
+      colorPolygons();
+      focusPolygon(selectedZoneIndex);
+    });
+
+    prevZoneBtn.addEventListener('click', ()=>{
+      if (ZONES === 0) return;
+      selectZone((selectedZoneIndex -1 + ZONES)%ZONES);
+    });
+    nextZoneBtn.addEventListener('click', ()=>{
+      if (ZONES === 0) return;
+      selectZone((selectedZoneIndex +1)%ZONES);
+    });
+
+    flyersInput.addEventListener('input', ()=>{
+      zoneData[selectedZoneIndex].flyers = flyersInput.value;
+      renderZoneSelect();
+    });
+    gpsUrlInput.addEventListener('input', ()=>{
+      zoneData[selectedZoneIndex].gpsUrl = gpsUrlInput.value.trim();
+      if (isValidUrl(zoneData[selectedZoneIndex].gpsUrl)) {
+        gpsOpenLink.href = zoneData[selectedZoneIndex].gpsUrl;
+        gpsOpenLink.style.display='inline-block';
+      } else {
+        gpsOpenLink.style.display='none';
+      }
+    });
+
+    toggleWorkBtn.addEventListener('click', ()=>{
+      const z = zoneData[selectedZoneIndex];
+      z.working = !z.working;
+      if (z.working) z.status = 'pending';
+      updateZoneDetail();
+      renderZoneSelect();
+      colorPolygons();
+    });
+
+    toggleCompleteBtn.addEventListener('click', ()=>{
+      const z = zoneData[selectedZoneIndex];
+      if (z.status === 'completed'){
+        z.status = 'pending';
+      } else {
+        z.status = 'completed';
+        z.working = false;
+      }
+      updateZoneDetail();
+      renderZoneSelect();
+      colorPolygons();
+    });
+
+    resetBtn.addEventListener('click', ()=>{
+      zoneData[selectedZoneIndex] = defaultZoneObject();
+      updateZoneDetail();
+      renderZoneSelect();
+      colorPolygons();
+    });
+
+    /***** USER LOCATION *****/
+    let userMarker = null;
+    let userLatLng = null;
+    function showUserLocation(lat,lng){
+      userLatLng=[lat,lng];
+      if(!userMarker){
+        userMarker = L.circleMarker([lat,lng],{
+          radius:10,color:'#2563eb',fillColor:'#2563eb',fillOpacity:0.85,weight:2
+        }).addTo(map).bindTooltip('You', {permanent:false});
+      } else userMarker.setLatLng([lat,lng]);
+    }
+    if ("geolocation" in navigator) {
+      navigator.geolocation.watchPosition(
+        pos=>showUserLocation(pos.coords.latitude,pos.coords.longitude),
+        err=>console.warn('Location error:', err.message),
+        { enableHighAccuracy:true, maximumAge:2000, timeout:20000 }
+      );
+    }
+
+    /***** PROOFS (MAP PINS) *****/
+    let proofMarkers = [];
+    function clearProofMarkers(){proofMarkers.forEach(m=>map.removeLayer(m));proofMarkers=[];}
+    function renderProofsOnMap(proofs){
+      clearProofMarkers();
+      proofs.forEach((proof,idx)=>{
+        const marker = L.marker([proof.lat, proof.lng], {
+          icon: L.icon({
+            iconUrl:'https://cdn-icons-png.flaticon.com/512/61/61168.png',
+            iconSize:[26,26],
+            iconAnchor:[13,26],
+            popupAnchor:[0,-22]
+          })
+        }).addTo(map);
+        marker.bindPopup(`
+          <div style="text-align:center;font-size:11px;">
+            <b>Proof #${idx+1}</b><br>
+            <a href="${proof.url}" target="_blank">
+              <img src="${proof.url}" style="max-width:140px;max-height:100px;display:block;margin:6px auto;border-radius:8px;border:2px solid #2563eb;" loading="lazy">
+            </a>
+            <a href="${proof.url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:underline;">Open Image</a>
+          </div>
+        `);
+        proofMarkers.push(marker);
+      });
+    }
+    function fetchAndRenderProofs() {
+      const cid = campaignIdInput.value.trim();
+      if (!cid) { clearProofMarkers(); return; }
+      onValue(ref(campaignDb, `campaigns/${cid}/proofs`), snap=>{
+        const proofs=[];
+        snap.forEach(ch=>{
+          const v=ch.val();
+          if(typeof v.lat==='number' && typeof v.lng==='number' && v.url) proofs.push(v);
+        });
+        proofs.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+        renderProofsOnMap(proofs);
+      });
+    }
+    campaignIdInput.addEventListener('input', ()=> setTimeout(fetchAndRenderProofs, 1000));
+    saveAllBtn.addEventListener('click', ()=> setTimeout(fetchAndRenderProofs, 600));
+
+    /***** PROOF MODAL *****/
+    openProofModalBtn.addEventListener('click', ()=>{
+      proofModalBackdrop.style.display='flex';
+      proofErrorMsg.textContent='';
+      proofErrorMsg.style.display='none';
+      proofSuccessMsg.style.display='none';
+      proofUrlInput.value='';
+      setTimeout(()=>proofUrlInput.focus(),120);
+    });
+    closeProofModalBtn.addEventListener('click', ()=> proofModalBackdrop.style.display='none');
+    proofModalBackdrop.addEventListener('click', e=>{
+      if(e.target===proofModalBackdrop) proofModalBackdrop.style.display='none';
+    });
+
+    function isValidImageUrl(u){ return isValidUrl(u); }
+
+    proofForm.addEventListener('submit', async e=>{
+      e.preventDefault();
+      proofErrorMsg.style.display='none';
+      proofSuccessMsg.style.display='none';
+      const url = proofUrlInput.value.trim();
+      if(!isValidImageUrl(url)){
+        proofErrorMsg.textContent='Enter a valid image URL (http/https)';
+        proofErrorMsg.style.display='block';
+        return;
+      }
+      if(!userLatLng){
+        proofErrorMsg.textContent='Waiting for your location. Allow location access.';
+        proofErrorMsg.style.display='block';
+        return;
+      }
+      const cid = campaignIdInput.value.trim();
+      if(!cid){
+        proofErrorMsg.textContent='Enter a Campaign ID first.';
+        proofErrorMsg.style.display='block';
+        return;
+      }
+      try {
+        await push(ref(campaignDb, `campaigns/${cid}/proofs`), {
+          url,
+          lat: userLatLng[0],
+          lng: userLatLng[1],
+          timestamp: Date.now()
+        });
+        proofSuccessMsg.style.display='block';
+        proofUrlInput.value='';
+        fetchAndRenderProofs();
+        setTimeout(()=> proofModalBackdrop.style.display='none', 1400);
+      } catch(err){
+        proofErrorMsg.textContent='Failed to save proof: '+err.message;
+        proofErrorMsg.style.display='block';
+      }
+    });
+
+    /***** LOCAL STORAGE RESTORE *****/
+    const storedId = localStorage.getItem('lastCampaignId');
+    if (storedId) {
+      campaignIdInput.value = storedId;
+      loadCampaignZones(storedId);
+      setTimeout(fetchAndRenderProofs, 1500);
+    }
+    saveAllBtn.addEventListener('click', ()=>{
+      localStorage.setItem('lastCampaignId', campaignIdInput.value.trim());
+    });
+
+    /***** INITIAL UI *****/
+    renderZoneSelect();
+  </script>
+</body>
+</html>
