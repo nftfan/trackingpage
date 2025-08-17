@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -230,7 +231,6 @@ input:focus,select:focus{
 #saveMsg{color:var(--clr-success);}
 #campaignMsg.success{color:var(--clr-success);}
 #campaignMsg.err{color:var(--clr-danger);}
-/* FABs */
 .fab{
   position:fixed;
   right:16px;
@@ -255,7 +255,6 @@ input:focus,select:focus{
 #addProofFab{bottom:96px;}
 #saveFab{bottom:20px;background:#0f172a;}
 .map-tab-active .hide-when-map{display:none;}
-/* Modal */
 .modal-backdrop{
   position:fixed;inset:0;
   background:rgba(0,0,0,.55);
@@ -325,8 +324,6 @@ input:focus,select:focus{
 }
 .submit-row button.outline{background:#fff;color:var(--clr-primary);border:1px solid var(--clr-primary);}
 .submit-row button:active{transform:scale(.95);}
-
-/* Sleek semi-transparent zone labels */
 .leaflet-label-zone{
   background:rgba(255,255,255,.55);
   color:#0f172a;
@@ -344,7 +341,6 @@ input:focus,select:focus{
   display:inline-block;
   user-select:none;
 }
-
 @media (min-width:700px){
   #addProofFab,#saveFab{right:28px;}
   .manage-scroll{padding:24px 40px 140px;}
@@ -393,51 +389,50 @@ input:focus,select:focus{
             </div>
           </div>
 
-          <div id="zoneBox" class="zone-box">
-            <div class="zone-head">
-              <div class="zone-head-title" id="zoneTitle">Zone</div>
-              <div id="zoneStatusBadge" class="badge pending">
-                <span class="material-icons">pending</span>
-                <span>Pending</span>
+            <div id="zoneBox" class="zone-box">
+              <div class="zone-head">
+                <div class="zone-head-title" id="zoneTitle">Zone</div>
+                <div id="zoneStatusBadge" class="badge pending">
+                  <span class="material-icons">pending</span>
+                  <span>Pending</span>
+                </div>
+              </div>
+
+              <div class="work-hint">
+                <strong>Tip:</strong> Open your walk tracker app before marking complete.
+              </div>
+
+              <div class="btn-grid">
+                <button id="toggleCompleteBtn" class="action-btn" type="button">
+                  <span class="material-icons">check_circle</span>
+                  Complete
+                </button>
+              </div>
+
+              <div class="form-row">
+                <label for="flyersInput">Flyers</label>
+                <input id="flyersInput" type="number" min="0" placeholder="0" inputmode="numeric">
+              </div>
+              <div class="form-row">
+                <label for="gpsUrlInput">GPS URL</label>
+                <input id="gpsUrlInput" type="url" placeholder="https://">
+              </div>
+              <a id="gpsOpenLink" class="link" href="#" target="_blank" rel="noopener" style="display:none;">
+                <span class="material-icons" style="font-size:14px;">open_in_new</span>
+                Open GPS
+              </a>
+
+              <div id="saveMsg">
+                <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;">check_circle</span>
+                Saved
               </div>
             </div>
-
-            <div class="work-hint">
-              <strong>Tip:</strong> Open your walk tracker app before marking complete.
-            </div>
-
-            <div class="btn-grid">
-              <button id="toggleCompleteBtn" class="action-btn" type="button">
-                <span class="material-icons">check_circle</span>
-                Complete
-              </button>
-            </div>
-
-            <div class="form-row">
-              <label for="flyersInput">Flyers</label>
-              <input id="flyersInput" type="number" min="0" placeholder="0" inputmode="numeric">
-            </div>
-            <div class="form-row">
-              <label for="gpsUrlInput">GPS URL</label>
-              <input id="gpsUrlInput" type="url" placeholder="https://">
-            </div>
-            <a id="gpsOpenLink" class="link" href="#" target="_blank" rel="noopener" style="display:none;">
-              <span class="material-icons" style="font-size:14px;">open_in_new</span>
-              Open GPS
-            </a>
-
-            <div id="saveMsg">
-              <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;">check_circle</span>
-              Saved
-            </div>
-          </div>
         </div>
       </div>
     </div>
   </div>
 </main>
 
-<!-- FABs -->
 <button id="addProofFab" class="fab hide-when-map" title="Add Photo Proof">
   <span class="material-icons">add_a_photo</span>
 </button>
@@ -445,7 +440,6 @@ input:focus,select:focus{
   <span class="material-icons">save</span>
 </button>
 
-<!-- Proof Modal -->
 <div id="proofModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="proofModalTitle">
   <div class="modal" id="proofModal">
     <header>
@@ -492,10 +486,19 @@ input:focus,select:focus{
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script type="module">
+/*
+  UPDATED FOR leuvenflyers-23584 polygons database:
+  - polygons stored under /polygons
+  - each polygon entry may be:
+      a) Array of {lat, lng}
+      b) Object with numeric keys "0","1",... each {lat,lng} (and optional zoneNumber)
+  - We normalize both formats.
+*/
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import { getDatabase, ref, get, set, push } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-/* Cloudinary */
+/* Cloudinary (unchanged) */
 const CLOUDINARY_CLOUD_NAME="dvndw130d";
 const CLOUDINARY_UPLOAD_PRESET="unsigned_nft";
 const CLOUDINARY_UPLOAD_URL=`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
@@ -520,7 +523,8 @@ async function uploadToCloudinary(file,statusEl){
   return data.secure_url;
 }
 
-/* Firebase */
+/* Firebase Configs */
+// Campaign DB (statuses, proofs)
 const campaignConfig={
   apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
   authDomain:"trackingclients.firebaseapp.com",
@@ -530,24 +534,27 @@ const campaignConfig={
   appId:"1:27490943622:web:d6c87547aa5df440508707",
   databaseURL:"https://trackingclients-default-rtdb.firebaseio.com/"
 };
+// Polygons DB (leuvenflyers-23584 with object or array polygons)
 const polygonsConfig={
-  apiKey:"AIzaSyCYSOx_niWPHLDisCjAQzK8UJSe5TfwtLI",
-  authDomain:"nftfanactive.firebaseapp.com",
-  databaseURL:"https://nftfanactive-default-rtdb.firebaseio.com",
-  projectId:"nftfanactive",
-  storageBucket:"nftfanactive.appspot.com",
-  messagingSenderId:"311309982791",
-  appId:"1:311309982791:web:3e55bba6b78feb57ea6562"
+  apiKey:"AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+  authDomain:"leuvenflyers-23584.firebaseapp.com",
+  databaseURL:"https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+  projectId:"leuvenflyers-23584",
+  storageBucket:"leuvenflyers-23584.firebasestorage.app",
+  messagingSenderId:"1077790950414",
+  appId:"1:1077790950414:web:036fafe06df86f41ed285f"
 };
-const campaignApp=initializeApp(campaignConfig);
+
+const campaignApp=initializeApp(campaignConfig,'campaign');
 const campaignDb=getDatabase(campaignApp);
-const polygonsApp=initializeApp(polygonsConfig,'polys');
+const polygonsApp=initializeApp(polygonsConfig,'polygons');
 const polygonsDb=getDatabase(polygonsApp);
 
 /* Tabs */
 const mainTabs=document.querySelectorAll('.main-tab-btn');
 let mapInitialized=false;
 let map, zonePolys=[];
+
 mainTabs.forEach(btn=>{
   btn.addEventListener('click',()=>{
     if(btn.classList.contains('active')) return;
@@ -563,7 +570,7 @@ mainTabs.forEach(btn=>{
   });
 });
 
-/* DOM */
+/* DOM references */
 const campaignIdInput=document.getElementById('campaignIdInput');
 const campaignMsg=document.getElementById('campaignMsg');
 const zoneSelect=document.getElementById('zoneSelect');
@@ -578,7 +585,7 @@ const saveMsg=document.getElementById('saveMsg');
 const addProofFab=document.getElementById('addProofFab');
 const saveFab=document.getElementById('saveFab');
 
-/* Proof modal elements */
+/* Proof modal */
 const proofModalBackdrop=document.getElementById('proofModalBackdrop');
 const closeProofModalBtn=document.getElementById('closeProofModalBtn');
 const proofFileInput=document.getElementById('proofFileInput');
@@ -670,37 +677,87 @@ function initMap(){
   }
 }
 
+/* Polygon Loader (supports object-with-numeric-keys + optional zoneNumber OR array) */
 async function loadPolygons(){
   const snap=await get(ref(polygonsDb,'polygons'));
   zonePolys.forEach(p=>map.removeLayer(p));zonePolys=[];
   if(!snap.exists()){ZONES=0;renderSelect();return;}
-  let all=[],idx=0;
-  snap.forEach(ch=>{
-    const arr=ch.val();
-    if(!Array.isArray(arr)||!arr.length)return;
-    const coords=arr.map(pt=>[pt.lat,pt.lng]);
-    const poly=L.polygon(coords,{color:'#dc2626',fillColor:'#dc2626',fillOpacity:.32,weight:2}).addTo(map);
-    poly.on('click',()=>selectZone(idx));
-    zonePolys.push(poly);
-    all.push(...coords);
+  let polyEntries=[];
 
-    // Center label (sleek semi-transparent)
+  snap.forEach(ch=>{
+    const raw=ch.val();
+    if(!raw) return;
+
+    let zoneNumber = null;
+    let coordsArr = [];
+
+    if(Array.isArray(raw)){
+      // Array of {lat,lng}
+      coordsArr = raw
+        .filter(pt=>pt && typeof pt.lat==='number' && typeof pt.lng==='number')
+        .map(pt=>[pt.lat,pt.lng]);
+    } else if(typeof raw==='object'){
+      if(raw.zoneNumber!==undefined && raw.zoneNumber!==''){
+        const zNum=parseInt(raw.zoneNumber,10);
+        if(!isNaN(zNum)) zoneNumber=zNum;
+      }
+      // numeric keys
+      const numericKeys=Object.keys(raw)
+        .filter(k=>!isNaN(Number(k)))
+        .sort((a,b)=>Number(a)-Number(b));
+      coordsArr = numericKeys.map(k=>{
+        const pt=raw[k];
+        if(!pt) return null;
+        if(Array.isArray(pt) && pt.length===2 && typeof pt[0]==='number' && typeof pt[1]==='number'){
+          return [pt[0],pt[1]];
+        }
+        if(typeof pt.lat==='number' && typeof pt.lng==='number'){
+          return [pt.lat, pt.lng];
+        }
+        return null;
+      }).filter(Boolean);
+    }
+
+    if(!coordsArr.length) return;
+    polyEntries.push({zoneNumber, coords:coordsArr});
+  });
+
+  // Sort polygons: first those with explicit zoneNumber ascending, then the rest in original order
+  const withNum=polyEntries.filter(p=>p.zoneNumber!=null).sort((a,b)=>a.zoneNumber-b.zoneNumber);
+  const withoutNum=polyEntries.filter(p=>p.zoneNumber==null);
+  const ordered=[...withNum, ...withoutNum];
+
+  let all=[];
+  ordered.forEach((entry,idx)=>{
+    const zoneIndex = idx; // internal index
+    const displayZoneNumber = entry.zoneNumber != null ? entry.zoneNumber : (idx+1);
+    const poly=L.polygon(entry.coords,{
+      color:'#dc2626',
+      fillColor:'#dc2626',
+      fillOpacity:.32,
+      weight:2
+    }).addTo(map);
+    poly.on('click',()=>selectZone(zoneIndex));
+    zonePolys.push(poly);
+    all.push(...entry.coords);
+
     const center=poly.getBounds().getCenter();
     L.marker(center,{
       icon:L.divIcon({
         className:'leaflet-label-zone',
-        html:`Z${idx+1}`,
+        html:`Z${displayZoneNumber}`,
         iconSize:null,
         iconAnchor:[12,8]
       }),
       interactive:false
     }).addTo(map);
-
-    idx++;
   });
+
   if(all.length) map.fitBounds(L.latLngBounds(all).pad(0.08));
   ZONES=zonePolys.length;
   polygonsLoaded=true;
+
+  // If we already have zoneData loaded for a campaign and counts differ, resize
   ensureLen();
   renderSelect();
   selectZone(0);
@@ -730,7 +787,8 @@ async function loadCampaign(id){
     const data=snap.val();
     zoneData=[];
     for(let i=0;i<ZONES;i++){
-      zoneData.push({...defaultZone(),...(Array.isArray(data)?data[i]:(data[i]||{}))});
+      let record = Array.isArray(data) ? data[i] : (data && typeof data==='object' ? data[i] : null);
+      zoneData.push({...defaultZone(), ...(record||{})});
     }
     campaignMsg.textContent='Loaded';
     campaignMsg.className='success';
@@ -746,7 +804,7 @@ async function loadCampaign(id){
   loadedCampaignId=id;
 }
 
-/* Inputs */
+/* Inputs & Handlers */
 let debounceTimer=null;
 campaignIdInput.addEventListener('input',()=>{
   const v=campaignIdInput.value.trim();
@@ -772,7 +830,7 @@ toggleCompleteBtn.addEventListener('click',()=>{
 });
 saveFab.addEventListener('click',saveAll);
 
-/* Proof modal (still available) */
+/* Proof modal */
 let userLatLng=null;
 function openProofModal(){
   proofModalBackdrop.style.display='flex';
@@ -874,7 +932,7 @@ if(stored){campaignIdInput.value=stored;loadCampaign(stored);}
 /* Resize */
 window.addEventListener('resize',()=>{if(mapInitialized) map.invalidateSize();});
 
-/* Init map (Map tab default) */
+/* Init map immediately (map tab is default) */
 initMap();mapInitialized=true;
 </script>
 </body>
