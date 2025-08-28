@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Leuven Area Directory</title>
+  <style>
+    :root{
+      --bg:#0b1117;          /* page background */
+      --card:#0f1720;        /* card background */
+      --text:#e6edf3;        /* primary text */
+      --muted:#9fb0c0;       /* secondary text */
+      --brand:#3b82f6;       /* accent */
+      --pill:#0b2a67;        /* pill bg */
+      --stroke:#1f2a37;      /* borders */
+    }
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
+    .wrap{max-width:900px;margin:0 auto;padding:16px}
+
+    header{display:flex;gap:10px;align-items:center;justify-content:space-between;position:sticky;top:0;background:linear-gradient(var(--bg),var(--bg));padding:10px 0;z-index:10}
+    h1{font-size:1.15rem;margin:0;font-weight:700}
+
+    .controls{display:flex;gap:8px;align-items:center;width:100%}
+    .select{flex:1;position:relative}
+    select{appearance:none;width:100%;padding:12px 42px 12px 14px;border-radius:12px;border:1px solid var(--stroke);background:var(--card);color:var(--text);font-size:1rem}
+    .chev{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted)}
+
+    .search{position:relative;flex:1}
+    .search input{width:100%;padding:12px 38px;border-radius:12px;border:1px solid var(--stroke);background:var(--card);color:var(--text)}
+    .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6}
+
+    .meta{display:flex;gap:10px;align-items:center;margin:10px 2px;color:var(--muted);font-size:.9rem}
+
+    .grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:6px}
+    @media(min-width:560px){.grid{grid-template-columns:1fr 1fr}}
+    @media(min-width:880px){.grid{grid-template-columns:1fr 1fr 1fr}}
+
+    .card{background:var(--card);border:1px solid var(--stroke);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px}
+    .title{font-weight:700;font-size:1rem}
+    .addr{font-size:.98rem;color:var(--muted)}
+    .row{display:flex;flex-wrap:wrap;gap:6px}
+
+    .pill{font-size:.75rem;background:var(--pill);border:1px solid var(--stroke);padding:4px 8px;border-radius:999px;color:#cfe0ff}
+
+    .btnrow{display:flex;gap:8px;margin-top:4px}
+    button, a.btn{border:1px solid var(--stroke);background:#0b1622;color:var(--text);padding:8px 10px;border-radius:12px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+    button:active{transform:translateY(1px)}
+
+    .section{margin:18px 0 6px;font-weight:800;color:#dbeafe}
+
+    .empty{padding:18px;border:1px dashed var(--stroke);border-radius:16px;color:var(--muted);text-align:center}
+    footer{margin:28px 0 12px;color:var(--muted);font-size:.85rem;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Leuven Area Directory</h1>
+      <div class="controls">
+        <div class="select">
+          <select id="areaSelect" aria-label="Select area">
+            <!-- options injected by JS -->
+          </select>
+          <svg class="chev" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+        <div class="search">
+          <input id="searchInput" type="search" placeholder="Search name or street…" aria-label="Search" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+      </div>
+    </header>
+
+    <div class="meta">
+      <span id="counter">0 results</span>
+      <span>•</span>
+      <span id="hint">Tip: tap an address to copy</span>
+    </div>
+
+    <div id="list" class="grid" role="list"></div>
+
+    <div id="emptyState" class="empty" hidden>
+      No matches. Try a different search.
+    </div>
+
+    <footer>
+      Built for quick, mobile lookups. All entries are grouped by area.
+    </footer>
+  </div>
+
+  <script>
+    // --- DATA ---------------------------------------------------------------
+    const DATA = {
+      "Leuven centrum": [
+        {name:"Carrefour Express", street:"Brusselsestraat", number:"60", zip:"3000", area:"Leuven", type:"Supermarket"},
+        {name:"AD Delhaize \"Denon\"", street:"Brusselsestraat", number:"31", zip:"3000", area:"Leuven", type:"Supermarket"},
+        {name:"SPAR Leuven Vesalius", street:"Tiensestraat", number:"166", zip:"3000", area:"Leuven", type:"Supermarket"},
+        {name:"Alma 1", street:"Tiensestraat", number:"115", zip:"3000", area:"Leuven", type:"Student restaurant"},
+        {name:"’t Academisch kwartier", street:"Tiensestraat", number:"41", zip:"3000", area:"Leuven", type:"Student bar"},
+        {name:"Carrefour Express", street:"Naamsestraat", number:"48", zip:"3000", area:"Leuven", type:"Supermarket"},
+        {name:"Economie & Bedrijfswetenschappen (FEB)", street:"Naamsestraat", number:"69", zip:"3000", area:"Leuven", type:"Faculty"},
+        {name:"House of Students (FEB)", street:"Naamsestraat", number:"61", zip:"3000", area:"Leuven", type:"Student services"},
+        {name:"Groep T (onder Alma)", street:"Andreas Vesaliusstraat", number:"13", zip:"3000", area:"Leuven", type:"Campus"},
+        {name:"Wassalon Leuven", street:"Andreas Vesaliusstraat", number:"16", zip:"3000", area:"Leuven", type:"Laundry"},
+        {name:"Filosofie (Instituut Wijsbegeerte)", street:"Kardinaal Mercierplein", number:"", zip:"3000", area:"Leuven", type:"Faculty"},
+        {name:"Theologie & Religiewetenschappen", street:"Sint-Michielsstraat", number:"6", zip:"3000", area:"Leuven", type:"Faculty"},
+        {name:"Letteren", street:"Blijde Inkomststraat", number:"21", zip:"3000", area:"Leuven", type:"Faculty"},
+        {name:"Life Style Fitness", street:"Mechelsestraat", number:"163", zip:"3000", area:"Leuven", type:"Gym"},
+        {name:"City-Fit", street:"Diestsestraat", number:"239", zip:"3000", area:"Leuven", type:"Gym"},
+        {name:"Jims – Slachthuislaan", street:"Slachthuislaan", number:"2", zip:"3000", area:"Leuven", type:"Gym"},
+        {name:"Jims – Bondgenotenlaan", street:"Bondgenotenlaan", number:"", zip:"3000", area:"Leuven", type:"Gym"},
+        {name:"Basic-Fit Vital Decosterstraat", street:"Vital Decosterstraat", number:"19–23", zip:"3000", area:"Leuven", type:"Gym"},
+        {name:"Universiteitsbibliotheek (centrale)", street:"Monseigneur Ladeuzeplein", number:"21", zip:"3000", area:"Leuven", type:"Library"},
+        {name:"Maurits Sabbebibliotheek", street:"Charles Deberiotstraat", number:"26", zip:"3000", area:"Leuven", type:"Library"},
+        {name:"Library of Social Sciences", street:"Parkstraat", number:"45", zip:"3000", area:"Leuven", type:"Library"},
+        {name:"Tweebronnen – hoofdvestiging", street:"Rijschoolstraat", number:"4", zip:"3000", area:"Leuven", type:"Library"},
+        {name:"Zilverwit (wassalon)", street:"Sint-Maartenstraat", number:"25", zip:"3000", area:"Leuven", type:"Laundry"}
+      ],
+
+      "Heverlee": [
+        {name:"Carrefour Market Heverlee", street:"Tervuursevest", number:"113", zip:"3001", area:"Heverlee", type:"Supermarket"},
+        {name:"Delhaize Heverlee", street:"Tervuursevest", number:"19", zip:"3001", area:"Heverlee", type:"Supermarket"},
+        {name:"Universitair Sportcentrum KU Leuven", street:"Tervuursevest", number:"101", zip:"3001", area:"Heverlee", type:"Sports"},
+        {name:"Sportmedisch Adviescentrum (SMAC)", street:"Tervuursevest", number:"145", zip:"3001", area:"Heverlee", type:"Sports medicine"},
+        {name:"Univ-Fit (KU Leuven)", street:"Tervuursevest", number:"145", zip:"3001", area:"Heverlee", type:"Gym"},
+        {name:"Colruyt Heverlee", street:"Groenveldstraat", number:"71", zip:"3001", area:"Heverlee", type:"Supermarket"},
+        {name:"Alma Quadrivium", street:"Celestijnenlaan", number:"200 H", zip:"3001", area:"Heverlee", type:"Student restaurant"},
+        {name:"Alma 3 (Campus Arenberg)", street:"Steengroevenlaan", number:"3", zip:"3001", area:"Heverlee", type:"Student restaurant"},
+        {name:"Theokot (VTK)", street:"Kasteelpark Arenberg", number:"41", zip:"3001", area:"Heverlee", type:"Sandwich bar"},
+        {name:"Bioscience Engineering", street:"Kasteelpark Arenberg", number:"20", zip:"3001", area:"Heverlee", type:"Faculty"},
+        {name:"Ingenieurswetenschappen (Arenberg Castle)", street:"Kasteelpark Arenberg", number:"", zip:"3001", area:"Heverlee", type:"Faculty"},
+        {name:"Architectuur (Departement)", street:"Kasteelpark Arenberg", number:"1 (box 2431)", zip:"3001", area:"Heverlee", type:"Faculty"},
+        {name:"Baarr (bio-ingenieurs)", street:"Geldenaaksebaan / Arenbergpark", number:"2 / 37", zip:"3001", area:"Heverlee", type:"Student bar"},
+        {name:"Sportoase Philipssite", street:"Philipssite", number:"6", zip:"3001", area:"Leuven", type:"Sports"},
+        {name:"HillFit", street:"Hertogstraat", number:"178", zip:"3001", area:"Heverlee", type:"Gym"},
+        {name:"Bibliotheekfiliaal Heverlee", street:"Waversebaan", number:"66", zip:"3001", area:"Heverlee", type:"Library"},
+        {name:"De Wastrommel (wassalon)", street:"Naamsesteenweg", number:"(nabij ’t Kaffaat)", zip:"3001", area:"Heverlee", type:"Laundry"}
+      ],
+
+      "Kessel-Lo": [
+        {name:"Carrefour Market Kessel-Lo", street:"Koning Albertlaan", number:"147", zip:"3010", area:"Kessel-Lo", type:"Supermarket"},
+        {name:"Delhaize Kessel-Lo", street:"Diestsesteenweg", number:"545", zip:"3010", area:"Kessel-Lo", type:"Supermarket"},
+        {name:"Energym", street:"Diestsesteenweg", number:"141", zip:"3010", area:"Kessel-Lo", type:"Gym"},
+        {name:"Colruyt Kessel-Lo", street:"Tiensesteenweg", number:"237", zip:"3010", area:"Kessel-Lo", type:"Supermarket"},
+        {name:"Bio-Planet (bio-winkel)", street:"Tiensesteenweg", number:"371", zip:"3010", area:"Kessel-Lo", type:"Supermarket"},
+        {name:"Sar Minimarket", street:"Gemeenteplein", number:"10", zip:"3010", area:"Kessel-Lo", type:"Shop"},
+        {name:"Sportcomplex Kessel-Lo", street:"Stadionlaan", number:"4", zip:"3010", area:"Kessel-Lo", type:"Sports"}
+      ],
+
+      "Gasthuisberg": [
+        {name:"Geneeskunde & Farmaceutische Wetenschappen", street:"UZ Leuven (Campus Gasthuisberg)", number:"", zip:"3000", area:"Leuven", type:"Faculty"},
+        {name:"Bewegings- en Revalidatiewetenschappen", street:"UZ Leuven / sportcampus", number:"", zip:"3000", area:"Leuven", type:"Faculty"},
+        {name:"Alma Gasthuisberg", street:"Herestraat", number:"49 (ALO-Toren)", zip:"3000", area:"Leuven", type:"Student restaurant"}
+      ],
+
+      "Wilsele": [
+        {name:"Bibliotheekfiliaal Wilsele", street:"Aarschotsesteenweg", number:"159", zip:"3012", area:"Wilsele", type:"Library"}
+      ],
+
+      "Wijgmaal": [
+        {name:"Sportcentrum Ymeria", street:"Pastoor Bellonstraat", number:"29", zip:"3018", area:"Wijgmaal", type:"Sports"}
+      ],
+
+      // Standalone (area mixed or not clearly assigned)
+      "Leuven (station)": [
+        {name:"Carrefour Express (Station)", street:"Tiensevest", number:"10A", zip:"3000", area:"Leuven", type:"Supermarket"}
+      ]
+    };
+
+    // --- RENDER -------------------------------------------------------------
+    const areaSelect = document.getElementById('areaSelect');
+    const searchInput = document.getElementById('searchInput');
+    const list = document.getElementById('list');
+    const emptyState = document.getElementById('emptyState');
+    const counter = document.getElementById('counter');
+
+    // Build area options
+    const AREAS = Object.keys(DATA);
+    for(const a of AREAS){
+      const opt = document.createElement('option');
+      opt.value = a; opt.textContent = a;
+      areaSelect.appendChild(opt);
+    }
+    // Default to Leuven centrum if available
+    const defaultArea = AREAS.includes('Leuven centrum') ? 'Leuven centrum' : AREAS[0];
+    areaSelect.value = defaultArea;
+
+    function fmtAddress(item){
+      const parts = [item.street, item.number].filter(Boolean).join(' ');
+      return `${parts}, ${item.zip} ${item.area}`.trim();
+    }
+
+    function mapsLink(item){
+      const q = encodeURIComponent(`${item.name} ${item.street} ${item.number} ${item.zip} ${item.area}`.trim());
+      return `https://maps.google.com/?q=${q}`;
+    }
+
+    async function copyText(text){
+      try{ await navigator.clipboard.writeText(text); toast('Address copied'); }
+      catch{ toast('Copy not available'); }
+    }
+
+    function toast(msg){
+      let el = document.getElementById('toast');
+      if(!el){
+        el = document.createElement('div');
+        el.id = 'toast';
+        el.style.position='fixed';
+        el.style.bottom='14px';
+        el.style.left='50%';
+        el.style.transform='translateX(-50%)';
+        el.style.background='#0b1622';
+        el.style.color='var(--text)';
+        el.style.border='1px solid var(--stroke)';
+        el.style.padding='10px 14px';
+        el.style.borderRadius='12px';
+        el.style.zIndex='9999';
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.opacity='1';
+      clearTimeout(el._t);
+      el._t = setTimeout(()=>{el.style.opacity='0'}, 1400);
+    }
+
+    function render(){
+      const area = areaSelect.value;
+      const q = searchInput.value.trim().toLowerCase();
+      const items = DATA[area] || [];
+      const filtered = items.filter(it => {
+        if(!q) return true;
+        const hay = `${it.name} ${it.street} ${it.number} ${it.type}`.toLowerCase();
+        return hay.includes(q);
+      });
+
+      list.innerHTML = '';
+      if(filtered.length === 0){
+        emptyState.hidden = false;
+      } else {
+        emptyState.hidden = true;
+        // group by street within area
+        const byStreet = {};
+        for(const it of filtered){
+          byStreet[it.street] = byStreet[it.street] || [];
+          byStreet[it.street].push(it);
+        }
+        const streets = Object.keys(byStreet).sort((a,b)=>a.localeCompare(b,'nl'));
+        for(const street of streets){
+          // section header as a full-width card spanning grid
+          const section = document.createElement('div');
+          section.className = 'section';
+          section.textContent = street;
+          // Make section span full width: insert as full-row element
+          list.appendChild(section);
+
+          for(const it of byStreet[street]){
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            const title = document.createElement('div');
+            title.className = 'title';
+            title.textContent = it.name;
+
+            const addr = document.createElement('div');
+            addr.className = 'addr';
+            addr.textContent = fmtAddress(it);
+            addr.role = 'button';
+            addr.tabIndex = 0;
+            addr.title = 'Tap to copy address';
+            addr.addEventListener('click',()=>copyText(fmtAddress(it)));
+
+            const pills = document.createElement('div');
+            pills.className = 'row';
+            const p = document.createElement('span');
+            p.className = 'pill';
+            p.textContent = it.type;
+            pills.appendChild(p);
+
+            const btns = document.createElement('div');
+            btns.className = 'btnrow';
+            const copyBtn = document.createElement('button');
+            copyBtn.textContent = 'Copy address';
+            copyBtn.addEventListener('click',()=>copyText(fmtAddress(it)));
+            const mapBtn = document.createElement('a');
+            mapBtn.className = 'btn';
+            mapBtn.href = mapsLink(it);
+            mapBtn.target = '_blank';
+            mapBtn.rel = 'noopener';
+            mapBtn.textContent = 'Open in Maps';
+
+            btns.appendChild(copyBtn);
+            btns.appendChild(mapBtn);
+
+            card.appendChild(title);
+            card.appendChild(addr);
+            card.appendChild(pills);
+            card.appendChild(btns);
+            list.appendChild(card);
+          }
+        }
+      }
+      counter.textContent = `${filtered.length} result${filtered.length===1?'':'s'}`;
+    }
+
+    areaSelect.addEventListener('change', render);
+    searchInput.addEventListener('input', render);
+
+    // initial render
+    render();
+  </script>
+</body>
+</html>
