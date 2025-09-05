@@ -333,6 +333,10 @@
         <button id="recentBtn" class="recent-focus-btn" title="Zoom to most recent completed zone" aria-label="Zoom to most recent completed zone">
           <span class="material-icons-outlined">my_location</span>
         </button>
+        <!-- New: Share Location (toggle) -->
+        <button id="locateBtn" class="icon-btn" title="Share my location (toggle)" aria-label="Share my location">
+          <span class="material-icons-outlined">location_searching</span>
+        </button>
         <button id="notifBtn" class="icon-btn" aria-label="Notifications">
           <span class="material-icons-outlined">notifications</span>
           <span id="notifBadge" class="notif-badge"></span>
@@ -421,6 +425,7 @@
     const mapEl = document.getElementById('map');
     const loadingOverlay = document.getElementById('loadingOverlay');
     const recentBtn = document.getElementById('recentBtn');
+    const locateBtn = document.getElementById('locateBtn'); // NEW
 
     /* State */
     const TOTAL_FLYERS = 20000;
@@ -443,6 +448,11 @@
     /* Focus Mode State */
     let focusedZone = null;
     let focusControl = null;
+
+    /* Geolocation State (NEW) */
+    let geolocWatchId = null;
+    let userLocationMarker = null;
+    let userLocationFollowOnce = true;
 
     function setHeaderHeightVar(){
       const h = topbar.getBoundingClientRect().height;
@@ -518,6 +528,10 @@
         {maxZoom:20, attribution:'&copy; OpenStreetMap & CARTO'}
       ).addTo(map);
 
+      // NEW: dedicated pane for user's location to ensure it's above overlays
+      map.createPane('userLocationPane');
+      map.getPane('userLocationPane').style.zIndex = 700;
+
       map.on('zoomend',()=>{
         const z=map.getZoom();
         mapEl.classList.toggle('zoomed-in', z>=15);
@@ -531,6 +545,7 @@
       });
 
       setupFocusControl();
+      setupGeolocation(); // NEW
     });
 
     /* Polygons */
@@ -583,7 +598,7 @@
           polygonMeta.push({layer:poly, zoneNumber:zoneNum});
           polygonsByZone.set(zoneNum, index);
 
-            allCoords = allCoords.concat(coordsArr);
+          allCoords = allCoords.concat(coordsArr);
 
           const center=poly.getBounds().getCenter();
           const label=L.marker(center,{
@@ -1026,6 +1041,119 @@
       loadingOverlay.classList.add('fade-out');
       setTimeout(()=>loadingOverlay.remove(),650);
     }
+
+    /* ============== Geolocation (NEW) ============== */
+    function setupGeolocation(){
+      if(!('geolocation' in navigator)){
+        addNotification('location_off','Geolocation is not supported by this browser.');
+        return;
+      }
+
+      // If permission already granted, start immediately; otherwise, nudge the user.
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name:'geolocation' }).then(status=>{
+          if(status.state === 'granted'){
+            startLocationWatch();
+          } else if (status.state === 'prompt'){
+            addNotification('location_searching','Share your location to show a red dot on the map in real-time. Click the location button.');
+          }
+          // React to changes (optional)
+          status.onchange = () => {
+            if(status.state === 'denied') stopLocationWatch(true);
+          };
+        }).catch(()=>{
+          // If Permissions API not available or failed, show the nudge
+          addNotification('location_searching','Share your location to show a red dot on the map in real-time. Click the location button.');
+        });
+      } else {
+        addNotification('location_searching','Share your location to show a red dot on the map in real-time. Click the location button.');
+      }
+
+      locateBtn.addEventListener('click', ()=>{
+        if(geolocWatchId === null) startLocationWatch();
+        else stopLocationWatch();
+      });
+    }
+
+    function setLocateBtnActive(active){
+      const icon = locateBtn.querySelector('.material-icons-outlined');
+      if(active){
+        icon.textContent = 'location_on';
+        locateBtn.title = 'Stop sharing my location';
+        locateBtn.setAttribute('aria-label','Stop sharing my location');
+      }else{
+        icon.textContent = 'location_searching';
+        locateBtn.title = 'Share my location';
+        locateBtn.setAttribute('aria-label','Share my location');
+      }
+    }
+
+    function startLocationWatch(){
+      if(geolocWatchId !== null) return; // already running
+      if(!navigator.geolocation){
+        addNotification('location_off','Geolocation not available.');
+        return;
+      }
+      userLocationFollowOnce = true;
+      geolocWatchId = navigator.geolocation.watchPosition(
+        pos=>{
+          const { latitude, longitude } = pos.coords;
+          const latlng = [latitude, longitude];
+          if(!userLocationMarker){
+            // Red dot with black border
+            userLocationMarker = L.circleMarker(latlng, {
+              pane: 'userLocationPane',
+              radius: 7,
+              color: '#000',       // black border
+              weight: 2,
+              fillColor: '#ff2d2d',// red fill
+              fillOpacity: 1
+            }).addTo(map);
+            addNotification('location_on','Live location enabled. Showing red dot on the map.', 'geo-live-on');
+            // Center once on first fix
+            if(userLocationFollowOnce){
+              map.flyTo(latlng, Math.max(map.getZoom(), 15), { duration: .5 });
+              userLocationFollowOnce = false;
+            }
+          } else {
+            userLocationMarker.setLatLng(latlng);
+          }
+        },
+        err=>{
+          let msg = 'Unable to get your location.';
+          if(err && typeof err.code === 'number'){
+            if(err.code === 1) msg = 'Location permission denied.';
+            else if(err.code === 2) msg = 'Location unavailable.';
+            else if(err.code === 3) msg = 'Location request timed out.';
+          }
+          addNotification('location_off', msg);
+          stopLocationWatch(true);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 5000,
+          timeout: 15000
+        }
+      );
+      setLocateBtnActive(true);
+    }
+
+    function stopLocationWatch(silent=false){
+      if(geolocWatchId !== null){
+        try{ navigator.geolocation.clearWatch(geolocWatchId); }catch(_){}
+        geolocWatchId = null;
+      }
+      if(userLocationMarker){
+        try{ map.removeLayer(userLocationMarker); }catch(_){}
+        userLocationMarker = null;
+      }
+      setLocateBtnActive(false);
+      if(!silent) addNotification('location_disabled','Live location disabled.','geo-live-off');
+    }
+
+    window.addEventListener('beforeunload', ()=> stopLocationWatch(true));
+    /* ============ End Geolocation (NEW) ============ */
+
   </script>
 
   <script>
