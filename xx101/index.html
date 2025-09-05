@@ -237,6 +237,76 @@
     }
     .mini-hint{margin-top:12px;font-size:11px;opacity:.85;line-height:1.4;}
     @keyframes fadeOut{to{opacity:0;visibility:hidden;}}
+
+    /* Path (Walk) Visualization */
+    .path-endpoint{
+      font-size:9px;
+      font-weight:700;
+      letter-spacing:.5px;
+      line-height:1;
+      padding:4px 6px 5px;
+      border-radius:6px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+      box-shadow:0 2px 6px -2px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,0.4);
+      backdrop-filter:blur(4px);
+      font-family:inherit;
+    }
+    .path-endpoint.start{background:#c62828;}
+    .path-endpoint.end{background:#1e8e46;}
+
+    /* Focus Mode Additions */
+    .zone-focus-btn{
+      margin-top:10px;
+      border:none;
+      background:#0e3450;
+      color:#fff;
+      font-size:10px;
+      font-weight:600;
+      padding:6px 14px;
+      border-radius:20px;
+      cursor:pointer;
+      letter-spacing:.5px;
+      box-shadow:0 2px 6px -2px rgba(0,0,0,.3);
+    }
+    .zone-focus-btn:hover{background:#12435f;}
+    .zone-focus-btn:active{transform:scale(.95);}
+
+    .exit-focus-btn{
+      background:#0e3450;
+      color:#fff;
+      border:none;
+      padding:6px 14px 7px;
+      border-radius:24px;
+      font-size:11px;
+      font-weight:600;
+      letter-spacing:.5px;
+      cursor:pointer;
+      box-shadow:0 4px 10px -3px rgba(0,0,0,.4);
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .exit-focus-btn span{font-size:16px;}
+    .exit-focus-btn:hover{background:#12435f;}
+    .exit-focus-btn:active{transform:scale(.95);}
+    .focus-exit-control{
+      padding:6px 8px;
+      background:rgba(255,255,255,.85);
+      backdrop-filter:blur(8px);
+      border:1px solid var(--panel-border);
+      border-radius:14px;
+      box-shadow:var(--shadow-md);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    body.zone-focus-active #map{
+      background:#fff;
+    }
   </style>
 </head>
 <body>
@@ -313,7 +383,6 @@
     import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
     /* Firebase Configs */
-    // Campaign data (statuses, proofs, qr scans)
     const campaignFirebaseConfig = {
       apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
       authDomain:"trackingclients.firebaseapp.com",
@@ -323,7 +392,6 @@
       appId:"1:27490943622:web:d6c87547aa5df440508707",
       databaseURL:"https://trackingclients-default-rtdb.firebaseio.com/"
     };
-    // Polygons data (your leuvenflyers DB with polygons having numeric keys + optional zoneNumber)
     const polygonsFirebaseConfig = {
       apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
       authDomain: "leuvenflyers-23584.firebaseapp.com",
@@ -359,11 +427,12 @@
     flyersTotalEl.textContent = TOTAL_FLYERS.toLocaleString();
 
     let map;
-    let polygonLayers = [];            // Array of Leaflet polygon layers
-    let labelMarkers = [];             // Array of label markers
-    let polygonMeta = [];              // {layer, zoneNumber}
-    let polygonsByZone = new Map();    // zoneNumber -> index in polygonLayers
+    let polygonLayers = [];
+    let labelMarkers = [];
+    let polygonMeta = [];
+    let polygonsByZone = new Map();
     let proofMarkers = [];
+    let pathLayers = [];  // {line,start,end,zone}
     let zoneData = [];
     let qrScans = [];
     let notificationsArr = [];
@@ -371,7 +440,10 @@
     const completedTimestamps = {};
     let firstFullLoad = true;
 
-    /* Layout helpers */
+    /* Focus Mode State */
+    let focusedZone = null;
+    let focusControl = null;
+
     function setHeaderHeightVar(){
       const h = topbar.getBoundingClientRect().height;
       document.documentElement.style.setProperty('--topbar-total-height', h + 'px');
@@ -418,12 +490,7 @@
       notifBadge.textContent=notificationsArr.length;
       notifBadge.style.display='inline-block';
       notifFooter.textContent=`${notificationsArr.length} notifications`;
-
-      if(notificationsArr.length > 4){
-        notifPanel.classList.add('scroll-after-4');
-      } else {
-        notifPanel.classList.remove('scroll-after-4');
-      }
+      notifPanel.classList.toggle('scroll-after-4', notificationsArr.length>4);
     }
     notifBtn.addEventListener('click',e=>{
       e.stopPropagation();
@@ -453,24 +520,25 @@
 
       map.on('zoomend',()=>{
         const z=map.getZoom();
-        if(z>=15) mapEl.classList.add('zoomed-in');
-        else mapEl.classList.remove('zoomed-in');
+        mapEl.classList.toggle('zoomed-in', z>=15);
       });
 
       loadPolygons().then(()=>{
         listenZoneStatuses();
         listenProofs();
         listenQrScans();
+        listenPaths();  // dotted lines
       });
+
+      setupFocusControl();
     });
 
-    /* Polygons (supports object with numeric keys + zoneNumber) */
+    /* Polygons */
     async function loadPolygons(){
       try{
         const snap = await get(ref(polygonsDb,'polygons'));
         if(!snap.exists()) { hideLoader(); return; }
 
-        // Clear existing
         polygonLayers.forEach(p=>map.removeLayer(p));
         labelMarkers.forEach(m=>map.removeLayer(m));
         polygonLayers=[];labelMarkers=[];polygonMeta=[];polygonsByZone.clear();
@@ -478,61 +546,56 @@
         let allCoords=[];
         snap.forEach(child=>{
           const raw = child.val();
-            if(!raw || typeof raw!=='object') return;
+          if(!raw || typeof raw!=='object') return;
 
-            // Extract numeric keys for points
-            const coordsArr = Object.keys(raw)
-              .filter(k => !isNaN(Number(k)))
-              .sort((a,b)=>Number(a)-Number(b))
-              .map(k => {
-                const pt=raw[k];
-                return Array.isArray(pt) && pt.length===2
-                  ? [pt[0], pt[1]]
-                  : [pt.lat, pt.lng];
-              })
-              .filter(pt => Array.isArray(pt) && typeof pt[0]==='number' && typeof pt[1]==='number');
+          const coordsArr = Object.keys(raw)
+            .filter(k => !isNaN(Number(k)))
+            .sort((a,b)=>Number(a)-Number(b))
+            .map(k => {
+              const pt=raw[k];
+              return Array.isArray(pt) && pt.length===2
+                ? [pt[0], pt[1]]
+                : [pt.lat, pt.lng];
+            })
+            .filter(pt => Array.isArray(pt) && typeof pt[0]==='number' && typeof pt[1]==='number');
 
-            if(!coordsArr.length) return;
+          if(!coordsArr.length) return;
 
-            // Determine zone number (priority: raw.zoneNumber else sequence)
-            let zoneNum = raw.zoneNumber;
-            if(zoneNum===undefined || zoneNum===null || zoneNum===''){
-              zoneNum = polygonLayers.length + 1;
-            } else {
-              zoneNum = parseInt(zoneNum,10);
-              if(isNaN(zoneNum)) zoneNum = polygonLayers.length + 1;
-            }
+          let zoneNum = raw.zoneNumber;
+          if(zoneNum===undefined || zoneNum===null || zoneNum===''){
+            zoneNum = polygonLayers.length + 1;
+          } else {
+            zoneNum = parseInt(zoneNum,10);
+            if(isNaN(zoneNum)) zoneNum = polygonLayers.length + 1;
+          }
 
-            // Build polygon
-            const poly=L.polygon(coordsArr,{
-              color:'#1976d2',
-              weight:1,
-              fillColor:'#2196f3',
-              fillOpacity:.26
-            }).addTo(map);
+          const poly=L.polygon(coordsArr,{
+            color:'#1976d2',
+            weight:1,
+            fillColor:'#2196f3',
+            fillOpacity:.26
+          }).addTo(map);
 
-            poly.bindPopup(`<div style="font-size:11px;">Zone ${zoneNum}<br/>Loading status...</div>`);
+          poly.bindPopup(`<div style="font-size:11px;">Zone ${zoneNum}<br/>Loading status...</div>`);
 
-            // Store metadata
-            const index = polygonLayers.length;
-            polygonLayers.push(poly);
-            polygonMeta.push({layer:poly, zoneNumber:zoneNum});
-            polygonsByZone.set(zoneNum, index);
+          const index = polygonLayers.length;
+          polygonLayers.push(poly);
+          polygonMeta.push({layer:poly, zoneNumber:zoneNum});
+          polygonsByZone.set(zoneNum, index);
 
             allCoords = allCoords.concat(coordsArr);
 
-            // Label marker
-            const center=poly.getBounds().getCenter();
-            const label=L.marker(center,{
-              icon:L.divIcon({
-                className:'zone-label-wrapper',
-                html:zoneNumberLabelHtml(zoneNum),
-                iconSize:[34,24],
-                iconAnchor:[17,12]
-              }),
-              interactive:false
-            }).addTo(map);
-            labelMarkers.push(label);
+          const center=poly.getBounds().getCenter();
+          const label=L.marker(center,{
+            icon:L.divIcon({
+              className:'zone-label-wrapper',
+              html:zoneNumberLabelHtml(zoneNum),
+              iconSize:[34,24],
+              iconAnchor:[17,12]
+            }),
+            interactive:false
+          }).addTo(map);
+          labelMarkers.push(label);
         });
 
         if(allCoords.length){
@@ -565,8 +628,6 @@
         let zones=[];
         if(Array.isArray(val)) zones=val;
         else if(val && typeof val==='object') {
-          // If keyed object (maybe zoneNumber as key)
-          // Sort by numeric key if possible
           const entries = Object.entries(val).sort((a,b)=>{
             const na=parseInt(a[0],10), nb=parseInt(b[0],10);
             if(!isNaN(na) && !isNaN(nb)) return na-nb;
@@ -584,7 +645,6 @@
       let newlyCompleted = [];
 
       zoneData.forEach((z, idx)=>{
-        // zoneData index -> zoneNumber = idx+1
         const zoneNum = idx+1;
         const polyIndex = polygonsByZone.get(zoneNum);
         if(polyIndex===undefined) return;
@@ -595,7 +655,10 @@
         if(z.status==='completed') distributed+=flyers;
         const meta=statusMeta(z.status);
 
-        poly.setStyle({fillColor:meta.color, fillOpacity:.38, color:'#1976d2', weight:1});
+        // Skip styling if in focus mode (polygons hidden)
+        if(focusedZone===null){
+          poly.setStyle({fillColor:meta.color, fillOpacity:.38, color:'#1976d2', weight:1});
+        }
 
         const gpsLink=z.gpsProof || z.gpsUrl;
         const proofImage=z.proofImage;
@@ -603,7 +666,7 @@
         if(z.status==='completed' && !completedNotified.has(zoneNum)){
           completedNotified.add(zoneNum);
           completedTimestamps[zoneNum] = Date.now();
-            newlyCompleted.push(zoneNum);
+          newlyCompleted.push(zoneNum);
           addNotification('task_alt',`Zone ${zoneNum} completed!`,`zone-${zoneNum}-done`);
         }
 
@@ -643,7 +706,13 @@
                 style="max-width:90px;border-radius:8px;cursor:pointer;border:1px solid #d9e2e8;">
             </div>`;
         }
-        popupHTML+='</div>';
+
+        // ADD: Focus button
+        popupHTML+=`
+          <button class="zone-focus-btn" data-focus-zone="${zoneNum}" type="button">
+            Focus
+          </button>
+        </div>`;
 
         poly.bindPopup(popupHTML);
       });
@@ -726,6 +795,7 @@
             proofMarkers.push(marker);
           }
         }
+        applyFocusFiltering(); // ensure focus mode respects changes
       });
     }
 
@@ -752,13 +822,197 @@
       });
     }
 
+    /* Paths (dotted) */
+    function listenPaths(){
+      onValue(ref(db,'campaigns/XX101/paths'), snap=>{
+        pathLayers.forEach(pl=>{
+          if(pl.line) map.removeLayer(pl.line);
+          if(pl.start) map.removeLayer(pl.start);
+          if(pl.end) map.removeLayer(pl.end);
+        });
+        pathLayers = [];
+
+        if(!snap.exists()) { applyFocusFiltering(); return; }
+
+        snap.forEach(child=>{
+          const val = child.val();
+          if(!val || !Array.isArray(val.points) || val.points.length < 2) return;
+          const latlngs = val.points
+            .filter(p=>typeof p.lat==='number' && typeof p.lng==='number')
+            .map(p=>L.latLng(p.lat,p.lng));
+          if(latlngs.length < 2) return;
+
+          const line = L.polyline(latlngs,{
+            color:'#0f1a22',
+            weight:3,
+            opacity:0.65,
+            dashArray:'6,6',
+            lineCap:'round',
+            lineJoin:'round'
+          }).addTo(map);
+
+          const startLatLng = latlngs[0];
+          const endLatLng = latlngs[latlngs.length-1];
+
+          const startMarker = L.marker(startLatLng,{
+            icon: L.divIcon({
+              className:'path-start-icon',
+              html:`<div class="path-endpoint start">START</div>`,
+              iconSize:[50,20],
+              iconAnchor:[25,10]
+            }),
+            interactive:false
+          }).addTo(map);
+
+          const endMarker = L.marker(endLatLng,{
+            icon: L.divIcon({
+              className:'path-end-icon',
+              html:`<div class="path-endpoint end">END</div>`,
+              iconSize:[42,20],
+              iconAnchor:[21,10]
+            }),
+            interactive:false
+          }).addTo(map);
+
+          line.on('mouseover',()=> line.setStyle({weight:5, opacity:0.9}));
+          line.on('mouseout',()=> line.setStyle({weight:3, opacity:0.65}));
+
+          let popup = `<div style="font-size:11px;line-height:1.3;">
+              <strong style="display:flex;align-items:center;gap:4px;">
+                <span class="material-icons-outlined" style="font-size:14px;color:#1976d2;">route</span>
+                Path (${latlngs.length} pts)
+              </strong>`;
+          if(typeof val.zone === 'number'){
+            popup += `<div style="margin-top:4px;">Zone: <strong>${(val.zone+1) || val.zone}</strong></div>`;
+          }
+          if(val.timestamp){
+            popup += `<div style="margin-top:2px;display:flex;align-items:center;gap:4px;">
+                <span class="material-icons-outlined" style="font-size:12px;color:#1976d2;">schedule</span>
+                ${formatDateTime(val.timestamp)}
+              </div>`;
+          }
+          popup += '</div>';
+          line.bindPopup(popup);
+
+          const zoneNumForPath = (typeof val.zone==='number') ? (val.zone+1) : null;
+
+          pathLayers.push({
+            line,
+            start:startMarker,
+            end:endMarker,
+            zone: zoneNumForPath
+          });
+        });
+
+        applyFocusFiltering();
+      });
+    }
+
+    /* Focus Mode Implementation */
+    function setupFocusControl(){
+      focusControl = L.control({position:'topleft'});
+      focusControl.onAdd = function(){
+        const div = L.DomUtil.create('div','focus-exit-control');
+        div.style.display='none';
+        div.innerHTML = `<button type="button" id="exitFocusBtn" class="exit-focus-btn">
+            <span class="material-icons-outlined">layers_clear</span>Show All
+          </button>`;
+        return div;
+      };
+      focusControl.addTo(map);
+      map.on('popupopen', e=>{
+        const btn = e.popup.getElement().querySelector('.zone-focus-btn');
+        if(btn){
+          btn.addEventListener('click',()=>{
+            const z = parseInt(btn.getAttribute('data-focus-zone'),10);
+            if(!isNaN(z)) enterFocusMode(z);
+          });
+        }
+        const imgBtn = e.popup.getElement().querySelector('.popup-img-thumb[data-proof]');
+        if(imgBtn){
+          imgBtn.addEventListener('click',()=>showModal(imgBtn.getAttribute('data-proof')));
+        }
+      });
+      map.on('popupclose',()=>{ /* no-op for now */ });
+
+      document.addEventListener('click',e=>{
+        if(e.target && e.target.id==='exitFocusBtn'){
+          exitFocusMode();
+        }
+      });
+    }
+
+    function enterFocusMode(zoneNum){
+      focusedZone = zoneNum;
+      document.body.classList.add('zone-focus-active');
+      // Hide all polygons & labels
+      polygonLayers.forEach(p=>map.removeLayer(p));
+      labelMarkers.forEach(m=>map.removeLayer(m));
+      // Hide proof markers (keeping paths only)
+      proofMarkers.forEach(pm=>map.removeLayer(pm));
+      applyFocusFiltering();
+      showFocusExit(true);
+      // Determine bounds of paths in this zone
+      const zonePaths = pathLayers.filter(pl=>pl.zone===zoneNum);
+      if(zonePaths.length){
+        let all = [];
+        zonePaths.forEach(pl=>{
+          all = all.concat(pl.line.getLatLngs());
+        });
+        if(all.length){
+          map.fitBounds(L.latLngBounds(all).pad(0.2));
+        }
+      }
+    }
+
+    function exitFocusMode(){
+      focusedZone = null;
+      document.body.classList.remove('zone-focus-active');
+      // Re-add polygons, labels, proofs
+      polygonLayers.forEach(p=>p.addTo(map));
+      labelMarkers.forEach(m=>m.addTo(map));
+      proofMarkers.forEach(pm=>pm.addTo(map));
+      applyFocusFiltering();
+      showFocusExit(false);
+    }
+
+    function showFocusExit(show){
+      const ctrl = document.querySelector('.focus-exit-control');
+      if(ctrl) ctrl.style.display = show ? 'block' : 'none';
+    }
+
+    function applyFocusFiltering(){
+      if(focusedZone===null){
+        // Show all path layers
+        pathLayers.forEach(pl=>{
+          if(!map.hasLayer(pl.line)) pl.line.addTo(map);
+          if(pl.start && !map.hasLayer(pl.start)) pl.start.addTo(map);
+          if(pl.end && !map.hasLayer(pl.end)) pl.end.addTo(map);
+        });
+        return;
+      }
+      // Only show path layers of focused zone
+      pathLayers.forEach(pl=>{
+        const shouldShow = pl.zone===focusedZone;
+        if(shouldShow){
+          if(!map.hasLayer(pl.line)) pl.line.addTo(map);
+          if(pl.start && !map.hasLayer(pl.start)) pl.start.addTo(map);
+          if(pl.end && !map.hasLayer(pl.end)) pl.end.addTo(map);
+        } else {
+          if(map.hasLayer(pl.line)) map.removeLayer(pl.line);
+          if(pl.start && map.hasLayer(pl.start)) map.removeLayer(pl.start);
+          if(pl.end && map.hasLayer(pl.end)) map.removeLayer(pl.end);
+        }
+      });
+    }
+
+    /* Modal / utility */
     function formatDateTime(ts){
       const d=new Date(ts);
       const pad=n=>n<10?'0'+n:n;
       return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
-    /* Modal */
     window.showModal=function(src){
       const modal=document.getElementById('imgModal');
       const img=document.getElementById('modalImg');
