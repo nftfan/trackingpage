@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>LEUVENFLYERS – Campaign XX556 (Map)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Icons+Outlined&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
+  <link rel="apple-touch-icon" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+  <link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
+  <style>
+    :root{
+      --brand:#0e3450;
+      --brand-alt:#133d5d;
+      --accent:#2563eb;
+      --accent-alt:#1d4ed8;
+      --accent-soft:#eff6ff;
+      --success:#1e8e46;
+      --warning:#f59e0b; /* in-progress (orange) */
+      --booked:#facc15;  /* booked (yellow) */
+      --danger:#c62828;
+      --danger-soft:#fde7e7;
+      --ink-900:#0f1a22;
+      --ink-800:#1d2c35;
+      --ink-700:#2f4451;
+      --ink-600:#4a5d69;
+      --ink-500:#667883;
+      --ink-400:#8b99a2;
+      --ink-300:#b5c0c7;
+      --ink-200:#d6dde1;
+      --ink-100:#e9eef1;
+      --ink-050:#f5f7f9;
+      --surface:#ffffff;
+      --surface-elev:#ffffffee;
+      --panel-border:rgba(15,26,34,0.10);
+      --radius-sm:6px;
+      --radius-md:10px;
+      --shadow-sm:0 1px 2px rgba(15,26,34,0.06),0 1px 3px rgba(15,26,34,.10);
+      --shadow-md:0 4px 10px -2px rgba(15,26,34,.12),0 2px 4px rgba(15,26,34,.08);
+      --focus-ring:0 0 0 3px rgba(37,99,235,0.45);
+      --transition:150ms cubic-bezier(.4,0,.2,1);
+      --footer-h:34px;
+      --chip-h:30px;
+      --header-row-gap:4px;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{
+      width:100%;height:100%;overflow:hidden;
+      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      font-size:12px;line-height:1.35;
+      background:var(--ink-050);color:var(--ink-700);
+      -webkit-font-smoothing:antialiased;
+    }
+    body{display:flex;flex-direction:column;}
+    a{color:var(--accent);text-decoration:none;}
+    a:hover{text-decoration:underline;}
+
+    .topbar{
+      position:fixed;top:0;left:0;right:0;
+      display:flex;flex-direction:column;
+      background:linear-gradient(90deg,var(--brand) 0%,var(--brand-alt) 90%);
+      color:#fff;z-index:600;
+      padding:6px 10px 8px;
+      gap:var(--header-row-gap);
+      box-shadow:0 2px 8px -2px rgba(0,0,0,.4);
+    }
+    .topbar-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;width:100%;}
+    .brand-block{display:flex;align-items:center;gap:8px;min-width:0;flex:1;}
+    .brand-icon{font-size:18px;flex-shrink:0;}
+    .brand-title{font-size:13px;font-weight:600;letter-spacing:.4px;white-space:nowrap;}
+    .campaign-badge{font-size:10px;font-weight:600;background:rgba(255,255,255,0.18);padding:2px 8px;border-radius:999px;letter-spacing:.4px;display:inline-flex;align-items:center;gap:4px;}
+    .metrics-scroll{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:2px 0 2px 2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .metrics-scroll::-webkit-scrollbar{display:none;}
+    .metric-chip{
+      flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;
+      height:var(--chip-h);background:rgba(255,255,255,0.14);
+      padding:4px 10px 4px 8px;border-radius:8px;font-size:11px;font-weight:500;
+      border:1px solid rgba(255,255,255,0.22);backdrop-filter:blur(8px);color:#fff;line-height:1;position:relative;
+    }
+    .metric-chip .material-icons-outlined{font-size:15px;opacity:.9;}
+    .metric-chip .value{font-weight:600;min-width:34px;text-align:right;}
+    @media (max-width:420px){
+      .metric-chip{padding:4px 6px;flex-direction:column;gap:2px;min-width:54px;height:48px;font-size:9px;}
+      .metric-chip .material-icons-outlined{font-size:16px;}
+      .metric-chip .value{font-size:11px;}
+    }
+    .right-controls{display:flex;align-items:center;gap:6px;flex:0 0 auto;}
+    .header-progress-text{
+      font-size:10.5px;font-weight:600;letter-spacing:.4px;
+      padding:0 6px 0 0;display:inline-flex;align-items:center;
+      color:#fff;opacity:.9;
+    }
+    button.icon-btn{
+      height:var(--chip-h);width:var(--chip-h);
+      background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.22);
+      backdrop-filter:blur(8px);color:#fff;border-radius:8px;font-size:11px;
+      display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+      transition:var(--transition);position:relative;
+    }
+    button.icon-btn .material-icons-outlined{font-size:18px;}
+    button.icon-btn:hover{background:rgba(255,255,255,0.22);}
+    button.icon-btn:focus-visible{outline:none;box-shadow:var(--focus-ring);}
+    .recent-focus-btn{
+      background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.25);
+      color:#fff;border-radius:8px;width:var(--chip-h);height:var(--chip-h);
+      display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+      transition:var(--transition);margin-left:0;
+    }
+    .recent-focus-btn:hover{background:rgba(255,255,255,0.24);}
+    .recent-focus-btn:focus-visible{outline:none;box-shadow:var(--focus-ring);}
+    .recent-focus-btn .material-icons-outlined{font-size:18px;}
+
+    .notif-badge{
+      position:absolute;top:4px;right:4px;background:var(--danger);color:#fff;
+      font-size:9px;font-weight:600;line-height:1;padding:1px 5px;border-radius:999px;
+      box-shadow:0 0 0 1px rgba(0,0,0,.25);display:none;
+    }
+
+    .notifications{
+      position:fixed;top:calc(var(--topbar-total-height) + 4px);right:10px;width:300px;
+      background:var(--surface-elev);border:1px solid var(--panel-border);border-radius:12px;
+      box-shadow:var(--shadow-md);backdrop-filter:blur(14px) saturate(140%);
+      display:none;flex-direction:column;overflow:hidden;animation:dropIn .18s ease;z-index:650;
+    }
+    .notifications.scroll-after-4 .notif-list{max-height:240px;overflow-y:auto;}
+    @keyframes dropIn{from{transform:translateY(-6px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+    .notif-header{padding:10px 14px 6px;font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.4px;}
+    .notif-list{overflow-y:hidden;flex:1;}
+    .notif-item{
+      display:flex;gap:10px;padding:10px 14px;font-size:11px;border-top:1px solid rgba(0,0,0,0.05);
+      cursor:pointer;align-items:flex-start;transition:var(--transition);background:transparent;
+    }
+    .notif-item:first-child{border-top:none;}
+    .notif-item:hover{background:var(--ink-050);}
+    .notif-item:active{background:var(--accent-soft);}
+    .notif-icon{width:24px;height:24px;border-radius:6px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:15px;flex-shrink:0;}
+    .notif-msg{flex:1;color:var(--ink-600);line-height:1.3;}
+    .notif-item[data-zone]::after{content:"View";font-size:9px;font-weight:600;color:var(--accent);align-self:center;margin-left:6px;opacity:.55;}
+    .notif-item[data-zone]:hover::after{opacity:1;}
+    .notif-empty{padding:18px 14px;font-size:11px;color:var(--ink-500);}
+    .notif-footer{padding:6px 12px 8px;font-size:10px;color:var(--ink-400);text-align:right;border-top:1px solid rgba(0,0,0,.05);}
+
+    #map{
+      position:absolute;top:var(--topbar-total-height);left:0;right:0;bottom:var(--footer-h);
+      background:#ffffff;transition:top .25s ease;
+    }
+    .map-visual-dimmer .leaflet-tile{filter:brightness(.93) saturate(.9) contrast(1.02);transition:filter .4s ease;}
+    .map-visual-dimmer.zoomed-in .leaflet-tile{filter:brightness(.98) saturate(.98) contrast(1.04);}
+    .leaflet-control-zoom{
+      margin-top:calc(var(--topbar-total-height) + 12px)!important;
+      border:1px solid var(--panel-border)!important;
+      box-shadow:var(--shadow-sm)!important;
+    }
+    .leaflet-control-zoom a{
+      background:var(--surface)!important;color:var(--ink-700)!important;border:none!important;
+      transition:var(--transition);
+    }
+    .leaflet-control-zoom a:hover{background:var(--ink-050)!important;}
+
+    .leaflet-div-icon.zone-label-wrapper{background:transparent!important;border:none!important;}
+    .zone-label{
+      background:rgba(255,255,255,0.85);
+      backdrop-filter:blur(4px);
+      border:1px solid rgba(0,0,0,0.15);
+      border-radius:14px;
+      padding:2px 8px 3px;
+      font-size:11px;
+      font-weight:600;
+      color:#0e3450;
+      line-height:1;
+      box-shadow:0 1px 4px rgba(0,0,0,0.25);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:24px;
+    }
+
+    @keyframes zoneFlash{
+      0%{stroke-width:1;filter:drop-shadow(0 0 0 rgba(37,99,235,0));}
+      40%{stroke-width:4;filter:drop-shadow(0 0 6px rgba(37,99,235,.85));}
+      100%{stroke-width:1;filter:drop-shadow(0 0 0 rgba(37,99,235,0));}
+    }
+    .leaflet-interactive.flash-highlight{animation:zoneFlash 1.3s ease-in-out 1;}
+
+    .footer{
+      position:fixed;left:0;right:0;bottom:0;height:var(--footer-h);
+      background:var(--surface-elev);backdrop-filter:blur(10px);
+      border-top:1px solid var(--panel-border);
+      display:flex;align-items:center;justify-content:center;
+      padding:0 12px;font-size:11px;color:var(--ink-700);z-index:560;letter-spacing:.35px;
+      font-weight:600;
+      text-transform:none;
+    }
+
+    /* Proof slider (above footer) */
+    .proof-strip{
+      position:fixed;left:10px;right:10px;bottom:calc(var(--footer-h) + 8px);
+      height:88px;display:none;align-items:center;gap:6px;
+      background:var(--surface-elev);
+      border:1px solid var(--panel-border);
+      border-radius:12px;padding:6px 8px;
+      box-shadow:var(--shadow-md);
+      z-index:570;
+      backdrop-filter:blur(10px) saturate(140%);
+    }
+    .proof-strip.visible{display:flex;}
+    .proof-strip-inner{
+      display:flex;align-items:center;gap:8px;overflow-x:auto;flex:1;scrollbar-width:none;
+      -webkit-overflow-scrolling:touch;
+    }
+    .proof-strip-inner::-webkit-scrollbar{display:none;}
+    .proof-item{
+      position:relative;flex:0 0 auto;width:74px;height:74px;border-radius:10px;overflow:hidden;cursor:pointer;
+      border:1px solid var(--ink-200);background:var(--ink-100);
+      box-shadow:0 1px 2px rgba(15,26,34,0.06);
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .proof-item:hover{transform:translateY(-2px);box-shadow:0 6px 14px -6px rgba(0,0,0,.25);border-color:var(--ink-300);}
+    .proof-item.selected{outline:2px solid var(--accent);outline-offset:2px;}
+    .proof-thumb{width:100%;height:100%;object-fit:cover;display:block;}
+    .proof-badge{
+      position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,.5);color:#fff;border-radius:999px;padding:1px 6px;
+      font-size:9px;font-weight:600;letter-spacing:.3px;line-height:1;
+    }
+    .ps-btn{
+      flex:0 0 auto;width:28px;height:28px;border-radius:8px;border:1px solid var(--panel-border);
+      background:var(--surface);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+      transition:var(--transition);color:var(--ink-700);
+    }
+    .ps-btn:hover{background:var(--ink-050);}
+    .ps-btn:focus-visible{outline:none;box-shadow:var(--focus-ring);}
+    .ps-btn .material-icons-outlined{font-size:18px;}
+
+    .modal{display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
+    .modal-content{
+      background:var(--surface);border-radius:16px;padding:12px 12px 8px;
+      box-shadow:0 18px 42px -10px rgba(0,0,0,.35),0 0 0 1px var(--panel-border);
+      max-width:92vw;max-height:92vh;position:relative;display:flex;flex-direction:column;gap:8px;
+    }
+    .modal-content img{max-width:85vw;max-height:75vh;border-radius:12px;box-shadow:var(--shadow-md);}
+    .modal-close{
+      position:absolute;top:6px;right:8px;background:var(--danger-soft);border:none;color:var(--danger);
+      width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+      font-size:18px;border-radius:10px;cursor:pointer;transition:var(--transition);
+    }
+    .modal-close:hover{filter:brightness(1.05);}
+    .modal-close:focus-visible{outline:none;box-shadow:var(--focus-ring);}
+
+    /* Popup action buttons */
+    .popup-actions{
+      display:flex;gap:8px;justify-content:center;margin-top:10px;
+    }
+    .zp-btn{
+      appearance:none;border:none;border-radius:18px;padding:6px 12px;font-size:11px;
+      font-weight:700;letter-spacing:.3px;cursor:pointer;transition:transform .08s ease, filter .12s ease;
+      color:#0e3450;background:#f1f5f9;border:1px solid #d6dde1;
+      display:inline-flex;align-items:center;gap:6px;
+    }
+    .zp-btn:hover{filter:brightness(1.03);}
+    .zp-btn:active{transform:translateY(1px);}
+    .zp-btn.primary{background:#2563eb;color:#fff;border-color:#1d4ed8;}
+    .zp-btn.warn{background:var(--booked);color:#0f1a22;border-color:#eab308;}
+    .zp-btn.danger{background:#fee2e2;color:#991b1b;border-color:#fecaca;}
+
+    ::-webkit-scrollbar{width:10px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--ink-200);border-radius:10px;border:2px solid transparent;background-clip:padding-box;}
+    ::-webkit-scrollbar-thumb:hover{background:var(--ink-300);}
+    @media (max-width:420px){
+      .brand-title{font-size:12px;}
+      .campaign-badge{display:none;}
+      .metric-chip{min-width:50px;}
+      .header-progress-text{display:none;}
+    }
+
+    #loadingOverlay{
+      position:fixed;inset:0;z-index:1000;
+      background:linear-gradient(135deg,#0e3450,#133d5d);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      color:#fff;padding:30px 20px;text-align:center;
+      font-size:13px;letter-spacing:.4px;
+    }
+    #loadingOverlay.fade-out{animation:fadeOut .6s ease forwards;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .loader{
+      width:50px;height:50px;margin-bottom:16px;
+      border:4px solid rgba(255,255,255,0.25);
+      border-top:4px solid #fff;border-radius:50%;
+      animation:spin 1s linear infinite;
+    }
+    .mini-hint{margin-top:12px;font-size:11px;opacity:.85;line-height:1.4;}
+    @keyframes fadeOut{to{opacity:0;visibility:hidden;}}
+  </style>
+</head>
+<body>
+  <div id="loadingOverlay" aria-live="polite">
+    <div class="loader" aria-hidden="true"></div>
+    <div><strong>Please wait</strong>, full data & map are loading...</div>
+    <div class="mini-hint">
+      Once loaded we will automatically zoom into the most recently <strong>completed zone</strong>.<br/>
+      You can still pan / pinch after that.
+    </div>
+  </div>
+
+  <header class="topbar" id="topbar">
+    <div class="topbar-row primary-row">
+      <div class="brand-block">
+        <span class="material-icons-outlined brand-icon">map</span>
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+          <span class="brand-title">LEUVENFLYERS</span>
+          <span class="campaign-badge">Campaign XX556</span>
+        </div>
+      </div>
+      <div class="right-controls">
+        <span class="header-progress-text">View Progress</span>
+        <button id="recentBtn" class="recent-focus-btn" title="Zoom to most recent completed zone" aria-label="Zoom to most recent completed zone">
+          <span class="material-icons-outlined">my_location</span>
+        </button>
+        <button id="notifBtn" class="icon-btn" aria-label="Notifications">
+          <span class="material-icons-outlined">notifications</span>
+          <span id="notifBadge" class="notif-badge"></span>
+        </button>
+      </div>
+    </div>
+    <div class="topbar-row metrics-row">
+      <div class="metrics-scroll" id="metricsScroll" aria-label="Campaign metrics">
+        <div class="metric-chip" title="Total Flyers">
+          <span class="material-icons-outlined">inventory_2</span>
+          <span class="value" id="flyersTotal">0</span>
+        </div>
+        <div class="metric-chip" title="Completed / Verified Flyers">
+          <span class="material-icons-outlined">task_alt</span>
+          <span class="value" id="flyersDistributed">0</span>
+        </div>
+        <div class="metric-chip" id="qrCounter" style="cursor:pointer;" title="QR Scan Count">
+          <span class="material-icons-outlined">qr_code_scanner</span>
+          <span class="value" id="qrScanCount">0</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div id="notificationsPanel" class="notifications" role="dialog" aria-label="Notifications">
+    <div class="notif-header">Notifications</div>
+    <div id="notifList" class="notif-list"></div>
+    <div id="notifFooter" class="notif-footer"></div>
+  </div>
+
+  <div id="map" class="map-visual-dimmer" aria-label="Distribution Map"></div>
+
+  <!-- Proofs slider -->
+  <div id="proofStrip" class="proof-strip" aria-label="Proofs slider">
+    <button id="psLeft" class="ps-btn" title="Scroll left" aria-label="Scroll left">
+      <span class="material-icons-outlined">chevron_left</span>
+    </button>
+    <div id="proofStripInner" class="proof-strip-inner"></div>
+    <button id="psRight" class="ps-btn" title="Scroll right" aria-label="Scroll right">
+      <span class="material-icons-outlined">chevron_right</span>
+    </button>
+  </div>
+
+  <footer class="footer">
+    <div>click on any polygon to view the details</div>
+  </footer>
+
+  <div id="imgModal" class="modal" aria-modal="true" role="dialog">
+    <div class="modal-content">
+      <button id="modalCloseBtn" class="modal-close" aria-label="Close preview">&times;</button>
+      <img id="modalImg" alt="Proof preview">
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, onValue, get, update } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    /* Firebase Configs */
+    const campaignFirebaseConfig = {
+      apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+      authDomain:"trackingclients.firebaseapp.com",
+      projectId:"trackingclients",
+      storageBucket:"trackingclients.appspot.com",
+      messagingSenderId:"27490943622",
+      appId:"1:27490943622:web:d6c87547aa5df440508707",
+      databaseURL:"https://trackingclients-default-rtdb.firebaseio.com/"
+    };
+    const polygonsFirebaseConfig = {
+      apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+      authDomain: "leuvenflyers-23584.firebaseapp.com",
+      databaseURL: "https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+      projectId: "leuvenflyers-23584",
+      storageBucket: "leuvenflyers-23584.firebasestorage.app",
+      messagingSenderId: "1077790950414",
+      appId: "1:1077790950414:web:036fafe06df86f41ed285f"
+    };
+
+    const campaignApp = initializeApp(campaignFirebaseConfig, 'campaignApp');
+    const db = getDatabase(campaignApp);
+    const polygonsApp = initializeApp(polygonsFirebaseConfig,'polygonsApp');
+    const polygonsDb = getDatabase(polygonsApp);
+
+    /* DOM Elements */
+    const flyersTotalEl = document.getElementById('flyersTotal');
+    const flyersDistributedEl = document.getElementById('flyersDistributed');
+    const qrScanCountEl = document.getElementById('qrScanCount');
+    const qrCounter = document.getElementById('qrCounter');
+    const notifBtn = document.getElementById('notifBtn');
+    const notifPanel = document.getElementById('notificationsPanel');
+    const notifList = document.getElementById('notifList');
+    const notifBadge = document.getElementById('notifBadge');
+    const notifFooter = document.getElementById('notifFooter');
+    const topbar = document.getElementById('topbar');
+    const mapEl = document.getElementById('map');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const recentBtn = document.getElementById('recentBtn');
+    const proofStrip = document.getElementById('proofStrip');
+    const proofStripInner = document.getElementById('proofStripInner');
+    const psLeft = document.getElementById('psLeft');
+    const psRight = document.getElementById('psRight');
+
+    /* State */
+    const TOTAL_FLYERS = 30000;
+    flyersTotalEl.textContent = TOTAL_FLYERS.toLocaleString();
+
+    let map;
+    let polygonLayers = [];            // Array of Leaflet polygon layers
+    let labelMarkers = [];             // Array of label markers
+    let polygonMeta = [];              // {layer, zoneNumber}
+    let polygonsByZone = new Map();    // zoneNumber -> index in polygonLayers
+    let proofMarkers = [];             // Array of Leaflet markers (proofs)
+    let proofMarkersById = new Map();  // id -> marker
+    let proofsList = [];               // [{id, url, lat, lng, timestamp}]
+    let notificationsArr = [];
+
+    const ZONE_STATUS_PATH = 'campaigns/XX556/zone_statuses';
+    const zoneStatusByZone = new Map();    // zoneNumber -> status object
+    const zoneStatusKeyByZone = new Map(); // zoneNumber -> node key under zone_statuses
+
+    const completedNotified = new Set();
+    const completedTimestamps = {};
+    let firstFullLoad = true;
+
+    /* Layout helpers */
+    function setHeaderHeightVar(){
+      const h = topbar.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--topbar-total-height', h + 'px');
+      mapEl.style.top = h + 'px';
+      notifPanel.style.top = (h + 4) + 'px';
+    }
+    new ResizeObserver(setHeaderHeightVar).observe(topbar);
+    window.addEventListener('orientationchange',()=>setTimeout(setHeaderHeightVar,350));
+    window.addEventListener('resize',setHeaderHeightVar);
+
+    /* Notifications */
+    function addNotification(icon, message, key){
+      if(key && notificationsArr.some(n=>n.key===key)) return;
+      const zMatch = /Zone\s+(\d+)/i.exec(message);
+      const zone = zMatch? parseInt(zMatch[1],10) : null;
+      notificationsArr.unshift({
+        key: key || ('k_'+Date.now()+'_'+Math.random().toString(36).slice(2)),
+        icon, message, zone, ts: Date.now()
+      });
+      renderNotifications();
+    }
+    function renderNotifications(){
+      notifList.innerHTML='';
+      if(!notificationsArr.length){
+        notifList.innerHTML='<div class="notif-empty">No notifications yet.</div>';
+        notifFooter.textContent='';
+        notifBadge.style.display='none';
+        notifPanel.classList.remove('scroll-after-4');
+        return;
+      }
+      notificationsArr.slice(0,60).forEach(n=>{
+        const item=document.createElement('div');
+        item.className='notif-item';
+        if(n.zone) item.dataset.zone = n.zone;
+        item.innerHTML=`
+          <div class="notif-icon"><span class="material-icons-outlined">${n.icon}</span></div>
+          <div class="notif-msg">${n.message}</div>`;
+        item.addEventListener('click',()=>{
+          if(n.zone) focusZone(n.zone);
+          notifPanel.style.display='none';
+        });
+        notifList.appendChild(item);
+      });
+      notifBadge.textContent=notificationsArr.length;
+      notifBadge.style.display='inline-block';
+      notifFooter.textContent=`${notificationsArr.length} notifications`;
+
+      if(notificationsArr.length > 4){
+        notifPanel.classList.add('scroll-after-4');
+      } else {
+        notifPanel.classList.remove('scroll-after-4');
+      }
+    }
+    notifBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const open = notifPanel.style.display==='flex';
+      notifPanel.style.display=open?'none':'flex';
+      if(!open){
+        setHeaderHeightVar();
+        renderNotifications();
+      }
+    });
+    document.addEventListener('click',e=>{
+      if(!notifPanel.contains(e.target) && !notifBtn.contains(e.target)){
+        notifPanel.style.display='none';
+      }
+    });
+
+    /* Map Init */
+    document.addEventListener('DOMContentLoaded',()=>{
+      setHeaderHeightVar();
+      map = L.map('map',{zoomControl:true, attributionControl:false})
+        .setView([50.85,4.35],13);
+
+      L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        {maxZoom:20, attribution:'&copy; OpenStreetMap & CARTO'}
+      ).addTo(map);
+
+      map.on('zoomend',()=>{
+        const z=map.getZoom();
+        if(z>=15) mapEl.classList.add('zoomed-in');
+        else mapEl.classList.remove('zoomed-in');
+      });
+
+      loadPolygons().then(()=>{
+        listenZoneStatuses();
+        listenProofs();
+        listenQrScans();
+      });
+    });
+
+    /* Polygons */
+    async function loadPolygons(){
+      try{
+        const snap = await get(ref(polygonsDb,'polygons'));
+        if(!snap.exists()) { hideLoader(); return; }
+
+        // Clear existing
+        polygonLayers.forEach(p=>map.removeLayer(p));
+        labelMarkers.forEach(m=>map.removeLayer(m));
+        polygonLayers=[];labelMarkers=[];polygonMeta=[];polygonsByZone.clear();
+
+        let allCoords=[];
+        snap.forEach(child=>{
+          const raw = child.val();
+          if(!raw || typeof raw!=='object') return;
+
+          // Extract numeric keys for points
+          const coordsArr = Object.keys(raw)
+            .filter(k => !isNaN(Number(k)))
+            .sort((a,b)=>Number(a)-Number(b))
+            .map(k => {
+              const pt=raw[k];
+              return Array.isArray(pt) && pt.length===2
+                ? [pt[0], pt[1]]
+                : [pt.lat, pt.lng];
+            })
+            .filter(pt => Array.isArray(pt) && typeof pt[0]==='number' && typeof pt[1]==='number');
+
+          if(!coordsArr.length) return;
+
+          // Determine zone number (priority: raw.zoneNumber else sequence)
+          let zoneNum = raw.zoneNumber;
+          if(zoneNum===undefined || zoneNum===null || zoneNum===''){
+            zoneNum = polygonLayers.length + 1;
+          } else {
+            zoneNum = parseInt(zoneNum,10);
+            if(isNaN(zoneNum)) zoneNum = polygonLayers.length + 1;
+          }
+
+          // Build polygon
+          const poly=L.polygon(coordsArr,{
+            color:'#1976d2',
+            weight:1,
+            fillColor:'#2196f3',
+            fillOpacity:.26
+          }).addTo(map);
+
+          poly.bindPopup(`<div style="font-size:11px;">Zone ${zoneNum}<br/>Loading status...</div>`);
+
+          // Store metadata
+          const index = polygonLayers.length;
+          polygonLayers.push(poly);
+          polygonMeta.push({layer:poly, zoneNumber:zoneNum});
+          polygonsByZone.set(zoneNum, index);
+
+          allCoords = allCoords.concat(coordsArr);
+
+          // Label marker
+          const center=poly.getBounds().getCenter();
+          const label=L.marker(center,{
+            icon:L.divIcon({
+              className:'zone-label-wrapper',
+              html:zoneNumberLabelHtml(zoneNum),
+              iconSize:[34,24],
+              iconAnchor:[17,12]
+            }),
+            interactive:false
+          }).addTo(map);
+          labelMarkers.push(label);
+        });
+
+        if(allCoords.length){
+          map.fitBounds(L.latLngBounds(allCoords).pad(0.12));
+        }
+      }catch(e){
+        console.error('Polygon load error',e);
+      } finally {
+        hideLoader();
+      }
+    }
+
+    function zoneNumberLabelHtml(z){
+      return `<div class="zone-label">${z}</div>`;
+    }
+
+    /* Zone Status Logic */
+    function safeInt(v){const n=parseInt(v);return isNaN(n)?0:n;}
+    function statusMeta(status){
+      switch(status){
+        case 'completed': return {text:'Done',short:'Done',cls:'status-completed',color:'#2e7d32',icon:'task_alt'};
+        case 'inprogress': return {text:'Active',short:'Actv',cls:'status-inprogress',color:'var(--warning)',icon:'play_arrow'};
+        case 'booked': return {text:'Booked',short:'Book',cls:'status-booked',color:'var(--booked)',icon:'bookmark_added'};
+        default: return {text:'Pending',short:'Pend',cls:'status-pending',color:'#d32f2f',icon:'hourglass_empty'};
+      }
+    }
+
+    function listenZoneStatuses(){
+      onValue(ref(db, ZONE_STATUS_PATH), snap=>{
+        zoneStatusByZone.clear();
+        zoneStatusKeyByZone.clear();
+
+        if(snap.exists()){
+          snap.forEach(child=>{
+            const key = child.key;
+            const data = child.val() || {};
+            const fieldZone = safeInt(data.zoneNumber);
+            const keyNum = safeInt(key);
+            let zNum = null;
+
+            if(fieldZone && polygonsByZone.has(fieldZone)) {
+              zNum = fieldZone;
+            } else if(keyNum && polygonsByZone.has(keyNum)) {
+              zNum = keyNum;
+            } else if((keyNum || key === '0') && polygonsByZone.has(keyNum+1)) {
+              zNum = keyNum + 1;
+            } else if(safeInt(data.zone) && polygonsByZone.has(safeInt(data.zone))){
+              zNum = safeInt(data.zone);
+            }
+
+            if(zNum!=null){
+              zoneStatusByZone.set(zNum, data);
+              zoneStatusKeyByZone.set(zNum, key);
+            }
+          });
+        }
+
+        updateZonesVisual();
+      });
+    }
+
+    function updateZonesVisual(){
+      let distributed=0;
+      let newlyCompleted = [];
+
+      // Iterate actual polygons to avoid index mismatches
+      polygonMeta.forEach(({layer:poly, zoneNumber:zoneNum})=>{
+        const z = zoneStatusByZone.get(zoneNum) || {};
+        const flyers = safeInt(z.flyers);
+        if(z.status==='completed') distributed+=flyers;
+        const meta=statusMeta(z.status);
+
+        // Base style by status
+        poly.setStyle({
+          fillColor: meta.color,
+          fillOpacity: .38,
+          color: '#1976d2',
+          weight: 1,
+          dashArray: null
+        });
+
+        const gpsLink=z.gpsProof || z.gpsUrl;
+        const proofImage=z.proofImage;
+
+        if(z.status==='completed' && !completedNotified.has(zoneNum)){
+          completedNotified.add(zoneNum);
+          completedTimestamps[zoneNum] = Date.now();
+          newlyCompleted.push(zoneNum);
+          // Only show notifications when a zone is completed
+          addNotification('task_alt',`Zone ${zoneNum} completed!`,`zone-${zoneNum}-done`);
+        }
+
+        // Build popup with Book/Unbook buttons
+        const canBook = z.status !== 'booked' && z.status !== 'completed';
+        const canUnbook = z.status === 'booked';
+
+        let popupHTML=`
+          <div style="text-align:center;">
+            <strong style="display:flex;justify-content:center;align-items:center;gap:4px;color:#0e3450;font-size:12px;">
+              <span class="material-icons-outlined" style="font-size:14px;color:#1976d2;">layers</span>Zone ${zoneNum}
+            </strong>
+            <div style="margin-top:6px;color:#2f4451;font-size:11px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;">
+                <span class="material-icons-outlined" style="font-size:12px;color:#1976d2;">mail</span>
+                Flyers: <strong>${flyers || '-'}</strong>
+              </span>
+            </div>
+            <div style="margin-top:4px;color:#2f4451;font-size:11px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;">
+                <span class="material-icons-outlined" style="font-size:12px;color:${meta.color};">info</span>
+                Status: <strong>${meta.text}</strong>
+              </span>
+            </div>`;
+
+        if(gpsLink){
+          popupHTML+=`
+            <div style="margin-top:8px;">
+              <a href="${gpsLink}" target="_blank" rel="noopener"
+                style="background:#1976d2;color:#fff;font-size:10px;padding:5px 12px;border-radius:18px;
+                display:inline-flex;align-items:center;gap:6px;text-decoration:none;
+                box-shadow:0 2px 6px -2px rgba(0,0,0,.25);">
+                <span class="material-icons-outlined" style="font-size:14px;">assistant_navigation</span>GPS Route
+              </a>
+            </div>`;
+        }
+        if(proofImage){
+          popupHTML+=`
+            <div style="margin-top:10px;">
+              <img src="${proofImage}" alt="Proof" class="popup-img-thumb" data-proof="${proofImage}"
+                style="max-width:90px;border-radius:8px;cursor:pointer;border:1px solid #d9e2e8;">
+            </div>`;
+        }
+
+        // Popup action buttons (only here; no header controls)
+        popupHTML += `
+          <div class="popup-actions">
+            ${canBook ? `<button class="zp-btn warn" data-act="book" data-zone="${zoneNum}"><span class="material-icons-outlined" style="font-size:14px;">bookmark_add</span> Book</button>` : ''}
+            ${canUnbook ? `<button class="zp-btn danger" data-act="unbook" data-zone="${zoneNum}"><span class="material-icons-outlined" style="font-size:14px;">bookmark_remove</span> Unbook</button>` : ''}
+          </div>`;
+
+        popupHTML+='</div>';
+
+        poly.bindPopup(popupHTML);
+
+        // Wire popup buttons when opened
+        poly.off('popupopen');
+        poly.on('popupopen', (evt)=>{
+          const popupEl = evt.popup && evt.popup.getElement ? evt.popup.getElement() : null;
+          if(!popupEl) return;
+
+          const img = popupEl.querySelector('.popup-img-thumb[data-proof]');
+          if(img){
+            img.addEventListener('click',()=>showModal(img.getAttribute('data-proof')));
+          }
+
+          popupEl.querySelectorAll('.zp-btn').forEach(btn=>{
+            btn.addEventListener('click', async (e)=>{
+              e.preventDefault();
+              e.stopPropagation();
+              const act = btn.dataset.act;
+              const znum = parseInt(btn.dataset.zone,10);
+              const originalText = btn.textContent;
+              btn.disabled = true;
+              btn.textContent = act==='book' ? 'Booking...' : 'Unbooking...';
+              try{
+                await applyStatusToZones([znum], act==='book' ? 'booked' : 'pending');
+                // Refresh popup content after status change
+                setTimeout(()=> {
+                  poly.closePopup();
+                  poly.openPopup();
+                }, 50);
+              }catch(err){
+                console.error('Popup status update error', err);
+                alert('Failed to update zone status. Please try again.');
+              }finally{
+                btn.disabled = false;
+                btn.textContent = originalText;
+              }
+            });
+          });
+        });
+      });
+
+      flyersDistributedEl.textContent = distributed.toLocaleString();
+
+      if(firstFullLoad){
+        firstFullLoad = false;
+        hideLoader();
+        focusRecentCompletedZones(true);
+      } else if(newlyCompleted.length){
+        focusRecentCompletedZones(true);
+      }
+    }
+
+    function focusRecentCompletedZones(onlyLast=false){
+      const completed = Object.entries(completedTimestamps)
+        .sort((a,b)=>b[1]-a[1])
+        .map(entry=>parseInt(entry[0],10));
+      if(!completed.length) return;
+      if(onlyLast){
+        focusZone(completed[0]);
+      }
+    }
+
+    window.focusZone = function(zoneNum){
+      const polyIndex = polygonsByZone.get(zoneNum);
+      if(polyIndex===undefined) return;
+      const poly = polygonLayers[polyIndex];
+      if(!poly) return;
+      const bounds=poly.getBounds();
+      map.fitBounds(bounds.pad(0.4));
+      setTimeout(()=>{
+        map.flyTo(bounds.getCenter(), Math.max(map.getZoom(),15), {duration:.55});
+        poly.openPopup();
+        const path=poly._path;
+        if(path){
+          path.classList.add('flash-highlight');
+          setTimeout(()=>path.classList.remove('flash-highlight'),1300);
+        }
+      },350);
+    };
+
+    recentBtn.addEventListener('click',()=>focusRecentCompletedZones(true));
+
+    /* Booking/Unbooking helper (per zone via popup) */
+    async function applyStatusToZones(zones, newStatus){
+      if(!zones.length) return;
+
+      // Build updates using exact node keys mapped from DB (prevents wrong zone updates)
+      const updates = {};
+      const usedKeys = new Map();
+
+      zones.forEach(zoneNum=>{
+        let nodeKey = zoneStatusKeyByZone.get(zoneNum);
+        if(!nodeKey){
+          // Fallback: create/use an object key with the real zone number
+          nodeKey = String(zoneNum);
+        }
+        usedKeys.set(zoneNum, nodeKey);
+        updates[`${nodeKey}/status`] = newStatus;
+        updates[`${nodeKey}/zoneNumber`] = zoneNum; // persist mapping for future reads
+      });
+
+      await update(ref(db, ZONE_STATUS_PATH), updates);
+
+      // Optimistic local cache update
+      zones.forEach(zoneNum=>{
+        const nodeKey = usedKeys.get(zoneNum);
+        const prev = zoneStatusByZone.get(zoneNum) || {};
+        const next = { ...prev, status: newStatus, zoneNumber: zoneNum };
+        zoneStatusByZone.set(zoneNum, next);
+        zoneStatusKeyByZone.set(zoneNum, nodeKey);
+      });
+
+      updateZonesVisual();
+    }
+
+    /* Proof pins + slider */
+    function listenProofs(){
+      onValue(ref(db,'campaigns/XX556/proofs'), snap=>{
+        proofMarkers.forEach(m=>map.removeLayer(m));
+        proofMarkers=[]; proofMarkersById.clear(); proofsList=[];
+
+        const val=snap.val();
+        if(!val){
+          renderProofSlider();
+          return;
+        }
+
+        for(const id in val){
+          const p=val[id];
+          if(typeof p.lat==='number' && typeof p.lng==='number' && p.url){
+            proofsList.push({
+              id,
+              url:p.url,
+              lat:p.lat,
+              lng:p.lng,
+              timestamp: p.timestamp || 0
+            });
+          }
+        }
+
+        proofsList.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+
+        proofsList.forEach(p=>{
+          const iconHtml=`
+            <span class="material-icons-outlined" style="
+              display:block;
+              font-size:26px;
+              color:#1976d2;
+              text-shadow:0 0 4px #fff;
+            ">photo_camera</span>`;
+          const icon=L.divIcon({
+            html:iconHtml,
+            className:'custom-camera-pin',
+            iconSize:[28,28],
+            iconAnchor:[14,28]
+          });
+          const marker=L.marker([p.lat,p.lng],{icon}).addTo(map);
+
+          marker.bindPopup(`
+            <div style="text-align:center;">
+              <img src="${p.url}" class="popup-img-thumb" data-proof="${p.url}" style="max-width:100px;border-radius:10px;
+                border:1px solid #d9e2e8;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.15);" alt="Proof">
+              ${p.timestamp?`<div style="margin-top:6px;font-size:10px;color:#4a5d69;display:flex;gap:4px;justify-content:center;align-items:center;">
+                <span class="material-icons-outlined" style="font-size:12px;color:#1976d2;">schedule</span>${formatDateTime(p.timestamp)}
+              </div>`:''}
+            </div>`);
+
+          marker.on('popupopen',()=>{
+            setTimeout(()=>{
+              const img=document.querySelector('.leaflet-popup .popup-img-thumb[data-proof]');
+              if(img) img.addEventListener('click',()=>showModal(p.url));
+            },60);
+          });
+
+          proofMarkers.push(marker);
+          proofMarkersById.set(p.id, marker);
+        });
+
+        renderProofSlider();
+      });
+    }
+
+    function renderProofSlider(){
+      proofStripInner.innerHTML = '';
+      if(!proofsList.length){
+        proofStrip.classList.remove('visible');
+        return;
+      }
+      proofStrip.classList.add('visible');
+
+      proofsList.forEach((p, idx)=>{
+        const item = document.createElement('div');
+        item.className = 'proof-item';
+        item.dataset.id = p.id;
+        item.title = p.timestamp ? formatDateTime(p.timestamp) : 'Proof';
+        item.innerHTML = `
+          <img class="proof-thumb" src="${p.url}" alt="Proof ${idx+1}">
+          ${p.timestamp ? `<span class="proof-badge">${formatTimeBadge(p.timestamp)}</span>` : ''}`;
+        item.addEventListener('click', ()=> {
+          focusProof(p.id);
+          setSelectedProof(p.id);
+        });
+        proofStripInner.appendChild(item);
+      });
+
+      psLeft.onclick = ()=> scrollProofs(-1);
+      psRight.onclick = ()=> scrollProofs(1);
+    }
+
+    function setSelectedProof(id){
+      document.querySelectorAll('.proof-item').forEach(el=>{
+        el.classList.toggle('selected', el.dataset.id===id);
+      });
+    }
+
+    function scrollProofs(direction){
+      const amt = Math.max(120, Math.floor(proofStripInner.clientWidth * 0.8));
+      proofStripInner.scrollBy({left: direction * amt, behavior:'smooth'});
+    }
+
+    function focusProof(id){
+      const marker = proofMarkersById.get(id);
+      if(!marker) return;
+      const latlng = marker.getLatLng();
+      map.flyTo(latlng, Math.max(map.getZoom(),16), {duration:.6});
+      setTimeout(()=>{
+        marker.openPopup();
+        const pulse = L.circle(latlng,{radius:15,color:'#2563eb',weight:2,opacity:.9,fill:false}).addTo(map);
+        setTimeout(()=>map.removeLayer(pulse), 1000);
+      }, 500);
+    }
+
+    /* QR scans */
+    function listenQrScans(){
+      onValue(ref(db,'qr_scans'), snap=>{
+        const scans=[];
+        const val=snap.val();
+        if(val){
+          for(const k in val){
+            const s=val[k];
+            if(s.promoCode==='XX556') scans.push({...s,id:k});
+          }
+          scans.sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+        }
+        qrScanCountEl.textContent=scans.length.toString();
+      });
+      qrCounter.addEventListener('click',()=>{
+        alert('QR Scans list is only available if active for this campaign.');
+      });
+    }
+
+    function formatDateTime(ts){
+      const d=new Date(ts);
+      const pad=n=>n<10?'0'+n:n;
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    function formatTimeBadge(ts){
+      const d=new Date(ts);
+      const pad=n=>n<10?'0'+n:n;
+      return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    /* Modal */
+    window.showModal=function(src){
+      const modal=document.getElementById('imgModal');
+      const img=document.getElementById('modalImg');
+      img.src=src;
+      modal.style.display='flex';
+      document.body.style.overflow='hidden';
+    };
+
+    function hideLoader(){
+      if(!loadingOverlay) return;
+      loadingOverlay.classList.add('fade-out');
+      setTimeout(()=>loadingOverlay.remove(),650);
+    }
+  </script>
+
+  <script>
+    /* Modal basic JS (non-module) */
+    const modal=document.getElementById('imgModal');
+    const modalCloseBtn=document.getElementById('modalCloseBtn');
+    function hideModal(){
+      modal.style.display='none';
+      document.getElementById('modalImg').src='';
+      document.body.style.overflow='';
+    }
+    modalCloseBtn.addEventListener('click',hideModal);
+    modal.addEventListener('click',e=>{ if(e.target===modal) hideModal(); });
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape') hideModal(); });
+
+    window.addEventListener('resize',()=> {
+      const topbar=document.getElementById('topbar');
+      const panel=document.getElementById('notificationsPanel');
+      if(panel.style.display==='flex'){
+        panel.style.top = (topbar.getBoundingClientRect().height+4)+'px';
+      }
+    });
+  </script>
+</body>
+</html>
