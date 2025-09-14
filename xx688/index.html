@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -235,6 +234,25 @@
       align-items:center;
       justify-content:center;
       min-width:24px;
+      cursor:pointer;
+      user-select:none;
+    }
+    /* Blue label for tiny polygons (< 250 m²) */
+    .zone-label.tiny{
+      background: var(--accent);
+      color: #fff;
+      border-color: rgba(0,0,0,0.12);
+    }
+    /* Status styles override tiny color if present */
+    .zone-label.status-booked{
+      background: var(--booked);
+      color:#0f1a22;
+      border-color:#eab308;
+    }
+    .zone-label.status-completed{
+      background:#2e7d32;
+      color:#fff;
+      border-color:#1b5e20;
     }
     @keyframes zoneFlash{
       0%{stroke-width:1;filter:drop-shadow(0 0 0 rgba(37,99,235,0));}
@@ -450,6 +468,8 @@
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Turf.js for polygon area computation -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -516,6 +536,7 @@
     let map;
     let polygonLayers = [];
     let labelMarkers = [];
+    let labelMarkersByZone = new Map();
     let polygonMeta = [];
     let polygonsByZone = new Map();
 
@@ -643,12 +664,12 @@
         if(!snap.exists()) { hideLoader(); return; }
         polygonLayers.forEach(p=>map.removeLayer(p));
         labelMarkers.forEach(m=>map.removeLayer(m));
-        polygonLayers=[];labelMarkers=[];polygonMeta=[];polygonsByZone.clear();
+        polygonLayers=[];labelMarkers=[];labelMarkersByZone.clear();polygonMeta=[];polygonsByZone.clear();
         let allCoords=[];
         snap.forEach(child=>{
           const raw = child.val();
           if(!raw || typeof raw!=='object') return;
-            const coordsArr = Object.keys(raw)
+          const coordsArr = Object.keys(raw)
             .filter(k => !isNaN(Number(k)))
             .sort((a,b)=>Number(a)-Number(b))
             .map(k => {
@@ -659,6 +680,7 @@
             })
             .filter(pt => Array.isArray(pt) && typeof pt[0]==='number' && typeof pt[1]==='number');
           if(!coordsArr.length) return;
+
           let zoneNum = raw.zoneNumber;
           if(zoneNum===undefined || zoneNum===null || zoneNum===''){
             zoneNum = polygonLayers.length + 1;
@@ -666,29 +688,46 @@
             zoneNum = parseInt(zoneNum,10);
             if(isNaN(zoneNum)) zoneNum = polygonLayers.length + 1;
           }
+
           const poly=L.polygon(coordsArr,{
             color:'#1976d2',
             weight:1,
             fillColor:'#2196f3',
             fillOpacity:.26
           }).addTo(map);
+
           poly.bindPopup(`<div style="font-size:11px;">Zone ${zoneNum}<br/>Loading...</div>`);
+
           const index = polygonLayers.length;
           polygonLayers.push(poly);
-          polygonMeta.push({layer:poly, zoneNumber:zoneNum});
           polygonsByZone.set(zoneNum, index);
+
+          // Compute area (m²) and decide label style
+          const areaSqM = computeAreaSqM(coordsArr);
+          const isTiny = areaSqM < 250; // threshold: 250 m²
+
+          polygonMeta.push({layer:poly, zoneNumber:zoneNum, isTiny});
+
           allCoords = allCoords.concat(coordsArr);
+
           const center=poly.getBounds().getCenter();
           const label=L.marker(center,{
             icon:L.divIcon({
               className:'zone-label-wrapper',
-              html:zoneNumberLabelHtml(zoneNum),
+              html:zoneNumberLabelHtml(zoneNum, isTiny, ''), // status filled later
               iconSize:[34,24],
               iconAnchor:[17,12]
             }),
-            interactive:false
+            interactive:true
           }).addTo(map);
+
+          // Clicking the zone label opens the zone popup (booking/unbooking as usual)
+          label.on('click', () => {
+            try { poly.openPopup(); } catch(e){}
+          });
+
           labelMarkers.push(label);
+          labelMarkersByZone.set(zoneNum, label);
         });
         if(allCoords.length){
           map.fitBounds(L.latLngBounds(allCoords).pad(0.12));
@@ -700,7 +739,37 @@
       }
     }
 
-    function zoneNumberLabelHtml(z){ return `<div class="zone-label">${z}</div>`; }
+    // Compute area in square meters using Turf.js
+    function computeAreaSqM(latlngPairs){
+      try{
+        if(!Array.isArray(latlngPairs) || latlngPairs.length < 3) return 0;
+        const ring = latlngPairs.map(([lat, lng]) => [lng, lat]); // [lng,lat]
+        const first = ring[0], last = ring[ring.length-1];
+        if(first[0] !== last[0] || first[1] !== last[1]){
+          ring.push([first[0], first[1]]);
+        }
+        const poly = turf.polygon([ring]);
+        const area = turf.area(poly);
+        return Number.isFinite(area) ? area : 0;
+      }catch(err){
+        console.error('Area compute failed', err);
+        return 0;
+      }
+    }
+
+    function getStatusClass(status){
+      if(status==='booked') return 'status-booked';
+      if(status==='completed') return 'status-completed';
+      return '';
+    }
+
+    function zoneNumberLabelHtml(z, tiny=false, status=''){
+      const statusClass = getStatusClass(status);
+      const classes = ['zone-label'];
+      if(tiny) classes.push('tiny');
+      if(statusClass) classes.push(statusClass);
+      return `<div class="${classes.join(' ')}">${z}</div>`;
+    }
     function safeInt(v){const n=parseInt(v);return isNaN(n)?0:n;}
     function statusMeta(status){
       switch(status){
@@ -739,7 +808,7 @@
     function updateZonesVisual(){
       let distributed=0;
       let newlyCompleted=[];
-      polygonMeta.forEach(({layer:poly, zoneNumber:zoneNum})=>{
+      polygonMeta.forEach(({layer:poly, zoneNumber:zoneNum, isTiny})=>{
         const z = zoneStatusByZone.get(zoneNum) || {};
         const flyers = safeInt(z.flyers);
         if(z.status==='completed') distributed+=flyers;
@@ -753,11 +822,13 @@
           newlyCompleted.push(zoneNum);
           addNotification('task_alt',`Zone ${zoneNum} completed!`,`zone-${zoneNum}-done`);
         }
+
+        // Update popup with LEFT-aligned layout
         const canBook = z.status!=='booked' && z.status!=='completed';
         const canUnbook = z.status==='booked';
         let popupHTML=`
-          <div style="text-align:center;">
-            <strong style="display:flex;justify-content:center;align-items:center;gap:4px;color:#0e3450;font-size:12px;">
+          <div style="text-align:left;">
+            <strong style="display:flex;justify-content:flex-start;align-items:center;gap:4px;color:#0e3450;font-size:12px;">
               <span class="material-icons-outlined" style="font-size:14px;color:#1976d2;">layers</span>
               Zone ${zoneNum}
             </strong>
@@ -803,7 +874,7 @@
             </div>`;
         }
         popupHTML += `
-          <div class="popup-actions">
+          <div class="popup-actions" style="justify-content:flex-start;">
             ${canBook ? `<button class="zp-btn warn" data-act="book" data-zone="${zoneNum}">
                 <span class="material-icons-outlined" style="font-size:14px;">bookmark_add</span> Book</button>`:''}
             ${canUnbook ? `<button class="zp-btn danger" data-act="unbook" data-zone="${zoneNum}">
@@ -811,6 +882,19 @@
           </div>
           </div>`;
         poly.bindPopup(popupHTML);
+
+        // Update label color based on status and tiny rule
+        const label = labelMarkersByZone.get(zoneNum);
+        if(label){
+          label.setIcon(L.divIcon({
+            className:'zone-label-wrapper',
+            html: zoneNumberLabelHtml(zoneNum, isTiny, z.status || ''),
+            iconSize:[34,24],
+            iconAnchor:[17,12]
+          }));
+        }
+
+        // Re-wire popup interactions
         poly.off('popupopen');
         poly.on('popupopen', evt=>{
           const popupEl = evt.popup?.getElement?.();
@@ -997,7 +1081,7 @@ out center;`;
         if(!r.ok) throw new Error('Overpass error');
         return r.json();
       }).then(data=>{
-        const elements = data.elements||[];
+        const elements = (data && data.elements) ? data.elements : [];
         const centers=[];
         const seen=new Set();
         elements.forEach(el=>{
@@ -1050,10 +1134,10 @@ out center;`;
           });
           const marker=L.marker([p.lat,p.lng],{icon}).addTo(map);
           marker.bindPopup(`
-            <div style="text-align:center;">
+            <div style="text-align:left;">
               <img src="${p.url}" class="popup-img-thumb" data-proof="${p.url}" style="max-width:100px;border-radius:10px;
                 border:1px solid #d9e2e8;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.15);" alt="Proof">
-              ${p.timestamp?`<div style="margin-top:6px;font-size:10px;color:#4a5d69;display:flex;gap:4px;justify-content:center;align-items:center;">
+              ${p.timestamp?`<div style="margin-top:6px;font-size:10px;color:#4a5d69;display:flex;gap:4px;align-items:center;">
                 <span class="material-icons-outlined" style="font-size:12px;color:#1976d2;">schedule</span>${formatDateTime(p.timestamp)}
               </div>`:''}
             </div>`);
