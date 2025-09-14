@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -120,6 +119,8 @@
       font-size:9px;font-weight:600;line-height:1;padding:1px 5px;border-radius:999px;
       box-shadow:0 0 0 1px rgba(0,0,0,.25);display:none;
     }
+
+    /* Notifications panel */
     .notifications{
       position:fixed;top:calc(var(--topbar-total-height) + 4px);right:10px;width:300px;
       background:var(--surface-elev);border:1px solid var(--panel-border);border-radius:12px;
@@ -143,6 +144,64 @@
     .notif-item[data-zone]:hover::after{opacity:1;}
     .notif-empty{padding:18px 14px;font-size:11px;color:var(--ink-500);}
     .notif-footer{padding:6px 12px 8px;font-size:10px;color:var(--ink-400);text-align:right;border-top:1px solid rgba(0,0,0,.05);}
+
+    /* Chat panel */
+    .chat-panel{
+      position:fixed;top:calc(var(--topbar-total-height) + 4px);right:10px;width:360px;max-width:92vw;
+      height:60vh;max-height:70vh;min-height:360px;
+      background:var(--surface-elev);border:1px solid var(--panel-border);border-radius:12px;
+      box-shadow:var(--shadow-md);backdrop-filter:blur(14px) saturate(140%);
+      display:none;flex-direction:column;overflow:hidden;animation:dropIn .18s ease;z-index:655;
+    }
+    .chat-header{
+      display:flex;align-items:center;justify-content:space-between;gap:8px;
+      padding:10px 12px 8px;border-bottom:1px solid rgba(0,0,0,0.05);
+    }
+    .chat-title{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.4px;}
+    .chat-actions{display:flex;gap:6px;align-items:center;}
+    .chat-mark-btn{
+      appearance:none;border:1px solid var(--panel-border);background:var(--surface);
+      color:var(--ink-700);font-size:10px;font-weight:700;padding:4px 8px;border-radius:10px;cursor:pointer;
+      transition:var(--transition);
+    }
+    .chat-mark-btn:hover{background:var(--ink-050);}
+    .chat-list{
+      flex:1;overflow-y:auto;padding:10px 10px 6px;display:flex;flex-direction:column;gap:8px;
+      background:linear-gradient(180deg, #fafcff, #fff);
+    }
+    .chat-msg{
+      display:inline-flex;flex-direction:column;max-width:80%;
+      padding:8px 10px;border-radius:12px;background:#eef2ff;border:1px solid #dbe2ff;
+      color:#0e3450;box-shadow:0 1px 2px rgba(15,26,34,.06);
+    }
+    .chat-msg .chat-text{font-size:11px;white-space:pre-wrap;word-break:break-word;}
+    .chat-msg .chat-meta{margin-top:4px;font-size:9px;color:#667883;display:flex;gap:6px;align-items:center;}
+    .chat-row{display:flex;gap:6px;}
+    .chat-row.mine{justify-content:flex-end;}
+    .chat-row.mine .chat-msg{background:#e8faf0;border-color:#c8efd8;}
+    .chat-row .avatar{
+      width:20px;height:20px;border-radius:50%;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;
+      font-size:11px;font-weight:700;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.06);
+    }
+    .chat-input-row{
+      border-top:1px solid rgba(0,0,0,0.05);padding:8px;display:flex;gap:6px;align-items:center;background:var(--surface);
+    }
+    .chat-input{
+      flex:1;border:1px solid var(--panel-border);border-radius:12px;background:#fff;padding:8px 10px;font-size:11px;color:var(--ink-700);
+      outline:none;transition:var(--transition);
+    }
+    .chat-input:focus{box-shadow:var(--focus-ring);border-color:#c5d3ee;}
+    .send-btn{
+      appearance:none;border:none;border-radius:18px;padding:6px 12px;font-size:11px;
+      font-weight:700;letter-spacing:.3px;cursor:pointer;transition:transform .08s ease, filter .12s ease;
+      color:#fff;background:var(--accent);display:inline-flex;align-items:center;gap:6px;
+      box-shadow:0 2px 6px -2px rgba(0,0,0,.25);
+    }
+    .send-btn:hover{filter:brightness(1.05);}
+    .send-btn:active{transform:translateY(1px);}
+    .send-btn .material-icons-outlined{font-size:16px;}
+    .chat-badge{background:#ef4444;}
+
     #map{
       position:absolute;top:var(--topbar-total-height);left:0;right:0;bottom:var(--footer-h);
       background:#ffffff;transition:top .25s ease;
@@ -308,6 +367,11 @@
         <button id="recentBtn" class="recent-focus-btn" title="Zoom to most recent completed zone" aria-label="Zoom to most recent completed zone">
           <span class="material-icons-outlined">my_location</span>
         </button>
+        <!-- New Chat button -->
+        <button id="chatBtn" class="icon-btn" aria-label="Chat" title="Chat">
+          <span class="material-icons-outlined">chat</span>
+          <span id="chatBadge" class="notif-badge chat-badge"></span>
+        </button>
         <button id="notifBtn" class="icon-btn" aria-label="Notifications">
           <span class="material-icons-outlined">notifications</span>
           <span id="notifBadge" class="notif-badge"></span>
@@ -342,6 +406,25 @@
     <div id="notifFooter" class="notif-footer"></div>
   </div>
 
+  <!-- New Chat Panel -->
+  <div id="chatPanel" class="chat-panel" role="dialog" aria-label="Chat">
+    <div class="chat-header">
+      <div class="chat-title" style="display:flex;align-items:center;gap:6px;">
+        <span class="material-icons-outlined" style="font-size:14px;">chat</span>Chat
+      </div>
+      <div class="chat-actions">
+        <button id="chatMarkReadBtn" class="chat-mark-btn" title="Mark all as read">Mark all read</button>
+      </div>
+    </div>
+    <div id="chatList" class="chat-list" aria-live="polite"></div>
+    <div class="chat-input-row">
+      <input id="chatInput" class="chat-input" type="text" placeholder="Type a message..." aria-label="Type a message">
+      <button id="chatSendBtn" class="send-btn" title="Send" aria-label="Send">
+        <span class="material-icons-outlined">send</span>
+      </button>
+    </div>
+  </div>
+
   <div id="map" class="map-visual-dimmer" aria-label="Distribution Map"></div>
 
   <div id="proofStrip" class="proof-strip" aria-label="Proofs slider">
@@ -369,7 +452,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getDatabase, ref, onValue, get, update } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+    import { getDatabase, ref, onValue, get, update, push, set, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
     /* Firebase Configs */
     const campaignFirebaseConfig = {
@@ -416,6 +499,15 @@
     const psRight = document.getElementById('psRight');
     const flyersRequiredEl = document.getElementById('flyersRequired');
 
+    // Chat DOM
+    const chatBtn = document.getElementById('chatBtn');
+    const chatPanel = document.getElementById('chatPanel');
+    const chatListEl = document.getElementById('chatList');
+    const chatInputEl = document.getElementById('chatInput');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    const chatBadge = document.getElementById('chatBadge');
+    const chatMarkReadBtn = document.getElementById('chatMarkReadBtn');
+
     /* State */
     const TOTAL_FLYERS = 25000;
     flyersTotalEl.textContent = TOTAL_FLYERS.toLocaleString();
@@ -444,11 +536,21 @@
     const buildingFetchPromises = new Map();
     let currentBuildingLayerGroup = null;
 
+    // Chat state
+    const CHAT_PATH = 'campaigns/XX695/chat/messages';
+    let chatMessages = [];
+    let chatInitialized = false;
+    const deviceIdKey = 'XX695_chat_device_id';
+    const myDeviceId = getOrCreateDeviceId();
+    const myName = 'Viewer';
+    const lastReadKey = 'XX695_chat_last_read_ts';
+
     function setHeaderHeightVar(){
       const h = topbar.getBoundingClientRect().height;
       document.documentElement.style.setProperty('--topbar-total-height', h + 'px');
       mapEl.style.top = h + 'px';
       notifPanel.style.top = (h + 4) + 'px';
+      chatPanel.style.top = (h + 4) + 'px';
     }
     new ResizeObserver(setHeaderHeightVar).observe(topbar);
     window.addEventListener('orientationchange',()=>setTimeout(setHeaderHeightVar,350));
@@ -508,6 +610,9 @@
       if(!notifPanel.contains(e.target) && !notifBtn.contains(e.target)){
         notifPanel.style.display='none';
       }
+      if(!chatPanel.contains(e.target) && !chatBtn.contains(e.target)){
+        chatPanel.style.display='none';
+      }
     });
 
     document.addEventListener('DOMContentLoaded',()=>{
@@ -527,6 +632,7 @@
         listenZoneStatuses();
         listenProofs();
         listenQrScans();
+        listenChat(); // start chat listeners
       });
     });
 
@@ -642,7 +748,7 @@
         });
         if(z.status==='completed' && !completedNotified.has(zoneNum)){
           completedNotified.add(zoneNum);
-            completedTimestamps[zoneNum]=Date.now();
+          completedTimestamps[zoneNum]=Date.now();
           newlyCompleted.push(zoneNum);
           addNotification('task_alt',`Zone ${zoneNum} completed!`,`zone-${zoneNum}-done`);
         }
@@ -895,11 +1001,11 @@ out center;`;
         const seen=new Set();
         elements.forEach(el=>{
           let lat,lon;
-            if(el.type==='node' && typeof el.lat==='number'){
-              lat=el.lat; lon=el.lon;
-            } else if(el.center){
-              lat=el.center.lat; lon=el.center.lon;
-            }
+          if(el.type==='node' && typeof el.lat==='number'){
+            lat=el.lat; lon=el.lon;
+          } else if(el.center){
+            lat=el.center.lat; lon=el.center.lon;
+          }
           if(typeof lat==='number' && typeof lon==='number'){
             const key=el.type+':'+el.id;
             if(!seen.has(key)){
@@ -1046,6 +1152,164 @@ out center;`;
       loadingOverlay.classList.add('fade-out');
       setTimeout(()=>loadingOverlay.remove(),650);
     }
+
+    /* ---------------- Chat feature ---------------- */
+    function getOrCreateDeviceId(){
+      let id = localStorage.getItem(deviceIdKey);
+      if(!id){
+        id = 'dev_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+        localStorage.setItem(deviceIdKey, id);
+      }
+      return id;
+    }
+    function getLastReadTs(){
+      const v = parseInt(localStorage.getItem(lastReadKey)||'0',10);
+      return isNaN(v)?0:v;
+    }
+    function setLastReadTs(ts){
+      localStorage.setItem(lastReadKey, String(ts||0));
+      updateChatBadge();
+    }
+    function listenChat(){
+      onValue(ref(db, CHAT_PATH), snap=>{
+        chatMessages = [];
+        const val = snap.val();
+        if(val){
+          Object.keys(val).forEach(k=>{
+            const m = val[k];
+            if(m && m.text){
+              chatMessages.push({
+                id: k,
+                text: String(m.text),
+                ts: typeof m.timestamp === 'number' ? m.timestamp : (m._serverTs || 0),
+                authorId: m.authorId || 'unknown',
+                authorName: m.authorName || 'User'
+              });
+            }
+          });
+          chatMessages.sort((a,b)=>(a.ts||0)-(b.ts||0));
+        }
+        renderChat();
+        updateChatBadge();
+
+        if(chatInitialized){
+          // If there are new unread messages from others, optionally raise a small toast via notifications.
+          const unreadFromOthers = chatMessages.filter(m=>m.authorId!==myDeviceId && m.ts > getLastReadTs());
+          if(unreadFromOthers.length){
+            const last = unreadFromOthers[unreadFromOthers.length-1];
+            addNotification('chat', `New chat message: "${truncate(last.text, 48)}"`, `chat-last-${last.id}`);
+          }
+        }
+        chatInitialized = true;
+      });
+
+      // UI handlers
+      chatBtn.addEventListener('click', e=>{
+        e.stopPropagation();
+        const open = chatPanel.style.display==='flex';
+        chatPanel.style.display = open ? 'none' : 'flex';
+        if(!open){
+          setHeaderHeightVar();
+          setTimeout(()=>{ scrollChatToBottom(); chatInputEl.focus(); }, 60);
+        }
+      });
+      chatSendBtn.addEventListener('click', sendChatMessage);
+      chatInputEl.addEventListener('keydown', e=>{
+        if(e.key==='Enter' && !e.shiftKey){
+          e.preventDefault();
+          sendChatMessage();
+        }
+      });
+      chatMarkReadBtn.addEventListener('click', ()=>{
+        const lastTs = chatMessages.length ? chatMessages[chatMessages.length-1].ts||Date.now() : Date.now();
+        setLastReadTs(lastTs);
+      });
+    }
+    function truncate(s, n){
+      return (s||'').length>n ? s.slice(0,n-1)+'…' : s;
+    }
+    function avatarInitial(name){
+      const s = (name||'U').trim();
+      return (s[0]||'U').toUpperCase();
+    }
+    function renderChat(){
+      chatListEl.innerHTML = '';
+      if(!chatMessages.length){
+        const empty = document.createElement('div');
+        empty.style.cssText='padding:6px 8px;color:#667883;font-size:11px;text-align:center;';
+        empty.textContent = 'No messages yet. Start the conversation!';
+        chatListEl.appendChild(empty);
+        return;
+      }
+      chatMessages.forEach(m=>{
+        const isMine = m.authorId===myDeviceId;
+        const row = document.createElement('div');
+        row.className = 'chat-row'+(isMine?' mine':'');
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = avatarInitial(isMine?myName:m.authorName);
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-msg';
+        const text = document.createElement('div');
+        text.className = 'chat-text';
+        text.textContent = m.text;
+        const meta = document.createElement('div');
+        meta.className = 'chat-meta';
+        meta.innerHTML = `
+          <span class="material-icons-outlined" style="font-size:12px;color:#94a3b8;">schedule</span>
+          <span>${formatDateTime(m.ts||Date.now())}</span>
+        `;
+        bubble.appendChild(text);
+        bubble.appendChild(meta);
+        if(isMine){
+          row.appendChild(bubble);
+          row.appendChild(avatar);
+        }else{
+          row.appendChild(avatar);
+          row.appendChild(bubble);
+        }
+        chatListEl.appendChild(row);
+      });
+      scrollChatToBottom();
+    }
+    function scrollChatToBottom(){
+      chatListEl.scrollTop = chatListEl.scrollHeight + 1000;
+    }
+    async function sendChatMessage(){
+      const text = (chatInputEl.value||'').trim();
+      if(!text) return;
+      chatSendBtn.disabled = true;
+      try{
+        const now = Date.now();
+        const newRef = push(ref(db, CHAT_PATH));
+        await set(newRef, {
+          text,
+          authorId: myDeviceId,
+          authorName: myName,
+          timestamp: now,
+          _serverTs: serverTimestamp()
+        });
+        chatInputEl.value='';
+        // Sending user's own messages are considered read for themselves.
+        setLastReadTs(now);
+        setTimeout(scrollChatToBottom, 60);
+      }catch(err){
+        console.error('Failed to send message', err);
+        alert('Failed to send message. Please try again.');
+      }finally{
+        chatSendBtn.disabled = false;
+      }
+    }
+    function updateChatBadge(){
+      const lastRead = getLastReadTs();
+      const unread = chatMessages.filter(m=>m.authorId!==myDeviceId && (m.ts||0)>lastRead).length;
+      if(unread>0){
+        chatBadge.textContent = String(unread);
+        chatBadge.style.display = 'inline-block';
+      }else{
+        chatBadge.style.display = 'none';
+      }
+    }
   </script>
 
   <script>
@@ -1061,9 +1325,13 @@ out center;`;
     document.addEventListener('keydown',e=>{ if(e.key==='Escape') hideModal(); });
     window.addEventListener('resize',()=> {
       const topbar=document.getElementById('topbar');
-      const panel=document.getElementById('notificationsPanel');
-      if(panel.style.display==='flex'){
-        panel.style.top = (topbar.getBoundingClientRect().height+4)+'px';
+      const notifPanel=document.getElementById('notificationsPanel');
+      const chatPanel=document.getElementById('chatPanel');
+      if(notifPanel.style.display==='flex'){
+        notifPanel.style.top = (topbar.getBoundingClientRect().height+4)+'px';
+      }
+      if(chatPanel.style.display==='flex'){
+        chatPanel.style.top = (topbar.getBoundingClientRect().height+4)+'px';
       }
     });
   </script>
