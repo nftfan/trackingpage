@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Personal Delivery">
+    <meta name="apple-mobile-web-app-title" content="Quran Verse App">
     <link rel="apple-touch-icon" href="https://static.vecteezy.com/system/resources/previews/021/886/069/non_2x/illustration-of-the-holy-quran-book-book-islamic-icons-can-be-used-for-the-month-of-ramadan-eid-and-eid-al-adha-for-logo-website-and-poster-designs-free-vector.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@700&display=swap" rel="stylesheet">
     <!-- Material Icons CDN -->
@@ -52,7 +52,7 @@
         #verse {
             font-size: 2em;
             font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin-bottom: 3em;
+            margin-bottom: 1.2em;
             color: #aee9fd;
             line-height: 2.8;
             word-break: break-word;
@@ -63,9 +63,51 @@
         #surahinfo {
             color: #7ee0d2;
             font-size: 1.1em;
-            margin-bottom: 2.8em;
+            margin-bottom: 1.4em;
             line-height: 2.4;
         }
+
+        /* Goto (jump to ayah) controls */
+        .goto {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 2em;
+            flex-wrap: wrap;
+        }
+        .goto label {
+            color: #c9ffe8;
+            font-size: 1.02em;
+        }
+        .goto input[type="number"] {
+            background: #111;
+            color: #eafff7;
+            border: 1px solid #2e2e2e;
+            padding: 8px 12px;
+            border-radius: 7px;
+            width: 120px;
+            text-align: center;
+            direction: ltr;
+            outline: none;
+        }
+        .goto input[type="number"]::placeholder {
+            color: #9cb7b1;
+        }
+        .goto button {
+            background: #1f6a3e;
+            padding: 8px 16px;
+        }
+        #gotoError {
+            width: 100%;
+            text-align: center;
+            color: #ff8989;
+            margin-top: -8px;
+            margin-bottom: 10px;
+            display: none;
+            font-size: 0.98em;
+        }
+
         .btns {
             display: flex;
             justify-content: center;
@@ -123,13 +165,21 @@
             }
             #verse {
                 font-size: 1.16em;
-                margin-bottom: 2.5em;
+                margin-bottom: 1.2em;
                 line-height: 2.2;
                 max-height: 35vh;
             }
             #surahinfo {
-                margin-bottom: 2em;
+                margin-bottom: 1em;
                 line-height: 2;
+            }
+            .goto {
+                gap: 8px;
+                margin-bottom: 1.6em;
+            }
+            .goto input[type="number"] {
+                width: 110px;
+                padding: 9px 10px;
             }
             #chatIconBtn {
                 top: 10px;
@@ -229,6 +279,15 @@
         <div class="quran-title">قرآن</div>
         <div id="verse">... آیت حاصل کی جا رہی ہے ...</div>
         <div id="surahinfo"></div>
+
+        <!-- Jump to any verse -->
+        <div class="goto">
+            <label for="goInput">آیت نمبر:</label>
+            <input id="goInput" type="number" min="1" max="6236" placeholder="1 – 6236" inputmode="numeric">
+            <button id="goBtn" title="اس آیت پر جائیں">جائیں</button>
+            <div id="gotoError">صحیح آیت نمبر درج کریں (1–6236)</div>
+        </div>
+
         <div class="btns">
             <button id="prevBtn">پچھلی</button>
             <button id="nextBtn">اگلی</button>
@@ -258,6 +317,12 @@
         const surahInfoDiv = document.getElementById("surahinfo");
         const prevBtn = document.getElementById("prevBtn");
         const nextBtn = document.getElementById("nextBtn");
+
+        // Goto controls
+        const goInput = document.getElementById("goInput");
+        const goBtn = document.getElementById("goBtn");
+        const gotoError = document.getElementById("gotoError");
+
         let currentVerseText = '';
         let currentSurahName = '';
         let currentAyahInSurah = '';
@@ -309,6 +374,30 @@
         prevBtn.onclick = () => gotoAyah(ayahNumber - 1);
         nextBtn.onclick = () => gotoAyah(ayahNumber + 1);
 
+        // Goto handlers
+        function validateAndGo() {
+            const raw = (goInput.value || "").trim();
+            const v = parseInt(raw, 10);
+            if (isNaN(v) || v < 1 || v > QURAN_TOTAL_AYAT) {
+                gotoError.style.display = '';
+                return;
+            }
+            gotoError.style.display = 'none';
+            gotoAyah(v);
+        }
+        goBtn.addEventListener('click', validateAndGo);
+        goInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                validateAndGo();
+            }
+        });
+        goInput.addEventListener('input', () => {
+            if (gotoError.style.display !== 'none') {
+                gotoError.style.display = 'none';
+            }
+        });
+
         fetchAyah(ayahNumber);
 
         // --- Pop-up logic for explanation using Gemini API ---
@@ -319,8 +408,9 @@
         const popupError = document.getElementById("popupError");
         const popupText = document.getElementById("popupText");
 
-        // Gemini API key (you MUST restrict this API key in production!) 
-        const GEMINI_API_KEY = "AIzaSyChxCezlZCdJJ1CNW_3Pm4cGDCSKbA6Fsk";
+        // Gemini API key (you MUST restrict this API key in production!)
+        const GEMINI_API_KEY = "AIzaSyC7zkrzFlqBZFcVV83BVOT73Ono5AZoKeA";
+
         // Explanation prompt in Urdu
         function buildPrompt(verseText, surahName, ayahNum) {
             return `براہ کرم اس قرآن کی آیت کی مزید تفصیل اور آسان الفاظ میں وضاحت کریں:\n\nآیت: "${verseText}"\n\nسورۃ: ${surahName}, آیت نمبر: ${ayahNum}\n\nصرف اردو میں مختصر اور جامع وضاحت کریں۔`;
