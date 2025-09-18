@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Zone Tracker (Simplified)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
+<link rel="apple-touch-icon" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+<link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+<style>
+:root {
+  --clr-primary:#2563eb;
+  --clr-primary-dark:#1d4ed8;
+  --clr-danger:#dc2626;
+  --clr-success:#059669;
+  --clr-muted:#64748b;
+  --clr-bg:#ffffff;
+  --clr-bg-alt:#f1f5f9;
+  --clr-border:#e2e8f0;
+  --radius-sm:10px;
+  --radius:16px;
+  --shadow:0 4px 12px rgba(15,23,42,.12);
+  --tap-min:44px;
+  --font-xs:clamp(11px,2.4vw,12px);
+  --font-sm:clamp(12px,2.6vw,14px);
+  --font-md:clamp(14px,2.9vw,16px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  background:var(--clr-bg);
+  color:#0f172a;
+  min-height:100dvh;
+  overflow:hidden;
+}
+.app-header{
+  position:fixed;
+  top:0;left:0;right:0;
+  height:44px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 14px;
+  background:#ffffffee;
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--clr-border);
+  z-index:1000;
+}
+.brand{
+  display:flex;align-items:center;gap:10px;
+  font-weight:700;letter-spacing:.5px;
+  color:var(--clr-primary);font-size:16px;
+}
+.brand-icon{
+  width:30px;height:30px;border-radius:10px;
+  background:linear-gradient(135deg,var(--clr-primary),var(--clr-primary-dark));
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:#fff;font-weight:600;
+  box-shadow:0 2px 4px rgba(0,0,0,.15);
+}
+#main{
+  position:relative;
+  padding-top:44px;
+  height:100dvh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.main-tabs{
+  position:fixed;
+  top:44px;left:0;right:0;
+  display:flex;
+  background:var(--clr-bg);
+  border-bottom:1px solid var(--clr-border);
+  z-index:950;
+  height:48px;
+}
+.main-tab-btn{
+  flex:1;
+  background:transparent;
+  border:none;
+  font-weight:600;
+  font-size:var(--font-sm);
+  color:var(--clr-muted);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;cursor:pointer;position:relative;
+}
+.main-tab-btn .material-icons{font-size:20px;}
+.main-tab-btn.active{color:var(--clr-primary);}
+.main-tab-btn.active::after{
+  content:"";position:absolute;bottom:0;left:18%;right:18%;height:3px;
+  background:var(--clr-primary);border-radius:3px 3px 0 0;
+}
+.tab-panels{
+  position:absolute;
+  top:92px;left:0;right:0;bottom:0;
+  overflow:hidden;
+}
+.tab-panel{position:absolute;inset:0;display:none;}
+.tab-panel.active{display:block;}
+#mapPanel{background:#dbe3ec;}
+#map{width:100%;height:100%;}
+.manage-scroll{
+  position:absolute;inset:0;
+  overflow-y:auto;
+  padding:16px 16px 180px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--clr-border) transparent;
+}
+.manage-scroll::-webkit-scrollbar{width:6px;}
+.manage-scroll::-webkit-scrollbar-thumb{background:var(--clr-border);border-radius:3px;}
+.section{
+  background:var(--clr-bg);
+  border:1px solid var(--clr-border);
+  padding:16px 16px 18px;
+  border-radius:var(--radius);
+  box-shadow:0 2px 6px rgba(0,0,0,.06);
+  margin-bottom:18px;
+}
+.section h3{
+  margin:0 0 14px;
+  font-size:var(--font-md);
+  color:var(--clr-primary);
+  letter-spacing:.4px;
+  font-weight:700;
+  display:flex;align-items:center;gap:6px;
+}
+.row{display:flex;gap:12px;margin-bottom:16px;}
+.row > div{flex:1;}
+label{
+  font-size:var(--font-xs);font-weight:600;
+  display:block;margin:0 0 4px;letter-spacing:.4px;
+}
+input,select{
+  width:100%;font-size:var(--font-sm);
+  padding:12px 14px;
+  border:1px solid var(--clr-border);
+  border-radius:var(--radius-sm);
+  background:var(--clr-bg-alt);
+  outline:none;
+  transition:border-color .18s,background .18s;
+}
+input:focus,select:focus{
+  border-color:var(--clr-primary);
+  background:#fff;
+  box-shadow:0 0 0 3px rgba(37,99,235,.15);
+}
+.zone-box{
+  border:1px solid var(--clr-border);
+  padding:16px 14px 14px;
+  border-radius:var(--radius);
+  background:linear-gradient(160deg,#fff,#f5f9ff);
+  box-shadow:0 2px 5px rgba(0,0,0,.05);
+  margin-top:4px;
+  display:none;
+}
+.zone-head{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
+}
+.zone-head-title{font-size:var(--font-md);font-weight:700;color:#1e293b;}
+.badge{
+  font-size:var(--font-xs);padding:6px 12px;
+  border-radius:24px;font-weight:600;line-height:1;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.badge.pending{background:rgba(220,38,38,.14);color:var(--clr-danger);}
+.badge.completed{background:rgba(37,99,235,.14);color:var(--clr-primary);}
+.work-hint{
+  font-size:var(--font-xs);
+  font-weight:600;
+  background:#fff6a8;
+  border:1px solid #e5d35c;
+  padding:10px 12px;
+  border-radius:var(--radius-sm);
+  margin:0 0 12px;
+  line-height:1.4;
+  color:#3a3500;
+}
+.work-hint strong{color:#b45309;}
+.btn-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  margin-bottom:16px;
+}
+.action-btn{
+  font-size:var(--font-sm);
+  font-weight:600;
+  padding:14px 10px;
+  border:none;
+  border-radius:var(--radius-sm);
+  background:var(--clr-success);
+  color:#fff;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  gap:8px;
+  min-height:var(--tap-min);
+  line-height:1.1;
+  box-shadow:0 2px 4px rgba(5,150,105,.35);
+  transition:transform .15s,background .18s;
+}
+.action-btn:active{transform:scale(.95);}
+.action-btn:disabled{opacity:.55;transform:none;}
+.action-btn .material-icons{font-size:20px;}
+.form-row{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+.form-row label{flex:0 0 70px;margin:0;}
+.form-row input{flex:1;}
+.link{
+  font-size:var(--font-xs);
+  color:var(--clr-primary);
+  text-decoration:none;
+  font-weight:600;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  margin-top:2px;
+}
+#saveMsg,#campaignMsg{
+  font-size:var(--font-xs);
+  font-weight:600;
+  margin-top:6px;
+  display:none;
+}
+#saveMsg{color:var(--clr-success);}
+#campaignMsg.success{color:var(--clr-success);}
+#campaignMsg.err{color:var(--clr-danger);}
+
+.fab{
+  position:fixed;
+  right:16px;
+  width:54px;
+  height:54px;
+  border-radius:16px;
+  border:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  font-weight:600;
+  font-size:14px;
+  gap:4px;
+  box-shadow:0 6px 16px -2px rgba(0,0,0,.3),0 2px 6px rgba(0,0,0,.18);
+  cursor:pointer;
+  z-index:1200;
+  background:linear-gradient(135deg,var(--clr-primary),var(--clr-primary-dark));
+  transition:transform .2s;
+}
+.fab:active{transform:scale(.92);}
+#addProofFab{bottom:150px;}
+#saveFab{bottom:86px;background:#0f172a;}
+.map-tab-active .hide-when-map{display:none;}
+
+.modal-backdrop{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.55);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:1500;
+}
+.modal{
+  width:100%;max-width:520px;
+  background:var(--clr-bg);
+  border-radius:24px;
+  border:1px solid var(--clr-border);
+  padding:24px 22px 28px;
+  box-shadow:0 8px 28px -4px rgba(0,0,0,.35);
+  max-height:90dvh;
+  margin:16px;
+  display:flex;flex-direction:column;
+  animation:fadeIn .3s ease;
+}
+@keyframes fadeIn{from{transform:translateY(18px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.modal header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.modal h3{margin:0;font-size:var(--font-md);font-weight:700;color:var(--clr-primary);}
+.close-btn{
+  width:44px;height:44px;border-radius:50%;border:none;
+  background:var(--clr-bg-alt);
+  color:var(--clr-muted);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+}
+.close-btn:active{transform:scale(.9);}
+.file-actions{display:flex;gap:12px;margin:0 0 16px;}
+.file-actions button{
+  flex:1;padding:12px 8px;font-size:14px;border:none;
+  border-radius:var(--radius-sm);
+  background:var(--clr-primary);color:#fff;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.file-actions button:active{transform:scale(.95);}
+#proofFileInput{display:none;}
+#proofPreview{
+  width:100%;max-height:250px;object-fit:cover;
+  border:1px solid var(--clr-border);border-radius:var(--radius);
+  margin:4px 0 14px;display:none;background:#fff;
+}
+#proofUploadStatus{
+  font-size:var(--font-xs);
+  font-weight:600;
+  display:none;
+  margin:6px 0 4px;
+  color:var(--clr-primary);
+}
+#proofUploadStatus.ok{color:var(--clr-success);}
+#proofUploadStatus.err{color:var(--clr-danger);}
+.alert{
+  font-size:var(--font-xs);font-weight:600;
+  padding:10px 12px;border-radius:var(--radius-sm);
+  display:none;margin:8px 0 0;line-height:1.3;
+}
+.alert.error{background:rgba(220,38,38,.17);color:var(--clr-danger);}
+.alert.success{background:rgba(5,150,105,.18);color:var(--clr-success);}
+.submit-row{display:flex;gap:12px;margin-top:16px;}
+.submit-row button{
+  flex:1;padding:14px;border:none;border-radius:var(--radius-sm);
+  font-size:14px;font-weight:600;
+  background:var(--clr-primary);color:#fff;cursor:pointer;
+  transition:transform .15s;
+}
+.submit-row button.outline{background:#fff;color:var(--clr-primary);border:1px solid var(--clr-primary);}
+.submit-row button:active{transform:scale(.95);}
+
+.leaflet-label-zone{
+  background:rgba(255,255,255,.55);
+  color:#0f172a;
+  font-size:11px;
+  font-weight:600;
+  padding:2px 6px;
+  border-radius:8px;
+  border:1px solid rgba(0,0,0,.15);
+  box-shadow:0 2px 4px rgba(0,0,0,.18);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  letter-spacing:.5px;
+  pointer-events:none;
+  line-height:1.1;
+  display:inline-block;
+  user-select:none;
+}
+
+/* Toolbar */
+.map-path-toolbar{
+  position:fixed;
+  left:0;right:0;bottom:0;
+  background:#fffffffa;
+  backdrop-filter:blur(16px);
+  border-top:1px solid var(--clr-border);
+  display:flex;
+  align-items:center;
+  justify-content:space-around;
+  gap:8px;
+  padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+  z-index:1100;
+  box-shadow:0 -4px 16px -4px rgba(0,0,0,.18);
+}
+.map-path-toolbar button{
+  background:#0f172a;
+  border:none;
+  color:#fff;
+  width:48px;
+  height:48px;
+  padding:0;
+  border-radius:18px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  position:relative;
+  transition:background .18s,transform .18s, box-shadow .18s;
+}
+.map-path-toolbar button.secondary{background:var(--clr-primary);}
+.map-path-toolbar button.success{background:var(--clr-success);}
+.map-path-toolbar button.warn{background:var(--clr-danger);}
+.map-path-toolbar button:active{transform:scale(.9);}
+.map-path-toolbar button:disabled{
+  opacity:.42;
+  cursor:default;
+  filter:grayscale(.4);
+}
+.map-path-toolbar .material-icons{font-size:24px;}
+#pathInfo{
+  position:absolute;
+  top:-32px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#0f172a;
+  color:#fff;
+  font-size:10px;
+  font-weight:600;
+  padding:4px 10px 5px;
+  border-radius:14px;
+  letter-spacing:.5px;
+  box-shadow:0 3px 8px -2px rgba(0,0,0,.4);
+  max-width:75%;
+  text-align:center;
+  line-height:1.2;
+  pointer-events:none;
+  animation:fadeInTip .3s ease;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+@keyframes fadeInTip{from{opacity:0;transform:translate(-50%,6px);}to{opacity:1;transform:translate(-50%,0);}}
+.map-path-toolbar button[data-tip]:hover::after,
+.map-path-toolbar button[data-tip]:focus-visible::after{
+  content:attr(data-tip);
+  position:absolute;
+  bottom:58px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#0f172a;
+  color:#fff;
+  font-size:10px;
+  font-weight:600;
+  padding:4px 8px 5px;
+  border-radius:8px;
+  white-space:nowrap;
+  pointer-events:none;
+  box-shadow:0 3px 10px -2px rgba(0,0,0,.35);
+  z-index:10;
+}
+.map-path-toolbar button.active-mode{
+  box-shadow:0 0 0 3px rgba(220,38,38,.45) inset,0 0 0 1px rgba(255,255,255,.4);
+  background:var(--clr-danger);
+}
+
+.toast{
+  position:fixed;
+  left:50%;
+  bottom:calc(180px + env(safe-area-inset-bottom));
+  transform:translateX(-50%) translateY(20px);
+  background:#0f172a;
+  color:#fff;
+  padding:10px 16px;
+  border-radius:30px;
+  font-size:var(--font-xs);
+  font-weight:600;
+  letter-spacing:.5px;
+  opacity:0;
+  pointer-events:none;
+  z-index:1600;
+  transition:opacity .3s,transform .3s;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.toast.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
+.toast.success{background:var(--clr-success);}
+.toast.error{background:var(--clr-danger);}
+
+@media (min-width:700px){
+  #addProofFab,#saveFab{right:28px;}
+  .manage-scroll{padding:24px 40px 200px;}
+  .section{padding:20px 24px 24px;}
+  .map-path-toolbar{justify-content:center;gap:14px;padding:12px 28px;}
+  .map-path-toolbar button{width:54px;height:54px;border-radius:20px;}
+  #addProofFab{bottom:160px;}
+  #saveFab{bottom:96px;}
+  #pathInfo{font-size:11px;}
+}
+.visually-hidden{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  padding:0!important;
+  margin:-1px!important;
+  overflow:hidden!important;
+  clip:rect(0 0 0 0)!important;
+  border:0!important;
+}
+/* small helper text */
+.small{font-size:var(--font-xs);color:var(--clr-muted);margin-top:4px;}
+</style>
+</head>
+<body>
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-icon">ZT</div>
+    <span>Zone Tracker</span>
+  </div>
+</header>
+
+<main id="main">
+  <div class="main-tabs" role="tablist">
+    <button class="main-tab-btn active" data-tab="mapPanel" role="tab" aria-selected="true">
+      <span class="material-icons">map</span>
+      Map
+    </button>
+    <button class="main-tab-btn" data-tab="managePanel" role="tab" aria-selected="false">
+      <span class="material-icons">dashboard_customize</span>
+      Manage
+    </button>
+  </div>
+
+  <div class="tab-panels">
+    <div id="mapPanel" class="tab-panel active" role="tabpanel" aria-label="Map">
+      <div id="map" aria-label="Campaign map"></div>
+    </div>
+
+    <div id="managePanel" class="tab-panel" role="tabpanel" aria-label="Manage Zones">
+      <div class="manage-scroll">
+        <div class="section">
+          <h3><span class="material-icons" style="font-size:18px;">flag</span> Campaign</h3>
+          <div class="row">
+            <div>
+              <label for="campaignIdInput">Campaign ID</label>
+              <input id="campaignIdInput" type="text" placeholder="Enter ID" autocomplete="off">
+              <div id="campaignMsg"></div>
+            </div>
+            <div>
+              <label for="zoneSelect">Zone</label>
+              <select id="zoneSelect" aria-label="Select Zone"></select>
+            </div>
+          </div>
+
+            <div id="zoneBox" class="zone-box">
+              <div class="zone-head">
+                <div class="zone-head-title" id="zoneTitle">Zone</div>
+                <div id="zoneStatusBadge" class="badge pending">
+                  <span class="material-icons">pending</span>
+                  <span>Pending</span>
+                </div>
+              </div>
+
+              <div class="work-hint">
+                <strong>Tip:</strong> Open your walk tracker app before marking complete.
+              </div>
+
+              <div class="btn-grid">
+                <button id="toggleCompleteBtn" class="action-btn" type="button">
+                  <span class="material-icons">check_circle</span>
+                  Complete
+                </button>
+              </div>
+
+              <div class="form-row">
+                <label for="flyersInput">Flyers</label>
+                <input id="flyersInput" type="number" min="0" placeholder="0" inputmode="numeric">
+              </div>
+              <div class="form-row">
+                <label for="gpsUrlInput">GPS URL</label>
+                <input id="gpsUrlInput" type="url" placeholder="https://">
+              </div>
+              <a id="gpsOpenLink" class="link" href="#" target="_blank" rel="noopener" style="display:none;">
+                <span class="material-icons" style="font-size:14px;">open_in_new</span>
+                Open GPS
+              </a>
+
+              <div id="saveMsg">
+                <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;">check_circle</span>
+                Saved
+              </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Path Toolbar -->
+<div id="pathToolbar" class="map-path-toolbar" aria-label="Path drawing tools">
+  <div id="pathInfo" aria-live="polite">Start to draw path</div>
+  <button id="startPathBtn" class="secondary" type="button" aria-label="Start Path" data-tip="Start">
+    <span class="material-icons">play_arrow</span>
+  </button>
+  <button id="finishPathBtn" type="button" aria-label="Finish Path" data-tip="Finish" disabled>
+    <span class="material-icons">flag</span>
+  </button>
+  <button id="savePathBtn" class="success" type="button" aria-label="Save Path" data-tip="Save" disabled>
+    <span class="material-icons">save</span>
+  </button>
+  <button id="cancelPathBtn" class="warn" type="button" aria-label="Cancel Path" data-tip="Cancel" disabled>
+    <span class="material-icons">close</span>
+  </button>
+  <button id="deletePathModeBtn" class="warn" type="button" aria-label="Delete Saved Path" data-tip="Delete">
+    <span class="material-icons">delete</span>
+  </button>
+</div>
+
+<button id="addProofFab" class="fab hide-when-map" title="Add Photo Proof" aria-label="Add Photo Proof">
+  <span class="material-icons">add_a_photo</span>
+</button>
+<button id="saveFab" class="fab hide-when-map" title="Save Campaign" aria-label="Save Campaign">
+  <span class="material-icons">save</span>
+</button>
+
+<div id="proofModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="proofModalTitle">
+  <div class="modal" id="proofModal">
+    <header>
+      <h3 id="proofModalTitle">Photo Proof</h3>
+      <button class="close-btn" id="closeProofModalBtn" aria-label="Close proof modal">
+        <span class="material-icons">close</span>
+      </button>
+    </header>
+
+    <div class="file-actions">
+      <button id="takePhotoBtn" type="button">
+        <span class="material-icons">camera_alt</span>
+        Take Photo
+      </button>
+      <button id="pickPhotoBtn" type="button">
+        <span class="material-icons">photo_library</span>
+        Gallery
+      </button>
+    </div>
+    <input id="proofFileInput" type="file" accept="image/*" capture="environment">
+    <img id="proofPreview" alt="Selected proof preview" loading="lazy">
+
+    <!-- New: CORS proxy for Freeimage.host upload -->
+    <label for="proxyInput">CORS Proxy</label>
+    <input id="proxyInput" type="text" placeholder="https://corsproxy.io/?" value="https://corsproxy.io/?">
+    <div class="small">Examples: https://corsproxy.io/? , https://thingproxy.freeboard.io/fetch/ , https://cors-anywhere.herokuapp.com/</div>
+
+    <label for="proofUrlInput" style="margin-top:10px;">Or Image URL</label>
+    <input id="proofUrlInput" type="url" placeholder="https://image-url.com">
+    <div id="proofUploadStatus"></div>
+    <div id="proofErrorMsg" class="alert error"></div>
+    <div id="proofSuccessMsg" class="alert success">
+      <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;">check_circle</span>
+      Uploaded
+    </div>
+
+    <div class="submit-row">
+      <button id="proofSubmitBtn" type="button">Submit</button>
+      <button id="clearProofBtn" class="outline" type="button">Clear</button>
+    </div>
+  </div>
+</div>
+
+<template id="markerIconTpl">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="#2563eb" stroke="white" stroke-width="1.5">
+    <path d="M12 2.75a7.25 7.25 0 0 0-7.25 7.25c0 4.7 5.85 10.91 7.08 12.18.1.1.24.16.38.16s.28-.06.38-.16c1.23-1.27 7.08-7.49 7.08-12.18A7.25 7.25 0 0 0 12 2.75Zm0 10.5a3.25 3.25 0 1 1 0-6.5 3.25 3.25 0 0 1 0 6.5Z"/>
+  </svg>
+</template>
+
+<div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script type="module">
+/*
+  Enhancements:
+  - Path delete mode added (trash icon). Tap to enter delete mode, then tap a saved dotted path to delete.
+  - Each saved path stores Firebase key; deletion removes it.
+*/
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, get, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+/* Freeimage.host via CORS proxy */
+const FREEIMAGE_API_KEY = "6d207e02198a847aa98d0a2a901485a5";
+const FREEIMAGE_ENDPOINT = "https://freeimage.host/api/1/upload";
+
+async function uploadToFreeimage(file, proxyUrl, statusEl){
+  if(!file) throw new Error("No file");
+  if(!proxyUrl) throw new Error("No proxy URL");
+  statusEl.style.display='block';
+  statusEl.textContent='Uploading…';
+  statusEl.classList.remove('ok','err');
+
+  // Build proxied URL according to common proxy styles
+  let proxiedUrl;
+  const p = proxyUrl.trim();
+  if(p.endsWith("?") || p.endsWith("&")){
+    proxiedUrl = p + FREEIMAGE_ENDPOINT;
+  }else if(p.endsWith("/")){
+    proxiedUrl = p + FREEIMAGE_ENDPOINT;
+  }else{
+    proxiedUrl = p + "?" + FREEIMAGE_ENDPOINT;
+  }
+
+  const form = new FormData();
+  form.append("key", FREEIMAGE_API_KEY);
+  form.append("action", "upload");
+  form.append("format", "json");
+  form.append("source", file);
+
+  const resp = await fetch(proxiedUrl,{ method:"POST", body:form });
+  if(!resp.ok){
+    const text = await resp.text().catch(()=> "");
+    statusEl.classList.add('err');
+    statusEl.textContent = 'Upload failed';
+    throw new Error(`Proxy or endpoint returned HTTP ${resp.status} — ${text}`);
+  }
+
+  let data;
+  try{
+    data = await resp.json();
+  }catch(e){
+    const raw = await resp.text().catch(()=> "");
+    statusEl.classList.add('err');
+    statusEl.textContent = 'Upload failed';
+    throw new Error("Failed to parse JSON response. Raw response: " + raw);
+  }
+
+  const imageUrl = data?.image?.url || data?.image?.url_viewer;
+  if(!imageUrl){
+    statusEl.classList.add('err');
+    statusEl.textContent = 'Upload failed';
+    throw new Error("Unexpected response: " + JSON.stringify(data));
+  }
+
+  statusEl.classList.add('ok');
+  statusEl.textContent='Uploaded';
+  setTimeout(()=>statusEl.style.display='none',1500);
+  return imageUrl;
+}
+
+/* Firebase Configs */
+const campaignConfig={
+  apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+  authDomain:"trackingclients.firebaseapp.com",
+  projectId:"trackingclients",
+  storageBucket:"trackingclients.appspot.com",
+  messagingSenderId:"27490943622",
+  appId:"1:27490943622:web:d6c87547aa5df440508707",
+  databaseURL:"https://trackingclients-default-rtdb.firebaseio.com/"
+};
+const polygonsConfig={
+  apiKey:"AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+  authDomain:"leuvenflyers-23584.firebaseapp.com",
+  databaseURL:"https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+  projectId:"leuvenflyers-23584",
+  storageBucket:"leuvenflyers-23584.firebasestorage.app",
+  messagingSenderId:"1077790950414",
+  appId:"1:1077790950414:web:036fafe06df86f41ed285f"
+};
+
+const campaignApp=initializeApp(campaignConfig,'campaign');
+const campaignDb=getDatabase(campaignApp);
+const polygonsApp=initializeApp(polygonsConfig,'polygons');
+const polygonsDb=getDatabase(polygonsApp);
+
+/* Tabs */
+const mainTabs=document.querySelectorAll('.main-tab-btn');
+let mapInitialized=false;
+let map, zonePolys=[];
+
+mainTabs.forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    if(btn.classList.contains('active')) return;
+    mainTabs.forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false');});
+    btn.classList.add('active');btn.setAttribute('aria-selected','true');
+    const targetId=btn.dataset.tab;
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById(targetId).classList.add('active');
+    const mapActive=targetId==='mapPanel';
+    document.documentElement.classList.toggle('map-tab-active',mapActive);
+    if(mapActive && mapInitialized) setTimeout(()=>map.invalidateSize(),120);
+    if(mapActive && !mapInitialized){initMap();mapInitialized=true;}
+  });
+});
+
+/* DOM refs */
+const campaignIdInput=document.getElementById('campaignIdInput');
+const campaignMsg=document.getElementById('campaignMsg');
+const zoneSelect=document.getElementById('zoneSelect');
+const zoneBox=document.getElementById('zoneBox');
+const zoneTitle=document.getElementById('zoneTitle');
+const zoneStatusBadge=document.getElementById('zoneStatusBadge');
+const flyersInput=document.getElementById('flyersInput');
+const gpsUrlInput=document.getElementById('gpsUrlInput');
+const gpsOpenLink=document.getElementById('gpsOpenLink');
+const toggleCompleteBtn=document.getElementById('toggleCompleteBtn');
+const saveMsg=document.getElementById('saveMsg');
+const addProofFab=document.getElementById('addProofFab');
+const saveFab=document.getElementById('saveFab');
+
+/* Proof modal refs */
+const proofModalBackdrop=document.getElementById('proofModalBackdrop');
+const closeProofModalBtn=document.getElementById('closeProofModalBtn');
+const proofFileInput=document.getElementById('proofFileInput');
+const takePhotoBtn=document.getElementById('takePhotoBtn');
+const pickPhotoBtn=document.getElementById('pickPhotoBtn');
+const proofPreview=document.getElementById('proofPreview');
+const proofUrlInput=document.getElementById('proofUrlInput');
+const proofSubmitBtn=document.getElementById('proofSubmitBtn');
+const clearProofBtn=document.getElementById('clearProofBtn');
+const proofErrorMsg=document.getElementById('proofErrorMsg');
+const proofSuccessMsg=document.getElementById('proofSuccessMsg');
+const proofUploadStatus=document.getElementById('proofUploadStatus');
+const proxyInput=document.getElementById('proxyInput');
+
+/* Path toolbar refs */
+const startPathBtn=document.getElementById('startPathBtn');
+const finishPathBtn=document.getElementById('finishPathBtn');
+const savePathBtn=document.getElementById('savePathBtn');
+const cancelPathBtn=document.getElementById('cancelPathBtn');
+const deletePathModeBtn=document.getElementById('deletePathModeBtn');
+const pathInfo=document.getElementById('pathInfo');
+const toastEl=document.getElementById('toast');
+
+/* State */
+let ZONES=0, zoneData=[], polygonsLoaded=false, pendingCampaign=null;
+let selected=0, loadedCampaignId='';
+function defaultZone(){return {status:'pending',flyers:'',gpsUrl:''};}
+function ensureLen(){
+  if(zoneData.length<ZONES) for(let i=zoneData.length;i<ZONES;i++) zoneData.push(defaultZone());
+  if(zoneData.length>ZONES) zoneData=zoneData.slice(0,ZONES);
+}
+function isValidUrl(u){try{const x=new URL(u);return['http:','https:'].includes(x.protocol);}catch{return false;}}
+function renderSelect(){
+  zoneSelect.innerHTML='';
+  for(let i=0;i<ZONES;i++){
+    const z=zoneData[i];
+    const icon=(z.status==='completed')?'✅':'🔴';
+    const opt=document.createElement('option');
+    opt.value=i;opt.textContent=`${icon} Z${i+1}`;
+    zoneSelect.appendChild(opt);
+  }
+  zoneBox.style.display=ZONES?'block':'none';
+  if(ZONES) zoneSelect.value=selected;
+}
+function updatePanel(){
+  if(!ZONES) return;
+  const z=zoneData[selected];
+  zoneTitle.textContent='Zone '+(selected+1);
+  zoneStatusBadge.className='badge '+(z.status==='completed'?'completed':'pending');
+  zoneStatusBadge.innerHTML=(z.status==='completed'
+    ? '<span class="material-icons">check_circle</span><span>Completed</span>'
+    : '<span class="material-icons">pending</span><span>Pending</span>');
+  toggleCompleteBtn.disabled=z.status==='completed';
+  toggleCompleteBtn.innerHTML=z.status==='completed'
+    ? '<span class="material-icons">check_circle</span>Completed'
+    : '<span class="material-icons">check_circle</span>Complete';
+  flyersInput.value=z.flyers||'';
+  gpsUrlInput.value=z.gpsUrl||'';
+  if(isValidUrl(z.gpsUrl)){gpsOpenLink.href=z.gpsUrl;gpsOpenLink.style.display='inline-flex';}
+  else gpsOpenLink.style.display='none';
+  colorPolys();
+}
+function selectZone(i){
+  if(!ZONES)return;
+  if(i<0)i=0;if(i>=ZONES)i=ZONES-1;
+  selected=i;zoneSelect.value=selected;updatePanel();
+}
+function colorPolys(){
+  if(!mapInitialized)return;
+  zoneData.forEach((z,i)=>{
+    if(!zonePolys[i])return;
+    const col=(z.status==='completed')?'#2563eb':'#dc2626';
+    zonePolys[i].setStyle({
+      fillColor:col,
+      color:i===selected?'#000':col,
+      weight:i===selected?3:2,
+      fillOpacity:(z.status==='completed'?0.35:0.32)
+    });
+  });
+}
+
+/* Map */
+let userLatLng=null;
+function initMap(){
+  map=L.map('map',{zoomControl:false}).setView([50.85,4.35],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19,attribution:'&copy; OpenStreetMap'
+  }).addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  loadPolygons();
+  if('geolocation' in navigator){
+    let userMarker=null;
+    navigator.geolocation.watchPosition(p=>{
+      const loc=[p.coords.latitude,p.coords.longitude];
+      if(!userMarker){
+        userMarker=L.circleMarker(loc,{radius:7,color:'#000',fillColor:'#000',fillOpacity:.95}).addTo(map);
+      }else userMarker.setLatLng(loc);
+      userLatLng=loc;
+    },console.warn,{enableHighAccuracy:true});
+  }
+  setupPathDrawing();
+}
+
+/* Polygons */
+async function loadPolygons(){
+  const snap=await get(ref(polygonsDb,'polygons'));
+  zonePolys.forEach(p=>map.removeLayer(p));zonePolys=[];
+  if(!snap.exists()){ZONES=0;renderSelect();return;}
+  let polyEntries=[];
+  snap.forEach(ch=>{
+    const raw=ch.val(); if(!raw) return;
+    let zoneNumber=null, coordsArr=[];
+    if(Array.isArray(raw)){
+      coordsArr=raw.filter(pt=>pt && typeof pt.lat==='number' && typeof pt.lng==='number')
+                   .map(pt=>[pt.lat,pt.lng]);
+    }else if(typeof raw==='object'){
+      if(raw.zoneNumber!==undefined && raw.zoneNumber!==''){
+        const zNum=parseInt(raw.zoneNumber,10);
+        if(!isNaN(zNum)) zoneNumber=zNum;
+      }
+      const numericKeys=Object.keys(raw).filter(k=>!isNaN(Number(k))).sort((a,b)=>a-b);
+      coordsArr=numericKeys.map(k=>{
+        const pt=raw[k];
+        if(!pt)return null;
+        if(Array.isArray(pt)&&pt.length===2&&typeof pt[0]==='number'&&typeof pt[1]==='number') return [pt[0],pt[1]];
+        if(typeof pt.lat==='number'&&typeof pt.lng==='number') return [pt.lat,pt.lng];
+        return null;
+      }).filter(Boolean);
+    }
+    if(coordsArr.length) polyEntries.push({zoneNumber,coords:coordsArr});
+  });
+  const withNum=polyEntries.filter(p=>p.zoneNumber!=null).sort((a,b)=>a.zoneNumber-b.zoneNumber);
+  const withoutNum=polyEntries.filter(p=>p.zoneNumber==null);
+  const ordered=[...withNum,...withoutNum];
+  let all=[];
+  ordered.forEach((entry,idx)=>{
+    const zoneIndex=idx;
+    const displayZoneNumber=entry.zoneNumber!=null?entry.zoneNumber:(idx+1);
+    const poly=L.polygon(entry.coords,{color:'#dc2626',fillColor:'#dc2626',fillOpacity:.32,weight:2}).addTo(map);
+    poly.on('click',()=>selectZone(zoneIndex));
+    zonePolys.push(poly);
+    all.push(...entry.coords);
+    const center=poly.getBounds().getCenter();
+    L.marker(center,{
+      icon:L.divIcon({className:'leaflet-label-zone',html:`Z${displayZoneNumber}`,iconSize:null,iconAnchor:[12,8]}),
+      interactive:false
+    }).addTo(map);
+  });
+  if(all.length) map.fitBounds(L.latLngBounds(all).pad(0.08));
+  ZONES=zonePolys.length;
+  polygonsLoaded=true;
+  ensureLen();
+  renderSelect();
+  selectZone(0);
+  if(pendingCampaign){await loadCampaign(pendingCampaign);pendingCampaign=null;}
+}
+
+/* Campaign save/load */
+async function saveAll(){
+  const id=campaignIdInput.value.trim();
+  if(!id){
+    campaignMsg.textContent='Enter ID';
+    campaignMsg.className='err';
+    campaignMsg.style.display='block';
+    return;
+  }
+  await set(ref(campaignDb,`campaigns/${id}/zone_statuses`),zoneData);
+  loadedCampaignId=id;
+  localStorage.setItem('lastCampaignId',id);
+  saveMsg.style.display='block';
+  setTimeout(()=>saveMsg.style.display='none',1500);
+}
+
+let pathsListenerCleanup=null;
+function detachPathsListener(){
+  if(pathsListenerCleanup){pathsListenerCleanup();pathsListenerCleanup=null;}
+}
+
+async function loadCampaign(id){
+  if(!id)return;
+  if(!polygonsLoaded){pendingCampaign=id;return;}
+  const snap=await get(ref(campaignDb,`campaigns/${id}/zone_statuses`));
+  if(snap.exists()){
+    const data=snap.val();
+    zoneData=[];
+    for(let i=0;i<ZONES;i++){
+      const record=Array.isArray(data)?data[i]:(data && typeof data==='object'?data[i]:null);
+      zoneData.push({...defaultZone(),...(record||{})});
+    }
+    campaignMsg.textContent='Loaded';
+    campaignMsg.className='success';
+  }else{
+    zoneData=Array.from({length:ZONES},defaultZone);
+    campaignMsg.textContent='New';
+    campaignMsg.className='err';
+  }
+  campaignMsg.style.display='block';
+  setTimeout(()=>campaignMsg.style.display='none',1600);
+  renderSelect();
+  selectZone(0);
+  loadedCampaignId=id;
+  attachPathsListener();
+}
+
+/* Inputs */
+let debounceTimer=null;
+campaignIdInput.addEventListener('input',()=>{
+  const v=campaignIdInput.value.trim();
+  if(v===loadedCampaignId)return;
+  clearTimeout(debounceTimer);
+  debounceTimer=setTimeout(()=>loadCampaign(v),420);
+});
+campaignIdInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();loadCampaign(campaignIdInput.value.trim());}
+});
+zoneSelect.addEventListener('change',()=>{selected=+zoneSelect.value;updatePanel();});
+flyersInput.addEventListener('input',()=>{zoneData[selected].flyers=flyersInput.value;renderSelect();});
+gpsUrlInput.addEventListener('input',()=>{
+  zoneData[selected].gpsUrl=gpsUrlInput.value.trim();
+  if(isValidUrl(zoneData[selected].gpsUrl)){gpsOpenLink.href=zoneData[selected].gpsUrl;gpsOpenLink.style.display='inline-flex';}
+  else gpsOpenLink.style.display='none';
+});
+toggleCompleteBtn.addEventListener('click',()=>{
+  const z=zoneData[selected];
+  if(z.status==='completed')return;
+  z.status='completed';
+  updatePanel();renderSelect();
+});
+saveFab.addEventListener('click',saveAll);
+
+/* Proof modal */
+function openProofModal(){
+  proofModalBackdrop.style.display='flex';
+  proofUrlInput.value='';
+  proofFileInput.value='';
+  proofPreview.style.display='none';
+  proofErrorMsg.style.display='none';
+  proofSuccessMsg.style.display='none';
+  proofUploadStatus.style.display='none';
+  setTimeout(()=>proofUrlInput.focus(),120);
+}
+function closeProofModal(){proofModalBackdrop.style.display='none';}
+addProofFab.addEventListener('click',openProofModal);
+closeProofModalBtn.addEventListener('click',closeProofModal);
+proofModalBackdrop.addEventListener('click',e=>{if(e.target===proofModalBackdrop)closeProofModal();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && proofModalBackdrop.style.display==='flex') closeProofModal();
+});
+takePhotoBtn.addEventListener('click',()=>{
+  proofFileInput.setAttribute('capture','environment');proofFileInput.click();
+});
+pickPhotoBtn.addEventListener('click',()=>{
+  proofFileInput.removeAttribute('capture');proofFileInput.click();
+});
+proofFileInput.addEventListener('change',()=>{
+  proofSuccessMsg.style.display='none';
+  proofErrorMsg.style.display='none';
+  proofUploadStatus.style.display='none';
+  const file=proofFileInput.files[0];
+  if(file){
+    const reader=new FileReader();
+    reader.onload=e=>{
+      proofPreview.src=e.target.result;
+      proofPreview.style.display='block';
+    };
+    reader.readAsDataURL(file);
+  }else proofPreview.style.display='none';
+});
+function showError(msg){
+  proofErrorMsg.textContent=msg;
+  proofErrorMsg.style.display='block';
+  proofSuccessMsg.style.display='none';
+}
+function showSuccess(msg){
+  proofSuccessMsg.innerHTML='<span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;">check_circle</span>'+msg;
+  proofSuccessMsg.style.display='block';
+  proofErrorMsg.style.display='none';
+}
+function validImageUrl(u){return isValidUrl(u);}
+
+proofSubmitBtn.addEventListener('click',async()=>{
+  proofErrorMsg.style.display='none';
+  proofSuccessMsg.style.display='none';
+  const id=campaignIdInput.value.trim();
+  if(!id){showError('No campaign ID');return;}
+  if(!userLatLng){showError('Location not ready');return;}
+  const proxy = proxyInput.value.trim();
+  let finalUrl='';
+  const file=proofFileInput.files[0];
+  const pasted=proofUrlInput.value.trim();
+  try{
+    if(file){
+      finalUrl=await uploadToFreeimage(file,proxy,proofUploadStatus);
+    }else if(pasted){
+      if(!validImageUrl(pasted)){showError('Invalid URL');return;}
+      finalUrl=pasted;
+    }else{showError('Select image or enter URL');return;}
+    await push(ref(campaignDb,`campaigns/${id}/proofs`),{
+      url:finalUrl,
+      lat:userLatLng[0],
+      lng:userLatLng[1],
+      timestamp:Date.now()
+    });
+    showSuccess('Photo uploaded');
+    proofFileInput.value='';
+    proofUrlInput.value='';
+    proofPreview.style.display='none';
+    proofUploadStatus.style.display='none';
+    setTimeout(()=>closeProofModal(),1000);
+  }catch(e){
+    console.error(e);
+    showError(e.message || 'Upload failed');
+  }
+});
+clearProofBtn.addEventListener('click',()=>{
+  proofFileInput.value='';
+  proofPreview.style.display='none';
+  proofUrlInput.value='';
+  proofErrorMsg.style.display='none';
+  proofSuccessMsg.style.display='none';
+  proofUploadStatus.style.display='none';
+});
+
+/* Toast */
+let toastTimer=null;
+function showToast(msg,type=''){
+  toastEl.textContent='';
+  toastEl.className='toast';
+  if(type) toastEl.classList.add(type);
+  toastEl.innerHTML=(type==='error'
+    ? '<span class="material-icons" style="font-size:16px;">error</span>'
+    : '<span class="material-icons" style="font-size:16px;">check_circle</span>')+msg;
+  requestAnimationFrame(()=>toastEl.classList.add('show'));
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2600);
+}
+
+/* Path Drawing */
+let drawState='idle'; // idle | drawing | finished
+let currentPathPoints=[];
+let currentPolyline=null;
+let currentStartMarker=null;
+let currentEndMarker=null;
+let savedPathsLayers=[];
+
+let pathDeleteMode=false;
+
+function resetCurrentPathVisual(){
+  if(currentPolyline){map.removeLayer(currentPolyline);currentPolyline=null;}
+  if(currentStartMarker){map.removeLayer(currentStartMarker);currentStartMarker=null;}
+  if(currentEndMarker){map.removeLayer(currentEndMarker);currentEndMarker=null;}
+}
+function updatePathVisual(){
+  if(!currentPathPoints.length){resetCurrentPathVisual();return;}
+  if(!currentPolyline){
+    currentPolyline=L.polyline(currentPathPoints,{
+      color:'#000',
+      weight:4,
+      opacity:.95,
+      lineJoin:'round',
+      lineCap:'round',
+      dashArray: drawState==='drawing' ? '4,10' : (drawState==='finished' ? null : '6,6')
+    }).addTo(map);
+  }else{
+    currentPolyline.setLatLngs(currentPathPoints);
+    currentPolyline.setStyle({
+      dashArray: drawState==='drawing' ? '4,10' : (drawState==='finished' ? null : '6,6'),
+      weight: drawState==='finished' ? 5 : 4,
+      opacity: drawState==='finished' ? .9 : .95
+    });
+  }
+  const first=currentPathPoints[0], last=currentPathPoints[currentPathPoints.length-1];
+  if(!currentStartMarker){
+    currentStartMarker=L.circleMarker(first,{
+      radius:7,color:'#dc2626',fillColor:'#dc2626',fillOpacity:1,weight:2
+    }).addTo(map);
+  }else currentStartMarker.setLatLng(first);
+  if(!currentEndMarker){
+    currentEndMarker=L.circleMarker(last,{
+      radius:7,color:'#059669',fillColor:'#059669',fillOpacity:1,weight:2
+    }).addTo(map);
+  }else currentEndMarker.setLatLng(last);
+}
+function setDrawState(st){
+  drawState=st;
+  if(pathDeleteMode){
+    // Delete mode overrides UI; will restore on exit
+    return;
+  }
+  if(st==='idle'){
+    startPathBtn.disabled=false;
+    finishPathBtn.disabled=true;
+    savePathBtn.disabled=true;
+    cancelPathBtn.disabled=true;
+    pathInfo.textContent='Start to draw path';
+  }else if(st==='drawing'){
+    startPathBtn.disabled=true;
+    finishPathBtn.disabled=false;
+    savePathBtn.disabled=true;
+    cancelPathBtn.disabled=false;
+    pathInfo.textContent='Tap map to add points';
+  }else if(st==='finished'){
+    startPathBtn.disabled=true;
+    finishPathBtn.disabled=true;
+    savePathBtn.disabled=false;
+    cancelPathBtn.disabled=false;
+    pathInfo.textContent=`Points: ${currentPathPoints.length}`;
+  }
+  if(currentPolyline) updatePathVisual();
+}
+function startPath(){
+  if(pathDeleteMode) return;
+  resetCurrentPathVisual();
+  currentPathPoints=[];
+  setDrawState('drawing');
+}
+function finishPath(){
+  if(currentPathPoints.length<2){showToast('Need 2+ points','error');return;}
+  setDrawState('finished');
+  updatePathVisual();
+}
+async function savePath(){
+  const id=campaignIdInput.value.trim();
+  if(!id){showToast('No campaign ID','error');return;}
+  if(currentPathPoints.length<2){showToast('Too few points','error');return;}
+  const pathObj={
+    points:currentPathPoints.map(p=>({lat:p.lat,lng:p.lng})),
+    zone:selected,
+    timestamp:Date.now()
+  };
+  try{
+    await push(ref(campaignDb,`campaigns/${id}/paths`),pathObj);
+    showToast('Path saved','success');
+    persistCurrentAsSaved();
+    clearCurrentPath();
+  }catch(e){
+    console.error(e);
+    showToast('Save failed','error');
+  }
+}
+function cancelPath(){
+  clearCurrentPath();
+  showToast('Canceled');
+}
+function clearCurrentPath(){
+  resetCurrentPathVisual();
+  currentPathPoints=[];
+  if(!pathDeleteMode) setDrawState('idle');
+}
+function persistCurrentAsSaved(){
+  if(!currentPolyline)return;
+  currentPolyline.setStyle({color:'#000',weight:3,opacity:0.6,dashArray:'6,6'});
+  if(currentStartMarker) currentStartMarker.setStyle({opacity:0.75,fillOpacity:0.75});
+  if(currentEndMarker) currentEndMarker.setStyle({opacity:0.75,fillOpacity:0.75});
+  savedPathsLayers.push({line:currentPolyline,start:currentStartMarker,end:currentEndMarker, key:null});
+  currentPolyline=null;currentStartMarker=null;currentEndMarker=null;
+}
+function setupPathDrawing(){
+  map.on('click',e=>{
+    if(drawState!=='drawing' || pathDeleteMode)return;
+    currentPathPoints.push(e.latlng);
+    updatePathVisual();
+  });
+  startPathBtn.addEventListener('click',startPath);
+  finishPathBtn.addEventListener('click',finishPath);
+  savePathBtn.addEventListener('click',savePath);
+  cancelPathBtn.addEventListener('click',cancelPath);
+  deletePathModeBtn.addEventListener('click',toggleDeleteMode);
+  setDrawState('idle');
+}
+
+/* Delete Mode */
+function toggleDeleteMode(){
+  pathDeleteMode=!pathDeleteMode;
+  if(pathDeleteMode){
+    // Exit any drawing
+    if(drawState!=='idle') clearCurrentPath();
+    // Disable drawing controls
+    startPathBtn.disabled=true;
+    finishPathBtn.disabled=true;
+    savePathBtn.disabled=true;
+    cancelPathBtn.disabled=true;
+    deletePathModeBtn.classList.add('active-mode');
+    pathInfo.textContent='Tap a saved path to delete';
+    showToast('Delete mode ON','error');
+  }else{
+    deletePathModeBtn.classList.remove('active-mode');
+    showToast('Delete mode OFF');
+    setDrawState('idle');
+  }
+}
+
+async function handleDeletePath(key){
+  if(!pathDeleteMode) return;
+  if(!loadedCampaignId) { showToast('No campaign','error'); return; }
+  const confirmDel=confirm('Delete this path?');
+  if(!confirmDel) return;
+  try{
+    await remove(ref(campaignDb,`campaigns/${loadedCampaignId}/paths/${key}`));
+    showToast('Path deleted','success');
+  }catch(e){
+    console.error(e);
+    showToast('Delete failed','error');
+  }
+}
+
+/* Saved paths listener */
+function attachPathsListener(){
+  detachPathsListener();
+  const id=loadedCampaignId;
+  if(!id)return;
+  const pathsRef=ref(campaignDb,`campaigns/${id}/paths`);
+  const unsubscribe=onValue(pathsRef,snap=>{
+    savedPathsLayers.forEach(pl=>{
+      if(pl.line)map.removeLayer(pl.line);
+      if(pl.start)map.removeLayer(pl.start);
+      if(pl.end)map.removeLayer(pl.end);
+    });
+    savedPathsLayers=[];
+    if(!snap.exists())return;
+    snap.forEach(child=>{
+      const val=child.val();
+      const key=child.key;
+      if(!val||!Array.isArray(val.points)||val.points.length<2)return;
+      const latlngs=val.points.map(p=>L.latLng(p.lat,p.lng));
+      const line=L.polyline(latlngs,{color:'#000',weight:3,opacity:0.55,dashArray:'6,6'}).addTo(map);
+      const s=latlngs[0], e=latlngs[latlngs.length-1];
+      const sMarker=L.circleMarker(s,{radius:6,color:'#dc2626',fillColor:'#dc2626',fillOpacity:0.9,weight:2}).addTo(map);
+      const eMarker=L.circleMarker(e,{radius:6,color:'#059669',fillColor:'#059669',fillOpacity:0.9,weight:2}).addTo(map);
+      line.on('click',()=>{
+        if(pathDeleteMode){
+          // brief highlight
+          line.setStyle({color:'#dc2626',weight:4,opacity:0.9});
+          handleDeletePath(key);
+          setTimeout(()=>{
+            if(line && map.hasLayer(line)) line.setStyle({color:'#000',weight:3,opacity:0.55,dashArray:'6,6'});
+          },800);
+        }
+      });
+      savedPathsLayers.push({line,start:sMarker,end:eMarker,key});
+    });
+  });
+  pathsListenerCleanup=()=>unsubscribe();
+}
+
+/* Restore last campaign */
+const stored=localStorage.getItem('lastCampaignId');
+if(stored){campaignIdInput.value=stored;loadCampaign(stored);}
+
+/* Resize */
+window.addEventListener('resize',()=>{if(mapInitialized) map.invalidateSize();});
+
+/* Init */
+initMap();mapInitialized=true;
+
+</script>
+</body>
+</html>
