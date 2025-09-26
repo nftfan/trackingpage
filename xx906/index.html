@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>LEUVENFLYERS – Campaign XX921 (Map)</title>
+  <title>LEUVENFLYERS – Campaign XX903 (Map)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Icons+Outlined&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -332,16 +332,11 @@
       font-size: 14px; font-weight: 700; color: var(--accent);
       margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--panel-border);
     }
-    .impressions-summary {
-      text-align: center; margin-bottom: 16px;
-    }
-    .impressions-summary-title {
-      font-size: 11px; font-weight: 600; color: var(--ink-500); letter-spacing: .4px;
-    }
-    .impressions-summary-count {
-      font-size: 24px; font-weight: 700; color: var(--ink-800); margin-top: 2px;
-    }
-    .impressions-table-container {
+    .impressions-summary { text-align: center; margin-bottom: 16px; }
+    .impressions-summary-title { font-size: 11px; font-weight: 600; color: var(--ink-500); letter-spacing: .4px; }
+    .impressions-summary-count { font-size: 24px; font-weight: 700; color: var(--ink-800); margin-top: 2px; }
+    
+    #impressionsTableContainer {
       max-height: 50vh; overflow-y: auto; border: 1px solid var(--panel-border); border-radius: 10px;
     }
     .impressions-table {
@@ -356,16 +351,8 @@
     .impressions-table tr:last-child td { border-bottom: none; }
     .impressions-table td:nth-child(1) { font-weight: 700; color: var(--ink-700); }
     .impressions-table td:nth-child(2) { text-align: right; }
-    .impressions-table td:nth-child(3) { width: 120px; }
+    .impressions-table td:nth-child(3) { text-align: center; }
 
-    .impression-progress-bar-container{
-        background-color: #e9eef1; border-radius: 4px; overflow: hidden; height: 8px; width: 100%;
-        border: 1px solid #d6dde1;
-    }
-    .impression-progress-bar{
-        background-color: var(--accent); height: 100%; width: 0%;
-        transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1);
-    }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
     .zp-btn{
@@ -376,8 +363,8 @@
     }
     .zp-btn:hover{filter:brightness(1.03);}
     .zp-btn:active{transform:translateY(1px);}
-    .zp-btn.warn{background:var(--booked);color:#0f1a22;border-color:#eab308;}
-    .zp-btn.danger{background:#fee2e2;color:#991b1b;border-color:#fecaca;}
+    .zp-btn.verify-btn { background: var(--success); color: #fff; border-color: #1b5e20; }
+    .zp-btn:disabled { background: var(--ink-200); color: var(--ink-500); border-color: var(--ink-300); cursor: not-allowed; }
     
     ::-webkit-scrollbar{width:10px;}
     ::-webkit-scrollbar-track{background:transparent;}
@@ -424,7 +411,7 @@
         <span class="material-icons-outlined brand-icon">map</span>
         <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
           <span class="brand-title">LEUVENFLYERS</span>
-          <span class="campaign-badge">Campaign XX921</span>
+          <span class="campaign-badge">Campaign XX903</span>
         </div>
       </div>
       <div class="right-controls">
@@ -528,13 +515,13 @@
         <div class="impressions-summary-title">TOTAL FLYERS VIEWED</div>
         <div id="impressionsSummaryCount" class="impressions-summary-count">0 / 0</div>
       </div>
-      <div class="impressions-table-container">
+      <div id="impressionsTableContainer">
         <table id="impressionsTable" class="impressions-table">
           <thead>
             <tr>
               <th>Zone</th>
               <th>Viewed / Total</th>
-              <th>Progress</th>
+              <th>Days Passed</th>
             </tr>
           </thead>
           <tbody id="impressionsTableBody">
@@ -623,26 +610,26 @@
     let proofsList = [];
     let notificationsArr = [];
 
-    const ZONE_STATUS_PATH = 'campaigns/XX921/zone_statuses';
+    const ZONE_STATUS_PATH = 'campaigns/XX903/zone_statuses';
     const zoneStatusByZone = new Map();
     const zoneStatusKeyByZone = new Map();
 
     let firstFullLoad = true;
     let viewCalculationInterval = null;
 
-    // Building data cache (for markers only)
-    const buildingDataByZone = new Map(); // zoneNum -> {centers:[ [lat,lng], ... ], count}
+    // Building data cache
+    const buildingDataByZone = new Map();
     const buildingFetchPromises = new Map();
     let currentBuildingLayerGroup = null;
 
     // Chat state
-    const CHAT_PATH = 'campaigns/XX921/chat/messages';
+    const CHAT_PATH = 'campaigns/XX903/chat/messages';
     let chatMessages = [];
     let chatInitialized = false;
-    const deviceIdKey = 'XX921_chat_device_id';
+    const deviceIdKey = 'XX903_chat_device_id';
     const myDeviceId = getOrCreateDeviceId();
     const myName = 'Viewer';
-    const lastReadKey = 'XX921_chat_last_read_ts';
+    const lastReadKey = 'XX903_chat_last_read_ts';
 
     function setHeaderHeightVar(){
       const h = topbar.getBoundingClientRect().height;
@@ -699,9 +686,8 @@
     }
     notifBtn.addEventListener('click',e=>{
       e.stopPropagation();
-      const open = notifPanel.style.display==='flex';
-      notifPanel.style.display=open?'none':'flex';
-      if(!open){
+      notifPanel.style.display = notifPanel.style.display === 'flex' ? 'none' : 'flex';
+      if (notifPanel.style.display === 'flex') {
         setHeaderHeightVar();
         renderNotifications();
       }
@@ -740,7 +726,7 @@
         viewCalculationInterval = setInterval(updateViewingZones, 5000);
       });
 
-      impressionsBtn.addEventListener('click', showImpressionsPopup);
+      impressionsBtn.addEventListener('click', showAndCalculateImpressions);
     });
 
     async function loadPolygons(){
@@ -940,9 +926,17 @@
         if (path) {
             path.classList.toggle('viewing-animation', impressionInfo.isViewing);
         }
+        
+        let verifyBtnHtml = '';
+        if (z.status === 'completed') {
+            if (z.verifiedAt) {
+                verifyBtnHtml = `<button class="zp-btn" disabled><span class="material-icons-outlined" style="font-size:14px;">verified</span>Verified</button>`;
+            } else {
+                verifyBtnHtml = `<button class="zp-btn verify-btn" data-act="verify" data-zone="${zoneNum}">
+                    <span class="material-icons-outlined" style="font-size:14px;">check_circle</span>Verify</button>`;
+            }
+        }
 
-        const canBook = z.status!=='booked' && z.status!=='completed';
-        const canUnbook = z.status==='booked';
         let popupHTML=`
           <div style="text-align:left;">
             <strong style="display:flex;justify-content:flex-start;align-items:center;gap:4px;color:#0e3450;font-size:12px;">
@@ -963,42 +957,21 @@
             </div>
         `;
         if(z.flyersRequired && z.status==='booked'){
-          popupHTML += `
-            <div style="margin-top:6px;font-size:11px;color:#2f4451;">
-              <span style="display:inline-flex;align-items:center;gap:4px;">
-                <span class="material-icons-outlined" style="font-size:12px;color:#0e3450;">groups</span>
-                Flyers Required: <strong>${z.flyersRequired}</strong>
-              </span>
-            </div>`;
+          popupHTML += `<div style="margin-top:6px;font-size:11px;color:#2f4451;">...</div>`;
         }
-        
         if(z.gpsProof || z.gpsUrl){
-          const gpsLink=z.gpsProof||z.gpsUrl;
-          popupHTML+=`
-            <div style="margin-top:8px;">
-              <a href="${gpsLink}" target="_blank" rel="noopener"
+          popupHTML+=`<div style="margin-top:8px;"><a href="${z.gpsProof||z.gpsUrl}" target="_blank" rel="noopener"
                  style="background:#1976d2;color:#fff;font-size:10px;padding:5px 12px;border-radius:18px;
                  display:inline-flex;align-items:center;gap:6px;text-decoration:none;
                  box-shadow:0 2px 6px -2px rgba(0,0,0,.25);">
                 <span class="material-icons-outlined" style="font-size:14px;">assistant_navigation</span>GPS Route
-              </a>
-            </div>`;
+              </a></div>`;
         }
         if(z.proofImage){
-          popupHTML+=`
-            <div style="margin-top:10px;">
-              <img src="${z.proofImage}" alt="Proof" class="popup-img-thumb" data-proof="${z.proofImage}"
-                style="max-width:90px;border-radius:8px;cursor:pointer;border:1px solid #d9e2e8;">
-            </div>`;
+          popupHTML+=`<div style="margin-top:10px;"><img src="${z.proofImage}" alt="Proof" class="popup-img-thumb" data-proof="${z.proofImage}"
+                style="max-width:90px;border-radius:8px;cursor:pointer;border:1px solid #d9e2e8;"></div>`;
         }
-        popupHTML += `
-          <div class="popup-actions" style="justify-content:flex-start;">
-            ${canBook ? `<button class="zp-btn warn" data-act="book" data-zone="${zoneNum}">
-                <span class="material-icons-outlined" style="font-size:14px;">bookmark_add</span> Book</button>`:''}
-            ${canUnbook ? `<button class="zp-btn danger" data-act="unbook" data-zone="${zoneNum}">
-                <span class="material-icons-outlined" style="font-size:14px;">bookmark_remove</span> Unbook</button>`:''}
-          </div>
-          </div>`;
+        popupHTML += `<div style="margin-top: 8px;">${verifyBtnHtml}</div></div>`;
         poly.bindPopup(popupHTML);
 
         const label = labelMarkersByZone.get(zoneNum);
@@ -1017,28 +990,19 @@
           if(!popupEl) return;
           const img = popupEl.querySelector('.popup-img-thumb[data-proof]');
           if(img){
-            img.addEventListener('click',()=>showModal(img.getAttribute('data-proof')));
+            img.addEventListener('click',()=>showModal('imgModal', img.getAttribute('data-proof')));
           }
-          popupEl.querySelectorAll('.zp-btn').forEach(btn=>{
-            btn.addEventListener('click', async e=>{
-              e.preventDefault(); e.stopPropagation();
-              const act = btn.dataset.act;
-              const znum = parseInt(btn.dataset.zone,10);
-              const orig = btn.textContent;
-              btn.disabled=true;
-              btn.textContent = act==='book'?'Booking...':'Unbooking...';
-              try{
-                await applyStatusToZones([znum], act==='book'?'booked':'pending');
-                setTimeout(()=>{ poly.closePopup(); poly.openPopup(); },80);
-              }catch(err){
-                console.error(err);
-                alert('Failed to update zone status.');
-              }finally{
-                btn.disabled=false;
-                btn.textContent=orig;
-              }
+          const verifyBtn = popupEl.querySelector('.verify-btn');
+          if (verifyBtn) {
+            verifyBtn.addEventListener('click', async e => {
+                e.preventDefault(); e.stopPropagation();
+                const znum = parseInt(verifyBtn.dataset.zone, 10);
+                verifyBtn.disabled = true;
+                verifyBtn.innerHTML = `<span class="material-icons-outlined" style="font-size:14px;">hourglass_top</span>Verifying...`;
+                await verifyZone(znum);
+                poly.closePopup();
             });
-          });
+          }
           showBuildingDots(zoneNum, poly);
         });
       });
@@ -1047,6 +1011,22 @@
       recalcFlyersRequiredTotal();
     }
     
+    async function verifyZone(zoneNum) {
+        const key = zoneStatusKeyByZone.get(zoneNum);
+        if (!key) {
+            console.error("Could not find key for zone", zoneNum);
+            return;
+        }
+        const zoneRef = ref(db, `${ZONE_STATUS_PATH}/${key}`);
+        try {
+            await update(zoneRef, { verifiedAt: serverTimestamp() });
+            addNotification('verified', `Zone ${zoneNum} has been verified for impressions.`, `zone-verified-${zoneNum}`);
+        } catch (err) {
+            console.error("Failed to verify zone:", err);
+            alert("Could not verify zone. Please try again.");
+        }
+    }
+
     function focusRecentCompletedZones(onlyLast=true){
         const completed = [];
         zoneStatusByZone.forEach((z, zoneNum) => {
@@ -1090,24 +1070,6 @@
         }
       });
       await update(ref(db, ZONE_STATUS_PATH), updates);
-
-      if(newStatus==='booked'){
-        for(const z of zones){
-          const statusObj = zoneStatusByZone.get(z) || {};
-          if(statusObj.flyersRequired){ continue; }
-          const poly = polygonLayers[polygonsByZone.get(z)];
-          if(poly){
-            try{
-              const count = await computeBuildingCount(z, poly);
-              const required = count * 2;
-              const nodeKey = zoneStatusKeyByZone.get(z) || String(z);
-              await update(ref(db, `${ZONE_STATUS_PATH}/${nodeKey}`), { flyersRequired: required });
-            }catch(err){
-              console.error('Failed to compute flyersRequired for zone', z, err);
-            }
-          }
-        }
-      }
     }
 
     function recalcFlyersRequiredTotal(){
@@ -1120,19 +1082,278 @@
       flyersRequiredEl.textContent = total.toLocaleString();
     }
 
-    /* Building markers (no count display) */
     function getPrimaryRingLatLngs(poly){
       let latlngs = poly.getLatLngs();
       if(Array.isArray(latlngs[0])) latlngs = latlngs[0];
       return latlngs;
     }
 
-    async function computeBuildingCount(zoneNum, poly){
-      if(buildingDataByZone.get(zoneNum)?.count != null){
-        return buildingDataByZone.get(zoneNum).count;
+    function showBuildingDots(zoneNum, poly){
+      // Implementation is in full script at the end
+    }
+
+    function listenProofs(){
+      // Implementation is in full script at the end
+    }
+    
+    /* ---------------- Impressions Calculation ---------------- */
+    const IMPRESSION_MULTIPLIER = 1.5;
+    const TOTAL_DAYS = 7;
+    const TOTAL_MS = TOTAL_DAYS * 24 * 60 * 60 * 1000;
+
+    function calculateImpressionProgress(zoneStatus) {
+        const result = { total: 0, current: 0, daysPassed: 0, fullyViewed: false, isViewing: false };
+        if (zoneStatus.status !== 'completed' || !zoneStatus.verifiedAt) return result;
+        
+        const totalPossible = Math.floor((zoneStatus.flyers || 0) * IMPRESSION_MULTIPLIER);
+        result.total = totalPossible;
+        
+        const now = Date.now();
+        const timeSinceVerification = now - zoneStatus.verifiedAt;
+        
+        if (timeSinceVerification < 0) return result;
+
+        let currentImpressions = 0;
+        if (timeSinceVerification < TOTAL_MS) {
+            const progress = timeSinceVerification / TOTAL_MS;
+            currentImpressions = totalPossible * progress;
+            result.isViewing = true;
+        } else {
+            currentImpressions = totalPossible;
+            result.fullyViewed = true;
+        }
+        result.current = Math.floor(currentImpressions);
+        result.daysPassed = Math.min(TOTAL_DAYS, Math.floor(timeSinceVerification / (1000 * 60 * 60 * 24)));
+
+        return result;
+    }
+
+    function updateViewingZones() {
+        let needsVisualUpdate = false;
+        zoneStatusByZone.forEach((status) => {
+            if (status.status === 'completed' && status.verifiedAt) {
+                const oldFullyViewed = status.fullyViewed || false;
+                const impressionInfo = calculateImpressionProgress(status);
+                status.fullyViewed = impressionInfo.fullyViewed;
+                status.isViewing = impressionInfo.isViewing;
+                if (oldFullyViewed !== impressionInfo.fullyViewed) {
+                    needsVisualUpdate = true;
+                }
+            }
+        });
+        if (needsVisualUpdate) {
+            updateZonesVisual();
+        }
+    }
+    
+    async function showAndCalculateImpressions() {
+        const modal = document.getElementById('impressionsModal');
+        const tableBody = document.getElementById('impressionsTableBody');
+        const summaryCountEl = document.getElementById('impressionsSummaryCount');
+        
+        tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--ink-500);">Please wait, calculating number of people who viewed your flyer...</td></tr>`;
+        summaryCountEl.textContent = '0 / 0';
+        
+        showModal('impressionsModal');
+        
+        await new Promise(res => setTimeout(res, 1500)); // Pause for dramatic effect
+
+        tableBody.innerHTML = '';
+        let totalCurrentImpressions = 0;
+        let totalPossibleImpressions = 0;
+
+        const verifiedZones = [];
+        zoneStatusByZone.forEach((status, zoneNum) => {
+            if (status.status === 'completed' && status.verifiedAt) {
+                verifiedZones.push({ zoneNum, status });
+            }
+        });
+
+        verifiedZones.sort((a, b) => (a.status.verifiedAt || 0) - (b.status.verifiedAt || 0));
+
+        if (verifiedZones.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--ink-500);">No zones have been verified for impression tracking yet.</td></tr>`;
+        } else {
+            for (const { zoneNum, status } of verifiedZones) {
+                const impressionInfo = calculateImpressionProgress(status);
+                totalCurrentImpressions += impressionInfo.current;
+                totalPossibleImpressions += impressionInfo.total;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>Zone ${zoneNum}</td>
+                    <td>${impressionInfo.current.toLocaleString()} / ${impressionInfo.total.toLocaleString()}</td>
+                    <td>${impressionInfo.daysPassed} / ${TOTAL_DAYS} days</td>
+                `;
+                tableBody.appendChild(row);
+            }
+        }
+        
+        animateCountUp(summaryCountEl, 0, totalCurrentImpressions, totalPossibleImpressions);
+    }
+
+    function animateCountUp(el, start, end, total) {
+        const duration = 800;
+        const frameRate = 1000 / 60;
+        const totalFrames = Math.round(duration / frameRate);
+        const increment = (end - start) / totalFrames;
+        let current = start;
+
+        const counter = setInterval(() => {
+            current += increment;
+            if (current >= end) {
+                clearInterval(counter);
+                current = end;
+            }
+            el.textContent = `${Math.floor(current).toLocaleString()} / ${total.toLocaleString()}`;
+        }, frameRate);
+    }
+    
+    function formatDateTime(ts){
+      if (!ts) return '';
+      const d=new Date(ts);
+      const p=n=>String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    }
+
+    function showModal(modalId, imgSrc = null){
+      const modal = document.getElementById(modalId);
+      if (!modal) return;
+      if (modalId === 'imgModal' && imgSrc) {
+        document.getElementById('modalImg').src = imgSrc;
       }
-      await fetchBuildings(zoneNum, poly);
-      return buildingDataByZone.get(zoneNum)?.count || 0;
+      modal.style.display='flex';
+      document.body.style.overflow='hidden';
+    };
+
+    function hideModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.style.display = 'none';
+        if (modalId === 'imgModal') {
+            document.getElementById('modalImg').src = '';
+        }
+        const anyModalOpen = Array.from(document.querySelectorAll('.modal')).some(m => m.style.display === 'flex');
+        if (!anyModalOpen) {
+            document.body.style.overflow='';
+        }
+    }
+
+    document.getElementById('modalCloseBtn').addEventListener('click', () => hideModal('imgModal'));
+    document.getElementById('imgModal').addEventListener('click', e => { if(e.target.id === 'imgModal') hideModal('imgModal'); });
+    document.getElementById('impressionsModalCloseBtn').addEventListener('click', () => hideModal('impressionsModal'));
+    document.getElementById('impressionsModal').addEventListener('click', e => { if(e.target.id === 'impressionsModal') hideModal('impressionsModal'); });
+    document.addEventListener('keydown', e => { if(e.key==='Escape') { hideModal('imgModal'); hideModal('impressionsModal'); }});
+
+    function hideLoader(){
+      if(!loadingOverlay) return;
+      if (loadingOverlay.classList.contains('fade-out')) return;
+      loadingOverlay.classList.add('fade-out');
+    }
+
+    // --- All other functions (chat, proofs, etc.) are included below ---
+    function listenProofs(){
+      onValue(ref(db,'campaigns/XX903/proofs'), snap=>{
+        proofMarkers.forEach(m=>map.removeLayer(m));
+        proofMarkers=[]; proofMarkersById.clear(); proofsList=[];
+        const val=snap.val();
+        if(val){
+          for(const id in val){
+            const p=val[id];
+            if(typeof p.lat==='number' && typeof p.lng==='number' && p.url){
+              proofsList.push({id,url:p.url,lat:p.lat,lng:p.lng,timestamp:p.timestamp||0});
+            }
+          }
+        }
+        proofsList.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+        proofsList.forEach(p=>{
+          const icon=L.divIcon({
+            html:`<span class="material-icons-outlined" style="display:block;font-size:26px;color:#1976d2;text-shadow:0 0 4px #fff;">photo_camera</span>`,
+            className:'custom-camera-pin',
+            iconSize:[28,28],
+            iconAnchor:[14,28]
+          });
+          const marker=L.marker([p.lat,p.lng],{icon}).addTo(map);
+          marker.bindPopup(`
+            <div style="text-align:left;">
+              <img src="${p.url}" class="popup-img-thumb" data-proof="${p.url}" style="max-width:100px;border-radius:10px;
+                border:1px solid #d9e2e8;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.15);" alt="Proof">
+              ${p.timestamp?`<div style="margin-top:6px;font-size:10px;color:#4a5d69;display:flex;gap:4px;align-items:center;">
+                <span class="material-icons-outlined" style="font-size:12px;color:#1976d2;">schedule</span>${formatDateTime(p.timestamp)}
+              </div>`:''}
+            </div>`);
+          marker.on('popupopen',()=>{
+            setTimeout(()=>{
+              const img=document.querySelector('.leaflet-popup .popup-img-thumb[data-proof]');
+              if(img) img.addEventListener('click',()=>showModal('imgModal', img.getAttribute('data-proof')));
+            },60);
+          });
+          proofMarkers.push(marker);
+          proofMarkersById.set(p.id,marker);
+        });
+        renderProofSlider();
+      });
+    }
+
+    function renderProofSlider(){
+      proofStripInner.innerHTML='';
+      if(!proofsList.length){ proofStrip.classList.remove('visible'); return; }
+      proofStrip.classList.add('visible');
+      proofsList.forEach((p,idx)=>{
+        const div=document.createElement('div');
+        div.className='proof-item';
+        div.dataset.id=p.id;
+        div.title=p.timestamp?formatDateTime(p.timestamp):'Proof';
+        div.innerHTML=`
+          <img class="proof-thumb" src="${p.url}" alt="Proof ${idx+1}">
+          ${p.timestamp?`<span class="proof-badge">${new Date(p.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`:''}`;
+        div.addEventListener('click',()=>{
+          focusProof(p.id);
+          setSelectedProof(p.id);
+        });
+        proofStripInner.appendChild(div);
+      });
+      psLeft.onclick=()=>scrollProofs(-1);
+      psRight.onclick=()=>scrollProofs(1);
+    }
+
+    function setSelectedProof(id){
+      document.querySelectorAll('.proof-item').forEach(el=>{
+        el.classList.toggle('selected', el.dataset.id===id);
+      });
+    }
+    function scrollProofs(dir){
+      const amt=Math.max(120, Math.floor(proofStripInner.clientWidth*0.8));
+      proofStripInner.scrollBy({left:dir*amt,behavior:'smooth'});
+    }
+    function focusProof(id){
+      const marker=proofMarkersById.get(id);
+      if(!marker) return;
+      const latlng = marker.getLatLng();
+      map.flyTo(latlng, Math.max(map.getZoom(),16), {duration:.6});
+      setTimeout(()=>{
+        marker.openPopup();
+        const pulse = L.circle(latlng,{radius:15,color:'#2563eb',weight:2,opacity:.9,fill:false}).addTo(map);
+        setTimeout(()=>map.removeLayer(pulse),1000);
+      },500);
+    }
+
+    function listenQrScans(){
+      onValue(ref(db,'qr_scans'), snap=>{
+        const scans=[];
+        const val=snap.val();
+        if(val){
+          for(const k in val){
+            const s=val[k];
+            if(s.promoCode==='XX903') scans.push({...s,id:k});
+          }
+          scans.sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+        }
+        qrScanCountEl.textContent=scans.length.toString();
+      });
+      qrCounter.addEventListener('click',()=>{
+        alert('QR Scans list is only available if active for this campaign.');
+      });
     }
 
     function showBuildingDots(zoneNum, poly){
@@ -1211,284 +1432,6 @@ out center;`;
       return prom;
     }
 
-    /* Proofs */
-    function listenProofs(){
-      onValue(ref(db,'campaigns/XX921/proofs'), snap=>{
-        proofMarkers.forEach(m=>map.removeLayer(m));
-        proofMarkers=[]; proofMarkersById.clear(); proofsList=[];
-        const val=snap.val();
-        if(val){
-          for(const id in val){
-            const p=val[id];
-            if(typeof p.lat==='number' && typeof p.lng==='number' && p.url){
-              proofsList.push({id,url:p.url,lat:p.lat,lng:p.lng,timestamp:p.timestamp||0});
-            }
-          }
-        }
-        proofsList.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
-        proofsList.forEach(p=>{
-          const icon=L.divIcon({
-            html:`<span class="material-icons-outlined" style="display:block;font-size:26px;color:#1976d2;text-shadow:0 0 4px #fff;">photo_camera</span>`,
-            className:'custom-camera-pin',
-            iconSize:[28,28],
-            iconAnchor:[14,28]
-          });
-          const marker=L.marker([p.lat,p.lng],{icon}).addTo(map);
-          marker.bindPopup(`
-            <div style="text-align:left;">
-              <img src="${p.url}" class="popup-img-thumb" data-proof="${p.url}" style="max-width:100px;border-radius:10px;
-                border:1px solid #d9e2e8;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.15);" alt="Proof">
-              ${p.timestamp?`<div style="margin-top:6px;font-size:10px;color:#4a5d69;display:flex;gap:4px;align-items:center;">
-                <span class="material-icons-outlined" style="font-size:12px;color:#1976d2;">schedule</span>${formatDateTime(p.timestamp)}
-              </div>`:''}
-            </div>`);
-          marker.on('popupopen',()=>{
-            setTimeout(()=>{
-              const img=document.querySelector('.leaflet-popup .popup-img-thumb[data-proof]');
-              if(img) img.addEventListener('click',()=>showModal('imgModal', p.url));
-            },60);
-          });
-          proofMarkers.push(marker);
-          proofMarkersById.set(p.id,marker);
-        });
-        renderProofSlider();
-      });
-    }
-
-    function renderProofSlider(){
-      proofStripInner.innerHTML='';
-      if(!proofsList.length){ proofStrip.classList.remove('visible'); return; }
-      proofStrip.classList.add('visible');
-      proofsList.forEach((p,idx)=>{
-        const div=document.createElement('div');
-        div.className='proof-item';
-        div.dataset.id=p.id;
-        div.title=p.timestamp?formatDateTime(p.timestamp):'Proof';
-        div.innerHTML=`
-          <img class="proof-thumb" src="${p.url}" alt="Proof ${idx+1}">
-          ${p.timestamp?`<span class="proof-badge">${formatTimeBadge(p.timestamp)}</span>`:''}`;
-        div.addEventListener('click',()=>{
-          focusProof(p.id);
-          setSelectedProof(p.id);
-        });
-        proofStripInner.appendChild(div);
-      });
-      psLeft.onclick=()=>scrollProofs(-1);
-      psRight.onclick=()=>scrollProofs(1);
-    }
-
-    function setSelectedProof(id){
-      document.querySelectorAll('.proof-item').forEach(el=>{
-        el.classList.toggle('selected', el.dataset.id===id);
-      });
-    }
-    function scrollProofs(dir){
-      const amt=Math.max(120, Math.floor(proofStripInner.clientWidth*0.8));
-      proofStripInner.scrollBy({left:dir*amt,behavior:'smooth'});
-    }
-    function focusProof(id){
-      const marker=proofMarkersById.get(id);
-      if(!marker) return;
-      const latlng = marker.getLatLng();
-      map.flyTo(latlng, Math.max(map.getZoom(),16), {duration:.6});
-      setTimeout(()=>{
-        marker.openPopup();
-        const pulse = L.circle(latlng,{radius:15,color:'#2563eb',weight:2,opacity:.9,fill:false}).addTo(map);
-        setTimeout(()=>map.removeLayer(pulse),1000);
-      },500);
-    }
-
-    function listenQrScans(){
-      onValue(ref(db,'qr_scans'), snap=>{
-        const scans=[];
-        const val=snap.val();
-        if(val){
-          for(const k in val){
-            const s=val[k];
-            if(s.promoCode==='XX921') scans.push({...s,id:k});
-          }
-          scans.sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
-        }
-        qrScanCountEl.textContent=scans.length.toString();
-      });
-      qrCounter.addEventListener('click',()=>{
-        alert('QR Scans list is only available if active for this campaign.');
-      });
-    }
-
-    /* ---------------- Impressions Calculation ---------------- */
-    const IMPRESSION_MULTIPLIER = 1.5;
-    const PHASE1_DAYS = 3;
-    const TOTAL_DAYS = 7;
-    const PHASE1_MS = PHASE1_DAYS * 24 * 60 * 60 * 1000;
-    const TOTAL_MS = TOTAL_DAYS * 24 * 60 * 60 * 1000;
-    const PHASE2_MS = TOTAL_MS - PHASE1_MS;
-
-    function calculateImpressionProgress(zoneStatus) {
-        const result = {
-            total: 0, current: 0, percentage: 0, 
-            fullyViewed: false, isViewing: false
-        };
-
-        if (zoneStatus.status !== 'completed' || !zoneStatus.completedAt) {
-            return result;
-        }
-
-        const totalPossible = Math.floor((zoneStatus.flyers || 0) * IMPRESSION_MULTIPLIER);
-        result.total = totalPossible;
-
-        const now = Date.now();
-        const timeSinceCompletion = now - zoneStatus.completedAt;
-
-        if (timeSinceCompletion < 0) return result;
-
-        let currentImpressions = 0;
-        if (timeSinceCompletion < PHASE1_MS) {
-            const progress = timeSinceCompletion / PHASE1_MS;
-            currentImpressions = totalPossible * 0.90 * progress;
-            result.isViewing = true;
-        } else if (timeSinceCompletion < TOTAL_MS) {
-            const impressionsAtPhase1End = totalPossible * 0.90;
-            const timeIntoPhase2 = timeSinceCompletion - PHASE1_MS;
-            const progress = timeIntoPhase2 / PHASE2_MS;
-            const phase2Impressions = (totalPossible * 0.10) * progress;
-            currentImpressions = impressionsAtPhase1End + phase2Impressions;
-            result.isViewing = true;
-        } else {
-            currentImpressions = totalPossible;
-            result.fullyViewed = true;
-        }
-
-        result.current = Math.floor(currentImpressions);
-        result.percentage = totalPossible > 0 ? (result.current / totalPossible) * 100 : 0;
-        
-        return result;
-    }
-
-    function updateViewingZones() {
-        let needsVisualUpdate = false;
-        zoneStatusByZone.forEach((status, zoneNum) => {
-            if (status.status === 'completed') {
-                const oldFullyViewed = status.fullyViewed || false;
-                const impressionInfo = calculateImpressionProgress(status);
-                status.fullyViewed = impressionInfo.fullyViewed;
-                status.isViewing = impressionInfo.isViewing;
-
-                if (oldFullyViewed !== impressionInfo.fullyViewed) {
-                    needsVisualUpdate = true;
-                }
-            }
-        });
-        if (needsVisualUpdate) {
-            updateZonesVisual();
-        }
-    }
-
-    function showImpressionsPopup() {
-        const modal = document.getElementById('impressionsModal');
-        const tableBody = document.getElementById('impressionsTableBody');
-        const summaryCountEl = document.getElementById('impressionsSummaryCount');
-        
-        tableBody.innerHTML = '';
-        let totalCurrentImpressions = 0;
-        let totalPossibleImpressions = 0;
-
-        const completedZones = [];
-        zoneStatusByZone.forEach((status, zoneNum) => {
-            if (status.status === 'completed') {
-                completedZones.push({ zoneNum, status });
-            }
-        });
-
-        // Sort by completion time, newest first
-        completedZones.sort((a,b) => (b.status.completedAt || 0) - (a.status.completedAt || 0));
-
-        if (completedZones.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--ink-500);">No zones have been completed yet.</td></tr>';
-        } else {
-            completedZones.forEach(({ zoneNum, status }) => {
-                const impressionInfo = calculateImpressionProgress(status);
-                totalCurrentImpressions += impressionInfo.current;
-                totalPossibleImpressions += impressionInfo.total;
-
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>Zone ${zoneNum}</td>
-                    <td>${impressionInfo.current.toLocaleString()} / ${impressionInfo.total.toLocaleString()}</td>
-                    <td>
-                        <div class="impression-progress-bar-container">
-                            <div class="impression-progress-bar" data-percent="${impressionInfo.percentage}"></div>
-                        </div>
-                    </td>
-                `;
-                tableBody.appendChild(row);
-            });
-        }
-
-        summaryCountEl.textContent = `${totalCurrentImpressions.toLocaleString()} / ${totalPossibleImpressions.toLocaleString()}`;
-        
-        showModal('impressionsModal');
-
-        // Trigger the animation for progress bars
-        setTimeout(() => {
-            tableBody.querySelectorAll('.impression-progress-bar').forEach(bar => {
-                const percent = bar.dataset.percent;
-                bar.style.width = `${percent}%`;
-            });
-        }, 100);
-    }
-    
-    function formatDateTime(ts){
-      if (!ts) return '';
-      const d=new Date(ts);const p=n=>n<10?'0'+n:n;
-      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-    }
-    function formatTimeBadge(ts){
-      if (!ts) return '';
-      const d=new Date(ts);const p=n=>n<10?'0'+n:n;
-      return `${p(d.getDate())}/${p(d.getMonth()+1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
-    }
-
-    function showModal(modalId, imgSrc = null){
-      const modal = document.getElementById(modalId);
-      if (!modal) return;
-
-      if (modalId === 'imgModal' && imgSrc) {
-        const img = document.getElementById('modalImg');
-        img.src = imgSrc;
-      }
-      
-      modal.style.display='flex';
-      document.body.style.overflow='hidden';
-    };
-
-    function hideModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (!modal) return;
-        modal.style.display = 'none';
-        if (modalId === 'imgModal') {
-            document.getElementById('modalImg').src = '';
-        }
-        // Check if any other modal is open before re-enabling scroll
-        const anyModalOpen = document.querySelector('.modal[style*="display: flex"]');
-        if (!anyModalOpen) {
-            document.body.style.overflow='';
-        }
-    }
-
-    document.getElementById('modalCloseBtn').addEventListener('click', () => hideModal('imgModal'));
-    document.getElementById('imgModal').addEventListener('click', e => { if(e.target.id === 'imgModal') hideModal('imgModal'); });
-    document.getElementById('impressionsModalCloseBtn').addEventListener('click', () => hideModal('impressionsModal'));
-    document.getElementById('impressionsModal').addEventListener('click', e => { if(e.target.id === 'impressionsModal') hideModal('impressionsModal'); });
-    document.addEventListener('keydown', e => { if(e.key==='Escape') { hideModal('imgModal'); hideModal('impressionsModal'); }});
-
-    function hideLoader(){
-      if(!loadingOverlay) return;
-      if (loadingOverlay.classList.contains('fade-out')) return;
-      loadingOverlay.classList.add('fade-out');
-    }
-
-    /* ---------------- Chat feature ---------------- */
     function getOrCreateDeviceId(){
       let id = localStorage.getItem(deviceIdKey);
       if(!id){
@@ -1539,9 +1482,8 @@ out center;`;
 
       chatBtn.addEventListener('click', e=>{
         e.stopPropagation();
-        const open = chatPanel.style.display==='flex';
-        chatPanel.style.display = open ? 'none' : 'flex';
-        if(!open){
+        chatPanel.style.display = chatPanel.style.display === 'flex' ? 'none' : 'flex';
+        if(chatPanel.style.display === 'flex'){
           setHeaderHeightVar();
           setTimeout(()=>{ scrollChatToBottom(); chatInputEl.focus(); }, 60);
         }
