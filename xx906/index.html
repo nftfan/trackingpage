@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>LEUVENFLYERS – Campaign XX915 (Map)</title>
+  <title>LEUVENFLYERS – Campaign XX916 (Map)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Icons+Outlined&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -84,16 +84,6 @@
       border:1px solid rgba(255,255,255,0.22);backdrop-filter:blur(8px);color:#fff;line-height:1;position:relative;
       transition: box-shadow .3s ease;
     }
-    
-    @keyframes soft-blink {
-      0% { box-shadow: 0 0 3px rgba(255, 255, 255, 0), 0 0 0 rgba(255, 255, 255, 0); }
-      50% { box-shadow: 0 0 8px rgba(255, 255, 255, 0.6), 0 0 4px rgba(255, 255, 255, 0.5); }
-      100% { box-shadow: 0 0 3px rgba(255, 255, 255, 0), 0 0 0 rgba(255, 255, 255, 0); }
-    }
-    .metric-chip.live-impressions {
-        animation: soft-blink 2.5s ease-in-out infinite;
-    }
-
     .metric-chip .value{font-weight:600;min-width:34px;text-align:right;}
     .metric-chip .value.impressions-value { font-size: 10.5px; }
 
@@ -418,7 +408,7 @@
         <span class="material-icons-outlined brand-icon">map</span>
         <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
           <span class="brand-title">LEUVENFLYERS</span>
-          <span class="campaign-badge">Campaign XX915</span>
+          <span class="campaign-badge">Campaign XX916</span>
         </div>
       </div>
       <div class="right-controls">
@@ -446,7 +436,7 @@
           <span class="material-icons-outlined">task_alt</span>
           <span class="value" id="flyersDistributed">0</span>
         </div>
-        <div id="impressionsMetric" class="metric-chip live-impressions" title="Estimated Impressions">
+        <div id="impressionsMetric" class="metric-chip" title="Estimated Impressions">
             <span class="material-icons-outlined">visibility</span>
             <span class="value impressions-value" id="impressionsTotal">0 / 0</span>
         </div>
@@ -592,24 +582,22 @@
     let proofsList = [];
     let notificationsArr = [];
 
-    const ZONE_STATUS_PATH = 'campaigns/XX915/zone_statuses';
+    const ZONE_STATUS_PATH = 'campaigns/XX916/zone_statuses';
     const zoneStatusByZone = new Map();
     const zoneStatusKeyByZone = new Map();
-
-    let impressionsUpdateInterval = null;
-
+    
     const buildingDataByZone = new Map();
     const buildingFetchPromises = new Map();
     let currentBuildingLayerGroup = null;
 
     /* Chat State */
-    const CHAT_PATH = 'campaigns/XX915/chat/messages';
+    const CHAT_PATH = 'campaigns/XX916/chat/messages';
     let chatMessages = [];
     let chatInitialized = false;
-    const deviceIdKey = 'XX915_chat_device_id';
+    const deviceIdKey = 'XX916_chat_device_id';
     const myDeviceId = getOrCreateDeviceId();
     const myName = 'Viewer';
-    const lastReadKey = 'XX915_chat_last_read_ts';
+    const lastReadKey = 'XX916_chat_last_read_ts';
 
     function setHeaderHeightVar(){
       const h = topbar.getBoundingClientRect().height;
@@ -701,9 +689,6 @@
         listenProofs();
         listenQrScans();
         listenChat();
-        
-        if (impressionsUpdateInterval) clearInterval(impressionsUpdateInterval);
-        impressionsUpdateInterval = setInterval(updateAllImpressions, 1000);
     });
 
     async function loadPolygons(){
@@ -824,6 +809,7 @@
     }
 
     function listenZoneStatuses() {
+        let isFirstLoad = true;
         return new Promise(resolve => {
             onValue(ref(db, ZONE_STATUS_PATH), snap => {
                 let newlyCompletedZones = [];
@@ -842,7 +828,7 @@
 
                         if (polygonsByZone.has(zNum)) {
                             if (data.status === 'completed' && !existingCompleted.has(zNum)) {
-                                if (!data.completedAt) data.completedAt = Date.now(); // Client-side fallback
+                                if (!data.completedAt) data.completedAt = Date.now();
                                 newlyCompletedZones.push({ zoneNum: zNum, timestamp: data.completedAt });
                             }
                             zoneStatusByZone.set(zNum, data);
@@ -855,16 +841,18 @@
                     addNotification('task_alt', `Zone ${zoneNum} completed!`, `zone-${zoneNum}-done`, timestamp);
                 });
 
+                updateAllImpressions();
                 updateZonesVisual();
-                updateAllImpressions(); // Initial calculation after data is loaded
 
-                const lastCompleted = newlyCompletedZones.sort((a,b) => b.timestamp - a.timestamp)[0];
-                if (lastCompleted) {
-                    setTimeout(() => focusZone(lastCompleted.zoneNum), 500);
+                if (isFirstLoad) {
+                    isFirstLoad = false;
+                    const lastCompleted = newlyCompletedZones.sort((a,b) => b.timestamp - a.timestamp)[0];
+                    if (lastCompleted) {
+                        setTimeout(() => focusZone(lastCompleted.zoneNum), 500);
+                    }
+                    resolve(); 
                 }
-                
-                resolve(); // Resolve the promise after the first data load and processing
-            }, { onlyOnce: false }); // Use 'false' to keep listening for updates
+            });
         });
     }
 
@@ -1124,7 +1112,7 @@
 
     /* Proofs */
     function listenProofs(){
-      onValue(ref(db,'campaigns/XX915/proofs'), snap=>{
+      onValue(ref(db,'campaigns/XX916/proofs'), snap=>{
         proofMarkers.forEach(m=>map.removeLayer(m));
         proofMarkers=[]; proofMarkersById.clear(); proofsList=[];
         const val=snap.val() || {};
@@ -1179,7 +1167,7 @@
 
     function listenQrScans(){
       onValue(ref(db,'qr_scans'), snap=>{
-        const scans = Object.values(snap.val()||{}).filter(s=>s.promoCode==='XX915');
+        const scans = Object.values(snap.val()||{}).filter(s=>s.promoCode==='XX916');
         qrScanCountEl.textContent=scans.length.toString();
       });
       qrCounter.addEventListener('click',()=>alert('QR Scans list is only available if active for this campaign.'));
@@ -1228,28 +1216,16 @@
     function updateAllImpressions() {
         let totalCurrentImpressions = 0;
         let totalPossibleImpressions = 0;
-        let needsVisualUpdate = false;
-
-        zoneStatusByZone.forEach((status, zoneNum) => {
+        
+        zoneStatusByZone.forEach((status) => {
             if (status.status === 'completed') {
-                const oldImpressionInfo = status.impressionInfo || {};
-                const newImpressionInfo = calculateImpressionProgress(status);
-                status.impressionInfo = newImpressionInfo;
-                
-                totalCurrentImpressions += newImpressionInfo.current;
-                totalPossibleImpressions += newImpressionInfo.total;
-                
-                if (oldImpressionInfo.fullyViewed !== newImpressionInfo.fullyViewed) needsVisualUpdate = true;
-
-                const popupCountEl = document.getElementById(`popup_impressions_${zoneNum}`);
-                if (popupCountEl) popupCountEl.textContent = newImpressionInfo.current.toLocaleString();
-                const popupProgressEl = document.getElementById(`popup_progress_${zoneNum}`);
-                if (popupProgressEl) popupProgressEl.style.width = `${newImpressionInfo.percentage}%`;
+                const impressionInfo = calculateImpressionProgress(status);
+                totalCurrentImpressions += impressionInfo.current;
+                totalPossibleImpressions += impressionInfo.total;
             }
         });
 
         impressionsTotalEl.textContent = `${totalCurrentImpressions.toLocaleString()} / ${totalPossibleImpressions.toLocaleString()}`;
-        if (needsVisualUpdate) updateZonesVisual();
     }
     
     function formatDateTime(ts){
