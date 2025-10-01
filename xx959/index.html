@@ -1,1375 +1,1670 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>Zone Tracker (Simplified)</title>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#2563eb">
-<link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
-<link rel="apple-touch-icon" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
-<link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-<style>
-:root {
-  --clr-primary:#2563eb;
-  --clr-primary-dark:#1d4ed8;
-  --clr-danger:#dc2626;
-  --clr-success:#059669;
-  --clr-muted:#64748b;
-  --clr-bg:#ffffff;
-  --clr-bg-alt:#f1f5f9;
-  --clr-border:#e2e8f0;
-  --radius-sm:10px;
-  --radius:16px;
-  --shadow:0 4px 12px rgba(15,23,42,.12);
-  --tap-min:44px;
-  --font-xs:clamp(11px,2.4vw,12px);
-  --font-sm:clamp(12px,2.6vw,14px);
-  --font-md:clamp(14px,2.9vw,16px);
-}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-  background:var(--clr-bg);
-  color:#0f172a;
-  min-height:100dvh;
-  overflow:hidden;
-}
-.app-header{
-  position:fixed;
-  top:0;left:0;right:0;
-  height:44px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 14px;
-  background:#ffffffee;
-  backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--clr-border);
-  z-index:1000;
-}
-.brand{
-  display:flex;align-items:center;gap:10px;
-  font-weight:700;letter-spacing:.5px;
-  color:var(--clr-primary);font-size:16px;
-}
-.brand-icon{
-  width:30px;height:30px;border-radius:10px;
-  background:linear-gradient(135deg,var(--clr-primary),var(--clr-primary-dark));
-  display:flex;align-items:center;justify-content:center;
-  font-size:14px;color:#fff;font-weight:600;
-  box-shadow:0 2px 4px rgba(0,0,0,.15);
-}
-#main{
-  position:relative;
-  padding-top:44px;
-  height:100dvh;
-  display:flex;
-  flex-direction:column;
-  overflow:hidden;
-}
-.main-tabs{
-  position:fixed;
-  top:44px;left:0;right:0;
-  display:flex;
-  background:var(--clr-bg);
-  border-bottom:1px solid var(--clr-border);
-  z-index:950;
-  height:48px;
-}
-.main-tab-btn{
-  flex:1;
-  background:transparent;
-  border:none;
-  font-weight:600;
-  font-size:var(--font-sm);
-  color:var(--clr-muted);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:2px;cursor:pointer;position:relative;
-}
-.main-tab-btn .material-icons{font-size:20px;}
-.main-tab-btn.active{color:var(--clr-primary);}
-.main-tab-btn.active::after{
-  content:"";position:absolute;bottom:0;left:18%;right:18%;height:3px;
-  background:var(--clr-primary);border-radius:3px 3px 0 0;
-}
-.tab-panels{
-  position:absolute;
-  top:92px;left:0;right:0;bottom:0;
-  overflow:hidden;
-}
-.tab-panel{position:absolute;inset:0;display:none;}
-.tab-panel.active{display:block;}
-#mapPanel{background:#dbe3ec;}
-#map{width:100%;height:100%;}
-.manage-scroll{
-  position:absolute;inset:0;
-  overflow-y:auto;
-  padding:16px 16px 180px;
-  scrollbar-width:thin;
-  scrollbar-color:var(--clr-border) transparent;
-}
-.manage-scroll::-webkit-scrollbar{width:6px;}
-.manage-scroll::-webkit-scrollbar-thumb{background:var(--clr-border);border-radius:3px;}
-.section{
-  background:var(--clr-bg);
-  border:1px solid var(--clr-border);
-  padding:16px 16px 18px;
-  border-radius:var(--radius);
-  box-shadow:0 2px 6px rgba(0,0,0,.06);
-  margin-bottom:18px;
-}
-.section h3{
-  margin:0 0 14px;
-  font-size:var(--font-md);
-  color:var(--clr-primary);
-  letter-spacing:.4px;
-  font-weight:700;
-  display:flex;align-items:center;gap:6px;
-}
-.row{display:flex;gap:12px;margin-bottom:16px;}
-.row > div{flex:1;}
-label{
-  font-size:var(--font-xs);font-weight:600;
-  display:block;margin:0 0 4px;letter-spacing:.4px;
-}
-input,select{
-  width:100%;font-size:var(--font-sm);
-  padding:12px 14px;
-  border:1px solid var(--clr-border);
-  border-radius:var(--radius-sm);
-  background:var(--clr-bg-alt);
-  outline:none;
-  transition:border-color .18s,background .18s;
-}
-input:focus,select:focus{
-  border-color:var(--clr-primary);
-  background:#fff;
-  box-shadow:0 0 0 3px rgba(37,99,235,.15);
-}
-.zone-box{
-  border:1px solid var(--clr-border);
-  padding:16px 14px 14px;
-  border-radius:var(--radius);
-  background:linear-gradient(160deg,#fff,#f5f9ff);
-  box-shadow:0 2px 5px rgba(0,0,0,.05);
-  margin-top:4px;
-  display:none;
-}
-.zone-head{
-  display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
-}
-.zone-head-title{font-size:var(--font-md);font-weight:700;color:#1e293b;}
-.badge{
-  font-size:var(--font-xs);padding:6px 12px;
-  border-radius:24px;font-weight:600;line-height:1;
-  display:inline-flex;align-items:center;gap:6px;
-}
-.badge.pending{background:rgba(220,38,38,.14);color:var(--clr-danger);}
-.badge.completed{background:rgba(37,99,235,.14);color:var(--clr-primary);}
-.work-hint{
-  font-size:var(--font-xs);
-  font-weight:600;
-  background:#fff6a8;
-  border:1px solid #e5d35c;
-  padding:10px 12px;
-  border-radius:var(--radius-sm);
-  margin:0 0 12px;
-  line-height:1.4;
-  color:#3a3500;
-}
-.work-hint strong{color:#b45309;}
-.btn-grid{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:10px;
-  margin-bottom:16px;
-}
-.action-btn{
-  font-size:var(--font-sm);
-  font-weight:600;
-  padding:14px 10px;
-  border:none;
-  border-radius:var(--radius-sm);
-  background:var(--clr-success);
-  color:#fff;
-  cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  gap:8px;
-  min-height:var(--tap-min);
-  line-height:1.1;
-  box-shadow:0 2px 4px rgba(5,150,105,.35);
-  transition:transform .15s,background .18s;
-}
-.action-btn:active{transform:scale(.95);}
-.action-btn:disabled{opacity:.55;transform:none;}
-.action-btn .material-icons{font-size:20px;}
-.form-row{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
-.form-row label{flex:0 0 70px;margin:0;}
-.form-row input{flex:1;}
-.link{
-  font-size:var(--font-xs);
-  color:var(--clr-primary);
-  text-decoration:none;
-  font-weight:600;
-  display:inline-flex;
-  align-items:center;
-  gap:4px;
-  margin-top:2px;
-}
-#saveMsg,#campaignMsg{
-  font-size:var(--font-xs);
-  font-weight:600;
-  margin-top:6px;
-  display:none;
-}
-#saveMsg{color:var(--clr-success);}
-#campaignMsg.success{color:var(--clr-success);}
-#campaignMsg.err{color:var(--clr-danger);}
+  <meta charset="utf-8"/>
+  <title>LEUVENFLYERS – Campaign XX959 (Map)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Icons+Outlined&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
+  <link rel="apple-touch-icon" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+  <link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
 
-.fab{
-  position:fixed;
-  right:16px;
-  width:54px;
-  height:54px;
-  border-radius:16px;
-  border:none;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:#fff;
-  font-weight:600;
-  font-size:14px;
-  gap:4px;
-  box-shadow:0 6px 16px -2px rgba(0,0,0,.3),0 2px 6px rgba(0,0,0,.18);
-  cursor:pointer;
-  z-index:1200;
-  background:linear-gradient(135deg,var(--clr-primary),var(--clr-primary-dark));
-  transition:transform .2s;
-}
-.fab:active{transform:scale(.92);}
-#addProofFab{bottom:150px;}
-#saveFab{bottom:86px;background:#0f172a;}
-.map-tab-active .hide-when-map{display:none;}
+  <style>
+  /**
+ * Corporate Blue - Refined Edition
+ *
+ * v7 FINAL FIX:
+ * - Prevent verified/booked zones from resetting after any new completion.
+ * - Verified and Booked state is preserved by merging snapshot data with previously known state.
+ */
+ :root {
+  /* Corporate Blue (Facebook-like) Color Palette */
+  --brand: #1877F2;
+  --brand-alt: #166FE5;
+  --accent: #1877F2;
+  --accent-alt: #166FE5;
+  --accent-soft: #E7F3FF;
+  --success: #31A24C;
+  --success-soft: rgba(49, 162, 76, 0.1);
+  --warning: #F5C33B;
+  --warning-soft: rgba(245, 195, 59, 0.15);
+  --booked: #F5C33B;
+  --danger: #E41E3F;
+  --danger-soft: #FFE5E9;
+  --fully-viewed-color: #31A24C;
 
-.modal-backdrop{
-  position:fixed;inset:0;
-  background:rgba(0,0,0,.55);
-  display:none;
-  align-items:center;
-  justify-content:center;
-  z-index:1500;
-}
-.modal{
-  width:100%;max-width:520px;
-  background:var(--clr-bg);
-  border-radius:24px;
-  border:1px solid var(--clr-border);
-  padding:24px 22px 28px;
-  box-shadow:0 8px 28px -4px rgba(0,0,0,.35);
-  max-height:90dvh;
-  margin:16px;
-  display:flex;flex-direction:column;
-  animation:fadeIn .3s ease;
-}
-@keyframes fadeIn{from{transform:translateY(18px);opacity:0;}to{transform:translateY(0);opacity:1;}}
-.modal header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-.modal h3{margin:0;font-size:var(--font-md);font-weight:700;color:var(--clr-primary);}
-.close-btn{
-  width:44px;height:44px;border-radius:50%;border:none;
-  background:var(--clr-bg-alt);
-  color:var(--clr-muted);
-  display:flex;align-items:center;justify-content:center;cursor:pointer;
-}
-.close-btn:active{transform:scale(.9);}
-.file-actions{display:flex;gap:12px;margin:0 0 16px;}
-.file-actions button{
-  flex:1;padding:12px 8px;font-size:14px;border:none;
-  border-radius:var(--radius-sm);
-  background:var(--clr-primary);color:#fff;font-weight:600;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
-}
-#proofFileInput{display:none;}
-#proofPreview{
-  width:100%;max-height:250px;object-fit:cover;
-  border:1px solid var(--clr-border);border-radius:var(--radius);
-  margin:4px 0 14px;display:none;background:#fff;
-}
-#proofUploadStatus{
-  font-size:var(--font-xs);
-  font-weight:600;
-  display:none;
-  margin:6px 0 4px;
-  color:var(--clr-primary);
-}
-#proofUploadStatus.ok{color:var(--clr-success);}
-#proofUploadStatus.err{color:var(--clr-danger);}
-.alert{
-  font-size:var(--font-xs);font-weight:600;
-  padding:10px 12px;border-radius:var(--radius-sm);
-  display:none;margin:8px 0 0;line-height:1.3;
-}
-.alert.error{background:rgba(220,38,38,.17);color:var(--clr-danger);}
-.alert.success{background:rgba(5,150,105,.18);color:var(--clr-success);}
-.submit-row{display:flex;gap:12px;margin-top:16px;}
-.submit-row button{
-  flex:1;padding:14px;border:none;border-radius:var(--radius-sm);
-  font-size:14px;font-weight:600;
-  background:var(--clr-primary);color:#fff;cursor:pointer;
-  transition:transform .15s;
-}
-.submit-row button.outline{background:#fff;color:var(--clr-primary);border:1px solid var(--clr-primary);}
-.submit-row button:active{transform:scale(.95);}
-
-.leaflet-label-zone{
-  background:rgba(255,255,255,.55);
-  color:#0f172a;
-  font-size:11px;
-  font-weight:600;
-  padding:2px 6px;
-  border-radius:8px;
-  border:1px solid rgba(0,0,0,.15);
-  box-shadow:0 2px 4px rgba(0,0,0,.18);
-  backdrop-filter:blur(6px);
-  -webkit-backdrop-filter:blur(6px);
-  letter-spacing:.5px;
-  pointer-events:none;
-  line-height:1.1;
-  display:inline-block;
-  user-select:none;
+  /* Clean Greyscale for Light Theme */
+  --ink-900: #1C1E21;
+  --ink-800: #4B4F56;
+  --ink-700: #606770;
+  --ink-600: #8A8D91;
+  --ink-500: #BEC3C9;
+  --ink-400: #CCD0D5;
+  --ink-300: #E4E6EB;
+  --ink-200: #F0F2F5;
+  --ink-100: #F5F6F7;
+  --ink-050: #FAFBFC;
+  
+  --surface: #eaeaea;
+  --surface-elev: #FFFFFF;
+  
+  /* Refined Sizing & Effects for a lighter feel */
+  --panel-border: var(--ink-300);
+  --radius-sm: 8px;
+  --radius-md: 12px; /* Softer radius for panels */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --focus-ring: 0 0 0 3px rgba(24, 119, 242, 0.3);
+  --transition: 150ms cubic-bezier(.4, 0, .2, 1);
+  --footer-h: 34px;
+  --chip-h: 30px;
+  --header-row-gap: 4px;
 }
 
-/* Toolbar */
-.map-path-toolbar{
-  position:fixed;
-  left:0;right:0;bottom:0;
-  background:#fffffffa;
-  backdrop-filter:blur(16px);
-  border-top:1px solid var(--clr-border);
-  display:flex;
-  align-items:center;
-  justify-content:space-around;
-  gap:8px;
-  padding:10px 14px calc(10px + env(safe-area-inset-bottom));
-  z-index:1100;
-  box-shadow:0 -4px 16px -4px rgba(0,0,0,.18);
+/* Base & Typography */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-size: 12px; line-height: 1.4;
+  background: var(--ink-200); color: var(--ink-900);
+  -webkit-font-smoothing: antialiased;
 }
-.map-path-toolbar button{
-  background:#0f172a;
-  border:none;
-  color:#fff;
-  width:48px;
-  height:48px;
-  padding:0;
-  border-radius:18px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  position:relative;
-  transition:background .18s,transform .18s, box-shadow .18s;
+body { display: flex; flex-direction: column; }
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Top Bar */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--ink-400);
+  color: var(--ink-900); z-index: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  position: fixed; top: 0; left: 0; right: 0; display: flex; flex-direction: column;
+  padding: 6px 10px 8px; gap: var(--header-row-gap);
 }
-.map-path-toolbar button.secondary{background:var(--clr-primary);}
-.map-path-toolbar button.success{background:var(--clr-success);}
-.map-path-toolbar button.warn{background:var(--clr-danger);}
-.map-path-toolbar button:active{transform:scale(.9);}
-.map-path-toolbar button:disabled{
-  opacity:.42;
-  cursor:default;
-  filter:grayscale(.4);
+.brand-title { color: var(--brand); }
+.campaign-badge { background: var(--accent-soft); color: var(--brand); font-weight: 600; }
+button.icon-btn {
+  background: var(--ink-200); border: none;
+  color: var(--ink-800); border-radius: 50%; width: 36px; height: 36px;
+  position: relative;
 }
-.map-path-toolbar .material-icons{font-size:24px;}
-#pathInfo{
-  position:absolute;
-  top:-32px;
-  left:50%;
-  transform:translateX(-50%);
-  background:#0f172a;
-  color:#fff;
-  font-size:10px;
-  font-weight:600;
-  padding:4px 10px 5px;
-  border-radius:14px;
-  letter-spacing:.5px;
-  box-shadow:0 3px 8px -2px rgba(0,0,0,.4);
-  max-width:75%;
-  text-align:center;
-  line-height:1.2;
-  pointer-events:none;
-  animation:fadeIn .3s ease;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-@keyframes fadeInTip{from{opacity:0;transform:translate(-50%,6px);}to{opacity:1;transform:translate(-50%,0);}}
-.map-path-toolbar button[data-tip]:hover::after,
-.map-path-toolbar button[data-tip]:focus-visible::after{
-  content:attr(data-tip);
-  position:absolute;
-  bottom:58px;
-  left:50%;
-  transform:translateX(-50%);
-  background:#0f172a;
-  color:#fff;
-  font-size:10px;
-  font-weight:600;
-  padding:4px 8px 5px;
-  border-radius:8px;
-  white-space:nowrap;
-  pointer-events:none;
-  box-shadow:0 3px 10px -2px rgba(0,0,0,.35);
-  z-index:10;
-}
-.map-path-toolbar button.active-mode{
-  box-shadow:0 0 0 3px rgba(220,38,38,.45) inset,0 0 0 1px rgba(255,255,255,.4);
-  background:var(--clr-danger);
+button.icon-btn:hover { background: var(--ink-300); }
+
+/* Hide the "Zoom to most recent zone" button */
+button.icon-btn[title="Zoom to most recent zone"] {
+  display: none !important;
 }
 
-.toast{
-  position:fixed;
-  left:50%;
-  bottom:calc(180px + env(safe-area-inset-bottom));
-  transform:translateX(-50%) translateY(20px);
-  background:#0f172a;
-  color:#fff;
-  padding:10px 16px;
-  border-radius:30px;
-  font-size:var(--font-xs);
-  font-weight:600;
-  letter-spacing:.5px;
-  opacity:0;
-  pointer-events:none;
-  z-index:1600;
-  transition:opacity .3s,transform .3s;
-  display:flex;
-  align-items:center;
-  gap:6px;
+/* ENHANCED: Notification Badges */
+.notif-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  color: #fff;
+  background-color: var(--danger); /* Default color */
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  padding: 0 5px;
+  box-shadow: 0 0 0 2px var(--surface);
 }
-.toast.show{
-  opacity:1;
-  transform:translateX(-50%) translateY(0);
-}
-.toast.success{background:var(--clr-success);}
-.toast.error{background:var(--clr-danger);}
+#chat-btn .notif-badge { background-color: var(--brand); } /* Specific color for chat */
 
-@media (min-width:700px){
-  #addProofFab,#saveFab{right:28px;}
-  .manage-scroll{padding:24px 40px 200px;}
-  .section{padding:20px 24px 24px;}
-  .map-path-toolbar{justify-content:center;gap:14px;padding:12px 28px;}
-  .map-path-toolbar button{width:54px;height:54px;border-radius:20px;}
-  #addProofFab{bottom:160px;}
-  #saveFab{bottom:96px;}
-  #pathInfo{font-size:11px;}
+
+/* Panels (Notifications, Chat) */
+.notifications, .chat-panel {
+  background: var(--surface); border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+  backdrop-filter: none;
+  position: fixed; top: calc(var(--topbar-total-height) + 4px); right: 10px;
+  display: none; /* Panels are hidden by default */
+  flex-direction: column; overflow: hidden;
+  animation: dropIn .18s ease; z-index: 650;
 }
-.visually-hidden{
-  position:absolute!important;
-  width:1px!important;
-  height:1px!important;
-  padding:0!important;
-  margin:-1px!important;
-  overflow:hidden!important;
-  clip:rect(0 0 0 0)!important;
-  border:0!important;
+.chat-panel.visible, .notifications.visible {
+  display: flex; /* Use a class to show panels */
 }
-</style>
+@keyframes dropIn{from{transform:translateY(-6px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
+/* Refined Notifications */
+.notifications { width: 320px; }
+.notif-header { color: var(--ink-900); font-weight: 600; font-size: 13px; padding: 12px 16px 8px; }
+.notif-item { padding: 12px 16px; }
+.notif-item:hover { background: var(--ink-100); }
+.notif-icon {
+  width: 32px; height: 32px;
+  border-radius: 50%; /* Circular icons */
+  background: var(--accent-soft); color: var(--brand);
+  font-size: 16px;
+}
+.notif-msg, .notif-empty { color: var(--ink-800); }
+.notif-footer { color: var(--ink-700); }
+
+/* REFINED CHAT UI */
+.chat-panel {
+  width: 360px; max-width: 92vw; height: 60vh; max-height: 70vh; min-height: 360px;
+  flex-direction: column;
+}
+.chat-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--panel-border);
+  flex-shrink: 0;
+}
+.chat-title { font-size: 14px; font-weight: 600; color: var(--ink-900); }
+.chat-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--surface);
+}
+.chat-msg {
+  border: none;
+  color: var(--ink-900);
+  border-radius: 18px; /* More rounded bubbles */
+  padding: 10px 14px;
+  background: var(--ink-200);
+  max-width: 80%;
+}
+.chat-row.mine .chat-msg { background: var(--brand); color: #fff; }
+.chat-row .avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--ink-300);
+  color: var(--ink-800);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+.chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--panel-border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.chat-input {
+  flex-grow: 1;
+  background: var(--ink-200);
+  border: 1px solid var(--ink-200);
+  border-radius: 18px;
+  color: var(--ink-900);
+  padding: 10px 14px;
+  font-size: 12px;
+  resize: none;
+  line-height: 1.4;
+}
+.chat-input:focus {
+  border-color: var(--brand);
+  box-shadow: var(--focus-ring);
+  background: #fff;
+  outline: none;
+}
+.send-btn {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.send-btn:hover { filter: brightness(1.1); }
+.send-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* FIXED: Original Map Style */
+#map { background: var(--ink-100); } /* Light background for before tiles load */
+.leaflet-tile-pane { filter: hue-rotate(260deg) saturate(790%) brightness(90%); } /* Removed all filters */
+.leaflet-control-zoom a { background: var(--surface) !important; color: var(--ink-900) !important; border: 1px solid var(--ink-400); }
+
+/* Themed Leaflet Pop-up */
+.leaflet-popup-content-wrapper { background: var(--surface); color: var(--ink-900); border: none; border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+.leaflet-popup-tip { background: var(--surface); box-shadow: none; border: none; }
+.leaflet-popup-close-button { color: var(--ink-600) !important; }
+.leaflet-popup-close-button:hover { color: var(--ink-900) !important; background: var(--ink-200) !important; border-radius: 50%; }
+
+/* FIXED: Zone Labels Text Color */
+.zone-label {
+  background: var(--surface);
+  border: 1px solid var(--ink-400);
+  color: var(--ink-800);
+
+  border-radius: 30px; /* Pill shape */
+  font-weight: 900; /* Extra bold */
+  font-size: 12px; /* Font size */
+  padding: 2px 8px;
+
+  display: flex;             /* make it flexbox */
+  align-items: center;       /* vertical center */
+  justify-content: center;   /* horizontal center */
+  text-align: center;        /* center-align text */
+}
+
+.zone-label.tiny {
+  background: var(--brand);
+  color: #fff; /* White text on brand color for contrast */
+  border-color: transparent;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 600;
+}
+.zone-label.status-booked {
+  background: var(--warning);
+  color: var(--ink-900); /* Black text */
+  border-color: transparent;
+}
+.zone-label.status-completed {
+  background: var(--success);
+  color: #fff !important; /* White text for green labels */
+  border-color: transparent;
+}
+
+
+/* REFINED: Footer & Proof Strip */
+.footer {
+  background: var(--surface);
+  border-top: 1px solid var(--ink-400);
+  color: var(--ink-800);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--footer-h);
+  z-index: 550;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 11px;
+}
+.footer-info {
+  font-weight: 600;
+  color: var(--ink-700);
+}
+.proof-strip {
+  border: 1px solid var(--ink-400);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: calc(var(--footer-h) + 8px);
+  height: 50px; /* Adjusted height for smaller images */
+  
+  align-items: center;
+  gap: 6px;
+  z-index: 570;
+}
+.proof-item {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px; /* Made images smaller */
+  height: 40px; /* Made images smaller */
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  border: 1px solid var(--ink-300);
+}
+.ps-btn { background: var(--ink-200); border: 1px solid var(--ink-300); color: var(--ink-800); }
+
+/* REFINED: Modal & Image Popup */
+.modal { background: rgba(240, 242, 245, 0.85); backdrop-filter: blur(3px); }
+.modal-content { background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-md); border: 1px solid var(--ink-400); }
+.modal-close { background: var(--ink-300); color: var(--ink-800); border-radius: 50%; }
+.modal-close:hover { background: var(--ink-400); }
+/* Sleek image-only popup */
+.modal-content.img-modal {
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.modal-content.img-modal img {
+  max-width: 85vw;
+  max-height: 75vh;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+
+/* Buttons */
+.zp-btn { background: var(--ink-300); color: var(--ink-900); border: none; }
+.zp-btn:hover { background: var(--ink-400); }
+.zp-btn.verify-btn { background: var(--success); color: #fff; }
+.zp-btn.warn { background: var(--warning); color: #fff; }
+.zp-btn.danger { background: var(--danger); color: #fff; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 14px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ink-400); border-radius: 8px; border: 4px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-500); }
+
+/* Loading Overlay */
+#loadingOverlay { background: var(--surface); color: var(--ink-900); }
+.loader { border: 4px solid var(--ink-300); border-top-color: var(--brand); }
+
+/* --- Full structural CSS (unchanged, with chat refinements) --- */
+.topbar-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;width:100%;}
+.brand-block{display:flex;align-items:center;gap:8px;min-width:0;flex:1;}
+.brand-icon{font-size:18px;flex-shrink:0;}
+.metrics-scroll{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:2px 0 2px 2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.metrics-scroll::-webkit-scrollbar{display:none;}
+.metric-chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;height:var(--chip-h);padding:4px 10px 4px 8px;font-size:11px;font-weight:500;line-height:1;position:relative;border-radius:var(--radius-sm); border: 2px solid #ccc;   /* light grey */; background: var(--surface);}
+.metric-chip .material-icons-outlined{font-size:15px;opacity:.9; color: var(--brand);}
+.metric-chip .value{font-weight:800;min-width:34px;text-align:right;}
+
+/* FINAL FIX: Metric-specific styles with high specificity */
+@keyframes soft-red-blink {
+  50% { box-shadow: 0 0 0 2px rgba(228, 30, 63, 0.5); }
+}
+
+/* Use highly specific selectors to guarantee override */
+.metrics-scroll .metric-chip.metric-chip-total-impressions {
+  animation: soft-red-blink 2s infinite;
+  background-color: var(--danger-soft) !important;
+  border-color: var(--danger) !important;
+}
+.metrics-scroll .metric-chip.metric-chip-completed {
+  background-color: var(--success-soft) !important;
+  border-color: var(--success) !important;
+}
+.metrics-scroll .metric-chip.metric-chip-required {
+  background-color: var(--warning-soft) !important;
+  border-color: var(--warning) !important;
+}
+
+
+@media (max-width:420px){
+  .metric-chip{padding:4px 6px;flex-direction:column;gap:2px;min-width:54px;height:48px;font-size:9px;}
+  .metric-chip .material-icons-outlined{font-size:16px;}
+  .metric-chip .value{font-size:11px;}
+}
+.right-controls{display:flex;align-items:center;gap:6px;flex:0 0 auto;}
+button.icon-btn .material-icons-outlined{font-size:18px;}
+button.icon-btn:focus-visible{outline:none;box-shadow:var(--focus-ring);}
+.notifications.scroll-after-4 .notif-list{max-height:240px;overflow-y:auto;}
+.notif-list{overflow-y:hidden;flex:1;}
+.notif-item{display:flex;gap:10px;font-size:11px;border-top:1px solid var(--panel-border);cursor:pointer;align-items:center;transition:var(--transition);background:transparent;}
+.notif-item:first-child{border-top:none;}
+.notif-item:active{background:var(--accent-soft);}
+.notif-msg{flex:1;line-height:1.3;}
+.notif-item[data-zone]::after{content:"View";font-size:9px;font-weight:600;color:var(--brand);align-self:center;margin-left:6px;opacity:.55;}
+.notif-item[data-zone]:hover::after{opacity:1;}
+.notif-empty{padding:18px 14px;font-size:11px;}
+.notif-footer{padding:6px 12px 8px;font-size:10px;text-align:right;border-top:1px solid var(--panel-border);}
+.chat-actions{display:flex;gap:6px;align-items:center;}
+.chat-mark-btn{appearance:none;border:1px solid var(--panel-border);background:var(--surface);color:var(--ink-700);font-size:10px;font-weight:700;padding:4px 8px;border-radius:var(--radius-md);cursor:pointer;transition:var(--transition);}
+.chat-mark-btn:hover{background:var(--ink-200);}
+.chat-msg .chat-text{font-size:12px;white-space:pre-wrap;word-break:break-word;line-height:1.5;}
+.chat-msg .chat-meta{margin-top:4px;font-size:9px;color:var(--ink-500);display:flex;gap:6px;align-items:center;}
+.chat-row{display:flex;gap:8px;align-items:flex-end;}
+.chat-row + .chat-row { margin-top: 12px; }
+.chat-row.mine{justify-content:flex-end;}
+.send-btn .material-icons-outlined{font-size:18px;}
+#map{position:absolute;top:var(--topbar-total-height);left:0;right:0;bottom:var(--footer-h);transition:top .25s ease;}
+.leaflet-div-icon.zone-label-wrapper{background:transparent !important;border:none !important;}
+@keyframes zoneFlash{ 0%{stroke-width:1;filter:drop-shadow(0 0 0 rgba(24,119,242,0));} 40%{stroke-width:4;filter:drop-shadow(0 0 6px rgba(24,119,242,.85));} 100%{stroke-width:1;filter:drop-shadow(0 0 0 rgba(24,119,242,0));} }
+.leaflet-interactive.flash-highlight{animation:zoneFlash 1.3s ease-in-out 1;}
+.proof-strip.visible{display:flex;}
+.proof-strip-inner{display:flex;align-items:center;gap:8px;overflow-x:auto;flex:1;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.proof-strip-inner::-webkit-scrollbar{display:none;}
+.proof-item:hover{transform:translateY(-2px);box-shadow:0 6px 14px -6px rgba(0,0,0,.15);border-color:var(--ink-400);}
+.proof-item.selected{outline:2px solid var(--brand);outline-offset:2px;}
+.proof-thumb{width:100%;height:100%;object-fit:cover;display:block;}
+.proof-badge{display: none !important;} /* Hide the time/date badge on images in all views */
+.ps-btn .material-icons-outlined{font-size:18px;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.zp-btn{appearance:none;border-radius:18px;padding:6px 12px;font-size:11px;font-weight:700;letter-spacing:.3px;cursor:pointer;transition:all .12s ease;display:inline-flex;align-items:center;gap:6px;}
+.zp-btn:disabled{background:var(--ink-300);color:var(--ink-500);cursor:not-allowed;transform:none;filter:none;}
+@media(max-width:420px){.brand-title{font-size:12px;}.campaign-badge{display:none;}.metric-chip{min-width:50px;}}
+#loadingOverlay.fade-out{opacity:0;pointer-events:none;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.mini-hint{margin-top:12px;font-size:11px;opacity:.85;line-height:1.4;}
+  </style>
 </head>
 <body>
-<header class="app-header">
-  <div class="brand">
-    <div class="brand-icon">ZT</div>
-    <span>Zone Tracker</span>
-  </div>
-</header>
-
-<main id="main">
-  <div class="main-tabs" role="tablist">
-    <button class="main-tab-btn active" data-tab="mapPanel" role="tab" aria-selected="true">
-      <span class="material-icons">map</span>
-      Map
-    </button>
-    <button class="main-tab-btn" data-tab="managePanel" role="tab" aria-selected="false">
-      <span class="material-icons">dashboard_customize</span>
-      Manage
-    </button>
-  </div>
-
-  <div class="tab-panels">
-    <div id="mapPanel" class="tab-panel active" role="tabpanel" aria-label="Map">
-      <div id="map" aria-label="Campaign map"></div>
+  <div id="loadingOverlay" aria-live="polite">
+    <div class="loader" aria-hidden="true"></div>
+    <div><strong>Please wait</strong>, full data & map are loading...</div>
+    <div class="mini-hint">
+      Once loaded we will automatically zoom into the most recently <strong>completed zone</strong>.<br/>
+      You can still pan / pinch after that.
     </div>
+  </div>
 
-    <div id="managePanel" class="tab-panel" role="tabpanel" aria-label="Manage Zones">
-      <div class="manage-scroll">
-        <div class="section">
-          <h3><span class="material-icons" style="font-size:18px;">flag</span> Campaign</h3>
-          <div class="row">
-            <div>
-              <label for="campaignIdInput">Campaign ID</label>
-              <input id="campaignIdInput" type="text" placeholder="Enter ID" autocomplete="off">
-              <div id="campaignMsg"></div>
-            </div>
-            <div>
-              <label for="zoneSelect">Zone</label>
-              <select id="zoneSelect" aria-label="Select Zone"></select>
-            </div>
-          </div>
-
-            <div id="zoneBox" class="zone-box">
-              <div class="zone-head">
-                <div class="zone-head-title" id="zoneTitle">Zone</div>
-                <div id="zoneStatusBadge" class="badge pending">
-                  <span class="material-icons">pending</span>
-                  <span>Pending</span>
-                </div>
-              </div>
-
-              <div class="work-hint">
-                <strong>Tip:</strong> Open your walk tracker app before marking complete.
-              </div>
-
-              <div class="btn-grid">
-                <button id="toggleCompleteBtn" class="action-btn" type="button">
-                  <span class="material-icons">check_circle</span>
-                  Complete
-                </button>
-              </div>
-
-              <div class="form-row">
-                <label for="flyersInput">Flyers</label>
-                <input id="flyersInput" type="number" min="0" placeholder="0" inputmode="numeric">
-              </div>
-              <div class="form-row">
-                <label for="gpsUrlInput">GPS URL</label>
-                <input id="gpsUrlInput" type="url" placeholder="https://">
-              </div>
-              <a id="gpsOpenLink" class="link" href="#" target="_blank" rel="noopener" style="display:none;">
-                <span class="material-icons" style="font-size:14px;">open_in_new</span>
-                Open GPS
-              </a>
-
-              <div id="saveMsg">
-                <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;">check_circle</span>
-                Saved
-              </div>
-            </div>
+  <header class="topbar" id="topbar">
+    <div class="topbar-row primary-row">
+      <div class="brand-block">
+        <span class="material-icons-outlined brand-icon">map</span>
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+          <span class="brand-title">LEUVENFLYERS</span>
+          <span class="campaign-badge">Campaign XX959</span>
         </div>
       </div>
+      <div class="right-controls">
+        <button id="recentBtn" class="icon-btn" title="Zoom to most recent completed zone" aria-label="Zoom to most recent completed zone">
+          <span class="material-icons-outlined">my_location</span>
+        </button>
+        <button id="chatBtn" class="icon-btn" aria-label="Chat" title="Chat">
+          <span class="material-icons-outlined">chat</span>
+          <span id="chatBadge" class="notif-badge chat-badge"></span>
+        </button>
+        <button id="notifBtn" class="icon-btn" aria-label="Notifications">
+          <span class="material-icons-outlined">notifications</span>
+          <span id="notifBadge" class="notif-badge"></span>
+        </button>
+      </div>
     </div>
+  <div class="metrics-scroll" id="metricsScroll" aria-label="Campaign metrics">
+  <div class="metric-chip" title="Total Flyers">
+    <span class="material-icons-outlined">inventory_2</span>
+    <span class="value" id="flyersTotal">0</span>
   </div>
-</main>
 
-<!-- Path Toolbar -->
-<div id="pathToolbar" class="map-path-toolbar" aria-label="Path drawing tools">
-  <div id="pathInfo" aria-live="polite">Start to draw path</div>
-  <button id="startPathBtn" class="secondary" type="button" aria-label="Start Path" data-tip="Start">
-    <span class="material-icons">play_arrow</span>
-  </button>
-  <button id="finishPathBtn" type="button" aria-label="Finish Path" data-tip="Finish" disabled>
-    <span class="material-icons">flag</span>
-  </button>
-  <button id="savePathBtn" class="success" type="button" aria-label="Save Path" data-tip="Save" disabled>
-    <span class="material-icons">save</span>
-  </button>
-  <button id="cancelPathBtn" class="warn" type="button" aria-label="Cancel Path" data-tip="Cancel" disabled>
-    <span class="material-icons">close</span>
-  </button>
-  <button id="deletePathModeBtn" class="warn" type="button" aria-label="Delete Saved Path" data-tip="Delete">
-    <span class="material-icons">delete</span>
-  </button>
-</div>
+  <div class="metric-chip metric-chip-completed" title="Completed / Verified Flyers">
+    <span class="material-icons-outlined">task_alt</span>
+    <span class="value" id="flyersDistributed">0</span>
+  </div>
 
-<button id="addProofFab" class="fab hide-when-map" title="Add Photo Proof" aria-label="Add Photo Proof">
-  <span class="material-icons">add_a_photo</span>
-</button>
-<button id="saveFab" class="fab hide-when-map" title="Save Campaign" aria-label="Save Campaign">
-  <span class="material-icons">save</span>
-</button>
+  <div id="impressionsCounter" class="metric-chip metric-chip-total-impressions" title="Total Impressions">
+    <span class="material-icons-outlined">visibility</span>
+    <span class="value" id="impressionsTotal">0 / 0</span>
+  </div>
 
-<div id="proofModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="proofModalTitle">
-  <div class="modal" id="proofModal">
-    <header>
-      <h3 id="proofModalTitle">Photo Proof</h3>
-      <button class="close-btn" id="closeProofModalBtn" aria-label="Close proof modal">
-        <span class="material-icons">close</span>
-      </button>
-    </header>
+  <div class="metric-chip" title="Booked / Completed Zones">
+      <span class="material-icons-outlined">checklist</span>
+      <span class="value" id="zoneProgress">0 / 0</span>
+  </div>
 
-    <div class="file-actions">
-      <button id="takePhotoBtn" type="button">
-        <span class="material-icons">camera_alt</span>
-        Take Photo
-      </button>
-      <button id="pickPhotoBtn" type="button">
-        <span class="material-icons">photo_library</span>
-        Gallery
-      </button>
-    </div>
-    <input id="proofFileInput" type="file" accept="image/*" capture="environment">
-    <img id="proofPreview" alt="Selected proof preview" loading="lazy">
+  <div class="metric-chip metric-chip-required" title="Flyers Required (Booked)">
+    <span class="material-icons-outlined">group</span>
+    <span class="value" id="flyersRequired">0</span>
+  </div>
 
-    <label for="proofUrlInput">Or Image URL</label>
-    <input id="proofUrlInput" type="url" placeholder="https://image-url.com">
-    <div id="proofUploadStatus"></div>
-    <div id="proofErrorMsg" class="alert error"></div>
-    <div id="proofSuccessMsg" class="alert success">
-      <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;">check_circle</span>
-      Uploaded
-    </div>
-
-    <div class="submit-row">
-      <button id="proofSubmitBtn" type="button">Submit</button>
-      <button id="clearProofBtn" class="outline" type="button">Clear</button>
-    </div>
+  <div id="qrCounter" class="metric-chip" style="cursor:pointer;" title="QR Scan Count">
+    <span class="material-icons-outlined">qr_code_scanner</span>
+    <span class="value" id="qrScanCount">0</span>
   </div>
 </div>
+  </header>
 
-<template id="markerIconTpl">
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="#2563eb" stroke="white" stroke-width="1.5">
-    <path d="M12 2.75a7.25 7.25 0 0 0-7.25 7.25c0 4.7 5.85 10.91 7.08 12.18.1.1.24.16.38.16s.28-.06.38-.16c1.23-1.27 7.08-7.49 7.08-12.18A7.25 7.25 0 0 0 12 2.75Zm0 10.5a3.25 3.25 0 1 1 0-6.5 3.25 3.25 0 0 1 0 6.5Z"/>
-  </svg>
-</template>
+  <div id="notificationsPanel" class="notifications" role="dialog" aria-label="Notifications">
+    <div class="notif-header">Notifications</div>
+    <div id="notifList" class="notif-list"></div>
+    <div id="notifFooter" class="notif-footer"></div>
+  </div>
 
-<div id="toast" class="toast" role="alert" aria-live="polite"></div>
+  <div id="chatPanel" class="chat-panel" role="dialog" aria-label="Chat">
+    <div class="chat-header">
+      <div class="chat-title" style="display:flex;align-items:center;gap:6px;">
+        <span class="material-icons-outlined" style="font-size:14px;">chat</span>Chat
+      </div>
+      <div class="chat-actions">
+        <button id="chatMarkReadBtn" class="chat-mark-btn" title="Mark all as read">Mark all read</button>
+      </div>
+    </div>
+    <div id="chatList" class="chat-list" aria-live="polite"></div>
+    <div class="chat-input-row">
+      <input id="chatInput" class="chat-input" type="text" placeholder="Type a message..." aria-label="Type a message">
+      <button id="chatSendBtn" class="send-btn" title="Send" aria-label="Send">
+        <span class="material-icons-outlined">send</span>
+      </button>
+    </div>
+  </div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script type="module">
-/*
-  Critical fixes:
-  - Do NOT overwrite status for all zones in saveAll (only write flyers/gpsUrl).
-  - Only the zone you complete writes status:'completed' and completedAt via persistZone().
-  - Never touch flyersRequired here; it's computed elsewhere and must be preserved.
-*/
+  <div id="map" class="map-visual-dimmer" aria-label="Distribution Map"></div>
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getDatabase, ref, get, set, push, onValue, remove, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  <div id="proofStrip" class="proof-strip" aria-label="Proofs slider">
+    <button id="psLeft" class="ps-btn" title="Scroll left" aria-label="Scroll left">
+      <span class="material-icons-outlined">chevron_left</span>
+    </button>
+    <div id="proofStripInner" class="proof-strip-inner"></div>
+    <button id="psRight" class="ps-btn" title="Scroll right" aria-label="Scroll right">
+      <span class="material-icons-outlined">chevron_right</span>
+    </button>
+  </div>
 
-/* Cloudinary */
-const CLOUDINARY_CLOUD_NAME="dvndw130d";
-const CLOUDINARY_UPLOAD_PRESET="unsigned_nft";
-const CLOUDINARY_UPLOAD_URL=`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
-async function uploadToCloudinary(file,statusEl){
-  if(!file) throw new Error("No file");
-  statusEl.style.display='block';
-  statusEl.textContent='Uploading...';
-  statusEl.classList.remove('ok','err');
-  const fd=new FormData();
-  fd.append("file",file);
-  fd.append("upload_preset",CLOUDINARY_UPLOAD_PRESET);
-  const resp=await fetch(CLOUDINARY_UPLOAD_URL,{method:"POST",body:fd});
-  const data=await resp.json();
-  if(!data.secure_url){
-    statusEl.classList.add('err');
-    statusEl.textContent='Upload failed';
-    throw new Error("Upload failed");
-  }
-  statusEl.classList.add('ok');
-  statusEl.textContent='Uploaded';
-  setTimeout(()=>statusEl.style.display='none',1500);
-  return data.secure_url;
-}
+  <footer class="footer" id="footer">
+    <div>click on any zone to view details</div>
+  </footer>
 
-/* Firebase Configs */
-const campaignConfig={
-  apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
-  authDomain:"trackingclients.firebaseapp.com",
-  projectId:"trackingclients",
-  storageBucket:"trackingclients.appspot.com",
-  messagingSenderId:"27490943622",
-  appId:"1:27490943622:web:d6c87547aa5df440508707",
-  databaseURL:"https://trackingclients-default-rtdb.firebaseio.com/"
-};
-const polygonsConfig={
-  apiKey:"AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
-  authDomain:"leuvenflyers-23584.firebaseapp.com",
-  databaseURL:"https://leuvenflyers-23584-default-rtdb.firebaseio.com",
-  projectId:"leuvenflyers-23584",
-  storageBucket:"leuvenflyers-23584.firebasestorage.app",
-  messagingSenderId:"1077790950414",
-  appId:"1:1077790950414:web:036fafe06df86f41ed285f"
-};
+  <div id="imgModal" class="modal" aria-modal="true" role="dialog">
+    <div class="modal-content img-modal">
+      <button id="modalCloseBtn" class="modal-close" aria-label="Close preview">&times;</button>
+      <img id="modalImg" alt="Proof preview">
+    </div>
+  </div>
 
-const campaignApp=initializeApp(campaignConfig,'campaign');
-const campaignDb=getDatabase(campaignApp);
-const polygonsApp=initializeApp(polygonsConfig,'polygons');
-const polygonsDb=getDatabase(polygonsApp);
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
-/* Tabs */
-const mainTabs=document.querySelectorAll('.main-tab-btn');
-let mapInitialized=false;
-let map, zonePolys=[];
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, onValue, get, update, push, set, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-mainTabs.forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    if(btn.classList.contains('active')) return;
-    mainTabs.forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false');});
-    btn.classList.add('active');btn.setAttribute('aria-selected','true');
-    const targetId=btn.dataset.tab;
-    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-    document.getElementById(targetId).classList.add('active');
-    const mapActive=targetId==='mapPanel';
-    document.documentElement.classList.toggle('map-tab-active',mapActive);
-    if(mapActive && mapInitialized) setTimeout(()=>map.invalidateSize(),120);
-    if(mapActive && !mapInitialized){initMap();mapInitialized=true;}
-  });
-});
+    /* Firebase Configs */
+    const campaignFirebaseConfig = {
+      apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+      authDomain:"trackingclients.firebaseapp.com",
+      projectId:"trackingclients",
+      storageBucket:"trackingclients.appspot.com",
+      messagingSenderId:"27490943622",
+      appId:"1:27490943622:web:d6c87547aa5df440508707",
+      databaseURL:"https://trackingclients-default-rtdb.firebaseio.com/"
+    };
+    const polygonsFirebaseConfig = {
+      apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+      authDomain: "leuvenflyers-23584.firebaseapp.com",
+      databaseURL: "https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+      projectId: "leuvenflyers-23584",
+      storageBucket: "leuvenflyers-23584.firebasestorage.app",
+      messagingSenderId: "1077790950414",
+      appId: "1:1077790950414:web:036fafe06df86f41ed285f"
+    };
 
-/* DOM refs */
-const campaignIdInput=document.getElementById('campaignIdInput');
-const campaignMsg=document.getElementById('campaignMsg');
-const zoneSelect=document.getElementById('zoneSelect');
-const zoneBox=document.getElementById('zoneBox');
-const zoneTitle=document.getElementById('zoneTitle');
-const zoneStatusBadge=document.getElementById('zoneStatusBadge');
-const flyersInput=document.getElementById('flyersInput');
-const gpsUrlInput=document.getElementById('gpsUrlInput');
-const gpsOpenLink=document.getElementById('gpsOpenLink');
-const toggleCompleteBtn=document.getElementById('toggleCompleteBtn');
-const saveMsg=document.getElementById('saveMsg');
-const addProofFab=document.getElementById('addProofFab');
-const saveFab=document.getElementById('saveFab');
+    const campaignApp = initializeApp(campaignFirebaseConfig, 'campaignApp');
+    const db = getDatabase(campaignApp);
+    const polygonsApp = initializeApp(polygonsFirebaseConfig,'polygonsApp');
+    const polygonsDb = getDatabase(polygonsApp);
 
-/* Proof modal refs */
-const proofModalBackdrop=document.getElementById('proofModalBackdrop');
-const closeProofModalBtn=document.getElementById('closeProofModalBtn');
-const proofFileInput=document.getElementById('proofFileInput');
-const takePhotoBtn=document.getElementById('takePhotoBtn');
-const pickPhotoBtn=document.getElementById('pickPhotoBtn');
-const proofPreview=document.getElementById('proofPreview');
-const proofUrlInput=document.getElementById('proofUrlInput');
-const proofSubmitBtn=document.getElementById('proofSubmitBtn');
-const clearProofBtn=document.getElementById('clearProofBtn');
-const proofErrorMsg=document.getElementById('proofErrorMsg');
-const proofSuccessMsg=document.getElementById('proofSuccessMsg');
-const proofUploadStatus=document.getElementById('proofUploadStatus');
+    /* DOM Elements */
+    const flyersTotalEl = document.getElementById('flyersTotal');
+    const flyersDistributedEl = document.getElementById('flyersDistributed');
+    const qrScanCountEl = document.getElementById('qrScanCount');
+    const qrCounter = document.getElementById('qrCounter');
+    const notifBtn = document.getElementById('notifBtn');
+    const notifPanel = document.getElementById('notificationsPanel');
+    const notifList = document.getElementById('notifList');
+    const notifBadge = document.getElementById('notifBadge');
+    const notifFooter = document.getElementById('notifFooter');
+    const topbar = document.getElementById('topbar');
+    const mapEl = document.getElementById('map');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const recentBtn = document.getElementById('recentBtn');
+    const proofStrip = document.getElementById('proofStrip');
+    const proofStripInner = document.getElementById('proofStripInner');
+    const psLeft = document.getElementById('psLeft');
+    const psRight = document.getElementById('psRight');
+    const flyersRequiredEl = document.getElementById('flyersRequired');
+    const zoneProgressEl = document.getElementById('zoneProgress');
+    const impressionsTotalEl = document.getElementById('impressionsTotal');
+    const footerEl = document.getElementById('footer');
 
-/* Path toolbar refs */
-const startPathBtn=document.getElementById('startPathBtn');
-const finishPathBtn=document.getElementById('finishPathBtn');
-const savePathBtn=document.getElementById('savePathBtn');
-const cancelPathBtn=document.getElementById('cancelPathBtn');
-const deletePathModeBtn=document.getElementById('deletePathModeBtn');
-const pathInfo=document.getElementById('pathInfo');
-const toastEl=document.getElementById('toast');
+    // Chat DOM
+    const chatBtn = document.getElementById('chatBtn');
+    const chatPanel = document.getElementById('chatPanel');
+    const chatListEl = document.getElementById('chatList');
+    const chatInputEl = document.getElementById('chatInput');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    const chatBadge = document.getElementById('chatBadge');
+    const chatMarkReadBtn = document.getElementById('chatMarkReadBtn');
 
-/* State */
-let ZONES=0, zoneData=[], polygonsLoaded=false, pendingCampaign=null;
-let selected=0, loadedCampaignId='';
+    /* State */
+    const TOTAL_FLYERS = 50000;
+    flyersTotalEl.textContent = TOTAL_FLYERS.toLocaleString();
 
-// Map from UI zone index (0-based) to the Firebase child key used for that zone.
-let zoneWriteKeyByIndex = [];
+    let map;
+    let polygonLayers = [];
+    let labelMarkers = [];
+    let labelMarkersByZone = new Map();
+    let polygonMeta = [];
+    let polygonsByZone = new Map();
 
-function defaultZone(){return {status:'pending',flyers:'',gpsUrl:''};}
-function ensureLen(){
-  if(zoneData.length<ZONES) for(let i=zoneData.length;i<ZONES;i++) zoneData.push(defaultZone());
-  if(zoneData.length>ZONES) zoneData=zoneData.slice(0,ZONES);
-  if(zoneWriteKeyByIndex.length<ZONES) for(let i=zoneWriteKeyByIndex.length;i<ZONES;i++) zoneWriteKeyByIndex.push(String(i+1));
-  if(zoneWriteKeyByIndex.length>ZONES) zoneWriteKeyByIndex=zoneWriteKeyByIndex.slice(0,ZONES);
-}
-function isValidUrl(u){try{const x=new URL(u);return['http:','https:'].includes(x.protocol);}catch{return false;}}
-function renderSelect(){
-  zoneSelect.innerHTML='';
-  for(let i=0;i<ZONES;i++){
-    const z=zoneData[i];
-    const icon=(z.status==='completed')?'✅':'🔴';
-    const opt=document.createElement('option');
-    opt.value=i;opt.textContent=`${icon} Z${i+1}`;
-    zoneSelect.appendChild(opt);
-  }
-  zoneBox.style.display=ZONES?'block':'none';
-  if(ZONES) zoneSelect.value=selected;
-}
-function updatePanel(){
-  if(!ZONES) return;
-  const z=zoneData[selected];
-  zoneTitle.textContent='Zone '+(selected+1);
-  zoneStatusBadge.className='badge '+(z.status==='completed'?'completed':'pending');
-  zoneStatusBadge.innerHTML=(z.status==='completed'
-    ? '<span class="material-icons">check_circle</span><span>Completed</span>'
-    : '<span class="material-icons">pending</span><span>Pending</span>');
-  toggleCompleteBtn.disabled=z.status==='completed';
-  toggleCompleteBtn.innerHTML=z.status==='completed'
-    ? '<span class="material-icons">check_circle</span>Completed'
-    : '<span class="material-icons">check_circle</span>Complete';
-  flyersInput.value=z.flyers||'';
-  gpsUrlInput.value=z.gpsUrl||'';
-  if(isValidUrl(z.gpsUrl)){gpsOpenLink.href=z.gpsUrl;gpsOpenLink.style.display='inline-flex';}
-  else gpsOpenLink.style.display='none';
-  colorPolys();
-}
-function selectZone(i){
-  if(!ZONES)return;
-  if(i<0)i=0;if(i>=ZONES)i=ZONES-1;
-  selected=i;zoneSelect.value=selected;updatePanel();
-}
-function colorPolys(){
-  if(!mapInitialized)return;
-  zoneData.forEach((z,i)=>{
-    if(!zonePolys[i])return;
-    const col=(z.status==='completed')?'#2563eb':'#dc2626';
-    zonePolys[i].setStyle({
-      fillColor:col,
-      color:i===selected?'#000':col,
-      weight:i===selected?3:2,
-      fillOpacity:(z.status==='completed'?0.35:0.32)
-    });
-  });
-}
+    let proofMarkers = [];
+    let proofMarkersById = new Map();
+    let proofsList = [];
+    let notificationsArr = [];
 
-/* Map */
-let userLatLng=null;
-function initMap(){
-  map=L.map('map',{zoomControl:false}).setView([50.85,4.35],12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom:19,attribution:'&copy; OpenStreetMap'
-  }).addTo(map);
-  L.control.zoom({position:'bottomright'}).addTo(map);
-  loadPolygons();
-  if('geolocation' in navigator){
-    let userMarker=null;
-    navigator.geolocation.watchPosition(p=>{
-      const loc=[p.coords.latitude,p.coords.longitude];
-      if(!userMarker){
-        userMarker=L.circleMarker(loc,{radius:7,color:'#000',fillColor:'#000',fillOpacity:.95}).addTo(map);
-      }else userMarker.setLatLng(loc);
-      userLatLng=loc;
-    },console.warn,{enableHighAccuracy:true});
-  }
-  setupPathDrawing();
-}
+    const ZONE_STATUS_PATH = 'campaigns/XX959/zone_statuses';
+    const zoneStatusByZone = new Map();
+    const zoneStatusKeyByZone = new Map();
 
-/* Polygons */
-async function loadPolygons(){
-  const snap=await get(ref(polygonsDb,'polygons'));
-  zonePolys.forEach(p=>map.removeLayer(p));zonePolys=[];
-  if(!snap.exists()){ZONES=0;renderSelect();return;}
-  let polyEntries=[];
-  snap.forEach(ch=>{
-    const raw=ch.val(); if(!raw) return;
-    let zoneNumber=null, coordsArr=[];
-    if(Array.isArray(raw)){
-      coordsArr=raw.filter(pt=>pt && typeof pt.lat==='number' && typeof pt.lng==='number')
-                   .map(pt=>[pt.lat,pt.lng]);
-    }else if(typeof raw==='object'){
-      if(raw.zoneNumber!==undefined && raw.zoneNumber!==''){
-        const zNum=parseInt(raw.zoneNumber,10);
-        if(!isNaN(zNum)) zoneNumber=zNum;
-      }
-      const numericKeys=Object.keys(raw).filter(k=>!isNaN(Number(k))).sort((a,b)=>a-b);
-      coordsArr=numericKeys.map(k=>{
-        const pt=raw[k];
-        if(!pt)return null;
-        if(Array.isArray(pt)&&pt.length===2&&typeof pt[0]==='number'&&typeof pt[1]==='number') return [pt[0],pt[1]];
-        if(typeof pt.lat==='number'&&typeof pt.lng==='number') return [pt.lat,pt.lng];
-        return null;
-      }).filter(Boolean);
+    let firstFullLoad = true;
+    let viewCalculationInterval = null;
+
+    // Building data cache
+    const buildingDataByZone = new Map();
+    const buildingFetchPromises = new Map();
+    let currentBuildingLayerGroup = null;
+
+    // Chat state
+    const CHAT_PATH = 'campaigns/XX959/chat/messages';
+    let chatMessages = [];
+    let chatInitialized = false;
+    const deviceIdKey = 'XX959_chat_device_id';
+    const myDeviceId = getOrCreateDeviceId();
+    const myName = 'Viewer';
+    const lastReadKey = 'XX959_chat_last_read_ts';
+
+    function setHeaderHeightVar(){
+      const h = topbar.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--topbar-total-height', h + 'px');
+      mapEl.style.top = h + 'px';
+      notifPanel.style.top = (h + 4) + 'px';
+      chatPanel.style.top = (h + 4) + 'px';
     }
-    if(coordsArr.length) polyEntries.push({zoneNumber,coords:coordsArr});
-  });
-  const withNum=polyEntries.filter(p=>p.zoneNumber!=null).sort((a,b)=>a.zoneNumber-b.zoneNumber);
-  const withoutNum=polyEntries.filter(p=>p.zoneNumber==null);
-  const ordered=[...withNum,...withoutNum];
-  let all=[];
-  ordered.forEach((entry,idx)=>{
-    const zoneIndex=idx;
-    const displayZoneNumber=entry.zoneNumber!=null?entry.zoneNumber:(idx+1);
-    const poly=L.polygon(entry.coords,{color:'#dc2626',fillColor:'#dc2626',fillOpacity:.32,weight:2}).addTo(map);
-    poly.on('click',()=>selectZone(zoneIndex));
-    zonePolys.push(poly);
-    all.push(...entry.coords);
-    const center=poly.getBounds().getCenter();
-    L.marker(center,{
-      icon:L.divIcon({className:'leaflet-label-zone',html:`Z${displayZoneNumber}`,iconSize:null,iconAnchor:[12,8]}),
-      interactive:false
-    }).addTo(map);
-  });
-  if(all.length) map.fitBounds(L.latLngBounds(all).pad(0.08));
-  ZONES=zonePolys.length;
-  polygonsLoaded=true;
-  ensureLen();
-  renderSelect();
-  selectZone(0);
-  if(pendingCampaign){await loadCampaign(pendingCampaign);pendingCampaign=null;}
-}
+    new ResizeObserver(setHeaderHeightVar).observe(topbar);
+    window.addEventListener('orientationchange',()=>setTimeout(setHeaderHeightVar,350));
+    window.addEventListener('resize',setHeaderHeightVar);
 
-/* Campaign save/load */
+    function addNotification(icon, message, key, timestamp = Date.now()){
+      if(key && notificationsArr.some(n=>n.key===key)) return;
+      const zMatch = /Zone\s+(\d+)/i.exec(message);
+      const zone = zMatch? parseInt(zMatch[1],10) : null;
+      notificationsArr.push({
+        key: key || ('k_'+timestamp+'_'+Math.random().toString(36).slice(2)),
+        icon, message, zone, ts: timestamp
+      });
+      notificationsArr.sort((a, b) => b.ts - a.ts);
+      renderNotifications();
+    }
+    function renderNotifications(){
+      notifList.innerHTML='';
+      if(!notificationsArr.length){
+        notifList.innerHTML='<div class="notif-empty">No notifications yet.</div>';
+        notifFooter.textContent='';
+        notifBadge.style.display='none';
+        notifPanel.classList.remove('scroll-after-4');
+        return;
+      }
+      notificationsArr.slice(0,60).forEach(n=>{
+        const item=document.createElement('div');
+        item.className='notif-item';
+        if(n.zone) item.dataset.zone = n.zone;
+        item.innerHTML=`
+          <div class="notif-icon"><span class="material-icons-outlined">${n.icon}</span></div>
+          <div class="notif-msg">${n.message}</div>`;
+        item.addEventListener('click',()=>{
+          if(n.zone) focusZone(n.zone);
+          notifPanel.style.display='none';
+        });
+        notifList.appendChild(item);
+      });
+      notifBadge.textContent=notificationsArr.length;
+      notifBadge.style.display='inline-block';
+      notifFooter.textContent=`${notificationsArr.length} notifications`;
+      if(notificationsArr.length > 4){
+        notifPanel.classList.add('scroll-after-4');
+      } else {
+        notifPanel.classList.remove('scroll-after-4');
+      }
+    }
+    notifBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      notifPanel.style.display = notifPanel.style.display === 'flex' ? 'none' : 'flex';
+      if (notifPanel.style.display === 'flex') {
+        setHeaderHeightVar();
+        renderNotifications();
+      }
+    });
+    document.addEventListener('click',e=>{
+      if(!notifPanel.contains(e.target) && !notifBtn.contains(e.target)){
+        notifPanel.style.display='none';
+      }
+      if(!chatPanel.contains(e.target) && !chatBtn.contains(e.target)){
+        chatPanel.style.display='none';
+      }
+    });
 
-// Only the fields we manage globally (never status here)
-function buildNonStatusPayload(i){
-  const z = zoneData[i] || defaultZone();
-  const payload = { zoneNumber: i + 1 };
-  if (z.flyers !== '' && z.flyers != null) payload.flyers = Number(z.flyers) || 0;
-  if (z.gpsUrl) payload.gpsUrl = z.gpsUrl;
-  return payload;
-}
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      setHeaderHeightVar();
+      map = L.map('map',{zoomControl:true, attributionControl:false})
+        .setView([50.85,4.35],13);
+      L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        {maxZoom:20, attribution:'&copy; OpenStreetMap & CARTO'}
+      ).addTo(map);
+      map.on('zoomend',()=>{
+        const z=map.getZoom();
+        if(z>=15) mapEl.classList.add('zoomed-in');
+        else mapEl.classList.remove('zoomed-in');
+      });
+      
+      try {
+        await loadPolygons();
+        listenZoneStatuses();
+        listenProofs();
+        listenQrScans();
+        listenChat();
+        
+        if (viewCalculationInterval) clearInterval(viewCalculationInterval);
+        viewCalculationInterval = setInterval(updateViewingZones, 2000);
+      } catch (error) {
+        console.error("Failed to initialize application:", error);
+        footerEl.innerHTML = `<div style="color: var(--danger);">Could not load map data. Please refresh.</div>`;
+      } finally {
+        hideLoader();
+      }
+    });
 
-// Persist a single zone status change safely (used for Complete)
-async function persistZone(i) {
-  const id = campaignIdInput.value.trim();
-  if (!id) return;
+    async function loadPolygons(){
+      const snap = await get(ref(polygonsDb,'polygons'));
+      if(!snap.exists()) { 
+        throw new Error("No polygons found in the database.");
+      }
+      
+      polygonLayers.forEach(p=>map.removeLayer(p));
+      labelMarkers.forEach(m=>map.removeLayer(m));
+      polygonLayers=[];labelMarkers=[];labelMarkersByZone.clear();polygonMeta=[];polygonsByZone.clear();
+      let allCoords=[];
+      
+      snap.forEach(child=>{
+        const raw = child.val();
+        if(!raw || typeof raw!=='object') return;
+        const coordsArr = Object.keys(raw)
+          .filter(k => !isNaN(Number(k)))
+          .sort((a,b)=>Number(a)-Number(b))
+          .map(k => {
+            const pt=raw[k];
+            return Array.isArray(pt) && pt.length===2
+              ? [pt[0], pt[1]]
+              : [pt.lat, pt.lng];
+          })
+          .filter(pt => Array.isArray(pt) && typeof pt[0]==='number' && typeof pt[1]==='number');
+        if(!coordsArr.length) return;
 
-  // Only write what we need for a completion
-  const payload = {
-    zoneNumber: i + 1,
-    status: 'completed',
-    completedAt: serverTimestamp()
-  };
-
-  const key = getZoneWriteKey(i);
-  await update(ref(campaignDb, `campaigns/${id}/zone_statuses/${key}`), payload);
-}
-
-// Save non-status edits for all zones (flyers, gpsUrl, zoneNumber). Do NOT write status here.
-async function saveAll(){
-  const id=campaignIdInput.value.trim();
-  if(!id){
-    campaignMsg.textContent='Enter ID';
-    campaignMsg.className='err';
-    campaignMsg.style.display='block';
-    return;
-  }
-
-  const baseRef = ref(campaignDb, `campaigns/${id}/zone_statuses`);
-  const updates = {};
-
-  for (let i = 0; i < ZONES; i++) {
-    const key = getZoneWriteKey(i);
-    const payload = buildNonStatusPayload(i);
-    if ('zoneNumber' in payload) updates[`${key}/zoneNumber`] = payload.zoneNumber;
-    if ('flyers' in payload) updates[`${key}/flyers`] = payload.flyers;
-    if ('gpsUrl' in payload) updates[`${key}/gpsUrl`] = payload.gpsUrl;
-    // Never set status here; never touch completedAt/verifiedAt/flyersRequired here.
-  }
-
-  await update(baseRef, updates);
-
-  loadedCampaignId=id;
-  localStorage.setItem('lastCampaignId',id);
-  saveMsg.style.display='block';
-  setTimeout(()=>saveMsg.style.display='none',1500);
-}
-
-// Key helpers
-function getZoneWriteKey(i){
-  return zoneWriteKeyByIndex[i] || String(i+1);
-}
-
-let pathsListenerCleanup=null;
-function detachPathsListener(){
-  if(pathsListenerCleanup){pathsListenerCleanup();pathsListenerCleanup=null;}
-}
-
-async function loadCampaign(id){
-  if(!id)return;
-  if(!polygonsLoaded){pendingCampaign=id;return;}
-
-  // Reset mappings for this campaign
-  zoneWriteKeyByIndex = new Array(ZONES).fill(null);
-  zoneData = Array.from({length:ZONES}, defaultZone);
-
-  const snap=await get(ref(campaignDb,`campaigns/${id}/zone_statuses`));
-  if(snap.exists()){
-    const data=snap.val();
-
-    const assignRecord = (record, keyGuess) => {
-      if (!record) return;
-      let zoneNum = Number(record.zoneNumber);
-      if (!Number.isFinite(zoneNum)) {
-        const kNum = Number(keyGuess);
-        if (Number.isFinite(kNum)) {
-          zoneNum = (String(kNum) === String(keyGuess) && kNum >= 0) ? (kNum + 1) : kNum;
+        let zoneNum = raw.zoneNumber;
+        if(zoneNum===undefined || zoneNum===null || zoneNum===''){
+          zoneNum = polygonLayers.length + 1;
+        } else {
+          zoneNum = parseInt(zoneNum,10);
+          if(isNaN(zoneNum)) zoneNum = polygonLayers.length + 1;
         }
+
+        const poly=L.polygon(coordsArr,{
+          color:'#1976d2',
+          weight:1,
+          fillColor:'#2196f3',
+          fillOpacity:.26
+        }).addTo(map);
+
+        poly.bindPopup(`<div style="font-size:11px;">Zone ${zoneNum}<br/>Loading...</div>`);
+
+        const index = polygonLayers.length;
+        polygonLayers.push(poly);
+        polygonsByZone.set(zoneNum, index);
+
+        const areaSqM = computeAreaSqM(coordsArr);
+        const isTiny = areaSqM < 250;
+
+        polygonMeta.push({layer:poly, zoneNumber:zoneNum, isTiny});
+
+        allCoords = allCoords.concat(coordsArr);
+
+        const center=poly.getBounds().getCenter();
+        const label=L.marker(center,{
+          icon:L.divIcon({
+            className:'zone-label-wrapper',
+            html:zoneNumberLabelHtml(zoneNum, isTiny, '', false),
+            iconSize:[34,24],
+            iconAnchor:[17,12]
+          }),
+          interactive:true
+        }).addTo(map);
+
+        label.on('click', () => { try { poly.openPopup(); } catch(e){} });
+
+        labelMarkers.push(label);
+        labelMarkersByZone.set(zoneNum, label);
+      });
+      if(allCoords.length){
+        map.fitBounds(L.latLngBounds(allCoords).pad(0.12));
       }
-      if (!Number.isFinite(zoneNum) || zoneNum < 1) return;
-      const idx = zoneNum - 1;
-      if (idx < 0 || idx >= ZONES) return;
-      zoneData[idx] = { ...defaultZone(), ...record };
-      zoneWriteKeyByIndex[idx] = keyGuess;
-    };
-
-    if (Array.isArray(data)) {
-      data.forEach((rec, i) => assignRecord(rec, String(i)));
-    } else if (data && typeof data === 'object') {
-      Object.keys(data).forEach(k => assignRecord(data[k], k));
     }
 
-    // Fill defaults
-    for (let i = 0; i < ZONES; i++) {
-      if (!zoneWriteKeyByIndex[i]) zoneWriteKeyByIndex[i] = String(i+1);
-      if (!zoneData[i]) zoneData[i] = defaultZone();
+    function computeAreaSqM(latlngPairs){
+      try{
+        if(!Array.isArray(latlngPairs) || latlngPairs.length < 3) return 0;
+        const ring = latlngPairs.map(([lat, lng]) => [lng, lat]);
+        const first = ring[0], last = ring[ring.length-1];
+        if(first[0] !== last[0] || first[1] !== last[1]){
+          ring.push([first[0], first[1]]);
+        }
+        const poly = turf.polygon([ring]);
+        const area = turf.area(poly);
+        return Number.isFinite(area) ? area : 0;
+      }catch(err){
+        console.error('Area compute failed', err);
+        return 0;
+      }
     }
 
-    campaignMsg.textContent='Loaded';
-    campaignMsg.className='success';
-  }else{
-    zoneData=Array.from({length:ZONES},defaultZone);
-    zoneWriteKeyByIndex=Array.from({length:ZONES},(_,i)=>String(i+1));
-    campaignMsg.textContent='New';
-    campaignMsg.className='err';
-  }
-  campaignMsg.style.display='block';
-  setTimeout(()=>campaignMsg.style.display='none',1600);
-  renderSelect();
-  selectZone(0);
-  loadedCampaignId=id;
-  attachPathsListener();
-}
+    function getStatusClass(status, fullyViewed){
+      if(fullyViewed) return 'status-fully-viewed';
+      if(status==='booked') return 'status-booked';
+      if(status==='completed') return 'status-completed';
+      return '';
+    }
 
-/* Inputs */
-let debounceTimer=null;
-campaignIdInput.addEventListener('input',()=>{
-  const v=campaignIdInput.value.trim();
-  if(v===loadedCampaignId)return;
-  clearTimeout(debounceTimer);
-  debounceTimer=setTimeout(()=>loadCampaign(v),420);
-});
-campaignIdInput.addEventListener('keydown',e=>{
-  if(e.key==='Enter'){e.preventDefault();loadCampaign(campaignIdInput.value.trim());}
-});
-zoneSelect.addEventListener('change',()=>{selected=+zoneSelect.value;updatePanel();});
-flyersInput.addEventListener('input',()=>{zoneData[selected].flyers=flyersInput.value;renderSelect();});
-gpsUrlInput.addEventListener('input',()=>{
-  zoneData[selected].gpsUrl=gpsUrlInput.value.trim();
-  if(isValidUrl(zoneData[selected].gpsUrl)){gpsOpenLink.href=zoneData[selected].gpsUrl;gpsOpenLink.style.display='inline-flex';}
-  else gpsOpenLink.style.display='none';
-});
-toggleCompleteBtn.addEventListener('click', async ()=>{
-  const z=zoneData[selected];
-  if(z.status==='completed')return;
-  z.status='completed';
-  updatePanel();renderSelect();
-  try{
-    await persistZone(selected);
-    showToast('Zone marked completed','success');
-  }catch(e){
-    console.error(e);
-    showToast('Failed to save zone','error');
-  }
-});
-saveFab.addEventListener('click',saveAll);
+    function zoneNumberLabelHtml(z, tiny=false, status='', fullyViewed = false){
+      const statusClass = getStatusClass(status, fullyViewed);
+      const classes = ['zone-label'];
+      if(tiny) classes.push('tiny');
+      if(statusClass) classes.push(statusClass);
+      return `<div class="${classes.join(' ')}">${z}</div>`;
+    }
 
-/* Proof modal */
-function openProofModal(){
-  proofModalBackdrop.style.display='flex';
-  proofUrlInput.value='';
-  proofFileInput.value='';
-  proofPreview.style.display='none';
-  proofErrorMsg.style.display='none';
-  proofSuccessMsg.style.display='none';
-  proofUploadStatus.style.display='none';
-  setTimeout(()=>proofUrlInput.focus(),120);
-}
-function closeProofModal(){proofModalBackdrop.style.display='none';}
-addProofFab.addEventListener('click',openProofModal);
-closeProofModalBtn.addEventListener('click',closeProofModal);
-proofModalBackdrop.addEventListener('click',e=>{if(e.target===proofModalBackdrop)closeProofModal();});
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape' && proofModalBackdrop.style.display==='flex') closeProofModal();
-});
-takePhotoBtn.addEventListener('click',()=>{
-  proofFileInput.setAttribute('capture','environment');proofFileInput.click();
-});
-pickPhotoBtn.addEventListener('click',()=>{
-  proofFileInput.removeAttribute('capture');proofFileInput.click();
-});
-proofFileInput.addEventListener('change',()=>{
-  proofSuccessMsg.style.display='none';
-  proofErrorMsg.style.display='none';
-  proofUploadStatus.style.display='none';
-  const file=proofFileInput.files[0];
-  if(file){
-    const reader=new FileReader();
-    reader.onload=e=>{
-      proofPreview.src=e.target.result;
-      proofPreview.style.display='block';
+    function safeInt(v){const n=parseInt(v);return isNaN(n)?0:n;}
+    function statusMeta(status, fullyViewed){
+      if(fullyViewed) return {text:'Fully Viewed', color: 'var(--fully-viewed-color)', icon:'visibility'};
+      switch(status){
+        case 'completed': return {text:'Done',color:'#2e7d32',icon:'task_alt'};
+        case 'inprogress': return {text:'Active',color:'var(--warning)',icon:'play_arrow'};
+        case 'booked': return {text:'Booked',color:'var(--booked)',icon:'bookmark_added'};
+        default: return {text:'Pending',color:'#d32f2f',icon:'hourglass_empty'};
+      }
+    }
+
+    // Resolve verifiedAt to ms
+    function getVerifiedAtMs(z) {
+      const v = z?.verifiedAt;
+      if (typeof v === 'number' && Number.isFinite(v)) return v;
+      if (typeof v === 'string') {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      }
+      if (v && typeof v === 'object' && v['.sv'] === 'timestamp') {
+        return Date.now();
+      }
+      return 0;
+    }
+
+    function listenZoneStatuses(){
+      onValue(ref(db, ZONE_STATUS_PATH), snap=>{
+        let newlyCompletedZones = [];
+        
+        if(!snap.exists()) {
+            zoneStatusByZone.clear();
+            zoneStatusKeyByZone.clear();
+            updateZonesVisual();
+            return;
+        }
+
+        const nextZoneStatusByZone = new Map();
+
+        snap.forEach(child => {
+            const key = child.key;
+            const data = child.val() || {};
+            
+            const fieldZone = safeInt(data.zoneNumber);
+            const keyNum = safeInt(key);
+            let zNum = null;
+            if(fieldZone && polygonsByZone.has(fieldZone)) zNum = fieldZone;
+            else if(keyNum && polygonsByZone.has(keyNum)) zNum = keyNum;
+            else if((keyNum || key==='0') && polygonsByZone.has(keyNum+1)) zNum = keyNum+1;
+            else if(safeInt(data.zone) && polygonsByZone.has(safeInt(data.zone))) zNum = safeInt(data.zone);
+
+            if(zNum != null){
+              const existingStatus = zoneStatusByZone.get(zNum) || {};
+
+              // Merge to preserve previously known fields if they're missing in the snapshot.
+              const merged = { ...existingStatus, ...data };
+
+              // Preserve status if snapshot doesn't include it (prevents "booked" -> "pending" regress)
+              if (existingStatus.status && !merged.status) {
+                merged.status = existingStatus.status;
+              }
+              // Preserve flyersRequired if missing
+              if (typeof existingStatus.flyersRequired === 'number' && typeof merged.flyersRequired !== 'number') {
+                merged.flyersRequired = existingStatus.flyersRequired;
+              }
+              // Preserve flyers if missing
+              if (typeof existingStatus.flyers === 'number' && typeof merged.flyers !== 'number') {
+                merged.flyers = existingStatus.flyers;
+              }
+              // Preserve verifiedAt if missing or invalid
+              if (typeof existingStatus.verifiedAt === 'number' && typeof merged.verifiedAt !== 'number') {
+                merged.verifiedAt = existingStatus.verifiedAt;
+              }
+              // Preserve completedAt if previously set and now missing
+              if (typeof existingStatus.completedAt === 'number' && typeof merged.completedAt !== 'number') {
+                merged.completedAt = existingStatus.completedAt;
+              }
+
+              // Detect newly completed
+              if (merged.status === 'completed' && existingStatus.status !== 'completed' && typeof merged.completedAt === 'number') {
+                  newlyCompletedZones.push({zoneNum: zNum, timestamp: merged.completedAt});
+              }
+              
+              nextZoneStatusByZone.set(zNum, merged);
+              zoneStatusKeyByZone.set(zNum, key);
+            }
+        });
+
+        zoneStatusByZone.clear();
+        nextZoneStatusByZone.forEach((v, k) => zoneStatusByZone.set(k, v));
+        
+        newlyCompletedZones.forEach(({zoneNum, timestamp}) => {
+            addNotification('task_alt', `Zone ${zoneNum} completed!`, `zone-${zoneNum}-done`, timestamp);
+        });
+
+        updateZonesVisual();
+        
+        if (newlyCompletedZones.length > 0) {
+            const lastCompleted = newlyCompletedZones.sort((a,b) => b.timestamp - a.timestamp)[0];
+            if (firstFullLoad) {
+                setTimeout(() => focusZone(lastCompleted.zoneNum), 500);
+            } else {
+                focusZone(lastCompleted.zoneNum);
+            }
+        }
+        firstFullLoad = false;
+      });
+    }
+
+    function updateZonesVisual(){
+      let distributed=0;
+      let bookedCount = 0;
+      let completedCount = 0;
+      let totalCurrentImpressions = 0;
+      let totalPossibleImpressions = 0;
+
+      polygonMeta.forEach(({layer:poly, zoneNumber:zoneNum, isTiny})=>{
+        const z = zoneStatusByZone.get(zoneNum) || {};
+        const flyers = safeInt(z.flyers);
+        const impressionInfo = calculateImpressionProgress(z);
+        totalCurrentImpressions += impressionInfo.current;
+        totalPossibleImpressions += impressionInfo.total;
+
+        if(z.status === 'booked') bookedCount++;
+        if(z.status === 'completed') completedCount++;
+        
+        if(z.status==='completed') distributed+=flyers;
+
+        const meta=statusMeta(z.status, impressionInfo.fullyViewed);
+        poly.setStyle({
+          fillColor: meta.color, fillOpacity: impressionInfo.isViewing ? poly.options.fillOpacity : .38, color:'#1976d2', weight:1, dashArray:null
+        });
+        
+        const path = poly._path;
+        if (path) {
+            path.classList.toggle('viewing-animation', impressionInfo.isViewing);
+        }
+        
+        const canBook = z.status !=='booked' && z.status !=='completed';
+        const canUnbook = z.status === 'booked';
+        let actionButtonsHtml = '';
+
+        if(canBook) {
+            actionButtonsHtml += `<button class="zp-btn warn" data-act="book" data-zone="${zoneNum}"><span class="material-icons-outlined" style="font-size:14px;">bookmark_add</span>Book</button>`;
+        }
+        if(canUnbook) {
+            actionButtonsHtml += `<button class="zp-btn danger" data-act="unbook" data-zone="${zoneNum}"><span class="material-icons-outlined" style="font-size:14px;">bookmark_remove</span>Unbook</button>`;
+        }
+        if (z.status === 'completed') {
+            if (getVerifiedAtMs(z)) {
+                actionButtonsHtml += `<button class="zp-btn" disabled><span class="material-icons-outlined" style="font-size:14px;">verified</span>Verified</button>`;
+            } else {
+                actionButtonsHtml += `<button class="zp-btn verify-btn" data-act="verify" data-zone="${zoneNum}"><span class="material-icons-outlined" style="font-size:14px;">check_circle</span>Verify</button>`;
+            }
+        }
+        
+        let impressionHTML = '';
+        if (getVerifiedAtMs(z)) {
+            impressionHTML = `
+            <div style="margin-top:4px;color:#2f4451;font-size:11px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;">
+                <span class="material-icons-outlined" style="font-size:12px;color:var(--accent);">visibility</span>
+                Impressions: <strong>${impressionInfo.current.toLocaleString()} / ${impressionInfo.total.toLocaleString()}</strong>
+              </span>
+            </div>
+            <div style="margin-top:4px;color:#2f4451;font-size:11px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;">
+                <span class="material-icons-outlined" style="font-size:12px;color:var(--ink-500);">today</span>
+                Days Passed: <strong>${impressionInfo.daysPassed} / 7</strong>
+              </span>
+            </div>`;
+        }
+        
+        let flyersRequiredHTML = '';
+        if (typeof z.flyersRequired === 'number') {
+            flyersRequiredHTML = `
+            <div style="margin-top:4px;color:#2f4451;font-size:11px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;">
+                <span class="material-icons-outlined" style="font-size:12px;color:var(--booked);">group</span>
+                Flyers Required: <strong>${z.flyersRequired.toLocaleString()}</strong>
+              </span>
+            </div>`;
+        }
+
+        let popupHTML=`
+          <div style="text-align:left;">
+            <strong style="display:flex;justify-content:flex-start;align-items:center;gap:4px;color:#0e3450;font-size:12px;">
+              <span class="material-icons-outlined" style="font-size:14px;color:#1976d2;">layers</span>
+              Zone ${zoneNum}
+            </strong>
+            <div style="margin-top:6px;color:#2f4451;font-size:11px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;">
+                <span class="material-icons-outlined" style="font-size:12px;color:#1976d2;">mail</span>
+                Flyers (reported): <strong>${flyers || '-'}</strong>
+              </span>
+            </div>
+            ${flyersRequiredHTML}
+            ${impressionHTML}
+            <div style="margin-top:4px;color:#2f4451;font-size:11px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;">
+                <span class="material-icons-outlined" style="font-size:12px;color:${meta.color};">info</span>
+                Status: <strong>${meta.text}</strong>
+              </span>
+            </div>
+        `;
+        if(z.gpsProof || z.gpsUrl){
+          popupHTML+=`<div style="margin-top:8px;"><a href="${z.gpsProof||z.gpsUrl}" target="_blank" rel="noopener"
+                 style="background:#1976d2;color:#fff;font-size:10px;padding:5px 12px;border-radius:18px;
+                 display:inline-flex;align-items:center;gap:6px;text-decoration:none;
+                 box-shadow:0 2px 6px -2px rgba(0,0,0,.25);">
+                <span class="material-icons-outlined" style="font-size:14px;">assistant_navigation</span>GPS Route
+              </a></div>`;
+        }
+        if(z.proofImage){
+          popupHTML+=`<div style="margin-top:10px;"><img src="${z.proofImage}" alt="Proof" class="popup-img-thumb" data-proof="${z.proofImage}"
+                style="max-width:90px;border-radius:8px;cursor:pointer;border:1px solid #d9e2e8;"></div>`;
+        }
+        popupHTML += `<div style="margin-top: 8px; display: flex; gap: 6px;">${actionButtonsHtml}</div></div>`;
+        poly.bindPopup(popupHTML);
+
+        const label = labelMarkersByZone.get(zoneNum);
+        if(label){
+          label.setIcon(L.divIcon({
+            className:'zone-label-wrapper',
+            html: zoneNumberLabelHtml(zoneNum, isTiny, z.status || '', impressionInfo.fullyViewed),
+            iconSize:[34,24],
+            iconAnchor:[17,12]
+          }));
+        }
+
+        poly.off('popupopen');
+        poly.on('popupopen', evt=>{
+            const popupEl = evt.popup?.getElement?.();
+            if(!popupEl) return;
+            
+            const img = popupEl.querySelector('.popup-img-thumb[data-proof]');
+            if(img) img.addEventListener('click',()=>showModal('imgModal', img.getAttribute('data-proof')));
+            
+            popupEl.querySelectorAll('.zp-btn[data-act]').forEach(btn => {
+                btn.addEventListener('click', async e => {
+                    e.preventDefault(); e.stopPropagation();
+                    const act = btn.dataset.act;
+                    const znum = parseInt(btn.dataset.zone, 10);
+                    btn.disabled = true;
+                    btn.innerHTML = `<span class="material-icons-outlined" style="font-size:14px;">hourglass_top</span>Working...`;
+                    
+                    if (act === 'verify') {
+                        await verifyZone(znum);
+                    } else if (act === 'book' || act === 'unbook') {
+                        await applyStatusToZones([znum], act === 'book' ? 'booked' : 'pending');
+                    }
+                    poly.closePopup();
+                });
+            });
+          
+            showBuildingDots(zoneNum, poly);
+        });
+      });
+      flyersDistributedEl.textContent = distributed.toLocaleString();
+      zoneProgressEl.textContent = `${bookedCount}B / ${completedCount}C`;
+      impressionsTotalEl.textContent = `${totalCurrentImpressions.toLocaleString()} / ${totalPossibleImpressions.toLocaleString()}`;
+      recalcFlyersRequiredTotal();
+    }
+    
+    async function verifyZone(zoneNum) {
+        const key = zoneStatusKeyByZone.get(zoneNum);
+        if (!key) {
+            console.error("Could not find key for zone", zoneNum);
+            return;
+        }
+        const zoneRef = ref(db, `${ZONE_STATUS_PATH}/${key}`);
+        try {
+            await update(zoneRef, { verifiedAt: serverTimestamp() });
+            addNotification('verified', `Zone ${zoneNum} has been verified for impressions.`, `zone-verified-${zoneNum}`);
+        } catch (err) {
+            console.error("Failed to verify zone:", err);
+            alert("Could not verify zone. Please try again.");
+        }
+    }
+
+    function focusRecentCompletedZones(onlyLast=true){
+        const completed = [];
+        zoneStatusByZone.forEach((z, zoneNum) => {
+            if (z.status === 'completed' && z.completedAt) {
+                completed.push({zoneNum, ts: z.completedAt});
+            }
+        });
+        if (!completed.length) return;
+        completed.sort((a,b) => b.ts - a.ts);
+        if (onlyLast) {
+          if (completed.length > 0) {
+            focusZone(completed[0].zoneNum);
+          }
+        }
+    }
+
+    window.focusZone = function(zoneNum){
+      const idx = polygonsByZone.get(zoneNum);
+      if(idx===undefined) return;
+      const poly = polygonLayers[idx];
+      if(!poly) return;
+      const bounds=poly.getBounds();
+      map.fitBounds(bounds.pad(0.4));
+      setTimeout(()=>{
+        map.flyTo(bounds.getCenter(), Math.max(map.getZoom(),15), {duration:.55});
+        poly.openPopup();
+        const path=poly._path;
+        if(path){
+          path.classList.add('flash-highlight');
+          setTimeout(()=>path.classList.remove('flash-highlight'),1300);
+        }
+      },350);
     };
-    reader.readAsDataURL(file);
-  }else proofPreview.style.display='none';
-});
-function showError(msg){
-  proofErrorMsg.textContent=msg;
-  proofErrorMsg.style.display='block';
-  proofSuccessMsg.style.display='none';
-}
-function showSuccess(msg){
-  proofSuccessMsg.innerHTML='<span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;">check_circle</span>'+msg;
-  proofSuccessMsg.style.display='block';
-  proofErrorMsg.style.display='none';
-}
-function validImageUrl(u){return isValidUrl(u);}
+    recentBtn.addEventListener('click',()=>focusRecentCompletedZones(true));
 
-proofSubmitBtn.addEventListener('click',async()=>{
-  proofErrorMsg.style.display='none';
-  proofSuccessMsg.style.display='none';
-  const id=campaignIdInput.value.trim();
-  if(!id){showError('No campaign ID');return;}
-  if(!userLatLng){showError('Location not ready');return;}
-  let finalUrl='';
-  const file=proofFileInput.files[0];
-  const pasted=proofUrlInput.value.trim();
-  try{
-    if(file){
-      finalUrl=await uploadToCloudinary(file,proofUploadStatus);
-    }else if(pasted){
-      if(!validImageUrl(pasted)){showError('Invalid URL');return;}
-      finalUrl=pasted;
-    }else{showError('Select image or enter URL');return;}
-    await push(ref(campaignDb,`campaigns/${id}/proofs`),{
-      url:finalUrl,
-      lat:userLatLng[0],
-      lng:userLatLng[1],
-      timestamp:Date.now()
-    });
-    showSuccess('Photo uploaded');
-    proofFileInput.value='';
-    proofUrlInput.value='';
-    proofPreview.style.display='none';
-    proofUploadStatus.style.display='none';
-    setTimeout(()=>closeProofModal(),1000);
-  }catch(e){
-    console.error(e);
-    showError('Upload failed');
-  }
-});
-clearProofBtn.addEventListener('click',()=>{
-  proofFileInput.value='';
-  proofPreview.style.display='none';
-  proofUrlInput.value='';
-  proofErrorMsg.style.display='none';
-  proofSuccessMsg.style.display='none';
-  proofUploadStatus.style.display='none';
-});
-
-/* Toast */
-let toastTimer=null;
-function showToast(msg,type=''){
-  toastEl.textContent='';
-  toastEl.className='toast';
-  if(type) toastEl.classList.add(type);
-  toastEl.innerHTML=(type==='error'
-    ? '<span class="material-icons" style="font-size:16px;">error</span>'
-    : '<span class="material-icons" style="font-size:16px;">check_circle</span>')+msg;
-  requestAnimationFrame(()=>toastEl.classList.add('show'));
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2600);
-}
-
-/* Path Drawing */
-let drawState='idle'; // idle | drawing | finished
-let currentPathPoints=[];
-let currentPolyline=null;
-let currentStartMarker=null;
-let currentEndMarker=null;
-let savedPathsLayers=[];
-
-let pathDeleteMode=false;
-
-function resetCurrentPathVisual(){
-  if(currentPolyline){map.removeLayer(currentPolyline);currentPolyline=null;}
-  if(currentStartMarker){map.removeLayer(currentStartMarker);currentStartMarker=null;}
-  if(currentEndMarker){map.removeLayer(currentEndMarker);currentEndMarker=null;}
-}
-function updatePathVisual(){
-  if(!currentPathPoints.length){resetCurrentPathVisual();return;}
-  if(!currentPolyline){
-    currentPolyline=L.polyline(currentPathPoints,{
-      color:'#000',
-      weight:4,
-      opacity:.95,
-      lineJoin:'round',
-      lineCap:'round',
-      dashArray: drawState==='drawing' ? '4,10' : (drawState==='finished' ? null : '6,6')
-    }).addTo(map);
-  }else{
-    currentPolyline.setLatLngs(currentPathPoints);
-    currentPolyline.setStyle({
-      dashArray: drawState==='drawing' ? '4,10' : (drawState==='finished' ? null : '6,6'),
-      weight: drawState==='finished' ? 5 : 4,
-      opacity: drawState==='finished' ? .9 : .95
-    });
-  }
-  const first=currentPathPoints[0], last=currentPathPoints[currentPathPoints.length-1];
-  if(!currentStartMarker){
-    currentStartMarker=L.circleMarker(first,{
-      radius:7,color:'#dc2626',fillColor:'#dc2626',fillOpacity:1,weight:2
-    }).addTo(map);
-  }else currentStartMarker.setLatLng(first);
-  if(!currentEndMarker){
-    currentEndMarker=L.circleMarker(last,{
-      radius:7,color:'#059669',fillColor:'#059669',fillOpacity:1,weight:2
-    }).addTo(map);
-  }else currentEndMarker.setLatLng(last);
-}
-function setDrawState(st){
-  drawState=st;
-  if(pathDeleteMode){
-    return;
-  }
-  if(st==='idle'){
-    startPathBtn.disabled=false;
-    finishPathBtn.disabled=true;
-    savePathBtn.disabled=true;
-    cancelPathBtn.disabled=true;
-    pathInfo.textContent='Start to draw path';
-  }else if(st==='drawing'){
-    startPathBtn.disabled=true;
-    finishPathBtn.disabled=false;
-    savePathBtn.disabled=true;
-    cancelPathBtn.disabled=false;
-    pathInfo.textContent='Tap map to add points';
-  }else if(st==='finished'){
-    startPathBtn.disabled=true;
-    finishPathBtn.disabled=true;
-    savePathBtn.disabled=false;
-    cancelPathBtn.disabled=false;
-    pathInfo.textContent=`Points: ${currentPathPoints.length}`;
-  }
-  if(currentPolyline) updatePathVisual();
-}
-function startPath(){
-  if(pathDeleteMode) return;
-  resetCurrentPathVisual();
-  currentPathPoints=[];
-  setDrawState('drawing');
-}
-function finishPath(){
-  if(currentPathPoints.length<2){showToast('Need 2+ points','error');return;}
-  setDrawState('finished');
-  updatePathVisual();
-}
-async function savePath(){
-  const id=campaignIdInput.value.trim();
-  if(!id){showToast('No campaign ID','error');return;}
-  if(currentPathPoints.length<2){showToast('Too few points','error');return;}
-  const pathObj={
-    points:currentPathPoints.map(p=>({lat:p.lat,lng:p.lng})),
-    zone:selected,
-    timestamp:Date.now()
-  };
-  try{
-    await push(ref(campaignDb,`campaigns/${id}/paths`),pathObj);
-    showToast('Path saved','success');
-    persistCurrentAsSaved();
-    clearCurrentPath();
-  }catch(e){
-    console.error(e);
-    showToast('Save failed','error');
-  }
-}
-function cancelPath(){
-  clearCurrentPath();
-  showToast('Canceled');
-}
-function clearCurrentPath(){
-  resetCurrentPathVisual();
-  currentPathPoints=[];
-  if(!pathDeleteMode) setDrawState('idle');
-}
-function persistCurrentAsSaved(){
-  if(!currentPolyline)return;
-  currentPolyline.setStyle({color:'#000',weight:3,opacity:0.6,dashArray:'6,6'});
-  if(currentStartMarker) currentStartMarker.setStyle({opacity:0.75,fillOpacity:0.75});
-  if(currentEndMarker) currentEndMarker.setStyle({opacity:0.75,fillOpacity:0.75});
-  savedPathsLayers.push({line:currentPolyline,start:currentStartMarker,end:currentEndMarker, key:null});
-  currentPolyline=null;currentStartMarker=null;currentEndMarker=null;
-}
-function setupPathDrawing(){
-  map.on('click',e=>{
-    if(drawState!=='drawing' || pathDeleteMode)return;
-    currentPathPoints.push(e.latlng);
-    updatePathVisual();
-  });
-  startPathBtn.addEventListener('click',startPath);
-  finishPathBtn.addEventListener('click',finishPath);
-  savePathBtn.addEventListener('click',savePath);
-  cancelPathBtn.addEventListener('click',cancelPath);
-  deletePathModeBtn.addEventListener('click',toggleDeleteMode);
-  setDrawState('idle');
-}
-
-/* Delete Mode */
-function toggleDeleteMode(){
-  pathDeleteMode=!pathDeleteMode;
-  if(pathDeleteMode){
-    if(drawState!=='idle') clearCurrentPath();
-    startPathBtn.disabled=true;
-    finishPathBtn.disabled=true;
-    savePathBtn.disabled=true;
-    cancelPathBtn.disabled=true;
-    deletePathModeBtn.classList.add('active-mode');
-    pathInfo.textContent='Tap a saved path to delete';
-    showToast('Delete mode ON','error');
-  }else{
-    deletePathModeBtn.classList.remove('active-mode');
-    showToast('Delete mode OFF');
-    setDrawState('idle');
-  }
-}
-
-async function handleDeletePath(key){
-  if(!pathDeleteMode) return;
-  if(!loadedCampaignId) { showToast('No campaign','error'); return; }
-  const confirmDel=confirm('Delete this path?');
-  if(!confirmDel) return;
-  try{
-    await remove(ref(campaignDb,`campaigns/${loadedCampaignId}/paths/${key}`));
-    showToast('Path deleted','success');
-  }catch(e){
-    console.error(e);
-    showToast('Delete failed','error');
-  }
-}
-
-/* Saved paths listener */
-function attachPathsListener(){
-  detachPathsListener();
-  const id=loadedCampaignId;
-  if(!id)return;
-  const pathsRef=ref(campaignDb,`campaigns/${id}/paths`);
-  const unsubscribe=onValue(pathsRef,snap=>{
-    savedPathsLayers.forEach(pl=>{
-      if(pl.line)map.removeLayer(pl.line);
-      if(pl.start)map.removeLayer(pl.start);
-      if(pl.end)map.removeLayer(pl.end);
-    });
-    savedPathsLayers=[];
-    if(!snap.exists())return;
-    snap.forEach(child=>{
-      const val=child.val();
-      const key=child.key;
-      if(!val||!Array.isArray(val.points)||val.points.length<2)return;
-      const latlngs=val.points.map(p=>L.latLng(p.lat,p.lng));
-      const line=L.polyline(latlngs,{color:'#000',weight:3,opacity:0.55,dashArray:'6,6'}).addTo(map);
-      const s=latlngs[0], e=latlngs[latlngs.length-1];
-      const sMarker=L.circleMarker(s,{radius:6,color:'#dc2626',fillColor:'#dc2626',fillOpacity:0.9,weight:2}).addTo(map);
-      const eMarker=L.circleMarker(e,{radius:6,color:'#059669',fillColor:'#059669',fillOpacity:0.9,weight:2}).addTo(map);
-      line.on('click',()=>{
-        if(pathDeleteMode){
-          line.setStyle({color:'#dc2626',weight:4,opacity:0.9});
-          handleDeletePath(key);
-          setTimeout(()=>{
-            if(line && map.hasLayer(line)) line.setStyle({color:'#000',weight:3,opacity:0.55,dashArray:'6,6'});
-          },800);
+    async function applyStatusToZones(zones, newStatus){
+      if(!zones.length) return;
+      const updates = {};
+      zones.forEach(zoneNum=>{
+        let nodeKey = zoneStatusKeyByZone.get(zoneNum) || String(zoneNum);
+        updates[`${nodeKey}/status`] = newStatus;
+        updates[`${nodeKey}/zoneNumber`] = zoneNum;
+        if (newStatus === 'completed') {
+            updates[`${nodeKey}/completedAt`] = serverTimestamp();
         }
       });
-      savedPathsLayers.push({line,start:sMarker,end:eMarker,key});
-    });
-  });
-  pathsListenerCleanup=()=>unsubscribe();
-}
+      await update(ref(db, ZONE_STATUS_PATH), updates);
 
-/* Restore last campaign */
-const stored=localStorage.getItem('lastCampaignId');
-if(stored){campaignIdInput.value=stored;loadCampaign(stored);}
+      if(newStatus==='booked'){
+        for(const z of zones){
+          const statusObj = zoneStatusByZone.get(z) || {};
+          if(typeof statusObj.flyersRequired === 'number'){ continue; }
+          const poly = polygonLayers[polygonsByZone.get(z)];
+          if(poly){
+            try{
+              const count = await computeBuildingCount(z, poly);
+              const required = count * 2;
+              const nodeKey = zoneStatusKeyByZone.get(z) || String(z);
+              await update(ref(db, `${ZONE_STATUS_PATH}/${nodeKey}`), { flyersRequired: required });
+            }catch(err){
+              console.error('Failed to compute flyersRequired for zone', z, err);
+            }
+          }
+        }
+      }
+    }
 
-/* Resize */
-window.addEventListener('resize',()=>{if(mapInitialized) map.invalidateSize();});
+    function recalcFlyersRequiredTotal(){
+      let total=0;
+      zoneStatusByZone.forEach(z=>{
+        if(z.status==='booked' && typeof z.flyersRequired === 'number'){
+          total += z.flyersRequired;
+        }
+      });
+      flyersRequiredEl.textContent = total.toLocaleString();
+    }
 
-/* Init */
-initMap();mapInitialized=true;
+    function getPrimaryRingLatLngs(poly){
+      let latlngs = poly.getLatLngs();
+      if(Array.isArray(latlngs[0])) latlngs = latlngs[0];
+      return latlngs;
+    }
 
-</script>
+    /* ---------------- Impressions Calculation ---------------- */
+    const IMPRESSION_MULTIPLIER = 1.5;
+    const TOTAL_DAYS = 7;
+    const TOTAL_MS = TOTAL_DAYS * 24 * 60 * 60 * 1000;
+
+    function calculateImpressionProgress(zoneStatus) {
+        const result = { total: 0, current: 0, daysPassed: 0, fullyViewed: false, isViewing: false };
+        if (zoneStatus.status !== 'completed') return result;
+
+        const verifiedAtMs = getVerifiedAtMs(zoneStatus);
+        if (!verifiedAtMs) return result;
+        
+        const totalPossible = Math.floor((zoneStatus.flyers || 0) * IMPRESSION_MULTIPLIER);
+        result.total = totalPossible;
+        
+        const now = Date.now();
+        const timeSinceVerification = now - verifiedAtMs;
+        
+        if (timeSinceVerification < 0) {
+            result.isViewing = true;
+            return result;
+        }
+
+        let currentImpressions = 0;
+        if (timeSinceVerification < TOTAL_MS) {
+            const progress = timeSinceVerification / TOTAL_MS;
+            currentImpressions = totalPossible * progress;
+            result.isViewing = true;
+        } else {
+            currentImpressions = totalPossible;
+            result.fullyViewed = true;
+        }
+        result.current = Math.floor(currentImpressions);
+        result.daysPassed = Math.min(TOTAL_DAYS, Math.floor(timeSinceVerification / (1000 * 60 * 60 * 24)));
+
+        return result;
+    }
+
+    function updateViewingZones() {
+        let needsVisualUpdate = false;
+        let totalCurrentImpressions = 0;
+        let totalPossibleImpressions = 0;
+
+        zoneStatusByZone.forEach((status) => {
+            const impressionInfo = calculateImpressionProgress(status);
+            totalCurrentImpressions += impressionInfo.current;
+            totalPossibleImpressions += impressionInfo.total;
+
+            if (status.status === 'completed' && getVerifiedAtMs(status)) {
+                const oldFullyViewed = status.fullyViewed || false;
+                status.fullyViewed = impressionInfo.fullyViewed;
+                status.isViewing = impressionInfo.isViewing;
+                if (oldFullyViewed !== impressionInfo.fullyViewed) {
+                    needsVisualUpdate = true;
+                }
+            }
+        });
+        
+        impressionsTotalEl.textContent = `${totalCurrentImpressions.toLocaleString()} / ${totalPossibleImpressions.toLocaleString()}`;
+
+        if (needsVisualUpdate) {
+            updateZonesVisual();
+        }
+    }
+    
+    function formatDateTime(ts){
+      if (!ts) return '';
+      const d=new Date(ts);
+      const p=n=>String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    }
+
+    function hideModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.style.display = 'none';
+        if (modalId === 'imgModal') {
+            document.getElementById('modalImg').src = '';
+        }
+        const anyModalOpen = Array.from(document.querySelectorAll('.modal')).some(m => m.style.display === 'flex');
+        if (!anyModalOpen) {
+            document.body.style.overflow='';
+        }
+    }
+
+    document.getElementById('modalCloseBtn').addEventListener('click', () => hideModal('imgModal'));
+    document.getElementById('imgModal').addEventListener('click', e => { if(e.target.id === 'imgModal') hideModal('imgModal'); });
+    document.addEventListener('keydown', e => { if(e.key==='Escape') { hideModal('imgModal'); }});
+
+    function hideLoader(){
+      if(!loadingOverlay) return;
+      if (loadingOverlay.classList.contains('fade-out')) return;
+      loadingOverlay.classList.add('fade-out');
+    }
+
+    function listenProofs(){
+      onValue(ref(db,'campaigns/XX959/proofs'), snap=>{
+        proofMarkers.forEach(m=>map.removeLayer(m));
+        proofMarkers=[]; proofMarkersById.clear(); proofsList=[];
+        const val=snap.val();
+        if(val){
+          for(const id in val){
+            const p=val[id];
+            if(typeof p.lat==='number' && typeof p.lng==='number' && p.url){
+              proofsList.push({id,url:p.url,lat:p.lat,lng:p.lng,timestamp:p.timestamp||0});
+            }
+          }
+        }
+        proofsList.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+        proofsList.forEach(p=>{
+          const icon=L.divIcon({
+            html:`<span class="material-icons-outlined" style="display:block;font-size:26px;color:#1976d2;text-shadow:0 0 4px #fff;">photo_camera</span>`,
+            className:'custom-camera-pin',
+            iconSize:[28,28],
+            iconAnchor:[14,28]
+          });
+          const marker=L.marker([p.lat,p.lng],{icon}).addTo(map);
+          marker.bindPopup(`
+            <div style="text-align:left;">
+              <img src="${p.url}" class="popup-img-thumb" data-proof="${p.url}" style="max-width:100px;border-radius:10px;
+                border:1px solid #d9e2e8;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.15);" alt="Proof">
+              ${p.timestamp?`<div style="margin-top:6px;font-size:10px;color:#4a5d69;display:flex;gap:4px;align-items:center;">
+                <span class="material-icons-outlined" style="font-size:12px;color:#1976d2;">schedule</span>${""}
+              </div>`:''}
+            </div>`);
+          marker.on('popupopen',()=>{
+            setTimeout(()=>{
+              const img=document.querySelector('.leaflet-popup .popup-img-thumb[data-proof]');
+              if(img) img.addEventListener('click',()=>showModal('imgModal', img.getAttribute('data-proof')));
+            },60);
+          });
+          proofMarkers.push(marker);
+          proofMarkersById.set(p.id,marker);
+        });
+        renderProofSlider();
+      });
+    }
+
+    function renderProofSlider(){
+      proofStripInner.innerHTML='';
+      if(!proofsList.length){ proofStrip.classList.remove('visible'); return; }
+      proofStrip.classList.add('visible');
+      proofsList.forEach((p,idx)=>{
+        const div=document.createElement('div');
+        div.className='proof-item';
+        div.dataset.id=p.id;
+        div.title=p.timestamp?formatDateTime(p.timestamp):'Proof';
+        div.innerHTML=`
+          <img class="proof-thumb" src="${p.url}" alt="Proof ${idx+1}">
+          ${p.timestamp?`<span class="proof-badge">${new Date(p.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`:''}`;
+        div.addEventListener('click',()=>{
+          focusProof(p.id);
+          setSelectedProof(p.id);
+        });
+        proofStripInner.appendChild(div);
+      });
+      psLeft.onclick=()=>scrollProofs(-1);
+      psRight.onclick=()=>scrollProofs(1);
+    }
+
+    function setSelectedProof(id){
+      document.querySelectorAll('.proof-item').forEach(el=>{
+        el.classList.toggle('selected', el.dataset.id===id);
+      });
+    }
+    function scrollProofs(dir){
+      const amt=Math.max(120, Math.floor(proofStripInner.clientWidth*0.8));
+      proofStripInner.scrollBy({left:dir*amt,behavior:'smooth'});
+    }
+    function focusProof(id){
+      const marker=proofMarkersById.get(id);
+      if(!marker) return;
+      const latlng = marker.getLatLng();
+      map.flyTo(latlng, Math.max(map.getZoom(),16), {duration:.6});
+      setTimeout(()=>{
+        marker.openPopup();
+        const pulse = L.circle(latlng,{radius:15,color:'#2563eb',weight:2,opacity:.9,fill:false}).addTo(map);
+        setTimeout(()=>map.removeLayer(pulse),1000);
+      },500);
+    }
+
+    function listenQrScans(){
+      onValue(ref(db,'qr_scans'), snap=>{
+        const scans=[];
+        const val=snap.val();
+        if(val){
+          for(const k in val){
+            const s=val[k];
+            if(s.promoCode==='XX959') scans.push({...s,id:k});
+          }
+          scans.sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+        }
+        qrScanCountEl.textContent=scans.length.toString();
+      });
+      qrCounter.addEventListener('click',()=>{
+        alert('QR Scans list is only available if active for this campaign.');
+      });
+    }
+
+    async function computeBuildingCount(zoneNum, poly) {
+      if (buildingDataByZone.has(zoneNum)) {
+        return buildingDataByZone.get(zoneNum).count;
+      }
+      if (buildingFetchPromises.has(zoneNum)) {
+        await buildingFetchPromises.get(zoneNum);
+        return buildingDataByZone.get(zoneNum)?.count || 0;
+      }
+      
+      const ring = getPrimaryRingLatLngs(poly);
+      if (!ring || !ring.length) {
+        buildingDataByZone.set(zoneNum, { centers: [], count: 0 });
+        return 0;
+      }
+      
+      const polyStr = ring.map(ll => `${ll.lat} ${ll.lng}`).join(' ');
+      const query = `[out:json][timeout:25];(node["building"](poly:"${polyStr}");way["building"](poly:"${polyStr}");relation["building"](poly:"${polyStr}"););out center;`;
+      
+      const prom = fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(query)
+      })
+      .then(r => {
+        if (!r.ok) throw new Error('Overpass API error');
+        return r.json();
+      })
+      .then(data => {
+        const elements = data?.elements || [];
+        const centers = [];
+        const seen = new Set();
+        elements.forEach(el => {
+          let lat, lon;
+          if (el.type === 'node' && typeof el.lat === 'number') {
+            lat = el.lat; lon = el.lon;
+          } else if (el.center) {
+            lat = el.center.lat; lon = el.center.lon;
+          }
+          if (typeof lat === 'number' && typeof lon === 'number') {
+            const key = el.type + ':' + el.id;
+            if (!seen.has(key)) {
+              seen.add(key);
+              centers.push([lat, lon]);
+            }
+          }
+        });
+        buildingDataByZone.set(zoneNum, { centers, count: centers.length });
+        return centers.length;
+      })
+      .catch(err => {
+        console.error('Building fetch failed for zone', zoneNum, err);
+        buildingDataByZone.set(zoneNum, { centers: [], count: 0 }); // Cache failure
+        return 0;
+      })
+      .finally(() => {
+        buildingFetchPromises.delete(zoneNum);
+      });
+
+      buildingFetchPromises.set(zoneNum, prom);
+      return prom;
+    }
+
+    function showBuildingDots(zoneNum, poly){
+      computeBuildingCount(zoneNum, poly).then(() => {
+        const data = buildingDataByZone.get(zoneNum);
+        if(!data) return;
+        if(currentBuildingLayerGroup){
+          map.removeLayer(currentBuildingLayerGroup);
+          currentBuildingLayerGroup = null;
+        }
+        currentBuildingLayerGroup = L.layerGroup();
+        data.centers.forEach(c=>{
+          L.circleMarker(c,{
+            radius:2.5,
+            color:'#000',
+            fillColor:'#000',
+            fillOpacity:0.85,
+            stroke:false
+          }).addTo(currentBuildingLayerGroup);
+        });
+        currentBuildingLayerGroup.addTo(map);
+      }).catch(err=>console.error('Dots error',err));
+    }
+
+    function getOrCreateDeviceId(){
+      let id = localStorage.getItem(deviceIdKey);
+      if(!id){
+        id = 'dev_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+        localStorage.setItem(deviceIdKey, id);
+      }
+      return id;
+    }
+    function getLastReadTs(){
+      const v = parseInt(localStorage.getItem(lastReadKey)||'0',10);
+      return isNaN(v)?0:v;
+    }
+    function setLastReadTs(ts){
+      localStorage.setItem(lastReadKey, String(ts||0));
+      updateChatBadge();
+    }
+    function listenChat(){
+      onValue(ref(db, CHAT_PATH), snap=>{
+        chatMessages = [];
+        const val = snap.val();
+        if(val){
+          Object.keys(val).forEach(k=>{
+            const m = val[k];
+            if(m && m.text){
+              chatMessages.push({
+                id: k,
+                text: String(m.text),
+                ts: typeof m.timestamp === 'number' ? m.timestamp : (m._serverTs || 0),
+                authorId: m.authorId || 'unknown',
+                authorName: m.authorName || 'User'
+              });
+            }
+          });
+          chatMessages.sort((a,b)=>(a.ts||0)-(b.ts||0));
+        }
+        renderChat();
+        updateChatBadge();
+
+        if(chatInitialized){
+          const unreadFromOthers = chatMessages.filter(m=>m.authorId!==myDeviceId && m.ts > getLastReadTs());
+          if(unreadFromOthers.length){
+            const last = unreadFromOthers[unreadFromOthers.length-1];
+            addNotification('chat', `New chat message: "${truncate(last.text, 48)}"`, `chat-last-${last.id}`);
+          }
+        }
+        chatInitialized = true;
+      });
+
+      chatBtn.addEventListener('click', e=>{
+        e.stopPropagation();
+        chatPanel.style.display = chatPanel.style.display === 'flex' ? 'none' : 'flex';
+        if(chatPanel.style.display === 'flex'){
+          setHeaderHeightVar();
+          setTimeout(()=>{ scrollChatToBottom(); chatInputEl.focus(); }, 60);
+        }
+      });
+      chatSendBtn.addEventListener('click', sendChatMessage);
+      chatInputEl.addEventListener('keydown', e=>{
+        if(e.key==='Enter' && !e.shiftKey){
+          e.preventDefault();
+          sendChatMessage();
+        }
+      });
+      chatMarkReadBtn.addEventListener('click', ()=>{
+        const lastTs = chatMessages.length ? chatMessages[chatMessages.length-1].ts||Date.now() : Date.now();
+        setLastReadTs(lastTs);
+      });
+    }
+    function truncate(s, n){
+      return (s||'').length>n ? s.slice(0,n-1)+'…' : s;
+    }
+    function avatarInitial(name){
+      const s = (name||'U').trim();
+      return (s[0]||'U').toUpperCase();
+    }
+    function renderChat(){
+      chatListEl.innerHTML = '';
+      if(!chatMessages.length){
+        const empty = document.createElement('div');
+        empty.style.cssText='padding:6px 8px;color:#667883;font-size:11px;text-align:center;';
+        empty.textContent = 'No messages yet. Start the conversation!';
+        chatListEl.appendChild(empty);
+        return;
+      }
+      chatMessages.forEach(m=>{
+        const isMine = m.authorId===myDeviceId;
+        const row = document.createElement('div');
+        row.className = 'chat-row'+(isMine?' mine':'');
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = avatarInitial(isMine?myName:m.authorName);
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-msg';
+        const text = document.createElement('div');
+        text.className = 'chat-text';
+        text.textContent = m.text;
+        const meta = document.createElement('div');
+        meta.className = 'chat-meta';
+        meta.innerHTML = `
+          <span class="material-icons-outlined" style="font-size:12px;color:#94a3b8;">schedule</span>
+          <span>${formatDateTime(m.ts||Date.now())}</span>
+        `;
+        bubble.appendChild(text);
+        bubble.appendChild(meta);
+        if(isMine){
+          row.appendChild(bubble);
+          row.appendChild(avatar);
+        }else{
+          row.appendChild(avatar);
+          row.appendChild(bubble);
+        }
+        chatListEl.appendChild(row);
+      });
+      scrollChatToBottom();
+    }
+    function scrollChatToBottom(){
+      chatListEl.scrollTop = chatListEl.scrollHeight + 1000;
+    }
+    async function sendChatMessage(){
+      const text = (chatInputEl.value||'').trim();
+      if(!text) return;
+      chatSendBtn.disabled = true;
+      try{
+        const now = Date.now();
+        const newRef = push(ref(db, CHAT_PATH));
+        await set(newRef, {
+          text,
+          authorId: myDeviceId,
+          authorName: myName,
+          timestamp: now,
+          _serverTs: serverTimestamp()
+        });
+        chatInputEl.value='';
+        setLastReadTs(now);
+        setTimeout(scrollChatToBottom, 60);
+      }catch(err){
+        console.error('Failed to send message', err);
+        alert('Failed to send message. Please try again.');
+      }finally{
+        chatSendBtn.disabled = false;
+      }
+    }
+    function updateChatBadge(){
+      const lastRead = getLastReadTs();
+      const unread = chatMessages.filter(m=>m.authorId!==myDeviceId && (m.ts||0)>lastRead).length;
+      if(unread>0){
+        chatBadge.textContent = String(unread);
+        chatBadge.style.display = 'inline-block';
+      }else{
+        chatBadge.style.display = 'none';
+      }
+    }
+  </script>
+
 </body>
 </html>
