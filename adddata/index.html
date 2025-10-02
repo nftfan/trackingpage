@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client and Campaign Management</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    .container {
+      display: flex;
+      gap: 40px;
+    }
+    .form-section, .table-section {
+      flex: 1;
+    }
+    h2 {
+      border-bottom: 2px solid #eee;
+      padding-bottom: 10px;
+    }
+    .form-container {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+    input[type="text"], input[type="date"], input[type="number"], input[type="url"], select {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    button.delete-btn { background-color: #f44336; }
+    button.update-btn { background-color: #008CBA; }
+    button.cancel-btn { background-color: #777; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    img {
+      max-width: 50px;
+      max-height: 50px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Dashboard</h1>
+
+  <div class="container">
+    <div class="form-section">
+      <div class="form-container">
+        <h2>Add Client</h2>
+        <form id="addClientForm">
+          <label for="clientName">Client Name (Capital Letters)</label>
+          <input type="text" id="clientName" required style="text-transform:uppercase">
+          <label for="logoUrl">Logo URL</label>
+          <input type="url" id="logoUrl" required>
+          <button type="submit">Add Client</button>
+        </form>
+      </div>
+
+      <div class="form-container">
+        <h2 id="campaignFormTitle">Add Campaign</h2>
+        <form id="addCampaignForm">
+          <input type="hidden" id="campaignIdToUpdate">
+          <label for="campaignName">Campaign Name</label>
+          <input type="text" id="campaignName" required>
+          <label for="clientSelect">Select Client</label>
+          <select id="clientSelect" required></select>
+          <label for="startDate">Start Date</label>
+          <input type="date" id="startDate" required>
+          <label for="endDate">End Date</label>
+          <input type="date" id="endDate" required>
+          <label for="flyerImageUrl">Flyer Image URL</label>
+          <input type="url" id="flyerImageUrl" required>
+          <label for="mapImageUrl">Map Image URL</label>
+          <input type="url" id="mapImageUrl" required>
+          <label for="location">Location</label>
+          <input type="text" id="location" required>
+          <label for="totalFlyers">Total Flyers</label>
+          <input type="number" id="totalFlyers" required>
+          <button type="submit" id="campaignSubmitBtn">Add Campaign</button>
+          <button type="button" id="cancelUpdateBtn" class="cancel-btn" style="display:none;">Cancel</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="table-section">
+      <h2>Campaigns</h2>
+      <table id="campaignsTable">
+        <thead>
+          <tr>
+            <th>Client Name</th>
+            <th>Client Logo</th>
+            <th>Campaign Name</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Flyer</th>
+            <th>Map</th>
+            <th>Location</th>
+            <th>Total Flyers</th>
+            <th>Unique Viewers</th>
+            <th>Impressions</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Data will be populated here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyC6wYBu-KOXkDmB-84_7OPtY71zBX4FzRY",
+        authDomain: "newnft-47bd7.firebaseapp.com",
+        databaseURL: "https://newnft-47bd7-default-rtdb.firebaseio.com",
+        projectId: "newnft-47bd7",
+        storageBucket: "newnft-47bd7.firebasestorage.app",
+        messagingSenderId: "172043823738",
+        appId: "1:172043823738:web:daf1fcfb7862d7d8f029c3",
+        measurementId: "G-8VB3DYRNXR"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+
+    // Add Client
+    document.getElementById('addClientForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const clientName = document.getElementById('clientName').value.toUpperCase();
+      const logoUrl = document.getElementById('logoUrl').value;
+      if (!clientName || !logoUrl) return;
+
+      const clientsRef = ref(database, 'clients/' + clientName);
+      set(clientsRef, { name: clientName, logoUrl: logoUrl })
+        .then(() => {
+          alert('Client added successfully!');
+          document.getElementById('addClientForm').reset();
+        })
+        .catch(error => console.error("Error adding client: ", error));
+    });
+
+    // Add or Update Campaign
+    document.getElementById('addCampaignForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const campaignId = document.getElementById('campaignIdToUpdate').value;
+      
+      const campaignData = {
+        campaignName: document.getElementById('campaignName').value,
+        clientName: document.getElementById('clientSelect').value,
+        startDate: document.getElementById('startDate').value,
+        endDate: document.getElementById('endDate').value,
+        flyerImageUrl: document.getElementById('flyerImageUrl').value,
+        mapImageUrl: document.getElementById('mapImageUrl').value,
+        location: document.getElementById('location').value,
+        totalFlyers: parseInt(document.getElementById('totalFlyers').value, 10),
+        get clientLogo() {
+            const select = document.getElementById('clientSelect');
+            const selectedOption = select.options[select.selectedIndex];
+            return selectedOption ? selectedOption.dataset.logo : '';
+        },
+        get totalUniqueViewers() { return this.totalFlyers * 1.5; },
+        get totalImpressions() { return this.totalFlyers * 2; }
+      };
+
+      if (campaignId) { // Update existing campaign
+        const campaignRef = ref(database, 'campaigns/' + campaignId);
+        update(campaignRef, campaignData)
+          .then(() => {
+            alert('Campaign updated successfully!');
+            resetCampaignForm();
+          })
+          .catch(error => console.error("Error updating campaign: ", error));
+      } else { // Add new campaign
+        const newCampaignId = Date.now();
+        const campaignsRef = ref(database, 'campaigns/' + newCampaignId);
+        set(campaignsRef, campaignData)
+          .then(() => {
+            alert('Campaign added successfully!');
+            document.getElementById('addCampaignForm').reset();
+          })
+          .catch(error => console.error("Error adding campaign: ", error));
+      }
+    });
+
+    // Populate Clients Dropdown
+    function populateClients() {
+      const clientsRef = ref(database, 'clients/');
+      const clientSelect = document.getElementById('clientSelect');
+      onValue(clientsRef, (snapshot) => {
+        const currentClient = clientSelect.value;
+        clientSelect.innerHTML = '<option value="">-- Select a Client --</option>';
+        const data = snapshot.val();
+        if (data) {
+          Object.values(data).forEach(client => {
+            const option = document.createElement('option');
+            option.value = client.name;
+            option.textContent = client.name;
+            option.dataset.logo = client.logoUrl;
+            clientSelect.appendChild(option);
+          });
+          clientSelect.value = currentClient;
+        }
+      });
+    }
+
+    // Populate Campaigns Table
+    function populateCampaigns() {
+      const campaignsRef = ref(database, 'campaigns/');
+      const tableBody = document.querySelector('#campaignsTable tbody');
+      onValue(campaignsRef, (snapshot) => {
+        tableBody.innerHTML = '';
+        const data = snapshot.val();
+        if (data) {
+          for (const key in data) {
+            const campaign = data[key];
+            const row = tableBody.insertRow();
+            row.innerHTML = `
+              <td>${campaign.clientName}</td>
+              <td><img src="${campaign.clientLogo}" alt="${campaign.clientName} Logo"></td>
+              <td>${campaign.campaignName}</td>
+              <td>${campaign.startDate}</td>
+              <td>${campaign.endDate}</td>
+              <td><img src="${campaign.flyerImageUrl}" alt="Flyer"></td>
+              <td><img src="${campaign.mapImageUrl}" alt="Map"></td>
+              <td>${campaign.location}</td>
+              <td>${campaign.totalFlyers}</td>
+              <td>${campaign.totalUniqueViewers}</td>
+              <td>${campaign.totalImpressions}</td>
+              <td>
+                <button class="update-btn" data-campaign-id="${key}">Update</button>
+                <button class="delete-btn" data-campaign-id="${key}">Delete</button>
+              </td>`;
+          }
+        }
+      });
+    }
+    
+    // Reset form to "Add" mode
+    function resetCampaignForm() {
+        document.getElementById('addCampaignForm').reset();
+        document.getElementById('campaignIdToUpdate').value = '';
+        document.getElementById('campaignFormTitle').textContent = 'Add Campaign';
+        document.getElementById('campaignSubmitBtn').textContent = 'Add Campaign';
+        document.getElementById('cancelUpdateBtn').style.display = 'none';
+    }
+
+    // Table action buttons listener (delegation)
+    document.getElementById('campaignsTable').addEventListener('click', function(e) {
+      const target = e.target;
+      const campaignId = target.getAttribute('data-campaign-id');
+
+      if (target.classList.contains('delete-btn')) {
+        if (confirm('Are you sure you want to delete this campaign?')) {
+          const campaignRef = ref(database, 'campaigns/' + campaignId);
+          remove(campaignRef).catch(error => console.error("Error deleting campaign: ", error));
+        }
+      } else if (target.classList.contains('update-btn')) {
+        const campaignRef = ref(database, 'campaigns/' + campaignId);
+        onValue(campaignRef, (snapshot) => {
+            const campaign = snapshot.val();
+            if(!campaign) return;
+
+            document.getElementById('campaignIdToUpdate').value = campaignId;
+            document.getElementById('campaignName').value = campaign.campaignName;
+            document.getElementById('clientSelect').value = campaign.clientName;
+            document.getElementById('startDate').value = campaign.startDate;
+            document.getElementById('endDate').value = campaign.endDate;
+            document.getElementById('flyerImageUrl').value = campaign.flyerImageUrl;
+            document.getElementById('mapImageUrl').value = campaign.mapImageUrl;
+            document.getElementById('location').value = campaign.location;
+            document.getElementById('totalFlyers').value = campaign.totalFlyers;
+
+            document.getElementById('campaignFormTitle').textContent = 'Update Campaign';
+            document.getElementById('campaignSubmitBtn').textContent = 'Update Campaign';
+            document.getElementById('cancelUpdateBtn').style.display = 'inline-block';
+            window.scrollTo(0, 0); // Scroll to top to see the form
+        }, { onlyOnce: true });
+      }
+    });
+
+    // Cancel update button
+    document.getElementById('cancelUpdateBtn').addEventListener('click', resetCampaignForm);
+
+    // Initial Load
+    populateClients();
+    populateCampaigns();
+
+  </script>
+</body>
+</html>
