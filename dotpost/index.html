@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dot Poster</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Icons+Outlined&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
+  <link rel="apple-touch-icon" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+  <link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    :root{
+      --bg: #0b0b0e;
+      --panel: #141419;
+      --muted: #8b8b95;
+      --text: #f2f2f7;
+      --accent: #4f8cff;
+      --accent-2: #7a5cff;
+      --success: #00d37f;
+      --shadow: 0 8px 24px rgba(0,0,0,.35);
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --radius-sm: 12px;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      padding:0;
+      height:100%;
+      background: radial-gradient(1200px 800px at 70% -10%, rgba(79,140,255,.12), transparent 60%),
+                  radial-gradient(900px 600px at -10% -10%, rgba(122,92,255,.10), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      font: 15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    .app{
+      max-width: 620px;
+      margin: 0 auto;
+      padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: 14px;
+      min-height: 100vh;
+    }
+    header{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding: 14px 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.02) 100%);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(8px);
+      box-shadow: var(--shadow);
+      justify-content: space-between;
+    }
+    .logo{
+      width:34px;height:34px; display:grid; place-items:center;
+      background: radial-gradient(120% 120% at 20% 20%, #4f8cff, #7a5cff);
+      border-radius: 10px;
+      box-shadow: 0 6px 16px rgba(79,140,255,.35), inset 0 0 20px rgba(255,255,255,.15);
+    }
+    .title-wrap{display:flex;flex-direction:column;gap:2px}
+    h1{
+      margin:0; font-size:16px; letter-spacing:.2px;
+      font-weight:700;
+    }
+    .subtitle{color:var(--muted); font-size:12px;}
+    .user-pill{
+      font-size:12px;
+      color:#cbd5ff;
+      background: rgba(122,92,255,.12);
+      border:1px solid rgba(122,92,255,.3);
+      padding:6px 10px;
+      border-radius:999px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .user-pill button{
+      appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600
+    }
+
+    .map-card{
+      position: relative;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.08);
+      background: #0f0f12;
+      box-shadow: var(--shadow);
+    }
+    #map{ height: 200px; width: 100%; }
+    .leaflet-container{ background: #0f0f12; outline: none; }
+    .leaflet-control-container .leaflet-top .leaflet-control,
+    .leaflet-control-container .leaflet-bottom .leaflet-control{
+      border-radius: 12px; overflow: hidden;
+    }
+
+    .controls{
+      display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: stretch;
+    }
+    .btn-icon{
+      appearance:none; border:0; cursor:pointer;
+      height:56px; width:56px; border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.02) 100%);
+      border: 1px solid rgba(255,255,255,.08);
+      color: var(--text);
+      display:grid; place-items:center;
+      box-shadow: var(--shadow);
+      transition: transform .12s ease, filter .12s ease, background .2s ease;
+    }
+    .btn-icon:active{ transform: scale(.98); filter: brightness(1.05); }
+    .btn-primary{
+      appearance:none; border:0; cursor:pointer;
+      border-radius: 16px; height:56px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color:white; font-weight: 700; letter-spacing:.2px;
+      box-shadow: 0 10px 24px rgba(79,140,255,.35);
+      transition: transform .12s ease, box-shadow .2s ease, filter .12s ease;
+    }
+    .btn-primary:active{ transform: translateY(1px); filter: brightness(.98); }
+    .btn-primary[disabled]{ opacity:.6; cursor:not-allowed; box-shadow:none; }
+
+    .stats{ display:flex; gap:10px; align-items:stretch; flex-wrap: wrap; }
+    .stat{
+      flex:1;
+      padding:14px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.02) 100%);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow);
+      display:flex; align-items:center; justify-content:space-between;
+      min-width: 48%;
+    }
+    .stat .label{ color: var(--muted); font-size:12px; }
+    .stat .value{ font-size:18px; font-weight:800; letter-spacing:.3px; }
+    .footnote{ color: var(--muted); font-size:12px; text-align:center; padding: 8px 6px 16px; }
+    .toast{
+      position: fixed; z-index: 9999; left: 50%; bottom: 20px; transform: translateX(-50%);
+      background: #0f0f12; border: 1px solid rgba(255,255,255,.08);
+      padding: 10px 14px; border-radius: 12px; color: var(--text); box-shadow: var(--shadow);
+      font-weight:600; opacity: 0; pointer-events:none; transition: opacity .25s ease, transform .25s ease;
+    }
+    .toast.show{ opacity:1; transform: translateX(-50%) translateY(-4px); pointer-events:auto; }
+    .hint{ font-size:12px; color: var(--muted); padding: 0 4px; }
+    a.inline{ color:#aab7ff; text-decoration: none; }
+
+    /* Modal */
+    .modal-backdrop{
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 9998;
+    }
+    .modal{
+      width: min(92vw, 420px); background: var(--panel);
+      border:1px solid rgba(255,255,255,.1); border-radius: 16px; box-shadow: var(--shadow); padding: 18px;
+    }
+    .modal h2{ margin: 0 0 8px; font-size: 18px; }
+    .modal p{ margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+    .input-row{ display:flex; gap:10px; align-items:stretch; margin-top: 8px; }
+    .input{
+      flex:1; height:48px; border-radius: 12px; padding: 0 12px;
+      border:1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
+      color: var(--text); font-weight:700; letter-spacing:.4px;
+    }
+    .btn{ height:48px; border-radius:12px; border:0; cursor:pointer; padding: 0 16px;
+      font-weight:700; color:#fff; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 8px 18px rgba(79,140,255,.35);
+    }
+    .error{ color:#ff8a8a; font-size:12px; min-height: 16px; padding-top:6px;}
+    .show{ display:flex !important; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div style="display:flex; align-items:center; gap:12px">
+        <div class="logo" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="white" stroke-opacity=".9" stroke-width="1.4"/>
+            <circle cx="12" cy="12" r="3.2" fill="white" />
+          </svg>
+        </div>
+        <div class="title-wrap">
+          <h1>Dot Poster</h1>
+          <div class="subtitle">Tap locate, then post tiny dots and earn</div>
+        </div>
+      </div>
+      <div id="userPill" class="user-pill" style="display:none">
+        <span id="userPillText"></span>
+        <button id="changeUserBtn" title="Change user">Change</button>
+      </div>
+    </header>
+
+    <div class="map-card">
+      <div id="map" role="application" aria-label="Map showing your current location and posted dots"></div>
+    </div>
+
+    <div class="controls">
+      <button id="btnLocate" class="btn-icon" title="Go to current location" aria-label="Go to current location">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="1.6"></circle>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+        </svg>
+      </button>
+      <button id="btnPost" class="btn-primary" disabled>
+        Post dot at my location
+      </button>
+    </div>
+
+    <div class="hint">Tip: Allow location permission for precise posting. Works best over HTTPS or localhost.</div>
+
+    <!-- Global stats -->
+    <div class="stats">
+      <div class="stat" aria-live="polite">
+        <span class="label">Total dots</span>
+        <span id="totalDots" class="value">0</span>
+      </div>
+      <div class="stat" aria-live="polite">
+        <span class="label">Earnings (€0.10/dot)</span>
+        <span id="earnings" class="value">€0.00</span>
+      </div>
+    </div>
+
+    <!-- Per-user stats -->
+    <div class="stats">
+      <div class="stat" aria-live="polite">
+        <span class="label">My dots</span>
+        <span id="myDots" class="value">0</span>
+      </div>
+      <div class="stat" aria-live="polite">
+        <span class="label">My earnings (€0.10/dot)</span>
+        <span id="myEarnings" class="value">€0.00</span>
+      </div>
+    </div>
+
+    <div class="footnote">Your location is used only to place dots and is stored with each post.</div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite">Posted!</div>
+
+  <!-- Simple login modal -->
+  <div id="loginBackdrop" class="modal-backdrop" aria-modal="true" role="dialog" aria-labelledby="loginTitle">
+    <div class="modal">
+      <h2 id="loginTitle">Enter User ID</h2>
+      <p>Example: FF001, FF993, etc. Use 3–10 letters/numbers. This will register the user instantly.</p>
+      <div class="input-row">
+        <input id="userIdInput" class="input" type="text" placeholder="e.g. FF993" autocomplete="off" autocapitalize="characters" maxlength="12">
+        <button id="userJoinBtn" class="btn">Join</button>
+      </div>
+      <div id="loginError" class="error"></div>
+    </div>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import {
+      getDatabase, ref, push, query, orderByChild, onValue,
+      set, update, get, runTransaction
+    } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0",
+      measurementId: "G-Y6CVEDL9XH"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // UI elements
+    const btnLocate = document.getElementById('btnLocate');
+    const btnPost = document.getElementById('btnPost');
+    const totalDotsEl = document.getElementById('totalDots');
+    const earningsEl = document.getElementById('earnings');
+    const myDotsEl = document.getElementById('myDots');
+    const myEarningsEl = document.getElementById('myEarnings');
+    const toastEl = document.getElementById('toast');
+
+    const loginBackdrop = document.getElementById('loginBackdrop');
+    const userIdInput = document.getElementById('userIdInput');
+    const userJoinBtn = document.getElementById('userJoinBtn');
+    const loginError = document.getElementById('loginError');
+    const userPill = document.getElementById('userPill');
+    const userPillText = document.getElementById('userPillText');
+    const changeUserBtn = document.getElementById('changeUserBtn');
+
+    // Map init
+    const map = L.map('map', { zoomControl: false, tap: true }).setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    const postsLayer = L.layerGroup().addTo(map);
+
+    // State
+    let currentLatLng = null;
+    let currentMarker = null;
+    const postMarkers = new Map();
+    let currentUserId = null;
+    let myStatsUnsub = null;
+
+    // Styles
+    const redStyle = { radius: 6, color: '#ff3344', weight: 2, fillColor: '#ff3344', fillOpacity: 0.9 };
+    const blackStyle = { radius: 1.6, color: '#000', weight: 1, fillColor: '#000', fillOpacity: 1 };
+
+    function showToast(text = 'Posted!') {
+      toastEl.textContent = text;
+      toastEl.classList.add('show');
+      setTimeout(() => toastEl.classList.remove('show'), 1500);
+    }
+
+    function setPostEnabled(enabled){
+      btnPost.disabled = !enabled || !currentUserId;
+    }
+
+    function ensureCurrentMarker(latlng){
+      if (!currentMarker){
+        currentMarker = L.circleMarker(latlng, redStyle).addTo(map);
+      } else {
+        currentMarker.setLatLng(latlng);
+      }
+    }
+
+    function fitIfNeeded() {
+      if (!currentLatLng && postsLayer.getLayers().length > 0) {
+        try { map.fitBounds(postsLayer.getBounds().pad(0.2), { animate: true }); } catch {}
+      }
+    }
+
+    async function goToCurrentLocation({ focus = true } = {}) {
+      if (!('geolocation' in navigator)) { showToast('Geolocation not supported'); return; }
+      return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            currentLatLng = [latitude, longitude];
+            ensureCurrentMarker(currentLatLng);
+            if (focus) map.setView(currentLatLng, Math.max(map.getZoom(), 16), { animate: true });
+            setPostEnabled(true);
+            resolve(currentLatLng);
+          },
+          (err) => {
+            console.warn('Geolocation error:', err);
+            showToast('Location permission needed');
+            setPostEnabled(false);
+            resolve(null);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+        );
+      });
+    }
+
+    if ('geolocation' in navigator) {
+      navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          currentLatLng = [latitude, longitude];
+          ensureCurrentMarker(currentLatLng);
+          setPostEnabled(true);
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 15000, timeout: 15000 }
+      );
+    }
+
+    // ========= User handling =========
+    const LS_KEY = 'dotPoster:userId';
+
+    function showLogin() {
+      loginBackdrop.classList.add('show');
+      userIdInput.value = '';
+      userIdInput.focus();
+      setPostEnabled(false);
+    }
+    function hideLogin() { loginBackdrop.classList.remove('show'); }
+    function normalizeUserId(id) { return (id || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+    function validateUserId(id) { return /^[A-Z0-9]{3,10}$/.test(id); }
+
+    function attachMyStatsListener(id) {
+      if (typeof myStatsUnsub === 'function') { myStatsUnsub(); myStatsUnsub = null; }
+      myStatsUnsub = onValue(ref(db, `users/${id}/stats`), (snap) => {
+        const stats = snap.val() || {};
+        const totalDots = stats.totalDots || 0;
+        const cents = stats.totalEarningsCents ?? (totalDots * 10);
+        myDotsEl.textContent = String(totalDots);
+        myEarningsEl.textContent = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(cents / 100);
+      });
+    }
+
+    function onUserReady(id) {
+      currentUserId = id;
+      localStorage.setItem(LS_KEY, id);
+      userPillText.textContent = `Logged in as ${id}`;
+      userPill.style.display = 'flex';
+      attachMyStatsListener(id);
+      setPostEnabled(true);
+    }
+
+    async function registerUser(id) {
+      const now = Date.now();
+      const userRef = ref(db, `users/${id}`);
+      try {
+        const snap = await get(userRef);
+        if (snap.exists()) {
+          await update(userRef, { lastActiveAt: now });
+        } else {
+          await set(userRef, {
+            createdAt: now,
+            lastActiveAt: now,
+            ua: navigator.userAgent || '',
+            stats: { totalDots: 0, totalEarningsCents: 0 }
+          });
+        }
+      } catch (e) {
+        console.error('User register error', e);
+        showToast('Failed to register user');
+      }
+    }
+
+    const stored = normalizeUserId(localStorage.getItem(LS_KEY));
+    if (validateUserId(stored)) {
+      registerUser(stored).then(() => onUserReady(stored));
+    } else {
+      showLogin();
+    }
+
+    userJoinBtn.addEventListener('click', async () => {
+      loginError.textContent = '';
+      const raw = userIdInput.value;
+      const id = normalizeUserId(raw);
+      if (!validateUserId(id)) {
+        loginError.textContent = 'Use 3–10 letters/numbers, e.g. FF001';
+        return;
+      }
+      await registerUser(id);
+      onUserReady(id);
+      hideLogin();
+      showToast(`User ${id} ready`);
+    });
+    userIdInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') userJoinBtn.click(); });
+    changeUserBtn.addEventListener('click', () => { showLogin(); });
+
+    // ========= Global posts stream =========
+    const postsRef = query(ref(db, 'posts'), orderByChild('timestamp'));
+    onValue(postsRef, (snapshot) => {
+      let count = 0;
+      postsLayer.clearLayers();
+      postMarkers.clear();
+
+      snapshot.forEach((child) => {
+        const id = child.key;
+        const val = child.val();
+        if (!val || typeof val.lat !== 'number' || typeof val.lng !== 'number') return;
+
+        const label = val.userId ? `Dot by ${val.userId}` : 'Dot';
+        const marker = L.circleMarker([val.lat, val.lng], blackStyle).bindTooltip(label, { direction: 'top', offset: [0, -8] });
+        marker.addTo(postsLayer);
+        postMarkers.set(id, marker);
+        count++;
+      });
+
+      totalDotsEl.textContent = String(count);
+      const euros = count * 0.10;
+      earningsEl.textContent = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(euros);
+
+      fitIfNeeded();
+    });
+
+    // ========= Posting =========
+    btnLocate.addEventListener('click', () => { goToCurrentLocation({ focus: true }); });
+
+    btnPost.addEventListener('click', async () => {
+      if (!currentUserId) { showToast('Enter User ID to post'); showLogin(); return; }
+      if (!currentLatLng) {
+        await goToCurrentLocation({ focus: true });
+        if (!currentLatLng) return;
+      }
+      const [lat, lng] = currentLatLng;
+      const now = Date.now();
+      const data = {
+        lat, lng,
+        userId: currentUserId,
+        timestamp: now,
+        ua: navigator.userAgent || ''
+      };
+
+      try {
+        // Multi-location update: write to global posts and per-user posts, and update lastPostAt
+        const newPostRef = push(ref(db, 'posts'));
+        const newKey = newPostRef.key;
+        const rootRef = ref(db);
+        const updates = {};
+        updates[`posts/${newKey}`] = data;
+        updates[`userPosts/${currentUserId}/${newKey}`] = data;
+        updates[`users/${currentUserId}/lastPostAt`] = now;
+
+        await update(rootRef, updates);
+
+        // Atomically bump per-user stats
+        await Promise.all([
+          runTransaction(ref(db, `users/${currentUserId}/stats/totalDots`), (v) => (v || 0) + 1),
+          runTransaction(ref(db, `users/${currentUserId}/stats/totalEarningsCents`), (v) => (v || 0) + 10)
+        ]);
+
+        showToast('Dot posted');
+        if (currentMarker) {
+          const ping = L.circle(currentMarker.getLatLng(), { radius: 10, color: '#7a5cff', weight: 1, opacity: 0.7, fillOpacity: 0 });
+          ping.addTo(map);
+          setTimeout(() => map.removeLayer(ping), 500);
+        }
+      } catch (e) {
+        console.error(e);
+        showToast('Failed to post');
+      }
+    });
+
+    // Auto prompt for location on load
+    goToCurrentLocation({ focus: false });
+
+    // Accessibility
+    [btnLocate, btnPost].forEach(btn => {
+      btn.addEventListener('keyup', (e) => { if (e.key === 'Enter' || e.key === ' ') btn.click(); });
+    });
+  </script>
+</body>
+</html>
