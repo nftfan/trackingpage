@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LeuvenFlyers — Delivery Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#FFFFFF" />
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin="anonymous"
+  />
+
+  <style>
+    :root{
+      --bg: #f4f4f6;
+      --text: #1c1c1e;
+      --bar-bg: #ffffff;
+      --bar-border: #e5e5e5;
+      --brand-text: #0056b3;
+      --bar-height: 40px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      height: 100vh;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      overscroll-behavior: none;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: var(--bar-height);
+      z-index: 1000;
+      background: var(--bar-bg);
+      border-bottom: 1px solid var(--bar-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      padding-top: env(safe-area-inset-top);
+    }
+
+    .brand {
+      font-size: 11px;
+      font-weight: normal;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand .logo {
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #4f8cff, #7a5cff);
+    }
+
+    .brand .name {
+      color: var(--brand-text);
+    }
+
+    main {
+      flex-grow: 1;
+      padding-top: calc(var(--bar-height) + env(safe-area-inset-top));
+      height: 100%;
+      position: relative;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+    .leaflet-container {
+      background: var(--bg);
+      outline: none;
+    }
+    
+    .floating-counter {
+      position: absolute;
+      bottom: calc(20px + env(safe-area-inset-bottom));
+      right: 20px;
+      z-index: 1000;
+      width: 80px;
+      height: 80px;
+      background: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #1c1c1e;
+      font-size: 24px;
+      font-weight: bold;
+      line-height: 1;
+    }
+
+    .delivery-marker-scalable {
+      width: auto;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      background: rgba(20, 20, 20, 0.9);
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 9px;
+      font-weight: normal;
+      transition: all 0.2s ease;
+    }
+    
+    /* Bigger styles for first and last markers */
+    .delivery-marker-first,
+    .delivery-marker-last {
+      min-width: 24px;
+      height: 24px;
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: 4px;
+    }
+
+    .delivery-marker-first {
+      background: #28a745; /* Green */
+    }
+    .delivery-marker-last {
+      background: #dc3545; /* Red */
+    }
+  </style>
+</head>
+<body>
+
+  <header class="top-bar" role="banner">
+    <div class="brand" aria-label="LeuvenFlyers">
+      <div class="logo" aria-hidden="true"></div>
+      <div class="name">LeuvenFlyers</div>
+    </div>
+  </header>
+
+  <main>
+    <div id="map" role="application" aria-label="Map showing where flyers were delivered"></div>
+    <div id="total-count-circle" class="floating-counter" role="status" aria-live="polite">0</div>
+  </main>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin="anonymous"
+  ></script>
+
+  <script type="module">
+    const map = L.map('map', {
+      zoomControl: true,
+      tap: true,
+      attributionControl: false,
+      maxZoom: 22, // Allow full zoom in
+    }).setView([50.8796, 4.7009], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 22, // Allow full zoom in on tiles as well
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    L.control.attribution({position: 'bottomright', prefix: ''}).addTo(map);
+
+    const postsLayer = L.layerGroup().addTo(map);
+    const totalCountCircleEl = document.getElementById('total-count-circle');
+
+    (async () => {
+      const firebaseConfig = {
+        apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+        authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+        databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+        projectId: "tokentransfer-4a9b3",
+        storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+        messagingSenderId: "205455490321",
+        appId: "1:205455490321:web:9919f5dde059316c9320b0"
+      };
+
+      try {
+        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js");
+        const { getDatabase, ref, query, orderByChild, onValue } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const postsRef = query(ref(db, 'posts'), orderByChild('timestamp'));
+
+        onValue(postsRef, (snapshot) => {
+          postsLayer.clearLayers();
+          let count = 0;
+          let lastLatLng = null;
+          const totalCount = snapshot.size;
+
+          if (snapshot.exists()) {
+            snapshot.forEach((child) => {
+              const v = child.val();
+              if (v && typeof v.lat === 'number' && typeof v.lng === 'number') {
+                count++;
+                const latlng = [v.lat, v.lng];
+                
+                let markerClassName = 'delivery-marker-scalable';
+                const isFirst = count === 1 && totalCount > 1;
+                const isLast = count === totalCount && totalCount > 1;
+
+                if (isFirst) {
+                  markerClassName += ' delivery-marker-first';
+                } else if (isLast) {
+                  markerClassName += ' delivery-marker-last';
+                }
+                
+                // Adjust anchor for bigger markers to keep them centered
+                const anchorSize = (isFirst || isLast) ? 12 : 9;
+
+                const numberIcon = L.divIcon({
+                  className: markerClassName,
+                  html: `<div>${count}</div>`,
+                  iconSize: null,
+                  iconAnchor: [anchorSize, anchorSize]
+                });
+                
+                L.marker(latlng, { icon: numberIcon }).addTo(postsLayer);
+                lastLatLng = latlng;
+              }
+            });
+          }
+
+          totalCountCircleEl.textContent = String(count);
+
+          if (lastLatLng) {
+            map.setView(lastLatLng, 16, { animate: true });
+          } else if(count > 0){
+             map.fitBounds(postsLayer.getBounds().pad(0.3));
+          }
+        });
+      } catch (e) {
+        console.error('Firebase failed to load. The map will remain active without data.', e);
+      }
+    })();
+  </script>
+</body>
+</html>
