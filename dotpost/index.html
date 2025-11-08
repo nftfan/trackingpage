@@ -153,7 +153,7 @@
       font-weight:600; opacity: 0; pointer-events:none; transition: opacity .25s ease, transform .25s ease;
     }
     .toast.show{ opacity:1; transform: translateX(-50%) translateY(-4px); pointer-events:auto; }
-    .hint{ font-size:12px; color: var(--muted); padding: 0 4px; }
+    .hint{ font size:12px; color: var(--muted); padding: 0 4px; }
     a.inline{ color:#aab7ff; text-decoration: none; }
 
     /* Modal */
@@ -221,19 +221,7 @@
 
     <div class="hint">Tip: Allow location permission for precise posting. Works best over HTTPS or localhost.</div>
 
-    <!-- Global stats -->
-    <div class="stats">
-      <div class="stat" aria-live="polite">
-        <span class="label">Total dots</span>
-        <span id="totalDots" class="value">0</span>
-      </div>
-      <div class="stat" aria-live="polite">
-        <span class="label">Earnings (€0.10/dot)</span>
-        <span id="earnings" class="value">€0.00</span>
-      </div>
-    </div>
-
-    <!-- Per-user stats -->
+    <!-- Per-user stats only -->
     <div class="stats">
       <div class="stat" aria-live="polite">
         <span class="label">My dots</span>
@@ -273,7 +261,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
     import {
       getDatabase, ref, push, query, orderByChild, onValue,
-      set, update, get, runTransaction
+      set, update, get, runTransaction, off
     } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
     const firebaseConfig = {
@@ -292,8 +280,6 @@
     // UI elements
     const btnLocate = document.getElementById('btnLocate');
     const btnPost = document.getElementById('btnPost');
-    const totalDotsEl = document.getElementById('totalDots');
-    const earningsEl = document.getElementById('earnings');
     const myDotsEl = document.getElementById('myDots');
     const myEarningsEl = document.getElementById('myEarnings');
     const toastEl = document.getElementById('toast');
@@ -318,6 +304,7 @@
     const postMarkers = new Map();
     let currentUserId = null;
     let myStatsUnsub = null;
+    let myPostsUnsub = null;
 
     // Styles
     const redStyle = { radius: 6, color: '#ff3344', weight: 2, fillColor: '#ff3344', fillOpacity: 0.9 };
@@ -391,6 +378,13 @@
       userIdInput.value = '';
       userIdInput.focus();
       setPostEnabled(false);
+      // Detach per-user listeners when changing user
+      if (typeof myStatsUnsub === 'function') { myStatsUnsub(); myStatsUnsub = null; }
+      if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
+      currentUserId = null;
+      // Clear user markers
+      postsLayer.clearLayers();
+      postMarkers.clear();
     }
     function hideLogin() { loginBackdrop.classList.remove('show'); }
     function normalizeUserId(id) { return (id || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
@@ -407,12 +401,38 @@
       });
     }
 
+    function attachMyPostsListener(id) {
+      if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
+      const myPostsRef = query(ref(db, `userPosts/${id}`), orderByChild('timestamp'));
+      const handler = (snapshot) => {
+        postsLayer.clearLayers();
+        postMarkers.clear();
+
+        snapshot.forEach((child) => {
+          const key = child.key;
+          const val = child.val();
+          if (!val || typeof val.lat !== 'number' || typeof val.lng !== 'number') return;
+
+          const label = val.userId ? `My dot (${val.userId})` : 'My dot';
+          const marker = L.circleMarker([val.lat, val.lng], blackStyle).bindTooltip(label, { direction: 'top', offset: [0, -8] });
+          marker.addTo(postsLayer);
+          postMarkers.set(key, marker);
+        });
+
+        fitIfNeeded();
+      };
+      onValue(myPostsRef, handler);
+      // Create an unsubscribe wrapper
+      myPostsUnsub = () => off(myPostsRef, 'value', handler);
+    }
+
     function onUserReady(id) {
       currentUserId = id;
       localStorage.setItem(LS_KEY, id);
       userPillText.textContent = `Logged in as ${id}`;
       userPill.style.display = 'flex';
       attachMyStatsListener(id);
+      attachMyPostsListener(id);
       setPostEnabled(true);
     }
 
@@ -460,33 +480,7 @@
     userIdInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') userJoinBtn.click(); });
     changeUserBtn.addEventListener('click', () => { showLogin(); });
 
-    // ========= Global posts stream =========
-    const postsRef = query(ref(db, 'posts'), orderByChild('timestamp'));
-    onValue(postsRef, (snapshot) => {
-      let count = 0;
-      postsLayer.clearLayers();
-      postMarkers.clear();
-
-      snapshot.forEach((child) => {
-        const id = child.key;
-        const val = child.val();
-        if (!val || typeof val.lat !== 'number' || typeof val.lng !== 'number') return;
-
-        const label = val.userId ? `Dot by ${val.userId}` : 'Dot';
-        const marker = L.circleMarker([val.lat, val.lng], blackStyle).bindTooltip(label, { direction: 'top', offset: [0, -8] });
-        marker.addTo(postsLayer);
-        postMarkers.set(id, marker);
-        count++;
-      });
-
-      totalDotsEl.textContent = String(count);
-      const euros = count * 0.10;
-      earningsEl.textContent = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(euros);
-
-      fitIfNeeded();
-    });
-
-    // ========= Posting =========
+    // ========= Posting (ONLY to userPosts, not to /posts) =========
     btnLocate.addEventListener('click', () => { goToCurrentLocation({ focus: true }); });
 
     btnPost.addEventListener('click', async () => {
@@ -505,18 +499,19 @@
       };
 
       try {
-        // Multi-location update: write to global posts and per-user posts, and update lastPostAt
-        const newPostRef = push(ref(db, 'posts'));
+        // Create a new key under userPosts/<userId> only
+        const newPostRef = push(ref(db, `userPosts/${currentUserId}`));
         const newKey = newPostRef.key;
+
+        // Multi-location update WITHOUT /posts
         const rootRef = ref(db);
         const updates = {};
-        updates[`posts/${newKey}`] = data;
         updates[`userPosts/${currentUserId}/${newKey}`] = data;
         updates[`users/${currentUserId}/lastPostAt`] = now;
 
         await update(rootRef, updates);
 
-        // Atomically bump per-user stats
+        // Atomically bump per-user stats only
         await Promise.all([
           runTransaction(ref(db, `users/${currentUserId}/stats/totalDots`), (v) => (v || 0) + 1),
           runTransaction(ref(db, `users/${currentUserId}/stats/totalEarningsCents`), (v) => (v || 0) + 10)
