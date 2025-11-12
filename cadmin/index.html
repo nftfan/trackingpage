@@ -1,8 +1,9 @@
+
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>LeuvenFlyers — Steps Admin (Update Status & Notes)</title>
+    <title>LeuvenFlyers — Steps Admin (Update Status, Notes, Meta)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <style>
@@ -94,6 +95,34 @@
       .btn:active{transform: translateY(1px)}
       .btn[disabled]{opacity:.6;cursor:not-allowed}
 
+      /* Meta block */
+      .meta{
+        margin-top:14px;
+        display:grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap:10px;
+        align-items:end;
+      }
+      @media (max-width: 800px){ .meta{grid-template-columns:1fr; } }
+      .field{
+        display:flex;flex-direction:column;gap:6px;
+      }
+      .field label{font-size:12px;color:var(--muted)}
+      .field input{
+        width:100%;
+        border-radius:10px;border:1px solid var(--border);
+        background: var(--input-bg);color:var(--text);
+        font-size:14px;padding:10px 12px;outline:none;
+      }
+      .meta-pills{
+        margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;
+      }
+      .pill{
+        display:inline-flex;align-items:center;gap:8px;
+        padding:8px 12px;border-radius:999px;border:1px solid var(--border);
+        background:var(--surface-2);font-size:12px;color:var(--text);
+      }
+
       .steps{
         margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px;
       }
@@ -159,8 +188,10 @@
       <section class="page" aria-label="Steps Admin">
         <h1>Update Status & Notes for Each Step</h1>
         <p class="subtitle">
-          Manage milestone statuses and notes per campaign. Defaults to campaign <b>XX690</b>.
-          Data path: <span class="kbd">campaigns/&lt;ID&gt;/steps</span>
+          Manage milestone statuses and notes per campaign, plus campaign meta (sector, total flyers). Defaults to <b>XX690</b>.
+          Paths:
+          <span class="kbd">campaigns/&lt;ID&gt;/steps</span> and
+          <span class="kbd">campaigns/&lt;ID&gt;/meta</span>
         </p>
 
         <div class="toolbar" role="group" aria-label="Actions">
@@ -170,14 +201,33 @@
           </div>
           <button id="loadBtn" class="btn secondary" type="button">Load</button>
           <button id="initBtn" class="btn secondary" type="button" title="Create defaults if steps are missing">Initialize defaults</button>
-          <button id="saveAllBtn" class="btn" type="button">Save all</button>
+          <button id="saveAllBtn" class="btn" type="button">Save all steps</button>
           <span class="mini" id="statusText" aria-live="polite"></span>
         </div>
 
+        <!-- Campaign Meta -->
+        <div class="meta" aria-label="Campaign meta editor">
+          <div class="field">
+            <label for="sector">Sector</label>
+            <input id="sector" type="text" placeholder="e.g., Food" />
+          </div>
+          <div class="field">
+            <label for="totalFlyers">Total Flyers</label>
+            <input id="totalFlyers" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g., 24500" />
+          </div>
+          <button id="saveMetaBtn" class="btn" type="button">Save meta</button>
+        </div>
+        <div class="meta-pills" role="group" aria-label="Data paths">
+          <span class="pill">Meta: campaigns/<span id="pillMetaId">XX690</span>/meta</span>
+          <span class="pill">Steps: campaigns/<span id="pillStepsId">XX690</span>/steps</span>
+          <span id="metaSavedAt" class="mini muted" aria-live="polite"></span>
+        </div>
+
+        <!-- Steps -->
         <div id="stepsWrap" class="steps" aria-live="polite"></div>
 
         <p class="mini" style="margin-top:12px;">
-          Tip: Click Save on an individual step to update just that one. Use “Save all” to batch update everything.
+          Tip: Click “Save” on an individual step to update just that one. Use “Save all steps” to batch update every step.
         </p>
       </section>
     </div>
@@ -227,9 +277,18 @@
       const statusText = document.getElementById("statusText");
       const toastEl = document.getElementById("toast");
 
+      // Meta DOM
+      const sectorEl = document.getElementById("sector");
+      const totalFlyersEl = document.getElementById("totalFlyers");
+      const saveMetaBtn = document.getElementById("saveMetaBtn");
+      const pillMetaId = document.getElementById("pillMetaId");
+      const pillStepsId = document.getElementById("pillStepsId");
+      const metaSavedAt = document.getElementById("metaSavedAt");
+
       let currentId = "XX690";
       let currentData = {}; // key -> {title, status, note, updatedAt, order}
 
+      // Utils
       function showToast(msg, kind="ok"){
         toastEl.textContent = msg;
         toastEl.classList.toggle("error", kind!=="ok");
@@ -238,7 +297,7 @@
         showToast._t = setTimeout(()=>{ toastEl.style.display = "none"; }, 2200);
       }
       function setBusy(b){
-        [loadBtn, initBtn, saveAllBtn].forEach(e=> e.disabled = b);
+        [loadBtn, initBtn, saveAllBtn, saveMetaBtn].forEach(e=> e.disabled = b);
         document.querySelectorAll(".step-save").forEach(e=> e.disabled = b);
       }
       function fmtTime(ts){
@@ -246,6 +305,12 @@
         const d=new Date(ts), p=(n)=>n<10?("0"+n):n;
         return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
       }
+      const toInt = (v) => {
+        const n = Number(v);
+        if (Number.isFinite(n)) return Math.max(0, Math.floor(n));
+        const parsed = parseInt(String(v).replace(/[^\d.-]/g, ""), 10);
+        return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+      };
 
       function badgeClass(status){
         if(status==="completed") return "badge b-completed";
@@ -324,22 +389,68 @@
         return m ? m.label : "Pending";
       }
 
+      async function loadMeta(id){
+        try{
+          const snap = await get(ref(db, `campaigns/${id}/meta`));
+          const meta = snap.exists() ? (snap.val() || {}) : {};
+          sectorEl.value = meta.sector ?? "";
+          totalFlyersEl.value = meta.totalFlyers ?? "";
+          metaSavedAt.textContent = meta.updatedAt ? `Meta last saved: ${fmtTime(meta.updatedAt)}` : "";
+        }catch(err){
+          console.error(err);
+          showToast("Failed to load meta.", "err");
+        }
+      }
+
+      async function saveMeta(){
+        const id = campaignIdEl.value.trim();
+        if(!id){ showToast("Enter a Campaign ID", "err"); return; }
+        const sector = sectorEl.value.trim();
+        const total = totalFlyersEl.value === "" ? null : toInt(totalFlyersEl.value);
+        if (totalFlyersEl.value !== "" && (total === null || Number.isNaN(total))) {
+          showToast("Total Flyers must be a non-negative number", "err");
+          return;
+        }
+        const payload = {
+          sector: sector || null,
+          totalFlyers: total ?? null,
+          updatedAt: Date.now()
+        };
+        setBusy(true);
+        try{
+          await update(ref(db, `campaigns/${id}/meta`), payload);
+          metaSavedAt.textContent = `Meta last saved: ${fmtTime(payload.updatedAt)}`;
+          showToast("Meta saved");
+        }catch(err){
+          console.error(err);
+          showToast("Saving meta failed. Check rules.", "err");
+        }finally{
+          setBusy(false);
+        }
+      }
+
       async function loadSteps(){
         const id = campaignIdEl.value.trim();
         if(!id){ showToast("Enter a Campaign ID", "err"); return; }
         currentId = id;
         statusText.textContent = "Loading…";
+        pillMetaId.textContent = id;
+        pillStepsId.textContent = id;
         setBusy(true);
         try{
+          // Load steps
           const snap = await get(ref(db, `campaigns/${id}/steps`));
           currentData = snap.exists() ? (snap.val() || {}) : {};
           renderSteps();
+          // Load meta
+          await loadMeta(id);
+
           statusText.textContent = `Loaded ${id}`;
           showToast(`Loaded ${id}`);
         }catch(err){
           console.error(err);
           statusText.textContent = "";
-          showToast("Failed to load steps. Check permissions.", "err");
+          showToast("Failed to load data. Check permissions.", "err");
         }finally{
           setBusy(false);
         }
@@ -390,14 +501,12 @@
         });
         setBusy(true);
         try{
-          // Build a flat update() object
           const updates = {};
           Object.entries(batch).forEach(([k, v])=>{
             updates[`${k}`] = v;
           });
           await update(ref(db, `campaigns/${currentId}/steps`), updates);
           currentData = batch;
-          // Update per-card timestamps
           Object.entries(batch).forEach(([k,v])=>{
             const savedEl = document.getElementById(`saved-${k}`);
             if(savedEl) savedEl.textContent = "Last saved: " + fmtTime(v.updatedAt);
@@ -437,6 +546,7 @@
       loadBtn.addEventListener("click", loadSteps);
       saveAllBtn.addEventListener("click", saveAll);
       initBtn.addEventListener("click", initializeDefaults);
+      saveMetaBtn.addEventListener("click", saveMeta);
       campaignIdEl.addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); loadSteps(); } });
 
       // Auto-load default campaign on start
