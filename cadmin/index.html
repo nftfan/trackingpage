@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>LeuvenFlyers — Steps Admin (Update Status & Notes)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <style>
+      :root{
+        --bg:#0b0f1a;
+        --surface:#0f1526;
+        --surface-2:#11182b;
+        --border:#202a44;
+        --text:#e6eaf6;
+        --muted:#9aa3b2;
+        --primary:#5b8cff;
+        --primary-2:#3e6ef0;
+        --success:#22c55e;
+        --warning:#f59e0b;
+        --danger:#ef4444;
+        --shadow:0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.02);
+        --radius:14px;
+        --radius-sm:10px;
+        --radius-lg:18px;
+        --input-bg:#10182b;
+        --chip-h:34px;
+      }
+      @media (prefers-color-scheme: light){
+        :root{
+          --bg:#f6f8fc;
+          --surface:#ffffff;
+          --surface-2:#f1f4fa;
+          --border:#e4e9f2;
+          --text:#0f172a;
+          --muted:#657086;
+          --primary:#4f46e5;
+          --primary-2:#4338ca;
+          --shadow:0 8px 24px rgba(16,24,40,.08), inset 0 1px 0 rgba(255,255,255,.6);
+          --input-bg:#fff;
+        }
+      }
+      *{box-sizing:border-box}
+      html,body{height:100%}
+      body{
+        margin:0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial;
+        background: linear-gradient(180deg, var(--bg), var(--surface-2) 120vh);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      .container{max-width:980px;margin-inline:auto;padding: clamp(16px, 3vw, 32px);}
+      .brandbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+      .brand-logo{
+        width:42px;height:42px;display:grid;place-items:center;color:#fff;
+        border-radius:12px;box-shadow:var(--shadow);font-weight:800;letter-spacing:.5px;
+        background:
+          radial-gradient(100% 100% at 50% 0%, rgba(255,255,255,.18), transparent 60%),
+          linear-gradient(145deg, var(--primary), var(--primary-2));
+      }
+      .brand-title{font-size: clamp(18px,3vw,22px);font-weight:800;letter-spacing:.5px;}
+
+      .page{
+        background: var(--surface);
+        border:1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+        padding: clamp(16px, 3.5vw, 28px);
+      }
+      h1{margin:0;font-size: clamp(20px,4vw,26px);line-height:1.2;}
+      .subtitle{margin-top:6px;color:var(--muted);font-size:13px}
+
+      .toolbar{
+        margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center
+      }
+      .field-inline{
+        display:flex;align-items:center;gap:8px;background:var(--surface-2);
+        border:1px solid var(--border);border-radius:10px;padding:6px 8px;
+      }
+      .field-inline input{
+        border:none;outline:none;background:transparent;color:var(--text);
+        font-size:14px;min-width:140px;
+      }
+      .btn{
+        appearance:none;border:none;border-radius:10px;padding:9px 12px;
+        font-weight:700;letter-spacing:.3px;cursor:pointer;
+        background: linear-gradient(90deg, var(--primary), var(--primary-2));
+        color:#fff;box-shadow: var(--shadow);
+        transition: transform .05s ease, filter .15s ease, opacity .15s ease;
+      }
+      .btn.secondary{
+        background:transparent;color:var(--text);border:1px solid var(--border);
+      }
+      .btn:active{transform: translateY(1px)}
+      .btn[disabled]{opacity:.6;cursor:not-allowed}
+
+      .steps{
+        margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px;
+      }
+      @media (max-width: 800px){ .steps{grid-template-columns:1fr;} }
+
+      .step-card{
+        background: var(--surface-2);
+        border:1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding:12px;display:flex;flex-direction:column;gap:8px;
+      }
+      .step-head{
+        display:flex;align-items:center;justify-content:space-between;gap:10px;
+      }
+      .step-title{font-weight:800;letter-spacing:.3px}
+      .badge{
+        display:inline-flex;align-items:center;gap:6px;height:var(--chip-h);
+        padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid transparent;
+      }
+      .b-pending{ background: color-mix(in oklab, var(--warning) 13%, transparent); color: color-mix(in oklab, var(--warning) 75%, var(--text)); border-color: color-mix(in oklab, var(--warning) 35%, var(--border));}
+      .b-in_progress{ background: color-mix(in oklab, var(--primary) 13%, transparent); color: color-mix(in oklab, var(--primary) 80%, var(--text)); border-color: color-mix(in oklab, var(--primary) 35%, var(--border));}
+      .b-completed{ background: color-mix(in oklab, var(--success) 13%, transparent); color: color-mix(in oklab, var(--success) 70%, var(--text)); border-color: color-mix(in oklab, var(--success) 35%, var(--border));}
+
+      .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+      .row .spacer{flex:1}
+
+      .control{
+        display:flex;flex-direction:column;gap:6px;flex:1;
+      }
+      .control label{font-size:12px;color:var(--muted)}
+      .control select, .control textarea{
+        width:100%;border-radius:10px;border:1px solid var(--border);
+        background: var(--input-bg);color:var(--text);
+        font-size:14px;padding:8px 10px;outline:none;
+      }
+      .control textarea{min-height:84px;resize:vertical}
+
+      .save-row{display:flex;gap:8px;align-items:center}
+      .mini{font-size:11px;color:var(--muted)}
+      .muted{color:var(--muted)}
+      .toast{
+        position:fixed;left:50%;transform:translateX(-50%);
+        bottom:18px;background:rgba(34,197,94,.12);
+        color:#22c55e;border:1px solid rgba(34,197,94,.35);
+        padding:10px 14px;border-radius:12px;font-weight:700;font-size:12px;
+        box-shadow: var(--shadow);display:none;z-index:50;
+      }
+      .toast.error{background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.35)}
+      .kbd{
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        background: var(--surface); border:1px solid var(--border); border-radius:6px; padding:2px 6px; font-size:12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="brandbar">
+        <div class="brand-logo">LF</div>
+        <div class="brand-title">LeuvenFlyers — Steps Admin</div>
+      </div>
+
+      <section class="page" aria-label="Steps Admin">
+        <h1>Update Status & Notes for Each Step</h1>
+        <p class="subtitle">
+          Manage milestone statuses and notes per campaign. Defaults to campaign <b>XX690</b>.
+          Data path: <span class="kbd">campaigns/&lt;ID&gt;/steps</span>
+        </p>
+
+        <div class="toolbar" role="group" aria-label="Actions">
+          <div class="field-inline">
+            <label for="campaignId" class="muted" style="font-size:12px;">Campaign ID</label>
+            <input id="campaignId" value="XX690" autocomplete="off" spellcheck="false" />
+          </div>
+          <button id="loadBtn" class="btn secondary" type="button">Load</button>
+          <button id="initBtn" class="btn secondary" type="button" title="Create defaults if steps are missing">Initialize defaults</button>
+          <button id="saveAllBtn" class="btn" type="button">Save all</button>
+          <span class="mini" id="statusText" aria-live="polite"></span>
+        </div>
+
+        <div id="stepsWrap" class="steps" aria-live="polite"></div>
+
+        <p class="mini" style="margin-top:12px;">
+          Tip: Click Save on an individual step to update just that one. Use “Save all” to batch update everything.
+        </p>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+      import { getDatabase, ref, get, update, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+      // Firebase (same project used by your map/dashboard)
+      const firebaseConfig = {
+        apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+        authDomain:"trackingclients.firebaseapp.com",
+        projectId:"trackingclients",
+        storageBucket:"trackingclients.appspot.com",
+        messagingSenderId:"27490943622",
+        appId:"1:27490943622:web:d6c87547aa5df440508707",
+        databaseURL:"https://trackingclients-default-rtdb.firebaseio.com/"
+      };
+
+      const app = initializeApp(firebaseConfig, "lf-steps-admin");
+      const db = getDatabase(app);
+
+      // Default steps
+      const DEFAULT_STEPS = [
+        { key:"initial_planning", title:"Initial campaign planning" },
+        { key:"distributor",      title:"Finding distributor" },
+        { key:"printing",         title:"Printing" },
+        { key:"pickup",           title:"Flyer pick up" },
+        { key:"distribution",     title:"Flyer distribution" },
+        { key:"payment",          title:"Payment" },
+        { key:"feedback",         title:"Feedback" },
+      ];
+      const STATUS_OPTIONS = [
+        { value:"pending", label:"Pending" },
+        { value:"in_progress", label:"In Progress" },
+        { value:"completed", label:"Completed" },
+      ];
+
+      // DOM
+      const campaignIdEl = document.getElementById("campaignId");
+      const loadBtn = document.getElementById("loadBtn");
+      const initBtn = document.getElementById("initBtn");
+      const saveAllBtn = document.getElementById("saveAllBtn");
+      const stepsWrap = document.getElementById("stepsWrap");
+      const statusText = document.getElementById("statusText");
+      const toastEl = document.getElementById("toast");
+
+      let currentId = "XX690";
+      let currentData = {}; // key -> {title, status, note, updatedAt, order}
+
+      function showToast(msg, kind="ok"){
+        toastEl.textContent = msg;
+        toastEl.classList.toggle("error", kind!=="ok");
+        toastEl.style.display = "block";
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(()=>{ toastEl.style.display = "none"; }, 2200);
+      }
+      function setBusy(b){
+        [loadBtn, initBtn, saveAllBtn].forEach(e=> e.disabled = b);
+        document.querySelectorAll(".step-save").forEach(e=> e.disabled = b);
+      }
+      function fmtTime(ts){
+        if(!ts) return "";
+        const d=new Date(ts), p=(n)=>n<10?("0"+n):n;
+        return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+      }
+
+      function badgeClass(status){
+        if(status==="completed") return "badge b-completed";
+        if(status==="in_progress") return "badge b-in_progress";
+        return "badge b-pending";
+      }
+
+      function renderSteps(){
+        stepsWrap.innerHTML = "";
+        const ordered = DEFAULT_STEPS.map(s => {
+          const existing = currentData[s.key] || {};
+          return {
+            key: s.key,
+            title: existing.title || s.title,
+            status: existing.status || "pending",
+            note: existing.note || "",
+            updatedAt: existing.updatedAt || null,
+            order: existing.order ?? DEFAULT_STEPS.findIndex(x => x.key===s.key)
+          };
+        });
+        ordered.forEach(s => {
+          const card = document.createElement("div");
+          card.className = "step-card";
+          card.id = `step-${s.key}`;
+          card.innerHTML = `
+            <div class="step-head">
+              <div class="step-title">${s.title}</div>
+              <div class="${badgeClass(s.status)}" id="badge-${s.key}">${labelFor(s.status)}</div>
+            </div>
+
+            <div class="row">
+              <div class="control" style="max-width:220px;">
+                <label for="status-${s.key}">Status</label>
+                <select id="status-${s.key}" data-key="${s.key}">
+                  ${STATUS_OPTIONS.map(opt => `<option value="${opt.value}" ${opt.value===s.status?'selected':''}>${opt.label}</option>`).join("")}
+                </select>
+              </div>
+              <div class="control">
+                <label for="note-${s.key}">Notes</label>
+                <textarea id="note-${s.key}" data-key="${s.key}" placeholder="Add notes...">${escapeHtml(s.note)}</textarea>
+              </div>
+            </div>
+
+            <div class="save-row">
+              <button class="btn step-save" data-key="${s.key}">Save</button>
+              <span class="mini" id="saved-${s.key}">${s.updatedAt ? "Last saved: "+fmtTime(s.updatedAt) : ""}</span>
+              <span class="spacer"></span>
+              <span class="mini muted">Key: ${s.key}</span>
+            </div>
+          `;
+          stepsWrap.appendChild(card);
+        });
+
+        // Wire events
+        stepsWrap.querySelectorAll("select[id^='status-']").forEach(sel=>{
+          sel.addEventListener("change", (e)=>{
+            const k = e.target.dataset.key;
+            const v = e.target.value;
+            const badge = document.getElementById(`badge-${k}`);
+            if(badge){
+              badge.className = badgeClass(v);
+              badge.textContent = labelFor(v);
+            }
+          });
+        });
+        stepsWrap.querySelectorAll(".step-save").forEach(btn=>{
+          btn.addEventListener("click", () => saveOne(btn.dataset.key));
+        });
+      }
+
+      function escapeHtml(str=""){
+        return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+      }
+      function labelFor(status){
+        const m = STATUS_OPTIONS.find(o=>o.value===status);
+        return m ? m.label : "Pending";
+      }
+
+      async function loadSteps(){
+        const id = campaignIdEl.value.trim();
+        if(!id){ showToast("Enter a Campaign ID", "err"); return; }
+        currentId = id;
+        statusText.textContent = "Loading…";
+        setBusy(true);
+        try{
+          const snap = await get(ref(db, `campaigns/${id}/steps`));
+          currentData = snap.exists() ? (snap.val() || {}) : {};
+          renderSteps();
+          statusText.textContent = `Loaded ${id}`;
+          showToast(`Loaded ${id}`);
+        }catch(err){
+          console.error(err);
+          statusText.textContent = "";
+          showToast("Failed to load steps. Check permissions.", "err");
+        }finally{
+          setBusy(false);
+        }
+      }
+
+      async function saveOne(key){
+        const statusEl = document.getElementById(`status-${key}`);
+        const noteEl = document.getElementById(`note-${key}`);
+        const title = DEFAULT_STEPS.find(s=>s.key===key)?.title || (currentData[key]?.title ?? key);
+        const status = statusEl?.value || "pending";
+        const note = noteEl?.value?.trim() || "";
+        const payload = {
+          title,
+          status,
+          note: note || null,
+          updatedAt: Date.now(),
+          order: DEFAULT_STEPS.findIndex(s=>s.key===key)
+        };
+        setBusy(true);
+        try{
+          await update(ref(db, `campaigns/${currentId}/steps/${key}`), payload);
+          currentData[key] = payload;
+          const savedEl = document.getElementById(`saved-${key}`);
+          if(savedEl) savedEl.textContent = "Last saved: " + fmtTime(payload.updatedAt);
+          showToast(`Saved: ${title}`);
+        }catch(err){
+          console.error(err);
+          showToast("Save failed for step.", "err");
+        }finally{
+          setBusy(false);
+        }
+      }
+
+      async function saveAll(){
+        const batch = {};
+        DEFAULT_STEPS.forEach((s, idx)=>{
+          const statusEl = document.getElementById(`status-${s.key}`);
+          const noteEl = document.getElementById(`note-${s.key}`);
+          const status = statusEl?.value || "pending";
+          const note = noteEl?.value?.trim() || "";
+          batch[s.key] = {
+            title: s.title,
+            status,
+            note: note || null,
+            updatedAt: Date.now(),
+            order: idx
+          };
+        });
+        setBusy(true);
+        try{
+          // Build a flat update() object
+          const updates = {};
+          Object.entries(batch).forEach(([k, v])=>{
+            updates[`${k}`] = v;
+          });
+          await update(ref(db, `campaigns/${currentId}/steps`), updates);
+          currentData = batch;
+          // Update per-card timestamps
+          Object.entries(batch).forEach(([k,v])=>{
+            const savedEl = document.getElementById(`saved-${k}`);
+            if(savedEl) savedEl.textContent = "Last saved: " + fmtTime(v.updatedAt);
+          });
+          showToast("All steps saved");
+        }catch(err){
+          console.error(err);
+          showToast("Save all failed.", "err");
+        }finally{
+          setBusy(false);
+        }
+      }
+
+      async function initializeDefaults(){
+        const id = campaignIdEl.value.trim();
+        if(!id){ showToast("Enter a Campaign ID", "err"); return; }
+        const now = Date.now();
+        const initObj = {};
+        DEFAULT_STEPS.forEach((s, i)=>{
+          initObj[s.key] = { title:s.title, status:"pending", note:null, updatedAt:now, order:i };
+        });
+        setBusy(true);
+        try{
+          await set(ref(db, `campaigns/${id}/steps`), initObj);
+          currentData = initObj;
+          renderSteps();
+          showToast("Defaults initialized");
+        }catch(err){
+          console.error(err);
+          showToast("Initialization failed.", "err");
+        }finally{
+          setBusy(false);
+        }
+      }
+
+      // Wire up
+      loadBtn.addEventListener("click", loadSteps);
+      saveAllBtn.addEventListener("click", saveAll);
+      initBtn.addEventListener("click", initializeDefaults);
+      campaignIdEl.addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); loadSteps(); } });
+
+      // Auto-load default campaign on start
+      loadSteps();
+    </script>
+  </body>
+</html>
