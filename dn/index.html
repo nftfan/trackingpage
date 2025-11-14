@@ -108,8 +108,8 @@
     }
 
     .map-wrapper {
-      height: 300px;
-      min-height: 300px;
+      height: 400px;
+      min-height: 400px;
       position: relative;
       flex-shrink: 0;
       background: #000;
@@ -257,6 +257,55 @@
       letter-spacing: 0.14em;
     }
 
+    /* RSS headlines list (font size same as top bar text: 8px) */
+    .rss-headlines {
+      margin-top: 4px;
+      border-top: 1px solid rgba(228, 174, 100, 0.25);
+      padding-top: 4px;
+      max-height: 72px;
+      overflow-y: auto;
+    }
+    .rss-headlines-title {
+      font-size: 8px;
+      line-height: 1.2;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .rss-headlines-title-icon {
+      font-family: 'Material Icons Outlined';
+      font-size: 9px;
+      line-height: 1;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .rss-headlines-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .rss-headline-item {
+      font-size: 8px;
+      line-height: 1.4;
+      color: var(--text-secondary);
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .rss-headline-item a {
+      color: inherit;
+      text-decoration: none;
+    }
+    .rss-headline-item a:hover {
+      text-decoration: underline;
+    }
+
     .leaflet-container {
       background: #050510;
     }
@@ -378,10 +427,20 @@
             <span class="btn-icon">save</span>
           </button>
         </div>
+
         <div class="note-footer">
           <div class="note-status" id="note-status">
             Waiting for location...
           </div>
+        </div>
+
+        <!-- RSS headlines under text input -->
+        <div class="rss-headlines" id="rss-headlines">
+          <div class="rss-headlines-title">
+            <span class="rss-headlines-title-icon">feed</span>
+            <span id="rss-headlines-title-text">Loading headlines…</span>
+          </div>
+          <ul class="rss-headlines-list" id="rss-headlines-list"></ul>
         </div>
       </div>
     </div>
@@ -417,6 +476,9 @@
       const noteStatus = document.getElementById("note-status");
       const fallbackMsg = document.getElementById("fallback-msg");
       const topBarDatetime = document.getElementById("top-bar-datetime");
+
+      const rssHeadlinesTitleText = document.getElementById("rss-headlines-title-text");
+      const rssHeadlinesList = document.getElementById("rss-headlines-list");
 
       let map;
       let currentMarker;
@@ -661,6 +723,56 @@
         });
       }
 
+      // Fetch RSS headlines using rss2json to bypass CORS
+      function fetchRssHeadlines() {
+        const RAW_RSS_URL =
+          "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US%3Aen";
+
+        const API_URL =
+          "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(RAW_RSS_URL);
+
+        rssHeadlinesList.innerHTML = "";
+        rssHeadlinesTitleText.textContent = "Loading headlines…";
+
+        fetch(API_URL)
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error("Network response was not ok");
+            }
+            return res.json();
+          })
+          .then((data) => {
+            if (!data.items || !data.items.length) {
+              rssHeadlinesTitleText.textContent = "No headlines available";
+              return;
+            }
+
+            rssHeadlinesTitleText.textContent = "Top headlines";
+
+            const maxItems = 10;
+            data.items.slice(0, maxItems).forEach((item) => {
+              const title = item.title || "(no title)";
+              const link = item.link || "#";
+
+              const li = document.createElement("li");
+              li.className = "rss-headline-item";
+
+              const a = document.createElement("a");
+              a.href = link;
+              a.target = "_blank";
+              a.rel = "noopener noreferrer";
+              a.textContent = title;
+
+              li.appendChild(a);
+              rssHeadlinesList.appendChild(li);
+            });
+          })
+          .catch((err) => {
+            console.error("RSS fetch error:", err);
+            rssHeadlinesTitleText.textContent = "Headlines unavailable";
+          });
+      }
+
       noteText.addEventListener("focus", () => {
         document.body.style.zoom = "1.0";
       });
@@ -685,9 +797,11 @@
         goToCurrentLocation();
         listenForNotes();
         setStatus("Waiting for location...");
-        // init top bar time + update every second
         updateTopBarTime();
         setInterval(updateTopBarTime, 1000);
+
+        fetchRssHeadlines();
+        setInterval(fetchRssHeadlines, 10 * 60 * 1000);
       });
     })();
   </script>
