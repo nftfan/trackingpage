@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <title>Location Notes Map (Mobile)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Personal Delivery">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1869/1869397.png">
+
+  <!-- Google Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
 
   <!-- Leaflet CSS -->
   <link
@@ -46,7 +53,6 @@
       background: radial-gradient(circle at top, #151528 0, #050510 55%);
       color: var(--text-primary);
       font-size: 16px;
-      /* allow scrolling on mobile */
       overflow-x: hidden;
       overflow-y: auto;
     }
@@ -61,6 +67,44 @@
       flex-direction: column;
       width: 100%;
       background: #050510;
+    }
+
+    /* Top sleek date-time bar (11px height) */
+    .top-bar {
+      height: 11px;
+      min-height: 11px;
+      background: linear-gradient(90deg, #050510 0, #151528 40%, #050510 100%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 8px;
+    }
+    .top-bar-content {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .top-bar-icon {
+      font-family: 'Material Icons Outlined';
+      font-size: 9px;
+      line-height: 1;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .top-bar-text {
+      font-size: 8px;
+      line-height: 1;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .map-wrapper {
@@ -100,7 +144,6 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      /* content can be taller than viewport; page will scroll */
     }
 
     .controls-row {
@@ -131,7 +174,8 @@
     }
 
     .btn-icon {
-      font-size: 18px;
+      font-family: 'Material Icons Outlined';
+      font-size: 20px;
       line-height: 1;
     }
 
@@ -297,6 +341,14 @@
 </head>
 <body>
   <div id="app">
+    <!-- Top sleek bar with date / day / time -->
+    <div class="top-bar">
+      <div class="top-bar-content">
+        <span class="top-bar-icon">schedule</span>
+        <span class="top-bar-text" id="top-bar-datetime">--</span>
+      </div>
+    </div>
+
     <div class="map-wrapper">
       <div id="map"></div>
       <div class="fallback-msg" id="fallback-msg" style="display:none;">
@@ -308,10 +360,10 @@
     <div class="bottom-panel">
       <div class="controls-row">
         <button class="btn" id="btn-my-location" aria-label="My Location" title="My Location">
-          <span class="btn-icon">📍</span>
+          <span class="btn-icon">my_location</span>
         </button>
         <button class="btn btn-secondary btn-disabled btn-small" id="btn-prev-note" aria-label="Previous Note" title="Previous Note">
-          <span class="btn-icon">⏮️</span>
+          <span class="btn-icon">history</span>
         </button>
       </div>
 
@@ -323,7 +375,7 @@
             placeholder="Write a note for this location..."
           ></textarea>
           <button class="btn btn-small" id="btn-save-note" aria-label="Save Note" title="Save Note">
-            💾
+            <span class="btn-icon">save</span>
           </button>
         </div>
         <div class="note-footer">
@@ -364,6 +416,7 @@
       const noteText = document.getElementById("note-text");
       const noteStatus = document.getElementById("note-status");
       const fallbackMsg = document.getElementById("fallback-msg");
+      const topBarDatetime = document.getElementById("top-bar-datetime");
 
       let map;
       let currentMarker;
@@ -404,6 +457,25 @@
         const dayStr = d.toLocaleDateString(undefined, optionsDay);
         const timeStr = d.toLocaleTimeString(undefined, optionsTime);
         return dayStr + " · " + timeStr;
+      }
+
+      function updateTopBarTime() {
+        const now = new Date();
+        const optionsDay = {
+          weekday: "short",
+          day: "2-digit",
+          month: "short",
+          year: "numeric"
+        };
+        const optionsTime = {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false
+        };
+        const dayStr = now.toLocaleDateString(undefined, optionsDay);
+        const timeStr = now.toLocaleTimeString(undefined, optionsTime);
+        topBarDatetime.textContent = dayStr + " · " + timeStr;
       }
 
       function setStatus(msg) {
@@ -613,6 +685,9 @@
         goToCurrentLocation();
         listenForNotes();
         setStatus("Waiting for location...");
+        // init top bar time + update every second
+        updateTopBarTime();
+        setInterval(updateTopBarTime, 1000);
       });
     })();
   </script>
