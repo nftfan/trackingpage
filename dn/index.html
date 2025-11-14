@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Location Notes Map (Mobile)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Personal Delivery">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1869/1869397.png">
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <!-- Firebase compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-main: #050510;
+      --bg-panel: #0a0a1c;
+      --bg-card: #151528;
+      --accent: #e4ae64;
+      --accent-soft: rgba(228, 174, 100, 0.26);
+      --text-primary: #e4ae64;
+      --text-secondary: #b8945a;
+      --border-subtle: rgba(228, 174, 100, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #151528 0, #050510 55%);
+      color: var(--text-primary);
+      overflow: hidden;
+      font-size: 16px;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #app {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 600px;
+      margin: 0 auto;
+      background: #050510;
+    }
+
+    .map-wrapper {
+      height: 400px;
+      min-height: 400px;
+      position: relative;
+      flex-shrink: 0;
+      background: #000;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+
+    .fallback-msg {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      pointer-events: none;
+      color: var(--text-secondary);
+      z-index: 20;
+      font-size: 13px;
+    }
+
+    .bottom-panel {
+      flex: 1;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border-subtle);
+      padding: 12px 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .btn {
+      border: none;
+      outline: none;
+      border-radius: 999px;
+      padding: 10px 12px;
+      font-size: 14px; /* big enough for no zoom */
+      text-transform: none;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      background: rgba(18, 15, 24, 0.95);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .btn-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .btn-small {
+      flex: 0 0 auto;
+    }
+
+    .btn:hover {
+      background: rgba(32, 26, 42, 1);
+    }
+
+    .btn:active {
+      transform: translateY(1px) scale(0.98);
+    }
+
+    .btn-secondary {
+      background: rgba(10, 10, 24, 0.85);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(22, 18, 32, 0.95);
+    }
+
+    .btn-disabled {
+      opacity: 0.5;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .note-input-card {
+      border-radius: 16px;
+      background: linear-gradient(135deg, #151528 0, #050510 100%);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+      padding: 10px 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .note-input-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .note-textarea {
+      flex: 1;
+      min-height: 54px;
+      max-height: 120px;
+      resize: none;
+      border-radius: 12px;
+      padding: 10px 10px;
+      border: 1px solid rgba(228, 174, 100, 0.3);
+      background: rgba(5, 5, 18, 0.9);
+      color: var(--text-primary);
+      font-size: 16px;
+      line-height: 1.3;
+      outline: none;
+    }
+
+    .note-textarea::placeholder {
+      color: var(--text-secondary);
+    }
+
+    .note-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .note-status {
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .leaflet-container {
+      background: #050510;
+    }
+
+    /* Hide default Leaflet attribution & zoom controls */
+    .leaflet-control-attribution,
+    .leaflet-control-zoom {
+      display: none !important;
+    }
+
+    @keyframes marker-pulse {
+      0% {
+        transform: translate(-50%, -50%) scale(0.9);
+        box-shadow: 0 0 0 0 rgba(116, 172, 255, 0.6);
+      }
+      70% {
+        transform: translate(-50%, -50%) scale(1.1);
+        box-shadow: 0 0 0 12px rgba(116, 172, 255, 0);
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(0.9);
+        box-shadow: 0 0 0 0 rgba(116, 172, 255, 0);
+      }
+    }
+
+    .current-location-marker {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffffff 0, #5b8dff 35%, #304fdd 75%);
+      border: 2px solid #ffffff;
+      animation: marker-pulse 1.8s ease-out infinite;
+      transform: translate(-50%, -50%);
+      position: relative;
+    }
+
+    .note-marker-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffefef 0, #ff5050 45%, #a80000 80%);
+      border: 1px solid #ffffff;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 8px rgba(255, 80, 80, 0.9);
+    }
+
+    .note-popup {
+      max-width: 240px;
+      background: #050509;
+      border-radius: 10px;
+      padding: 8px 10px;
+      border: 1px solid rgba(228, 174, 100, 0.5);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+      color: var(--text-primary);
+      font-family: inherit;
+    }
+    .note-popup-text {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin-bottom: 4px;
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+    .note-popup-time {
+      font-size: 8px;
+      color: var(--text-secondary);
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: transparent;
+      box-shadow: none;
+      border-radius: 10px;
+      padding: 0;
+    }
+    .leaflet-popup-content {
+      margin: 0;
+    }
+    .leaflet-popup-tip {
+      background: #050509;
+      border: 1px solid rgba(228, 174, 100, 0.5);
+    }
+
+    @media (min-width: 700px) {
+      #app {
+        margin-top: 12px;
+        margin-bottom: 12px;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="map-wrapper">
+      <div id="map"></div>
+      <div class="fallback-msg" id="fallback-msg" style="display:none;">
+        Unable to load the map. Check your internet connection or try
+        a different browser.
+      </div>
+    </div>
+
+    <div class="bottom-panel">
+      <div class="controls-row">
+        <!-- My Location button: icon only -->
+        <button class="btn" id="btn-my-location" aria-label="My Location" title="My Location">
+          <span class="btn-icon">📍</span>
+        </button>
+        <!-- Previous Note button: icon only -->
+        <button class="btn btn-secondary btn-disabled btn-small" id="btn-prev-note" aria-label="Previous Note" title="Previous Note">
+          <span class="btn-icon">⏮️</span>
+        </button>
+      </div>
+
+      <div class="note-input-card">
+        <div class="note-input-row">
+          <textarea
+            id="note-text"
+            class="note-textarea"
+            placeholder="Write a note for this location..."
+          ></textarea>
+          <button class="btn btn-small" id="btn-save-note" aria-label="Save Note" title="Save Note">
+            💾
+          </button>
+        </div>
+        <div class="note-footer">
+          <div class="note-status" id="note-status">
+            Waiting for location...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0",
+      measurementId: "G-Y6CVEDL9XH"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    (function () {
+      const btnMyLocation = document.getElementById("btn-my-location");
+      const btnPrevNote = document.getElementById("btn-prev-note");
+      const btnSaveNote = document.getElementById("btn-save-note");
+      const noteText = document.getElementById("note-text");
+      const noteStatus = document.getElementById("note-status");
+      const fallbackMsg = document.getElementById("fallback-msg");
+
+      let map;
+      let currentMarker;
+      let notes = [];
+      let currentNoteIndex = null;
+      let currentLocation = null;
+      let noteMarkers = {};
+      let tileLayer;
+
+      function isDaytime() {
+        const now = new Date();
+        const hour = now.getHours();
+        // Day between 06:00 and 18:00 local time
+        return hour >= 6 && hour < 18;
+      }
+
+      function getTileUrl() {
+        if (isDaytime()) {
+          return "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+        } else {
+          return "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+        }
+      }
+
+      function formatTimestamp(ts) {
+        const d = new Date(ts);
+        const optionsDay = {
+          weekday: "long",
+          day: "numeric",
+          month: "short",
+          year: "numeric"
+        };
+        const optionsTime = {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false
+        };
+        const dayStr = d.toLocaleDateString(undefined, optionsDay);
+        const timeStr = d.toLocaleTimeString(undefined, optionsTime);
+        return dayStr + " · " + timeStr;
+      }
+
+      function setStatus(msg) {
+        noteStatus.textContent = msg;
+      }
+
+      function initMap() {
+        try {
+          map = L.map("map", {
+            worldCopyJump: true,
+            zoomControl: false,       // no zoom buttons
+            zoomSnap: 0.5,
+            attributionControl: false // no attribution bar
+          }).setView([20, 0], 2);
+
+          tileLayer = L.tileLayer(getTileUrl(), {
+            subdomains: "abcd",
+            maxZoom: 19
+          }).addTo(map);
+
+          fallbackMsg.style.display = "none";
+        } catch (e) {
+          console.error("Map init error:", e);
+          fallbackMsg.style.display = "flex";
+        }
+      }
+
+      function setCurrentMarker(lat, lng) {
+        if (!map) return;
+        if (!currentMarker) {
+          const markerHtml = '<div class="current-location-marker"></div>';
+          const customIcon = L.divIcon({
+            className: "",
+            html: markerHtml,
+            iconSize: [1, 1],
+            iconAnchor: [0, 0]
+          });
+          currentMarker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+        } else {
+          currentMarker.setLatLng([lat, lng]);
+        }
+      }
+
+      function goToCurrentLocation() {
+        if (!navigator.geolocation) {
+          setStatus("Geolocation not supported");
+          return;
+        }
+        setStatus("Locating...");
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            currentLocation = { lat, lng };
+            if (map) {
+              map.flyTo([lat, lng], 15, { animate: true, duration: 1.2 });
+            }
+            setCurrentMarker(lat, lng);
+            setStatus("Location ready");
+          },
+          (err) => {
+            console.error("Geolocation error:", err);
+            setStatus("Unable to get location");
+          },
+          { enableHighAccuracy: true }
+        );
+      }
+
+      function createNotePopupContent(note) {
+        const safeText = (note.text || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+        const timeStr = formatTimestamp(note.timestamp || Date.now());
+        return `
+          <div class="note-popup">
+            <div class="note-popup-text">${safeText}</div>
+            <div class="note-popup-time">${timeStr}</div>
+          </div>
+        `;
+      }
+
+      function ensureNoteMarker(note) {
+        if (!map) return;
+        if (noteMarkers[note.id]) return noteMarkers[note.id];
+
+        const markerHtml = '<div class="note-marker-dot"></div>';
+        const noteIcon = L.divIcon({
+          className: "",
+          html: markerHtml,
+          iconSize: [1, 1],
+          iconAnchor: [0, 0]
+        });
+
+        const marker = L.marker([note.lat, note.lng], { icon: noteIcon }).addTo(map);
+        marker.bindPopup(createNotePopupContent(note));
+        noteMarkers[note.id] = marker;
+        return marker;
+      }
+
+      function openNotePopup(index) {
+        if (!notes.length || index == null || index < 0 || index >= notes.length) {
+          return;
+        }
+        currentNoteIndex = index;
+        const note = notes[index];
+        const marker = ensureNoteMarker(note);
+        if (map) {
+          map.flyTo([note.lat, note.lng], 15, { animate: true, duration: 1.0 });
+        }
+        marker.setPopupContent(createNotePopupContent(note));
+        marker.openPopup();
+        setPrevNoteButtonState();
+      }
+
+      function setPrevNoteButtonState() {
+        if (!notes.length || currentNoteIndex === null || currentNoteIndex <= 0) {
+          btnPrevNote.classList.add("btn-disabled");
+        } else {
+          btnPrevNote.classList.remove("btn-disabled");
+        }
+      }
+
+      function saveNote() {
+        const text = noteText.value.trim();
+        if (!text) {
+          setStatus("Enter a note before saving");
+          return;
+        }
+        if (!currentLocation) {
+          setStatus("Location not ready yet");
+          return;
+        }
+        const ts = Date.now();
+        const noteObj = {
+          text: text,
+          lat: currentLocation.lat,
+          lng: currentLocation.lng,
+          timestamp: ts
+        };
+        setStatus("Saving note...");
+        const ref = db.ref("notes").push();
+        ref
+          .set(noteObj)
+          .then(() => {
+            noteText.value = "";
+            setStatus("Note saved");
+          })
+          .catch((err) => {
+            console.error("Error saving note:", err);
+            setStatus("Error saving note");
+          });
+      }
+
+      function listenForNotes() {
+        const notesRef = db.ref("notes");
+        notesRef.orderByChild("timestamp").on("value", (snap) => {
+          const val = snap.val();
+          const newNotes = [];
+          if (val) {
+            Object.keys(val).forEach((key) => {
+              newNotes.push({ id: key, ...val[key] });
+            });
+          }
+          notes = newNotes;
+
+          const validIds = new Set(notes.map((n) => n.id));
+          Object.keys(noteMarkers).forEach((id) => {
+            if (!validIds.has(id)) {
+              if (map && noteMarkers[id]) {
+                map.removeLayer(noteMarkers[id]);
+              }
+              delete noteMarkers[id];
+            }
+          });
+
+          if (notes.length) {
+            openNotePopup(notes.length - 1);
+          } else {
+            currentNoteIndex = null;
+            setPrevNoteButtonState();
+          }
+        });
+      }
+
+      noteText.addEventListener("focus", () => {
+        document.body.style.zoom = "1.0";
+      });
+
+      btnMyLocation.addEventListener("click", () => {
+        goToCurrentLocation();
+      });
+
+      btnSaveNote.addEventListener("click", () => {
+        saveNote();
+      });
+
+      btnPrevNote.addEventListener("click", () => {
+        if (!notes.length || currentNoteIndex === null) return;
+        if (currentNoteIndex > 0) {
+          openNotePopup(currentNoteIndex - 1);
+        }
+      });
+
+      window.addEventListener("load", () => {
+        initMap();
+        goToCurrentLocation();
+        listenForNotes();
+        setStatus("Waiting for location...");
+      });
+    })();
+  </script>
+</body>
+</html>
