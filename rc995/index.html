@@ -21,7 +21,7 @@
 
         --text-primary: #f0f4f9;
         --text-secondary: #b0b8c7;
-        --text-tertiary: #808d9f;
+        --text-tertiary: #ffffff;
 
         --color-primary: #5b9cff;
         --color-primary-dark: #4a89e8;
@@ -158,7 +158,7 @@
       }
 
       .kpi-card {
-        background: var(--surface-1);
+        background: #dd4033;
         border: 1px solid var(--border-light);
         border-radius: var(--radius-lg);
         padding: 12px;
@@ -172,7 +172,6 @@
 
       .kpi-card-action { cursor: pointer; }
 
-      /* Custom background colors for the two action "buttons" (cards) */
       .kpi-card-action--track {
         background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
         color: #ffffff;
@@ -347,7 +346,6 @@
         line-height: 1.4;
       }
 
-      /* Removed metrics-block from distribution row per request */
       .right { text-align: right; }
 
       @media (max-width: 768px) {
@@ -412,6 +410,10 @@
             <span>Sector:</span>
             <span class="badge-value" id="sectorValue">Food</span>
           </span>
+          <span class="badge">
+            <span>Printed:</span>
+            <span class="badge-value" id="totalFlyersBadge">24,500</span>
+          </span>
           <span class="badge" id="statusPill" style="display:none;">
             <span>Status:</span>
             <span class="badge-value" id="campaignStatus">—</span>
@@ -422,50 +424,14 @@
       <div class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-header">
-            <div class="kpi-icon">🖨️</div>
-            <div class="kpi-label">Printed</div>
-          </div>
-          <div class="kpi-value" id="totalFlyers">24,500</div>
-          <div class="kpi-description">Total flyers printed</div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-header">
             <div class="kpi-icon">📦</div>
             <div class="kpi-label">Delivered</div>
           </div>
-            <div class="kpi-value" id="flyersDistributed">0</div>
+          <div class="kpi-value" id="flyersDistributed">0</div>
           <div class="progress-bar">
             <div class="progress-fill" id="distributionBar" style="--progress:0%"></div>
           </div>
           <div class="kpi-description"><span id="distributionPct">0%</span> of printed</div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-header">
-            <div class="kpi-icon">🕓</div>
-            <div class="kpi-label">Remaining</div>
-          </div>
-          <div class="kpi-value" id="flyersRemainingCard">24,500</div>
-          <div class="kpi-description">Awaiting distribution</div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-header">
-            <div class="kpi-icon">📱</div>
-            <div class="kpi-label">QR Scans</div>
-          </div>
-          <div class="kpi-value" id="qrScans">0</div>
-          <div class="kpi-description">Recorded events</div>
-        </div>
-
-        <div class="kpi-card" id="distributionPctCard" aria-label="Distribution percentage">
-          <div class="kpi-header">
-            <div class="kpi-icon">🔢</div>
-            <div class="kpi-label">Distributed %</div>
-          </div>
-          <div class="kpi-value" id="distributionPctCardValue">0%</div>
-          <div class="kpi-description">Progress toward full distribution</div>
         </div>
 
         <a class="kpi-card kpi-card-action kpi-card-action--track" id="cardTrackLink" href="#" target="_blank" rel="noopener" aria-label="Track flyers">
@@ -552,7 +518,6 @@
                 </td>
                 <td data-label="Notes" class="right note-text">
                   <span id="note-distribution">0%</span>
-                  <!-- Metrics removed per request -->
                 </td>
               </tr>
               <tr>
@@ -599,12 +564,11 @@
 
       const CAMPAIGN_ID = "XX995";
 
-      const totalEl = document.getElementById("totalFlyers");
+      // Elements
+      const printedBadgeEl = document.getElementById("totalFlyersBadge");
       const distEl = document.getElementById("flyersDistributed");
       const barEl = document.getElementById("distributionBar");
       const pctEl = document.getElementById("distributionPct");
-      const pctCardValue = document.getElementById("distributionPctCardValue");
-      const qrEl = document.getElementById("qrScans");
       const sectorEl = document.getElementById("sectorValue");
       const campaignStatusEl = document.getElementById("campaignStatus");
       const statusPill = document.getElementById("statusPill");
@@ -612,9 +576,7 @@
       const pillCampaign = document.getElementById("pillCampaign");
       const cardTrackLink = document.getElementById("cardTrackLink");
       const cardPlanLink = document.getElementById("cardPlanLink");
-      const flyersRemainingCard = document.getElementById("flyersRemainingCard");
 
-      // Removed metric element refs because metrics row is hidden
       const STEP_KEYS = [
         "initial_planning",
         "distributor",
@@ -635,14 +597,14 @@
         if (v === null || v === undefined) return 0;
         const n = Number(v);
         return Number.isFinite(n) ? n : parseInt(String(v).replace(/[^\d.-]/g, ""), 10) || 0;
-      };
+        };
 
       function setProgress() {
         const pct = totalFlyers > 0 ? (distributedLatest / totalFlyers) * 100 : 0;
         const pctClamped = Math.max(0, Math.min(100, pct));
+
         if (barEl) barEl.style.setProperty("--progress", pctClamped.toFixed(1) + "%");
         if (pctEl) pctEl.textContent = Math.round(pctClamped) + "%";
-        if (pctCardValue) pctCardValue.textContent = Math.round(pctClamped) + "%";
 
         const badge = document.getElementById("status-distribution");
         const note = document.getElementById("note-distribution");
@@ -663,10 +625,6 @@
           }
         }
         if (note) note.textContent = `${Math.round(pctClamped)}%`;
-        if (flyersRemainingCard) {
-          const remaining = Math.max(0, totalFlyers - distributedLatest);
-          flyersRemainingCard.textContent = remaining.toLocaleString();
-        }
       }
 
       function statusToClass(status) {
@@ -694,7 +652,7 @@
       }
       function setTotalFlyersUI(val) {
         totalFlyers = Math.max(0, toInt(val));
-        if (totalEl) totalEl.textContent = totalFlyers.toLocaleString();
+        if (printedBadgeEl) printedBadgeEl.textContent = totalFlyers.toLocaleString();
         setProgress();
       }
 
@@ -753,21 +711,7 @@
         setProgress();
       });
 
-      onValue(ref(db, "qr_scans"), (snap) => {
-        let count = 0;
-        if (snap.exists()) {
-          const val = snap.val() || {};
-          for (const k in val) {
-            const s = val[k];
-            if (s && s.promoCode === CAMPAIGN_ID) count++;
-          }
-        }
-        if (qrEl) qrEl.textContent = count.toLocaleString();
-      }, (err) => {
-        console.error("Failed to read qr_scans", err);
-        if (qrEl) qrEl.textContent = "0";
-      });
-
+      // Initialize UI with defaults
       setTotalFlyersUI(totalFlyers);
     </script>
   </body>
