@@ -257,54 +257,6 @@
       letter-spacing: 0.14em;
     }
 
-    /* RSS section as its own card (no internal scroll, full headlines) */
-    .rss-card {
-      margin-top: 8px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #151528 0, #050510 100%);
-      border: 1px solid rgba(228, 174, 100, 0.25);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-      padding: 10px 10px 8px;
-    }
-    .rss-headlines-title {
-      font-size: 8px;  /* same as top bar text */
-      line-height: 1.2;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--text-secondary);
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .rss-headlines-title-icon {
-      font-family: 'Material Icons Outlined';
-      font-size: 9px;  /* same as top bar icon */
-      line-height: 1;
-      color: var(--accent);
-      flex-shrink: 0;
-    }
-    .rss-headlines-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
-    .rss-headline-item {
-      font-size: 8px;  /* same as top bar text */
-      line-height: 1.4;
-      color: var(--text-secondary);
-      margin-bottom: 4px;
-      white-space: normal;          /* show full headline, let it wrap */
-      word-break: break-word;       /* avoid overflow */
-    }
-    .rss-headline-item a {
-      color: inherit;
-      text-decoration: none;
-    }
-    .rss-headline-item a:hover {
-      text-decoration: underline;
-    }
-
     .leaflet-container {
       background: #050510;
     }
@@ -435,15 +387,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Separate RSS section, no inner scroll, full headlines -->
-      <div class="rss-card" id="rss-card">
-        <div class="rss-headlines-title">
-          <span class="rss-headlines-title-icon">feed</span>
-          <span id="rss-headlines-title-text">Loading headlines…</span>
-        </div>
-        <ul class="rss-headlines-list" id="rss-headlines-list"></ul>
-      </div>
     </div>
   </div>
 
@@ -478,9 +421,6 @@
       const noteStatus = document.getElementById("note-status");
       const fallbackMsg = document.getElementById("fallback-msg");
       const topBarDatetime = document.getElementById("top-bar-datetime");
-
-      const rssHeadlinesTitleText = document.getElementById("rss-headlines-title-text");
-      const rssHeadlinesList = document.getElementById("rss-headlines-list");
 
       let map;
       let currentMarker;
@@ -706,6 +646,7 @@
           }
           notes = newNotes;
 
+          // Remove markers for deleted notes
           const validIds = new Set(notes.map((n) => n.id));
           Object.keys(noteMarkers).forEach((id) => {
             if (!validIds.has(id)) {
@@ -716,6 +657,12 @@
             }
           });
 
+          // Ensure a marker exists for every note so all red dots are always shown
+          notes.forEach((note) => {
+            ensureNoteMarker(note);
+          });
+
+          // Optionally open the latest note popup
           if (notes.length) {
             openNotePopup(notes.length - 1);
           } else {
@@ -723,56 +670,6 @@
             setPrevNoteButtonState();
           }
         });
-      }
-
-      // Fetch RSS headlines using rss2json (works in browser, no custom backend).
-      function fetchRssHeadlines() {
-        const RAW_RSS_URL =
-          "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US%3Aen";
-
-        const API_URL =
-          "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(RAW_RSS_URL);
-
-        rssHeadlinesList.innerHTML = "";
-        rssHeadlinesTitleText.textContent = "Loading headlines…";
-
-        fetch(API_URL)
-          .then((res) => {
-            if (!res.ok) {
-              throw new Error("Network response was not ok");
-            }
-            return res.json();
-          })
-          .then((data) => {
-            if (!data.items || !data.items.length) {
-              rssHeadlinesTitleText.textContent = "No headlines available";
-              return;
-            }
-
-            rssHeadlinesTitleText.textContent = "Top headlines";
-
-            const maxItems = 10;
-            data.items.slice(0, maxItems).forEach((item) => {
-              const title = item.title || "(no title)";
-              const link = item.link || "#";
-
-              const li = document.createElement("li");
-              li.className = "rss-headline-item";
-
-              const a = document.createElement("a");
-              a.href = link;
-              a.target = "_blank";
-              a.rel = "noopener noreferrer";
-              a.textContent = title; // full headline; CSS wraps it
-
-              li.appendChild(a);
-              rssHeadlinesList.appendChild(li);
-            });
-          })
-          .catch((err) => {
-            console.error("RSS fetch error:", err);
-            rssHeadlinesTitleText.textContent = "Headlines unavailable";
-          });
       }
 
       noteText.addEventListener("focus", () => {
@@ -806,9 +703,6 @@
         setStatus("Waiting for location...");
         updateTopBarTime();
         setInterval(updateTopBarTime, 1000);
-
-        fetchRssHeadlines();
-        setInterval(fetchRssHeadlines, 10 * 60 * 1000);
       });
     })();
   </script>
