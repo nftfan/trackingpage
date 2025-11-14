@@ -1,949 +1,556 @@
+
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
-    <title>LeuvenFlyers — Campaign Dashboard</title>
+    <title>LeuvenFlyers — Steps Admin (Update Status, Notes, Meta)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <style>
-      /* ====== Design Tokens ====== */
-      :root {
-        --bg-primary: #0a0e17;
-        --bg-secondary: #0d1322;
-        --surface-1: #0f1628;
-        --surface-2: #131b2e;
-        --surface-3: #172237;
-
-        --border-light: rgba(255, 255, 255, 0.08);
-        --border-medium: rgba(255, 255, 255, 0.12);
-
-        --text-primary: #f0f4f9;
-        --text-secondary: #b0b8c7;
-        --text-tertiary: #808d9f;
-
-        --color-primary: #5b9cff;
-        --color-primary-dark: #4a89e8;
-        --color-accent: #6ea8ff;
-
-        --color-success: #10b981;
-        --color-warning: #f59e0b;
-        --color-danger: #ef4444;
-        --color-info: #3b82f6;
-
-        --radius-md: 10px;
-        --radius-lg: 14px;
-        --radius-xl: 18px;
-
-        --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-        --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.25);
-        --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
-
-        --transition-fast: 150ms ease;
-        --transition-normal: 250ms ease;
+      :root{
+        --bg:#0b0f1a;
+        --surface:#0f1526;
+        --surface-2:#11182b;
+        --border:#202a44;
+        --text:#e6eaf6;
+        --muted:#9aa3b2;
+        --primary:#5b8cff;
+        --primary-2:#3e6ef0;
+        --success:#22c55e;
+        --warning:#f59e0b;
+        --danger:#ef4444;
+        --shadow:0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.02);
+        --radius:14px;
+        --radius-sm:10px;
+        --radius-lg:18px;
+        --input-bg:#10182b;
+        --chip-h:34px;
       }
-
-      @media (prefers-color-scheme: light) {
-        :root {
-          --bg-primary: #f8fafc;
-          --bg-secondary: #f1f5f9;
-          --surface-1: #ffffff;
-          --surface-2: #f8fafc;
-          --surface-3: #f1f5f9;
-
-          --border-light: rgba(15, 23, 42, 0.06);
-          --border-medium: rgba(15, 23, 42, 0.1);
-
-          --text-primary: #0f172a;
-          --text-secondary: #475569;
-          --text-tertiary: #64748b;
-
-          --color-primary: #4f46e5;
-          --color-primary-dark: #4338ca;
-          --color-accent: #6366f1;
-
-          --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-          --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-          --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+      @media (prefers-color-scheme: light){
+        :root{
+          --bg:#f6f8fc;
+          --surface:#ffffff;
+          --surface-2:#f1f4fa;
+          --border:#e4e9f2;
+          --text:#0f172a;
+          --muted:#657086;
+          --primary:#4f46e5;
+          --primary-2:#4338ca;
+          --shadow:0 8px 24px rgba(16,24,40,.08), inset 0 1px 0 rgba(255,255,255,.6);
+          --input-bg:#fff;
         }
       }
-
-      /* ====== Base Styles ====== */
-      * { box-sizing: border-box; }
-      html, body { height: 100%; }
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
-        background: var(--bg-primary);
-        color: var(--text-primary);
+      *{box-sizing:border-box}
+      html,body{height:100%}
+      body{
+        margin:0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial;
+        background: linear-gradient(180deg, var(--bg), var(--surface-2) 120vh);
+        color: var(--text);
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        line-height: 1.5;
-        letter-spacing: -0.005em;
-        font-size: 14px;
       }
-
-      .container {
-        max-width: 1280px;
-        margin: 0 auto;
-        padding: 12px;
+      .container{max-width:980px;margin-inline:auto;padding: clamp(16px, 3vw, 32px);}
+      .brandbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+      .brand-logo{
+        width:42px;height:42px;display:grid;place-items:center;color:#fff;
+        border-radius:12px;box-shadow:var(--shadow);font-weight:800;letter-spacing:.5px;
+        background:
+          radial-gradient(100% 100% at 50% 0%, rgba(255,255,255,.18), transparent 60%),
+          linear-gradient(145deg, var(--primary), var(--primary-2));
       }
+      .brand-title{font-size: clamp(18px,3vw,22px);font-weight:800;letter-spacing:.5px;}
 
-      /* ====== Header / Navigation ====== (buttons removed as requested) */
-      .header {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        margin-bottom: 16px;
-        gap: 12px;
-      }
-
-      .header-left {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 0;
-      }
-
-      .logo {
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+      .page{
+        background: var(--surface);
+        border:1px solid var(--border);
         border-radius: var(--radius-lg);
-        color: white;
-        font-weight: 800;
-        font-size: 16px;
-        box-shadow: var(--shadow-md);
-        flex-shrink: 0;
+        box-shadow: var(--shadow);
+        padding: clamp(16px, 3.5vw, 28px);
+      }
+      h1{margin:0;font-size: clamp(20px,4vw,26px);line-height:1.2;}
+      .subtitle{margin-top:6px;color:var(--muted);font-size:13px}
+
+      .toolbar{
+        margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center
+      }
+      .field-inline{
+        display:flex;align-items:center;gap:8px;background:var(--surface-2);
+        border:1px solid var(--border);border-radius:10px;padding:6px 8px;
+      }
+      .field-inline input{
+        border:none;outline:none;background:transparent;color:var(--text);
+        font-size:14px;min-width:140px;
+      }
+      .btn{
+        appearance:none;border:none;border-radius:10px;padding:9px 12px;
+        font-weight:700;letter-spacing:.3px;cursor:pointer;
+        background: linear-gradient(90deg, var(--primary), var(--primary-2));
+        color:#fff;box-shadow: var(--shadow);
+        transition: transform .05s ease, filter .15s ease, opacity .15s ease;
+      }
+      .btn.secondary{
+        background:transparent;color:var(--text);border:1px solid var(--border);
+      }
+      .btn:active{transform: translateY(1px)}
+      .btn[disabled]{opacity:.6;cursor:not-allowed}
+
+      /* Meta block */
+      .meta{
+        margin-top:14px;
+        display:grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap:10px;
+        align-items:end;
+      }
+      @media (max-width: 800px){ .meta{grid-template-columns:1fr; } }
+      .field{
+        display:flex;flex-direction:column;gap:6px;
+      }
+      .field label{font-size:12px;color:var(--muted)}
+      .field input{
+        width:100%;
+        border-radius:10px;border:1px solid var(--border);
+        background: var(--input-bg);color:var(--text);
+        font-size:14px;padding:10px 12px;outline:none;
+      }
+      .meta-pills{
+        margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;
+      }
+      .pill{
+        display:inline-flex;align-items:center;gap:8px;
+        padding:8px 12px;border-radius:999px;border:1px solid var(--border);
+        background:var(--surface-2);font-size:12px;color:var(--text);
       }
 
-      .logo-text {
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
+      .steps{
+        margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px;
       }
+      @media (max-width: 800px){ .steps{grid-template-columns:1fr;} }
 
-      .logo-title {
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--text-primary);
-        line-height: 1.2;
-      }
-
-      .logo-subtitle {
-        font-size: 10px;
-        color: var(--text-tertiary);
-        font-weight: 500;
-      }
-
-      /* ====== Buttons (reused inside table rows) ====== */
-      .btn {
-        appearance: none;
-        border: none;
-        border-radius: var(--radius-md);
-        padding: 8px 11px;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        cursor: pointer;
-        transition: all var(--transition-fast);
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-        white-space: nowrap;
-        flex-shrink: 0;
-      }
-      .btn-primary {
-        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-        color: white;
-        box-shadow: var(--shadow-sm);
-      }
-      .btn-secondary {
+      .step-card{
         background: var(--surface-2);
-        color: var(--text-primary);
-        border: 1px solid var(--border-medium);
+        border:1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding:12px;display:flex;flex-direction:column;gap:8px;
       }
-      .btn-primary:active,
-      .btn-secondary:active {
-        transform: scale(0.98);
+      .step-head{
+        display:flex;align-items:center;justify-content:space-between;gap:10px;
       }
+      .step-title{font-weight:800;letter-spacing:.3px}
+      .badge{
+        display:inline-flex;align-items:center;gap:6px;height:var(--chip-h);
+        padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid transparent;
+      }
+      .b-pending{ background: color-mix(in oklab, var(--warning) 13%, transparent); color: color-mix(in oklab, var(--warning) 75%, var(--text)); border-color: color-mix(in oklab, var(--warning) 35%, var(--border));}
+      .b-in_progress{ background: color-mix(in oklab, var(--primary) 13%, transparent); color: color-mix(in oklab, var(--primary) 80%, var(--text)); border-color: color-mix(in oklab, var(--primary) 35%, var(--border));}
+      .b-completed{ background: color-mix(in oklab, var(--success) 13%, transparent); color: color-mix(in oklab, var(--success) 70%, var(--text)); border-color: color-mix(in oklab, var(--success) 35%, var(--border));}
 
-      /* Row action container */
-      .row-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 6px;
-      }
+      .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+      .row .spacer{flex:1}
 
-      /* ====== Page Title Section ====== */
-      .page-title {
-        margin-bottom: 16px;
+      .control{
+        display:flex;flex-direction:column;gap:6px;flex:1;
       }
-      .page-title h1 {
-        margin: 0 0 4px 0;
-        font-size: 20px;
-        font-weight: 700;
-        color: var(--text-primary);
-        line-height: 1.2;
+      .control label{font-size:12px;color:var(--muted)}
+      .control select, .control textarea{
+        width:100%;border-radius:10px;border:1px solid var(--border);
+        background: var(--input-bg);color:var(--text);
+        font-size:14px;padding:8px 10px;outline:none;
       }
-      .page-title p {
-        margin: 0;
-        font-size: 11px;
-        color: var(--text-secondary);
-      }
+      .control textarea{min-height:84px;resize:vertical}
 
-      .badges-row {
-        display: flex;
-        gap: 8px;
-        margin-top: 10px;
-        flex-wrap: wrap;
+      .save-row{display:flex;gap:8px;align-items:center}
+      .mini{font-size:11px;color:var(--muted)}
+      .muted{color:var(--muted)}
+      .toast{
+        position:fixed;left:50%;transform:translateX(-50%);
+        bottom:18px;background:rgba(34,197,94,.12);
+        color:#22c55e;border:1px solid rgba(34,197,94,.35);
+        padding:10px 14px;border-radius:12px;font-weight:700;font-size:12px;
+        box-shadow: var(--shadow);display:none;z-index:50;
       }
-
-      .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 6px 10px;
-        background: var(--surface-2);
-        border: 1px solid var(--border-medium);
-        border-radius: 999px;
-        font-size: 10px;
-        color: var(--text-secondary);
-        font-weight: 600;
-      }
-
-      .badge-value {
-        color: var(--text-primary);
-        font-weight: 700;
-      }
-
-      /* ====== KPI Grid ====== */
-      .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 10px;
-        margin-bottom: 16px;
-      }
-
-      .kpi-card {
-        background: var(--surface-1);
-        border: 1px solid var(--border-light);
-        border-radius: var(--radius-lg);
-        padding: 12px;
-        box-shadow: var(--shadow-sm);
-        transition: all var(--transition-normal);
-      }
-
-      .kpi-card:active {
-        border-color: var(--border-medium);
-        box-shadow: var(--shadow-md);
-      }
-
-      .kpi-header {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 8px;
-      }
-
-      .kpi-icon {
-        font-size: 16px;
-        flex-shrink: 0;
-      }
-
-      .kpi-label {
-        font-size: 9px;
-        color: var(--text-tertiary);
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        line-height: 1.1;
-      }
-
-      .kpi-value {
-        font-size: 20px;
-        font-weight: 800;
-        color: var(--text-primary);
-        margin: 4px 0;
-        letter-spacing: -0.02em;
-        line-height: 1.2;
-      }
-
-      .kpi-description {
-        font-size: 10px;
-        color: var(--text-tertiary);
-        line-height: 1.3;
-      }
-
-      .progress-bar {
-        margin-top: 8px;
-        height: 5px;
-        background: var(--surface-2);
-        border-radius: 999px;
-        overflow: hidden;
-        border: 1px solid var(--border-light);
-      }
-
-      .progress-fill {
-        height: 100%;
-        background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 100%);
-        width: var(--progress, 0%);
-        transition: width 500ms ease;
-        border-radius: 999px;
-      }
-
-      /* ====== Table Section ====== */
-      .section {
-        margin-bottom: 16px;
-      }
-
-      .section-title {
-        font-size: 12px;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-      }
-
-      .table-container {
-        background: var(--surface-1);
-        border: 1px solid var(--border-light);
-        border-radius: var(--radius-lg);
-        box-shadow: var(--shadow-sm);
-        overflow: hidden;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-
-      thead th {
-        padding: 10px;
-        text-align: left;
-        background: var(--surface-2);
-        border-bottom: 1px solid var(--border-medium);
-        font-size: 10px;
-        font-weight: 700;
-        color: var(--text-tertiary);
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-      }
-
-      tbody td {
-        padding: 10px;
-        border-bottom: 1px solid var(--border-light);
-        font-size: 11px;
-        vertical-align: top;
-      }
-
-      tbody tr:last-child td {
-        border-bottom: none;
-      }
-
-      tbody tr {
-        transition: background-color var(--transition-fast);
-      }
-
-      tbody tr:active {
-        background: var(--surface-2);
-      }
-
-      /* ====== Status Badges ====== */
-      .status-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 5px 9px;
-        border-radius: 5px;
-        font-size: 10px;
-        font-weight: 700;
-        border: 1px solid transparent;
-        white-space: nowrap;
-      }
-
-      .status-dot {
-        width: 5px;
-        height: 5px;
-        border-radius: 999px;
-        flex-shrink: 0;
-      }
-
-      .status-completed {
-        background: rgba(16, 185, 129, 0.1);
-        color: var(--color-success);
-        border-color: rgba(16, 185, 129, 0.2);
-      }
-
-      .status-completed .status-dot {
-        background: var(--color-success);
-      }
-
-      .status-in-progress {
-        background: rgba(95, 156, 255, 0.1);
-        color: var(--color-primary);
-        border-color: rgba(95, 156, 255, 0.2);
-      }
-
-      .status-in-progress .status-dot {
-        background: var(--color-primary);
-        animation: pulse 2s infinite;
-      }
-
-      .status-pending {
-        background: rgba(245, 158, 11, 0.1);
-        color: var(--color-warning);
-        border-color: rgba(245, 158, 11, 0.2);
-      }
-
-      .status-pending .status-dot {
-        background: var(--color-warning);
-      }
-
-      @keyframes pulse {
-        0%, 100 { opacity: 1; }
-        50% { opacity: 0.5; }
-      }
-
-      .note-text {
-        color: var(--text-tertiary);
-        text-align: right;
-        font-size: 10px;
-        line-height: 1.4;
-      }
-
-      .metrics-block {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 4px;
-        margin-top: 6px;
-      }
-
-      .metric-item {
-        background: var(--surface-2);
-        border: 1px solid var(--border-light);
-        border-radius: 6px;
-        padding: 6px 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-
-      .metric-label {
-        font-size: 9px;
-        font-weight: 700;
-        color: var(--text-tertiary);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-
-      .metric-value {
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--text-primary);
-      }
-
-      /* ====== Responsive - Desktop ====== */
-      @media (min-width: 769px) {
-        .container { padding: 16px; }
-        .header { margin-bottom: 24px; gap: 16px; }
-        .logo { width: 44px; height: 44px; font-size: 18px; }
-        .logo-title { font-size: 16px; }
-        .logo-subtitle { font-size: 11px; }
-        .page-title h1 { font-size: 24px; margin-bottom: 6px; }
-        .page-title p { font-size: 12px; }
-        .badges-row { gap: 10px; margin-top: 12px; }
-        .badge { font-size: 11px; padding: 7px 12px; }
-        .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 24px; }
-        .kpi-card { padding: 18px; }
-        .kpi-icon { font-size: 18px; }
-        .kpi-label { font-size: 11px; }
-        .kpi-value { font-size: 26px; margin: 6px 0; }
-        .kpi-description { font-size: 11px; }
-        .section { margin-bottom: 24px; }
-        .section-title { font-size: 13px; margin-bottom: 12px; }
-        thead th { padding: 12px; font-size: 11px; }
-        tbody td { padding: 12px; font-size: 12px; }
-        .status-badge { padding: 6px 10px; font-size: 11px; }
-        tbody tr:hover { background: var(--surface-2); }
-        .kpi-card:hover {
-          border-color: var(--border-medium);
-          box-shadow: var(--shadow-md);
-          transform: translateY(-1px);
-        }
-      }
-
-      /* ====== Mobile Table Layout ====== */
-      @media (max-width: 768px) {
-        thead { display: none; }
-        table, tbody, tr, td { display: block; width: 100%; }
-        tbody tr {
-          background: var(--surface-2);
-          border: 1px solid var(--border-medium);
-          border-radius: var(--radius-md);
-          padding: 10px;
-          margin-bottom: 8px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        tbody td {
-          border: 0;
-          padding: 0;
-          display: block;
-        }
-        tbody td[data-label]::before {
-          content: attr(data-label);
-          display: block;
-          font-size: 9px;
-          font-weight: 700;
-          color: var(--text-tertiary);
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
-          margin-bottom: 2px;
-        }
-        .note-text { text-align: left; }
-        .metrics-block { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
-      }
-
-      /* ====== Focus & Accessibility ====== */
-      :focus-visible {
-        outline: 2px solid var(--color-primary);
-        outline-offset: 2px;
-      }
-
-      /* ====== Utilities ====== */
-      .right { text-align: right; }
-
-      @media (prefers-reduced-motion: reduce) {
-        * {
-          animation-duration: 0.01ms !important;
-          animation-iteration-count: 1 !important;
-          transition-duration: 0.01ms !important;
-        }
-      }
-
-      /* ====== Touch Friendly ====== */
-      @media (hover: none) and (pointer: coarse) {
-        .btn:active { opacity: 0.85; }
-        .kpi-card:active { border-color: var(--border-medium); }
+      .toast.error{background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.35)}
+      .kbd{
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        background: var(--surface); border:1px solid var(--border); border-radius:6px; padding:2px 6px; font-size:12px;
       }
     </style>
   </head>
-
   <body>
     <div class="container">
-      <!-- Header (buttons removed) -->
-      <div class="header">
-        <div class="header-left">
-          <div class="logo">LF</div>
-          <div class="logo-text">
-            <div class="logo-title">LeuvenFlyers</div>
-            <div class="logo-subtitle">Dashboard</div>
-          </div>
-        </div>
+      <div class="brandbar">
+        <div class="brand-logo">LF</div>
+        <div class="brand-title">LeuvenFlyers — Steps Admin</div>
       </div>
 
-      <!-- Page Title -->
-      <div class="page-title">
-        <h1>Campaign Dashboard</h1>
-        <p id="subtitle">Campaign XX995 • Real-time performance tracking</p>
-        <div class="badges-row">
-          <span class="badge">
-            <span>ID:</span>
-            <span class="badge-value" id="pillCampaign">XX995</span>
-          </span>
-          <span class="badge">
-            <span>Sector:</span>
-            <span class="badge-value" id="sectorValue">Food</span>
-          </span>
-          <span class="badge" id="statusPill" style="display: none;">
-            <span>Status:</span>
-            <span class="badge-value" id="campaignStatus">—</span>
-          </span>
-        </div>
-      </div>
+      <section class="page" aria-label="Steps Admin">
+        <h1>Update Status & Notes for Each Step</h1>
+        <p class="subtitle">
+          Manage milestone statuses and notes per campaign, plus campaign meta (sector, total flyers). Defaults to <b>XX690</b>.
+          Paths:
+          <span class="kbd">campaigns/&lt;ID&gt;/steps</span> and
+          <span class="kbd">campaigns/&lt;ID&gt;/meta</span>
+        </p>
 
-      <!-- KPI Grid -->
-      <div class="kpi-grid">
-        <!-- Total Flyers Printed -->
-        <div class="kpi-card">
-          <div class="kpi-header">
-            <div class="kpi-icon">🖨️</div>
-            <div class="kpi-label">Printed</div>
+        <div class="toolbar" role="group" aria-label="Actions">
+          <div class="field-inline">
+            <label for="campaignId" class="muted" style="font-size:12px;">Campaign ID</label>
+            <input id="campaignId" value="XX690" autocomplete="off" spellcheck="false" />
           </div>
-            <div class="kpi-value" id="totalFlyers">24,500</div>
-          <div class="kpi-description">Total flyers printed</div>
+          <button id="loadBtn" class="btn secondary" type="button">Load</button>
+          <button id="initBtn" class="btn secondary" type="button" title="Create defaults if steps are missing">Initialize defaults</button>
+          <button id="saveAllBtn" class="btn" type="button">Save all steps</button>
+          <span class="mini" id="statusText" aria-live="polite"></span>
         </div>
 
-        <!-- Flyers Delivered (Distributed) -->
-        <div class="kpi-card">
-          <div class="kpi-header">
-            <div class="kpi-icon">📦</div>
-            <div class="kpi-label">Delivered</div>
+        <!-- Campaign Meta -->
+        <div class="meta" aria-label="Campaign meta editor">
+          <div class="field">
+            <label for="sector">Sector</label>
+            <input id="sector" type="text" placeholder="e.g., Food" />
           </div>
-          <div class="kpi-value" id="flyersDistributed">0</div>
-          <div class="progress-bar">
-            <div class="progress-fill" id="distributionBar" style="--progress: 0%"></div>
+          <div class="field">
+            <label for="totalFlyers">Total Flyers</label>
+            <input id="totalFlyers" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g., 24500" />
           </div>
-          <div class="kpi-description"><span id="distributionPct">0%</span> of printed</div>
+          <button id="saveMetaBtn" class="btn" type="button">Save meta</button>
+        </div>
+        <div class="meta-pills" role="group" aria-label="Data paths">
+          <span class="pill">Meta: campaigns/<span id="pillMetaId">XX690</span>/meta</span>
+          <span class="pill">Steps: campaigns/<span id="pillStepsId">XX690</span>/steps</span>
+          <span id="metaSavedAt" class="mini muted" aria-live="polite"></span>
         </div>
 
-        <!-- Flyers Remaining -->
-        <div class="kpi-card">
-          <div class="kpi-header">
-            <div class="kpi-icon">🕓</div>
-            <div class="kpi-label">Remaining</div>
-          </div>
-          <div class="kpi-value" id="flyersRemainingCard">24,500</div>
-          <div class="kpi-description">Awaiting distribution</div>
-        </div>
+        <!-- Steps -->
+        <div id="stepsWrap" class="steps" aria-live="polite"></div>
 
-        <!-- QR Code Scans -->
-        <div class="kpi-card">
-          <div class="kpi-header">
-            <div class="kpi-icon">📱</div>
-            <div class="kpi-label">QR Scans</div>
-          </div>
-          <div class="kpi-value" id="qrScans">0</div>
-          <div class="kpi-description">Recorded events</div>
-        </div>
-      </div>
-
-      <!-- Milestones Table -->
-      <div class="section">
-        <h2 class="section-title">Milestones</h2>
-        <div class="table-container">
-          <table role="table" aria-label="Milestone status table">
-            <thead>
-              <tr>
-                <th scope="col">Milestone</th>
-                <th scope="col">Status</th>
-                <th scope="col" class="right">Notes / Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td data-label="Milestone">Campaign planning</td>
-                <td data-label="Status">
-                  <span id="status-initial_planning" class="status-badge status-completed">
-                    <span class="status-dot"></span> Done
-                  </span>
-                </td>
-                <td data-label="Notes / Actions" class="right note-text">
-                  <span id="note-initial_planning">Finalized</span>
-                  <div class="row-actions">
-                    <a id="btnAreas" class="btn btn-secondary" href="#" target="_blank" rel="noopener" title="View distribution plan">
-                      View Distribution Plan
-                    </a>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td data-label="Milestone">Find distributor</td>
-                <td data-label="Status">
-                  <span id="status-distributor" class="status-badge status-completed">
-                    <span class="status-dot"></span> Done
-                  </span>
-                </td>
-                <td data-label="Notes / Actions" class="right note-text">
-                  <span id="note-distributor">Confirmed</span>
-                </td>
-              </tr>
-              <tr>
-                <td data-label="Milestone">Printing</td>
-                <td data-label="Status">
-                  <span id="status-printing" class="status-badge status-completed">
-                    <span class="status-dot"></span> Done
-                  </span>
-                </td>
-                <td data-label="Notes / Actions" class="right note-text">
-                  <span id="note-printing">24.5k</span>
-                </td>
-              </tr>
-              <tr>
-                <td data-label="Milestone">Pick up</td>
-                <td data-label="Status">
-                  <span id="status-pickup" class="status-badge status-in-progress">
-                    <span class="status-dot"></span> Active
-                  </span>
-                </td>
-                <td data-label="Notes / Actions" class="right note-text">
-                  <span id="note-pickup">Scheduled</span>
-                </td>
-              </tr>
-              <tr>
-                <td data-label="Milestone">Distribution</td>
-                <td data-label="Status">
-                  <span id="status-distribution" class="status-badge status-pending">
-                    <span class="status-dot"></span> Pending
-                  </span>
-                </td>
-                <td data-label="Notes / Actions" class="right note-text">
-                  <span id="note-distribution">0%</span>
-                  <div class="metrics-block" aria-label="Distribution metrics">
-                    <div class="metric-item">
-                      <div class="metric-label">Delivered</div>
-                      <div class="metric-value" id="flyersDeliveredMetric">0</div>
-                    </div>
-                    <div class="metric-item">
-                      <div class="metric-label">Remaining</div>
-                      <div class="metric-value" id="flyersRemainingMetric">24,500</div>
-                    </div>
-                    <div class="metric-item">
-                      <div class="metric-label">Printed</div>
-                      <div class="metric-value" id="flyersPrintedMetric">24,500</div>
-                    </div>
-                  </div>
-                  <div class="row-actions">
-                    <a id="btnAllFlyers" class="btn btn-primary" href="#" target="_blank" rel="noopener" title="Track flyers">
-                      Track Flyers
-                    </a>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td data-label="Milestone">Payment</td>
-                <td data-label="Status">
-                  <span id="status-payment" class="status-badge status-pending">
-                    <span class="status-dot"></span> Pending
-                  </span>
-                </td>
-                <td data-label="Notes / Actions" class="right note-text">
-                  <span id="note-payment">On completion</span>
-                </td>
-              </tr>
-              <tr>
-                <td data-label="Milestone">Feedback</td>
-                <td data-label="Status">
-                  <span id="status-feedback" class="status-badge status-pending">
-                    <span class="status-dot"></span> Pending
-                  </span>
-                </td>
-                <td data-label="Notes / Actions" class="right note-text">
-                  <span id="note-feedback">Awaiting scans</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <p class="mini" style="margin-top:12px;">
+          Tip: Click “Save” on an individual step to update just that one. Use “Save all steps” to batch update every step.
+        </p>
+      </section>
     </div>
 
-    <!-- Firebase Module -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-      import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+      import { getDatabase, ref, get, update, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
+      // Firebase (same project used by your map/dashboard)
       const firebaseConfig = {
-        apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
-        authDomain: "trackingclients.firebaseapp.com",
-        projectId: "trackingclients",
-        storageBucket: "trackingclients.appspot.com",
-        messagingSenderId: "27490943622",
-        appId: "1:27490943622:web:d6c87547aa5df440508707",
-        databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+        apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+        authDomain:"trackingclients.firebaseapp.com",
+        projectId:"trackingclients",
+        storageBucket:"trackingclients.appspot.com",
+        messagingSenderId:"27490943622",
+        appId:"1:27490943622:web:d6c87547aa5df440508707",
+        databaseURL:"https://trackingclients-default-rtdb.firebaseio.com/"
       };
 
-      const CAMPAIGN_ID = "XX995";
-
-      // DOM Elements
-      const totalEl = document.getElementById("totalFlyers");
-      const distEl = document.getElementById("flyersDistributed");
-      const barEl = document.getElementById("distributionBar");
-      const pctEl = document.getElementById("distributionPct");
-      const qrEl = document.getElementById("qrScans");
-      const sectorEl = document.getElementById("sectorValue");
-      const campaignStatusEl = document.getElementById("campaignStatus");
-      const statusPill = document.getElementById("statusPill");
-      const subtitleEl = document.getElementById("subtitle");
-      const pillCampaign = document.getElementById("pillCampaign");
-      const btnAllFlyers = document.getElementById("btnAllFlyers");
-      const btnAreas = document.getElementById("btnAreas");
-
-      // Metrics in Distribution row
-      const flyersDeliveredMetric = document.getElementById("flyersDeliveredMetric");
-      const flyersRemainingMetric = document.getElementById("flyersRemainingMetric");
-      const flyersPrintedMetric = document.getElementById("flyersPrintedMetric");
-      const flyersRemainingCard = document.getElementById("flyersRemainingCard");
-
-      const STEP_KEYS = [
-        "initial_planning",
-        "distributor",
-        "printing",
-        "pickup",
-        "distribution",
-        "payment",
-        "feedback"
-      ];
-
-      let totalFlyers = 24500;
-      let distributedLatest = 0;
-
-      const app = initializeApp(firebaseConfig, "campaignAppDashboard");
+      const app = initializeApp(firebaseConfig, "lf-steps-admin");
       const db = getDatabase(app);
 
+      // Default steps
+      const DEFAULT_STEPS = [
+        { key:"initial_planning", title:"Initial campaign planning" },
+        { key:"distributor",      title:"Finding distributor" },
+        { key:"printing",         title:"Printing" },
+        { key:"pickup",           title:"Flyer pick up" },
+        { key:"distribution",     title:"Flyer distribution" },
+        { key:"payment",          title:"Payment" },
+        { key:"feedback",         title:"Feedback" },
+      ];
+      const STATUS_OPTIONS = [
+        { value:"pending", label:"Pending" },
+        { value:"in_progress", label:"In Progress" },
+        { value:"completed", label:"Completed" },
+      ];
+
+      // DOM
+      const campaignIdEl = document.getElementById("campaignId");
+      const loadBtn = document.getElementById("loadBtn");
+      const initBtn = document.getElementById("initBtn");
+      const saveAllBtn = document.getElementById("saveAllBtn");
+      const stepsWrap = document.getElementById("stepsWrap");
+      const statusText = document.getElementById("statusText");
+      const toastEl = document.getElementById("toast");
+
+      // Meta DOM
+      const sectorEl = document.getElementById("sector");
+      const totalFlyersEl = document.getElementById("totalFlyers");
+      const saveMetaBtn = document.getElementById("saveMetaBtn");
+      const pillMetaId = document.getElementById("pillMetaId");
+      const pillStepsId = document.getElementById("pillStepsId");
+      const metaSavedAt = document.getElementById("metaSavedAt");
+
+      let currentId = "XX690";
+      let currentData = {}; // key -> {title, status, note, updatedAt, order}
+
+      // Utils
+      function showToast(msg, kind="ok"){
+        toastEl.textContent = msg;
+        toastEl.classList.toggle("error", kind!=="ok");
+        toastEl.style.display = "block";
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(()=>{ toastEl.style.display = "none"; }, 2200);
+      }
+      function setBusy(b){
+        [loadBtn, initBtn, saveAllBtn, saveMetaBtn].forEach(e=> e.disabled = b);
+        document.querySelectorAll(".step-save").forEach(e=> e.disabled = b);
+      }
+      function fmtTime(ts){
+        if(!ts) return "";
+        const d=new Date(ts), p=(n)=>n<10?("0"+n):n;
+        return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+      }
       const toInt = (v) => {
-        if (v === null || v === undefined) return 0;
         const n = Number(v);
-        return Number.isFinite(n) ? n : parseInt(String(v).replace(/[^\d.-]/g, ""), 10) || 0;
+        if (Number.isFinite(n)) return Math.max(0, Math.floor(n));
+        const parsed = parseInt(String(v).replace(/[^\d.-]/g, ""), 10);
+        return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
       };
 
-      function updateDistributionMetrics() {
-        const remaining = Math.max(0, totalFlyers - distributedLatest);
-        if (flyersDeliveredMetric) flyersDeliveredMetric.textContent = distributedLatest.toLocaleString();
-        if (flyersRemainingMetric) flyersRemainingMetric.textContent = remaining.toLocaleString();
-        if (flyersPrintedMetric) flyersPrintedMetric.textContent = totalFlyers.toLocaleString();
-        if (flyersRemainingCard) flyersRemainingCard.textContent = remaining.toLocaleString();
+      function badgeClass(status){
+        if(status==="completed") return "badge b-completed";
+        if(status==="in_progress") return "badge b-in_progress";
+        return "badge b-pending";
       }
 
-      function setProgress() {
-        const pct = totalFlyers > 0 ? (distributedLatest / totalFlyers) * 100 : 0;
-        const pctClamped = Math.max(0, Math.min(100, pct));
-        if (barEl) barEl.style.setProperty("--progress", pctClamped.toFixed(1) + "%");
-        if (pctEl) pctEl.textContent = Math.round(pctClamped) + "%";
-
-        const badge = document.getElementById("status-distribution");
-        const note = document.getElementById("note-distribution");
-        if (badge) {
-          badge.classList.remove("status-pending", "status-in-progress", "status-completed");
-          if (pctClamped >= 100) {
-            badge.classList.add("status-completed");
-            badge.setAttribute("aria-label", "Completed");
-            badge.innerHTML = '<span class="status-dot"></span> Done';
-          } else if (pctClamped <= 0) {
-            badge.classList.add("status-pending");
-            badge.setAttribute("aria-label", "Pending");
-            badge.innerHTML = '<span class="status-dot"></span> Pending';
-          } else {
-            badge.classList.add("status-in-progress");
-            badge.setAttribute("aria-label", "In Progress");
-            badge.innerHTML = '<span class="status-dot"></span> Active';
-          }
-        }
-        if (note) note.textContent = `${Math.round(pctClamped)}%`;
-        updateDistributionMetrics();
-      }
-
-      function statusToClass(status) {
-        if (status === "completed") return "status-completed";
-        if (status === "in_progress") return "status-in-progress";
-        return "status-pending";
-      }
-
-      function statusToLabel(status) {
-        if (status === "completed") return "Done";
-        if (status === "in_progress") return "Active";
-        return "Pending";
-      }
-
-      function setBadge(id, statusValue) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const cls = statusToClass(statusValue);
-        el.className = `status-badge ${cls}`;
-        el.setAttribute("aria-label", statusToLabel(statusValue));
-        el.innerHTML = `<span class="status-dot"></span> ${statusToLabel(statusValue)}`;
-      }
-
-      function setNote(id, text) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        // Avoid overwriting distribution percentage block text logic
-        if (id === "note-distribution") return;
-        el.textContent = text || "";
-      }
-
-      function setTotalFlyersUI(val) {
-        totalFlyers = Math.max(0, toInt(val));
-        if (totalEl) totalEl.textContent = totalFlyers.toLocaleString();
-        setProgress();
-      }
-
-      function setCtaLinksFromId(id) {
-        const digits = (id.match(/\d+/) || [""])[0];
-        const suffix = digits || id.toLowerCase();
-        const flyersUrl = `https://leuvenflyers.com/ff${suffix}`;
-        const areasUrl = `https://leuvenflyers.com/xx${suffix}`;
-        if (btnAllFlyers) btnAllFlyers.href = flyersUrl;
-        if (btnAreas) btnAreas.href = areasUrl;
-      }
-
-      setCtaLinksFromId(CAMPAIGN_ID);
-
-      // Live data listeners
-      onValue(ref(db, `campaigns/${CAMPAIGN_ID}/meta`), (snap) => {
-        const meta = snap.val() || {};
-        if (meta.totalFlyers != null) setTotalFlyersUI(meta.totalFlyers);
-        if (meta.sector) sectorEl.textContent = meta.sector;
-        if (meta.status) {
-          statusPill.style.display = "inline-flex";
-          campaignStatusEl.textContent = meta.status.replace(/_/g, " ");
-          subtitleEl.textContent = `Campaign ${CAMPAIGN_ID} • ${meta.status.replace(/_/g, " ").toUpperCase()}`;
-        } else {
-          statusPill.style.display = "none";
-          subtitleEl.textContent = `Campaign ${CAMPAIGN_ID} • Real-time performance tracking`;
-        }
-        pillCampaign.textContent = CAMPAIGN_ID;
-        setCtaLinksFromId(CAMPAIGN_ID);
-      }, (err) => console.error("Failed to read meta", err));
-
-      onValue(ref(db, `campaigns/${CAMPAIGN_ID}/steps`), (snap) => {
-        const steps = snap.val() || {};
-        STEP_KEYS.forEach((k) => {
-          const s = steps[k] || {};
-          setBadge(`status-${k}`, s.status || "pending");
-          setNote(`note-${k}`, s.note || "");
+      function renderSteps(){
+        stepsWrap.innerHTML = "";
+        const ordered = DEFAULT_STEPS.map(s => {
+          const existing = currentData[s.key] || {};
+          return {
+            key: s.key,
+            title: existing.title || s.title,
+            status: existing.status || "pending",
+            note: existing.note || "",
+            updatedAt: existing.updatedAt || null,
+            order: existing.order ?? DEFAULT_STEPS.findIndex(x => x.key===s.key)
+          };
         });
-      }, (err) => console.error("Failed to read steps", err));
+        ordered.forEach(s => {
+          const card = document.createElement("div");
+          card.className = "step-card";
+          card.id = `step-${s.key}`;
+          card.innerHTML = `
+            <div class="step-head">
+              <div class="step-title">${s.title}</div>
+              <div class="${badgeClass(s.status)}" id="badge-${s.key}">${labelFor(s.status)}</div>
+            </div>
 
-      onValue(ref(db, `campaigns/${CAMPAIGN_ID}/zone_statuses`), (snap) => {
-        let distributed = 0;
-        if (snap.exists()) {
-          snap.forEach((child) => {
-            const z = child.val() || {};
-            if (z.status === "completed") {
-              distributed += toInt(z.flyers);
+            <div class="row">
+              <div class="control" style="max-width:220px;">
+                <label for="status-${s.key}">Status</label>
+                <select id="status-${s.key}" data-key="${s.key}">
+                  ${STATUS_OPTIONS.map(opt => `<option value="${opt.value}" ${opt.value===s.status?'selected':''}>${opt.label}</option>`).join("")}
+                </select>
+              </div>
+              <div class="control">
+                <label for="note-${s.key}">Notes</label>
+                <textarea id="note-${s.key}" data-key="${s.key}" placeholder="Add notes...">${escapeHtml(s.note)}</textarea>
+              </div>
+            </div>
+
+            <div class="save-row">
+              <button class="btn step-save" data-key="${s.key}">Save</button>
+              <span class="mini" id="saved-${s.key}">${s.updatedAt ? "Last saved: "+fmtTime(s.updatedAt) : ""}</span>
+              <span class="spacer"></span>
+              <span class="mini muted">Key: ${s.key}</span>
+            </div>
+          `;
+          stepsWrap.appendChild(card);
+        });
+
+        // Wire events
+        stepsWrap.querySelectorAll("select[id^='status-']").forEach(sel=>{
+          sel.addEventListener("change", (e)=>{
+            const k = e.target.dataset.key;
+            const v = e.target.value;
+            const badge = document.getElementById(`badge-${k}`);
+            if(badge){
+              badge.className = badgeClass(v);
+              badge.textContent = labelFor(v);
             }
           });
-        }
-        distributedLatest = distributed;
-        if (distEl) distEl.textContent = distributedLatest.toLocaleString();
-        setProgress();
-      }, (err) => {
-        console.error("Failed to read zone_statuses", err);
-        distributedLatest = 0;
-        if (distEl) distEl.textContent = "0";
-        setProgress();
-      });
+        });
+        stepsWrap.querySelectorAll(".step-save").forEach(btn=>{
+          btn.addEventListener("click", () => saveOne(btn.dataset.key));
+        });
+      }
 
-      onValue(ref(db, "qr_scans"), (snap) => {
-        let count = 0;
-        if (snap.exists()) {
-          const val = snap.val() || {};
-            for (const k in val) {
-              const s = val[k];
-              if (s && s.promoCode === CAMPAIGN_ID) count++;
-            }
-        }
-        if (qrEl) qrEl.textContent = count.toLocaleString();
-      }, (err) => {
-        console.error("Failed to read qr_scans", err);
-        if (qrEl) qrEl.textContent = "0";
-      });
+      function escapeHtml(str=""){
+        return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+      }
+      function labelFor(status){
+        const m = STATUS_OPTIONS.find(o=>o.value===status);
+        return m ? m.label : "Pending";
+      }
 
-      // Initial UI sync
-      setTotalFlyersUI(totalFlyers);
-      updateDistributionMetrics();
+      async function loadMeta(id){
+        try{
+          const snap = await get(ref(db, `campaigns/${id}/meta`));
+          const meta = snap.exists() ? (snap.val() || {}) : {};
+          sectorEl.value = meta.sector ?? "";
+          totalFlyersEl.value = meta.totalFlyers ?? "";
+          metaSavedAt.textContent = meta.updatedAt ? `Meta last saved: ${fmtTime(meta.updatedAt)}` : "";
+        }catch(err){
+          console.error(err);
+          showToast("Failed to load meta.", "err");
+        }
+      }
+
+      async function saveMeta(){
+        const id = campaignIdEl.value.trim();
+        if(!id){ showToast("Enter a Campaign ID", "err"); return; }
+        const sector = sectorEl.value.trim();
+        const total = totalFlyersEl.value === "" ? null : toInt(totalFlyersEl.value);
+        if (totalFlyersEl.value !== "" && (total === null || Number.isNaN(total))) {
+          showToast("Total Flyers must be a non-negative number", "err");
+          return;
+        }
+        const payload = {
+          sector: sector || null,
+          totalFlyers: total ?? null,
+          updatedAt: Date.now()
+        };
+        setBusy(true);
+        try{
+          await update(ref(db, `campaigns/${id}/meta`), payload);
+          metaSavedAt.textContent = `Meta last saved: ${fmtTime(payload.updatedAt)}`;
+          showToast("Meta saved");
+        }catch(err){
+          console.error(err);
+          showToast("Saving meta failed. Check rules.", "err");
+        }finally{
+          setBusy(false);
+        }
+      }
+
+      async function loadSteps(){
+        const id = campaignIdEl.value.trim();
+        if(!id){ showToast("Enter a Campaign ID", "err"); return; }
+        currentId = id;
+        statusText.textContent = "Loading…";
+        pillMetaId.textContent = id;
+        pillStepsId.textContent = id;
+        setBusy(true);
+        try{
+          // Load steps
+          const snap = await get(ref(db, `campaigns/${id}/steps`));
+          currentData = snap.exists() ? (snap.val() || {}) : {};
+          renderSteps();
+          // Load meta
+          await loadMeta(id);
+
+          statusText.textContent = `Loaded ${id}`;
+          showToast(`Loaded ${id}`);
+        }catch(err){
+          console.error(err);
+          statusText.textContent = "";
+          showToast("Failed to load data. Check permissions.", "err");
+        }finally{
+          setBusy(false);
+        }
+      }
+
+      async function saveOne(key){
+        const statusEl = document.getElementById(`status-${key}`);
+        const noteEl = document.getElementById(`note-${key}`);
+        const title = DEFAULT_STEPS.find(s=>s.key===key)?.title || (currentData[key]?.title ?? key);
+        const status = statusEl?.value || "pending";
+        const note = noteEl?.value?.trim() || "";
+        const payload = {
+          title,
+          status,
+          note: note || null,
+          updatedAt: Date.now(),
+          order: DEFAULT_STEPS.findIndex(s=>s.key===key)
+        };
+        setBusy(true);
+        try{
+          await update(ref(db, `campaigns/${currentId}/steps/${key}`), payload);
+          currentData[key] = payload;
+          const savedEl = document.getElementById(`saved-${key}`);
+          if(savedEl) savedEl.textContent = "Last saved: " + fmtTime(payload.updatedAt);
+          showToast(`Saved: ${title}`);
+        }catch(err){
+          console.error(err);
+          showToast("Save failed for step.", "err");
+        }finally{
+          setBusy(false);
+        }
+      }
+
+      async function saveAll(){
+        const batch = {};
+        DEFAULT_STEPS.forEach((s, idx)=>{
+          const statusEl = document.getElementById(`status-${s.key}`);
+          const noteEl = document.getElementById(`note-${s.key}`);
+          const status = statusEl?.value || "pending";
+          const note = noteEl?.value?.trim() || "";
+          batch[s.key] = {
+            title: s.title,
+            status,
+            note: note || null,
+            updatedAt: Date.now(),
+            order: idx
+          };
+        });
+        setBusy(true);
+        try{
+          const updates = {};
+          Object.entries(batch).forEach(([k, v])=>{
+            updates[`${k}`] = v;
+          });
+          await update(ref(db, `campaigns/${currentId}/steps`), updates);
+          currentData = batch;
+          Object.entries(batch).forEach(([k,v])=>{
+            const savedEl = document.getElementById(`saved-${k}`);
+            if(savedEl) savedEl.textContent = "Last saved: " + fmtTime(v.updatedAt);
+          });
+          showToast("All steps saved");
+        }catch(err){
+          console.error(err);
+          showToast("Save all failed.", "err");
+        }finally{
+          setBusy(false);
+        }
+      }
+
+      async function initializeDefaults(){
+        const id = campaignIdEl.value.trim();
+        if(!id){ showToast("Enter a Campaign ID", "err"); return; }
+        const now = Date.now();
+        const initObj = {};
+        DEFAULT_STEPS.forEach((s, i)=>{
+          initObj[s.key] = { title:s.title, status:"pending", note:null, updatedAt:now, order:i };
+        });
+        setBusy(true);
+        try{
+          await set(ref(db, `campaigns/${id}/steps`), initObj);
+          currentData = initObj;
+          renderSteps();
+          showToast("Defaults initialized");
+        }catch(err){
+          console.error(err);
+          showToast("Initialization failed.", "err");
+        }finally{
+          setBusy(false);
+        }
+      }
+
+      // Wire up
+      loadBtn.addEventListener("click", loadSteps);
+      saveAllBtn.addEventListener("click", saveAll);
+      initBtn.addEventListener("click", initializeDefaults);
+      saveMetaBtn.addEventListener("click", saveMeta);
+      campaignIdEl.addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); loadSteps(); } });
+
+      // Auto-load default campaign on start
+      loadSteps();
     </script>
   </body>
 </html>
