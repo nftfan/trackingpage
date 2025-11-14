@@ -51,7 +51,7 @@
       margin: 0 auto;
       padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
       display: grid;
-      grid-template-rows: auto auto auto 1fr auto;
+      grid-template-rows: auto auto auto auto 1fr auto;
       gap: 14px;
       min-height: 100vh;
     }
@@ -179,6 +179,91 @@
     }
     .error{ color:#ff8a8a; font-size:12px; min-height: 16px; padding-top:6px;}
     .show{ display:flex !important; }
+
+    /* Daily stats table (10px fonts, sleek) */
+    .daily-stats-card{
+      background: linear-gradient(180deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.015) 100%);
+      border-radius: var(--radius-md);
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow: var(--shadow);
+      padding: 10px 10px 8px;
+    }
+    .daily-stats-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:6px;
+    }
+    .daily-stats-title{
+      font-size:11px;
+      font-weight:600;
+      letter-spacing:.2px;
+      color:#e5e7ff;
+    }
+    .daily-stats-subtitle{
+      font-size:10px;
+      color:var(--muted);
+    }
+    .daily-stats-table-wrap{
+      max-height:160px;
+      overflow:auto;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(10,10,14,.85);
+    }
+    .daily-stats-table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:10px;
+      color:#d5d7ff;
+    }
+    .daily-stats-table thead{
+      background:linear-gradient(90deg, rgba(79,140,255,.16), rgba(122,92,255,.18));
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+    .daily-stats-table th,
+    .daily-stats-table td{
+      padding:4px 6px;
+      text-align:left;
+      white-space:nowrap;
+    }
+    .daily-stats-table th{
+      font-weight:600;
+      text-transform:uppercase;
+      letter-spacing:.4px;
+      font-size:9px;
+      color:#f3f4ff;
+      border-bottom:1px solid rgba(255,255,255,.12);
+    }
+    .daily-stats-table tbody tr:nth-child(odd){
+      background:rgba(255,255,255,.01);
+    }
+    .daily-stats-table tbody tr:nth-child(even){
+      background:rgba(255,255,255,.03);
+    }
+    .daily-stats-table tbody tr:hover{
+      background:rgba(79,140,255,.16);
+    }
+    .daily-stats-date{
+      font-family:Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      color:#e5e7ff;
+    }
+    .daily-stats-dots{
+      font-weight:600;
+      color:#a5f3fc;
+    }
+    .daily-stats-earn{
+      font-weight:600;
+      color:#bbf7d0;
+    }
+    .daily-stats-empty{
+      padding:6px;
+      font-size:10px;
+      color:var(--muted);
+      text-align:center;
+    }
   </style>
 </head>
 <body>
@@ -230,6 +315,28 @@
       <div class="stat" aria-live="polite">
         <span class="label">My earnings (€0.10/dot)</span>
         <span id="myEarnings" class="value">€0.00</span>
+      </div>
+    </div>
+
+    <!-- Daily stats table -->
+    <div class="daily-stats-card" aria-live="polite">
+      <div class="daily-stats-header">
+        <div class="daily-stats-title">Daily breakdown</div>
+        <div class="daily-stats-subtitle">Dots &amp; earnings per day</div>
+      </div>
+      <div class="daily-stats-table-wrap">
+        <table class="daily-stats-table" aria-label="Daily dot posting stats">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Dots</th>
+              <th scope="col">Earnings</th>
+            </tr>
+          </thead>
+          <tbody id="dailyStatsBody">
+            <tr><td colspan="3" class="daily-stats-empty">No dots yet. Post your first dot to see stats.</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -291,6 +398,8 @@
     const userPill = document.getElementById('userPill');
     const userPillText = document.getElementById('userPillText');
     const changeUserBtn = document.getElementById('changeUserBtn');
+
+    const dailyStatsBody = document.getElementById('dailyStatsBody');
 
     // Map init
     const map = L.map('map', { zoomControl: false, tap: true }).setView([20, 0], 2);
@@ -382,9 +491,10 @@
       if (typeof myStatsUnsub === 'function') { myStatsUnsub(); myStatsUnsub = null; }
       if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
       currentUserId = null;
-      // Clear user markers
+      // Clear user markers & daily stats
       postsLayer.clearLayers();
       postMarkers.clear();
+      renderDailyStats(null);
     }
     function hideLogin() { loginBackdrop.classList.remove('show'); }
     function normalizeUserId(id) { return (id || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
@@ -401,10 +511,80 @@
       });
     }
 
+    // Helper: format timestamp to YYYY-MM-DD
+    function formatDate(ts) {
+      const d = new Date(ts);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // Render daily stats from posts snapshot
+    function renderDailyStats(snapshot) {
+      dailyStatsBody.innerHTML = '';
+      if (!snapshot || !snapshot.exists()) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 3;
+        td.className = 'daily-stats-empty';
+        td.textContent = 'No dots yet. Post your first dot to see stats.';
+        tr.appendChild(td);
+        dailyStatsBody.appendChild(tr);
+        return;
+      }
+
+      const countsByDate = {};
+      snapshot.forEach((child) => {
+        const val = child.val();
+        if (!val || typeof val.timestamp !== 'number') return;
+        const dateKey = formatDate(val.timestamp);
+        countsByDate[dateKey] = (countsByDate[dateKey] || 0) + 1;
+      });
+
+      const dates = Object.keys(countsByDate).sort((a, b) => b.localeCompare(a)); // latest first
+
+      if (dates.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 3;
+        td.className = 'daily-stats-empty';
+        td.textContent = 'No dots yet. Post your first dot to see stats.';
+        tr.appendChild(td);
+        dailyStatsBody.appendChild(tr);
+        return;
+      }
+
+      dates.forEach((dateStr) => {
+        const dots = countsByDate[dateStr];
+        const earnings = dots * 0.10;
+
+        const tr = document.createElement('tr');
+
+        const tdDate = document.createElement('td');
+        tdDate.className = 'daily-stats-date';
+        tdDate.textContent = dateStr;
+
+        const tdDots = document.createElement('td');
+        tdDots.className = 'daily-stats-dots';
+        tdDots.textContent = dots.toString();
+
+        const tdEarn = document.createElement('td');
+        tdEarn.className = 'daily-stats-earn';
+        tdEarn.textContent = `€${earnings.toFixed(2)}`;
+
+        tr.appendChild(tdDate);
+        tr.appendChild(tdDots);
+        tr.appendChild(tdEarn);
+        dailyStatsBody.appendChild(tr);
+      });
+    }
+
     function attachMyPostsListener(id) {
       if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
       const myPostsRef = query(ref(db, `userPosts/${id}`), orderByChild('timestamp'));
       const handler = (snapshot) => {
+        // Map markers
         postsLayer.clearLayers();
         postMarkers.clear();
 
@@ -420,6 +600,9 @@
         });
 
         fitIfNeeded();
+
+        // Daily stats (new)
+        renderDailyStats(snapshot);
       };
       onValue(myPostsRef, handler);
       // Create an unsubscribe wrapper
