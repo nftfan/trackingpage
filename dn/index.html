@@ -337,6 +337,32 @@
       background: #050509;
       border: 1px solid rgba(228, 174, 100, 0.5);
     }
+
+    /* Day summary popup list */
+    .day-summary-title {
+      font-size: 10px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    .day-summary-item {
+      margin-bottom: 6px;
+      border-top: 1px solid rgba(228, 174, 100, 0.2);
+      padding-top: 4px;
+    }
+    .day-summary-item-time {
+      font-size: 9px;
+      color: var(--text-secondary);
+      margin-bottom: 2px;
+    }
+    .day-summary-item-text {
+      font-size: 11px;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
   </style>
 </head>
 <body>
@@ -463,6 +489,25 @@
         return dayStr + " · " + timeStr;
       }
 
+      // For grouping by calendar date (local)
+      function getDateKey(ts) {
+        const d = new Date(ts);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
+      function formatTimeOnly(ts) {
+        const d = new Date(ts);
+        return d.toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false
+        });
+      }
+
       function updateTopBarTime() {
         const now = new Date();
         const optionsDay = {
@@ -548,16 +593,52 @@
         );
       }
 
-      function createNotePopupContent(note) {
-        const safeText = (note.text || "")
+      function escapeHtml(str) {
+        return (str || "")
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
+      }
+
+      function createNotePopupContent(note) {
+        const safeText = escapeHtml(note.text || "");
         const timeStr = formatTimestamp(note.timestamp || Date.now());
         return `
           <div class="note-popup">
             <div class="note-popup-text">${safeText}</div>
             <div class="note-popup-time">${timeStr}</div>
+          </div>
+        `;
+      }
+
+      // Day summary popup (all notes for that date)
+      function createDaySummaryPopupContent(dateKey, dayNotes) {
+        // date label
+        const firstTs = dayNotes[0].timestamp || Date.now();
+        const d = new Date(firstTs);
+        const dateLabel = d.toLocaleDateString(undefined, {
+          weekday: "long",
+          day: "numeric",
+          month: "short",
+          year: "numeric"
+        });
+
+        let itemsHtml = "";
+        dayNotes.forEach((note) => {
+          const safeText = escapeHtml(note.text || "");
+          const timeOnly = formatTimeOnly(note.timestamp || Date.now());
+          itemsHtml += `
+            <div class="day-summary-item">
+              <div class="day-summary-item-time">${timeOnly}</div>
+              <div class="day-summary-item-text">${safeText}</div>
+            </div>
+          `;
+        });
+
+        return `
+          <div class="note-popup">
+            <div class="day-summary-title">${dateLabel}</div>
+            ${itemsHtml}
           </div>
         `;
       }
@@ -575,6 +656,7 @@
         });
 
         const marker = L.marker([note.lat, note.lng], { icon: noteIcon }).addTo(map);
+        // Individual popup for this note (shown when clicking the red dot)
         marker.bindPopup(createNotePopupContent(note));
         noteMarkers[note.id] = marker;
         return marker;
@@ -590,7 +672,7 @@
         if (map) {
           map.flyTo([note.lat, note.lng], 15, { animate: true, duration: 1.0 });
         }
-        marker.setPopupContent(createNotePopupContent(note));
+        // Open the marker's currently bound popup (could be individual or day-summary if we overwrote it)
         marker.openPopup();
         setPrevNoteButtonState();
       }
@@ -634,6 +716,20 @@
           });
       }
 
+      function groupNotesByDate(notesArr) {
+        const mapByDate = {};
+        notesArr.forEach((n) => {
+          const key = getDateKey(n.timestamp || Date.now());
+          if (!mapByDate[key]) mapByDate[key] = [];
+          mapByDate[key].push(n);
+        });
+        // Sort each day's notes by timestamp
+        Object.keys(mapByDate).forEach((k) => {
+          mapByDate[k].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        });
+        return mapByDate;
+      }
+
       function listenForNotes() {
         const notesRef = db.ref("notes");
         notesRef.orderByChild("timestamp").on("value", (snap) => {
@@ -644,6 +740,8 @@
               newNotes.push({ id: key, ...val[key] });
             });
           }
+          // Sort notes globally by timestamp
+          newNotes.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
           notes = newNotes;
 
           // Remove markers for deleted notes
@@ -657,14 +755,37 @@
             }
           });
 
-          // Ensure a marker exists for every note so all red dots are always shown
+          // Ensure markers exist for all notes (so all red dots always show)
           notes.forEach((note) => {
             ensureNoteMarker(note);
           });
 
-          // Optionally open the latest note popup
+          // Group notes by date and attach a "day summary" popup to the first note of each day
+          const notesByDate = groupNotesByDate(notes);
+          Object.keys(notesByDate).forEach((dateKey) => {
+            const dayNotes = notesByDate[dateKey];
+            if (!dayNotes.length) return;
+
+            const firstNoteOfDay = dayNotes[0];
+            const marker = ensureNoteMarker(firstNoteOfDay);
+            const summaryHtml = createDaySummaryPopupContent(dateKey, dayNotes);
+
+            // Attach day-summary popup to the first marker for that day.
+            // Clicking other red dots still uses their note-specific popup.
+            marker.bindPopup(summaryHtml);
+          });
+
+          // Open the summary popup for the latest day's first note
           if (notes.length) {
-            openNotePopup(notes.length - 1);
+            // Find last dateKey in chronological order
+            const allKeys = Object.keys(notesByDate).sort();
+            const lastDateKey = allKeys[allKeys.length - 1];
+            const lastDayNotes = notesByDate[lastDateKey];
+            const firstOfLastDay = lastDayNotes[0];
+            const indexOfFirst = notes.findIndex((n) => n.id === firstOfLastDay.id);
+            if (indexOfFirst !== -1) {
+              openNotePopup(indexOfFirst);
+            }
           } else {
             currentNoteIndex = null;
             setPrevNoteButtonState();
