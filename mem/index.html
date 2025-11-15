@@ -14,11 +14,9 @@
     rel="stylesheet"
   />
 
-  <!-- Firebase SDKs -->
+  <!-- Firebase SDKs (compat version for simplicity) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
 
   <style>
     * {
@@ -104,6 +102,14 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+      min-height: 40px;
+    }
+
+    .empty-state {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 16px;
     }
 
     .memory-card {
@@ -322,66 +328,8 @@
       </div>
     </header>
 
-    <main class="feed" id="feed">
-      <!-- Static sample memories (also have real remote image) -->
-      <article class="memory-card">
-        <div class="memory-image-wrapper">
-          <img
-            class="memory-image"
-            src="https://pbs.twimg.com/media/G5zd-Z5XEAA--WP?format=jpg&name=medium"
-            alt="Golden Hour Walk"
-          />
-        </div>
-        <div class="memory-body">
-          <div class="memory-text">
-            <div class="memory-title">Golden Hour Walk</div>
-            <div class="memory-meta">
-              <span class="material-icons-outlined memory-date-icon">event</span>
-              <span class="memory-date">POSTED · 2025-10-02</span>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <article class="memory-card">
-        <div class="memory-image-wrapper">
-          <img
-            class="memory-image"
-            src="https://pbs.twimg.com/media/G5zd-Z5XEAA--WP?format=jpg&name=medium"
-            alt="Quiet City Evening"
-          />
-        </div>
-        <div class="memory-body">
-          <div class="memory-text">
-            <div class="memory-title">Quiet City Evening</div>
-            <div class="memory-meta">
-              <span class="material-icons-outlined memory-date-icon">event</span>
-              <span class="memory-date">POSTED · 2025-09-17</span>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <article class="memory-card">
-        <div class="memory-image-wrapper">
-          <img
-            class="memory-image"
-            src="https://pbs.twimg.com/media/G5zd-Z5XEAA--WP?format=jpg&name=medium"
-            alt="Lights Over the Bridge"
-          />
-        </div>
-        <div class="memory-body">
-          <div class="memory-text">
-            <div class="memory-title">Lights Over the Bridge</div>
-            <div class="memory-meta">
-              <span class="material-icons-outlined memory-date-icon">event</span>
-              <span class="memory-date">POSTED · 2025-08-05</span>
-            </div>
-          </div>
-        </div>
-      </article>
-    </main>
-
+    <main class="feed" id="feed"></main>
+    <div class="empty-state" id="emptyState">No memories yet. Upload your first one.</div>
     <div class="status-bar" id="statusBar"></div>
   </div>
 
@@ -439,7 +387,7 @@
      ****************************************************/
     const FIXED_MINT_PRICE_POL = 1;
 
-    // Your Firebase config
+    // Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyC6wYBu-KOXkDmB-84_7OPtY71zBX4FzRY",
       authDomain: "newnft-47bd7.firebaseapp.com",
@@ -451,20 +399,21 @@
       measurementId: "G-8VB3DYRNXR",
     };
 
-    // Cloudinary credentials (NOT SAFE for real use in frontend)
-    const CLOUDINARY_CLOUD_NAME = "demo"; // replace with your cloud name if you have one
+    // Cloudinary
+    // Extracted from: CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@dzuynnxtz
+    const CLOUDINARY_CLOUD_NAME = "dzuynnxtz";
     const CLOUDINARY_API_KEY = "964153625392878";
     const CLOUDINARY_API_SECRET = "dv-Oh2Cf_0B_O2ZtdhEyCxrlLA8";
-
-    // We'll use unsigned upload preset-less direct API here (for demo only).
-    const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+    const CLOUDINARY_UPLOAD_URL =
+      "https://api.cloudinary.com/v1_1/" + CLOUDINARY_CLOUD_NAME + "/image/upload";
 
     /****************************************************
-     * DOM ELEMENTS
+     * DOM
      ****************************************************/
     const uploadButton = document.getElementById("uploadButton");
     const fileInput = document.getElementById("fileInput");
     const feed = document.getElementById("feed");
+    const emptyState = document.getElementById("emptyState");
 
     const promptBackdrop = document.getElementById("promptBackdrop");
     const titleInput = document.getElementById("titleInput");
@@ -510,6 +459,7 @@
     function createMemoryCardElement(memory) {
       const article = document.createElement("article");
       article.className = "memory-card";
+
       const safeTitle = memory.title || "Untitled memory";
       const dateString = memory.createdAt
         ? formatDate(memory.createdAt)
@@ -536,6 +486,7 @@
     function prependMemoryCard(memory) {
       const card = createMemoryCardElement(memory);
       feed.prepend(card);
+      if (emptyState) emptyState.style.display = "none";
     }
 
     /****************************************************
@@ -543,40 +494,46 @@
      ****************************************************/
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    const storage = firebase.storage();
 
     /****************************************************
-     * LOAD EXISTING MEMORIES FROM FIREBASE
+     * LOAD EXISTING MEMORIES
      ****************************************************/
     function listenForMemories() {
-      // Order by createdAt so they are chronological; we'll prepend new ones as they come.
       db.ref("memories")
         .orderByChild("createdAt")
-        .limitToLast(50)
-        .on("child_added", (snapshot) => {
-          const data = snapshot.val();
+        .limitToLast(100)
+        .on("child_added", (snap) => {
+          const data = snap.val();
           if (!data || !data.imageUrl) return;
           prependMemoryCard(data);
+        });
+
+      db.ref("memories")
+        .limitToFirst(1)
+        .once("value")
+        .then((snap) => {
+          if (snap.exists() && emptyState) {
+            emptyState.style.display = "none";
+          }
         });
     }
 
     /****************************************************
-     * CLOUDINARY UPLOAD (DEMO ONLY)
+     * CLOUDINARY UPLOAD
      ****************************************************/
+    async function sha1(message) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(message);
+      const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+    }
+
     async function uploadToCloudinary(file) {
-      // In a real app you would NEVER put API secret in the frontend
-      // and you would generate a signature on your server.
+      // Signed upload: signature = sha1("timestamp=...<api_secret>")
       const timestamp = Math.floor(Date.now() / 1000);
-      const paramsToSign = `timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
-      // Simple SHA-1 helper using SubtleCrypto; for older browsers you'd need a polyfill.
-      async function sha1(message) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(message);
-        const hashBuffer = await crypto.subtle.digest("SHA-1", data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-      }
-      const signature = await sha1(paramsToSign);
+      const stringToSign = `timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
+      const signature = await sha1(stringToSign);
 
       const formData = new FormData();
       formData.append("file", file);
@@ -590,52 +547,23 @@
       });
 
       if (!res.ok) {
-        throw new Error(`Cloudinary upload failed: ${res.status}`);
+        throw new Error("Cloudinary upload failed with status " + res.status);
       }
+
       const json = await res.json();
       return json.secure_url;
-    }
-
-    /****************************************************
-     * FIREBASE STORAGE UPLOAD
-     ****************************************************/
-    async function uploadToFirebaseStorage(id, file) {
-      const ref = storage.ref().child(`memories/${id}.jpg`);
-      const snapshot = await ref.put(file);
-      const url = await snapshot.ref.getDownloadURL();
-      return url;
     }
 
     /****************************************************
      * CREATE MEMORY
      ****************************************************/
     async function createMemory(title, file) {
-      setStatus("Uploading photo...");
+      setStatus("Uploading photo to Cloudinary...");
+      const imageUrl = await uploadToCloudinary(file);
 
-      // 1) Upload to Cloudinary (for your requirement)
-      let cloudinaryUrl = "";
-      try {
-        cloudinaryUrl = await uploadToCloudinary(file);
-      } catch (err) {
-        console.error(err);
-        setStatus("Cloudinary upload failed, using Firebase Storage only.");
-      }
-
-      // 2) Create a new entry in Firebase
+      setStatus("Saving memory to Firebase...");
       const ref = db.ref("memories").push();
       const id = ref.key;
-      let storageUrl = "";
-
-      try {
-        storageUrl = await uploadToFirebaseStorage(id, file);
-      } catch (err) {
-        console.error(err);
-        setStatus("Firebase Storage upload failed.");
-        throw err;
-      }
-
-      // Choose which URL to use as primary image
-      const imageUrl = cloudinaryUrl || storageUrl;
 
       const memoryData = {
         id,
@@ -688,8 +616,11 @@
       }
 
       const title = titleInput.value.trim() || "Untitled memory";
+
       try {
-        await createMemory(title, pendingFile);
+        const mem = await createMemory(title, pendingFile);
+        // Show immediately (we also get it again from Firebase listener)
+        prependMemoryCard(mem);
       } catch (err) {
         console.error(err);
         setStatus("Upload failed.");
@@ -706,7 +637,7 @@
     });
 
     /****************************************************
-     * INITIALIZE
+     * INIT
      ****************************************************/
     listenForMemories();
   </script>
