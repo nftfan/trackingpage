@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dot Explorer – All FF Users</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    :root{
+      --bg: #0b0b0e;
+      --panel: #141419;
+      --muted: #8b8b95;
+      --text: #f2f2f7;
+      --accent: #4f8cff;
+      --accent-2: #7a5cff;
+      --shadow: 0 8px 24px rgba(0,0,0,.35);
+      --radius-lg: 18px;
+      --radius-md: 14px;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      padding:0;
+      height:100%;
+      background: radial-gradient(1200px 800px at 70% -10%, rgba(79,140,255,.12), transparent 60%),
+                  radial-gradient(900px 600px at -10% -10%, rgba(122,92,255,.10), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      font: 15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;
+    }
+    .app{
+      max-width: 900px;
+      margin: 0 auto;
+      padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+      display: grid;
+      grid-template-rows: auto auto auto 1fr;
+      gap: 14px;
+      min-height: 100vh;
+    }
+    header{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.02) 100%);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(8px);
+      box-shadow: var(--shadow);
+      justify-content: space-between;
+    }
+    .logo{
+      width:34px;height:34px; display:grid; place-items:center;
+      background: radial-gradient(120% 120% at 20% 20%, #4f8cff, #7a5cff);
+      border-radius: 10px;
+      box-shadow: 0 6px 16px rgba(79,140,255,.35), inset 0 0 20px rgba(255,255,255,.15);
+    }
+    h1{
+      margin:0; font-size:16px; letter-spacing:.2px;
+      font-weight:700;
+    }
+    .subtitle{color:var(--muted); font-size:12px;}
+
+    .map-card{
+      position: relative;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.08);
+      background: #0f0f12;
+      box-shadow: var(--shadow);
+      height: 340px;
+    }
+    #map{ height: 100%; width: 100%; }
+    .leaflet-container{ background: #0f0f12; outline: none; }
+
+    .stats{
+      display:flex;
+      gap:10px;
+      align-items:stretch;
+      flex-wrap:wrap;
+    }
+    .stat{
+      flex:1;
+      min-width:200px;
+      padding:14px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.02) 100%);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .stat .label{ color: var(--muted); font-size:12px; }
+    .stat .value{ font-size:18px; font-weight:800; letter-spacing:.3px; }
+
+    .daily-stats-card{
+      background: linear-gradient(180deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.015) 100%);
+      border-radius: var(--radius-md);
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow: var(--shadow);
+      padding: 10px 10px 8px;
+    }
+    .daily-stats-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:6px;
+    }
+    .daily-stats-title{
+      font-size:11px;
+      font-weight:600;
+      letter-spacing:.2px;
+      color:#e5e7ff;
+    }
+    .daily-stats-subtitle{
+      font-size:10px;
+      color:var(--muted);
+    }
+    .daily-stats-table-wrap{
+      max-height:220px;
+      overflow:auto;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.06);
+      background:rgba(10,10,14,.85);
+    }
+    .daily-stats-table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:10px;
+      color:#d5d7ff;
+    }
+    .daily-stats-table thead{
+      background:linear-gradient(90deg, rgba(79,140,255,.16), rgba(122,92,255,.18));
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+    .daily-stats-table th,
+    .daily-stats-table td{
+      padding:4px 6px;
+      text-align:left;
+      white-space:nowrap;
+    }
+    .daily-stats-table th{
+      font-weight:600;
+      text-transform:uppercase;
+      letter-spacing:.4px;
+      font-size:9px;
+      color:#f3f4ff;
+      border-bottom:1px solid rgba(255,255,255,.12);
+    }
+    .daily-stats-table tbody tr:nth-child(odd){
+      background:rgba(255,255,255,.01);
+    }
+    .daily-stats-table tbody tr:nth-child(even){
+      background:rgba(255,255,255,.03);
+    }
+    .daily-stats-table tbody tr:hover{
+      background:rgba(79,140,255,.16);
+    }
+    .daily-stats-date{
+      font-family:Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      color:#e5e7ff;
+    }
+    .daily-stats-dots{
+      font-weight:600;
+      color:#a5f3fc;
+    }
+    .daily-stats-earn{
+      font-weight:600;
+      color:#bbf7d0;
+    }
+    .daily-stats-users{
+      font-size:9px;
+      color:#c4c6ff;
+      max-width:230px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .daily-stats-empty{
+      padding:6px;
+      font-size:10px;
+      color:var(--muted);
+      text-align:center;
+    }
+    .footnote{
+      font-size:11px;
+      color:var(--muted);
+      text-align:center;
+      margin-top:4px;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="logo" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="white" stroke-opacity=".9" stroke-width="1.4"/>
+          <circle cx="12" cy="12" r="3.2" fill="white" />
+        </svg>
+      </div>
+      <div>
+        <h1>Dot Explorer</h1>
+        <div class="subtitle">All dots from all FF users (read‑only)</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="map-card">
+    <div id="map" role="application" aria-label="Map showing all dots from all users"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="label">Total dots (all users)</span>
+      <span id="totalDots" class="value">0</span>
+    </div>
+    <div class="stat">
+      <span class="label">Total earnings @ €0.10/dot</span>
+      <span id="totalEarnings" class="value">€0.00</span>
+    </div>
+  </div>
+
+  <div class="daily-stats-card" aria-live="polite">
+    <div class="daily-stats-header">
+      <div class="daily-stats-title">Daily breakdown (all users)</div>
+      <div class="daily-stats-subtitle">Dots, earnings & usernames per day</div>
+    </div>
+    <div class="daily-stats-table-wrap">
+      <table class="daily-stats-table" aria-label="Daily dot stats for all users">
+        <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Dots</th>
+          <th scope="col">Earnings</th>
+          <th scope="col">Users (dots)</th>
+        </tr>
+        </thead>
+        <tbody id="dailyStatsBody">
+        <tr><td colspan="4" class="daily-stats-empty">Loading dots...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footnote">
+    Data is aggregated live from all <code>userPosts</code> in Firebase. This viewer does not add or modify any dots.
+  </div>
+</div>
+
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import {
+    getDatabase, ref, onValue
+  } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  // SAME CONFIG AS YOUR CURRENT APP
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+    messagingSenderId: "205455490321",
+    appId: "1:205455490321:web:9919f5dde059316c9320b0",
+    measurementId: "G-Y6CVEDL9XH"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const totalDotsEl = document.getElementById('totalDots');
+  const totalEarningsEl = document.getElementById('totalEarnings');
+  const dailyStatsBody = document.getElementById('dailyStatsBody');
+
+  const map = L.map('map', { zoomControl: true }).setView([20, 0], 2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+  const postsLayer = L.layerGroup().addTo(map);
+
+  const dotStyle = {
+    radius: 3.5,
+    color: '#4f8cff',
+    weight: 1,
+    fillColor: '#4f8cff',
+    fillOpacity: 0.85
+  };
+
+  function formatDate(ts) {
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function renderDailyStatsFromArray(allPosts) {
+    dailyStatsBody.innerHTML = '';
+
+    if (!allPosts.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.className = 'daily-stats-empty';
+      td.textContent = 'No dots yet.';
+      tr.appendChild(td);
+      dailyStatsBody.appendChild(tr);
+      totalDotsEl.textContent = '0';
+      totalEarningsEl.textContent = '€0.00';
+      return;
+    }
+
+    // Aggregate by date AND by user within each date
+    const byDate = {};
+    allPosts.forEach(v => {
+      if (!v || typeof v.timestamp !== 'number') return;
+      const dateKey = formatDate(v.timestamp);
+      const userId = (v.userId || 'Unknown').toString().toUpperCase();
+
+      if (!byDate[dateKey]) {
+        byDate[dateKey] = {
+          totalDots: 0,
+          perUser: {}
+        };
+      }
+      byDate[dateKey].totalDots += 1;
+      if (!byDate[dateKey].perUser[userId]) {
+        byDate[dateKey].perUser[userId] = 0;
+      }
+      byDate[dateKey].perUser[userId] += 1;
+    });
+
+    const dates = Object.keys(byDate).sort((a,b) => b.localeCompare(a));
+    dates.forEach(dateStr => {
+      const entry = byDate[dateStr];
+      const dots = entry.totalDots;
+      const earnings = dots * 0.10;
+
+      // Build compact per-user summary like "FF001(3), FF993(2)"
+      const userSummaries = Object.entries(entry.perUser)
+        .sort((a, b) => b[1] - a[1]) // sort by count desc
+        .map(([user, count]) => `${user}(${count})`);
+
+      const usersText = userSummaries.join(', ');
+
+      const tr = document.createElement('tr');
+
+      const tdDate = document.createElement('td');
+      tdDate.className = 'daily-stats-date';
+      tdDate.textContent = dateStr;
+
+      const tdDots = document.createElement('td');
+      tdDots.className = 'daily-stats-dots';
+      tdDots.textContent = dots.toString();
+
+      const tdEarn = document.createElement('td');
+      tdEarn.className = 'daily-stats-earn';
+      tdEarn.textContent = `€${earnings.toFixed(2)}`;
+
+      const tdUsers = document.createElement('td');
+      tdUsers.className = 'daily-stats-users';
+      tdUsers.title = usersText; // full text in tooltip
+      tdUsers.textContent = usersText || '—';
+
+      tr.appendChild(tdDate);
+      tr.appendChild(tdDots);
+      tr.appendChild(tdEarn);
+      tr.appendChild(tdUsers);
+      dailyStatsBody.appendChild(tr);
+    });
+
+    const totalCount = allPosts.length;
+    totalDotsEl.textContent = String(totalCount);
+    const totalEur = totalCount * 0.10;
+    totalEarningsEl.textContent = new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2
+    }).format(totalEur);
+  }
+
+  function renderMarkersFromArray(allPosts) {
+    postsLayer.clearLayers();
+    if (!allPosts.length) return;
+
+    const latLngs = [];
+
+    allPosts.forEach(v => {
+      if (!v || typeof v.lat !== 'number' || typeof v.lng !== 'number') return;
+      const { lat, lng, userId, timestamp } = v;
+      const label = `${userId || 'Unknown'} • ${timestamp ? new Date(timestamp).toLocaleString() : ''}`;
+      const marker = L.circleMarker([lat, lng], dotStyle).bindTooltip(label, {
+        direction: 'top',
+        offset: [0, -8]
+      });
+      marker.addTo(postsLayer);
+      latLngs.push([lat, lng]);
+    });
+
+    if (latLngs.length > 0) {
+      try {
+        map.fitBounds(latLngs, { padding:[20,20], maxZoom: 8 });
+      } catch {}
+    }
+  }
+
+  // Read ALL data from userPosts/* and combine
+  const userPostsRootRef = ref(db, 'userPosts');
+
+  onValue(userPostsRootRef, (snapshot) => {
+    const allPosts = [];
+
+    // Structure: userPosts/{userId}/{postId} = { lat, lng, userId, timestamp, ua }
+    snapshot.forEach(userNode => {
+      userNode.forEach(postNode => {
+        const val = postNode.val();
+        if (!val) return;
+        allPosts.push(val);
+      });
+    });
+
+    // Sort by timestamp ascending (optional, for consistent tooltips)
+    allPosts.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    renderMarkersFromArray(allPosts);
+    renderDailyStatsFromArray(allPosts);
+  });
+</script>
+</body>
+</html>
