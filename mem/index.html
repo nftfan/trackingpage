@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Memories</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Google Material Icons -->
+  <link
+    href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+    rel="stylesheet"
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #111111;
+      --card-bg: #a27da7;
+      --border: #e5e5e5;
+      --text-main: #111111;
+      --text-muted: #9a9a9a;
+      --accent: #606060; /* requested theme color */
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+      padding: 16px 14px 20px;
+    }
+
+    .app-header {
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .app-title {
+      font-size: 18px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-button {
+      border: none;
+      background: transparent;
+      padding: 4px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--accent);
+    }
+
+    .icon-button:active {
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+    .material-icons-outlined {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .feed {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .memory-card {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #fafafa;
+    }
+
+    .memory-image-wrapper {
+      width: 100%;
+      background: #000;
+    }
+
+    .memory-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+    }
+
+    .memory-body {
+      padding: 10px 12px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .memory-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .memory-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .memory-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .memory-date-icon {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .memory-date {
+      font-size: 6px; /* as requested */
+      color: var(--text-muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* Hidden file input */
+    #fileInput {
+      display: none;
+    }
+
+    /* Simple prompt overlay for mobile */
+    .prompt-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+
+    .prompt {
+      width: 100%;
+      max-width: 360px;
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 14px 14px 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    }
+
+    .prompt-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+
+    .prompt-field {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      font-size: 13px;
+      margin-bottom: 10px;
+      outline: none;
+    }
+
+    .prompt-field:focus {
+      border-color: var(--accent);
+    }
+
+    .prompt-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .prompt-button {
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      border: none;
+      cursor: pointer;
+      background: #eeeeee;
+      color: #555555;
+    }
+
+    .prompt-button.primary {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .prompt-options {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .prompt-option-button {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 6px 8px;
+      font-size: 11px;
+      background: #fafafa;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: #444444;
+      cursor: pointer;
+    }
+
+    .prompt-option-button .material-icons-outlined {
+      font-size: 16px;
+    }
+
+    /* Very small phones */
+    @media (max-width: 360px) {
+      body {
+        padding: 10px;
+      }
+
+      .app {
+        border-radius: 12px;
+        padding: 12px 10px 16px;
+      }
+
+      .app-title {
+        font-size: 16px;
+      }
+    }
+
+    /* Slightly larger screens */
+    @media (min-width: 600px) {
+      body {
+        padding: 24px;
+      }
+
+      .app {
+        max-width: 640px;
+        padding: 20px 18px 24px;
+      }
+
+      .app-title {
+        font-size: 20px;
+      }
+
+      .feed {
+        gap: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1 class="app-title">Memories</h1>
+      <div class="header-actions">
+        <!-- Upload icon (top-right) -->
+        <button class="icon-button" id="uploadButton" aria-label="Upload memory">
+          <span class="material-icons-outlined">file_upload</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="feed" id="feed">
+      <!-- Sample Memory 1 -->
+      <article class="memory-card">
+        <div class="memory-image-wrapper">
+          <img
+            class="memory-image"
+            src="https://pbs.twimg.com/media/G5zd-Z5XEAA--WP?format=jpg&name=medium"
+            alt="Memory photo 1"
+          />
+        </div>
+        <div class="memory-body">
+          <div class="memory-text">
+            <div class="memory-title">Golden Hour Walk</div>
+            <div class="memory-meta">
+              <span class="material-icons-outlined memory-date-icon">event</span>
+              <span class="memory-date">POSTED · 2025-10-02</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Sample Memory 2 -->
+      <article class="memory-card">
+        <div class="memory-image-wrapper">
+          <img
+            class="memory-image"
+            src="https://pbs.twimg.com/media/G5zd-Z5XEAA--WP?format=jpg&name=medium"
+            alt="Memory photo 2"
+          />
+        </div>
+        <div class="memory-body">
+          <div class="memory-text">
+            <div class="memory-title">Quiet City Evening</div>
+            <div class="memory-meta">
+              <span class="material-icons-outlined memory-date-icon">event</span>
+              <span class="memory-date">POSTED · 2025-09-17</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Sample Memory 3 -->
+      <article class="memory-card">
+        <div class="memory-image-wrapper">
+          <img
+            class="memory-image"
+            src="https://pbs.twimg.com/media/G5zd-Z5XEAA--WP?format=jpg&name=medium"
+            alt="Memory photo 3"
+          />
+        </div>
+        <div class="memory-body">
+          <div class="memory-text">
+            <div class="memory-title">Lights Over the Bridge</div>
+            <div class="memory-meta">
+              <span class="material-icons-outlined memory-date-icon">event</span>
+              <span class="memory-date">POSTED · 2025-08-05</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </main>
+  </div>
+
+  <!-- Hidden file input (camera + gallery) -->
+  <input
+    type="file"
+    id="fileInput"
+    accept="image/*"
+    capture="environment"
+  />
+
+  <!-- Minimal custom prompt for title + source choice -->
+  <div class="prompt-backdrop" id="promptBackdrop">
+    <div class="prompt">
+      <div class="prompt-title">New memory</div>
+      <input
+        type="text"
+        id="titleInput"
+        class="prompt-field"
+        placeholder="Enter a title"
+      />
+      <div class="prompt-options">
+        <button
+          class="prompt-option-button"
+          type="button"
+          id="cameraOption"
+        >
+          <span class="material-icons-outlined">photo_camera</span>
+          <span>Take photo</span>
+        </button>
+        <button
+          class="prompt-option-button"
+          type="button"
+          id="galleryOption"
+        >
+          <span class="material-icons-outlined">photo_library</span>
+          <span>From gallery</span>
+        </button>
+      </div>
+      <div class="prompt-actions">
+        <button class="prompt-button" type="button" id="cancelPrompt">
+          Cancel
+        </button>
+        <button class="prompt-button primary" type="button" id="okPrompt">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const uploadButton = document.getElementById("uploadButton");
+    const fileInput = document.getElementById("fileInput");
+    const feed = document.getElementById("feed");
+
+    const promptBackdrop = document.getElementById("promptBackdrop");
+    const titleInput = document.getElementById("titleInput");
+    const cameraOption = document.getElementById("cameraOption");
+    const galleryOption = document.getElementById("galleryOption");
+    const cancelPrompt = document.getElementById("cancelPrompt");
+    const okPrompt = document.getElementById("okPrompt");
+
+    let pendingSource = null; // "camera" or "gallery"
+    let pendingFile = null;
+
+    function openPrompt() {
+      pendingSource = null;
+      pendingFile = null;
+      titleInput.value = "";
+      promptBackdrop.style.display = "flex";
+      titleInput.focus();
+    }
+
+    function closePrompt() {
+      promptBackdrop.style.display = "none";
+      pendingSource = null;
+      pendingFile = null;
+    }
+
+    uploadButton.addEventListener("click", () => {
+      openPrompt();
+    });
+
+    cancelPrompt.addEventListener("click", () => {
+      closePrompt();
+    });
+
+    // User chooses camera
+    cameraOption.addEventListener("click", () => {
+      pendingSource = "camera";
+      // Hint to browsers we prefer camera
+      fileInput.setAttribute("capture", "environment");
+      fileInput.click();
+    });
+
+    // User chooses gallery
+    galleryOption.addEventListener("click", () => {
+      pendingSource = "gallery";
+      fileInput.removeAttribute("capture");
+      fileInput.click();
+    });
+
+    // After the user selects or takes a photo
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      pendingFile = file;
+    });
+
+    okPrompt.addEventListener("click", () => {
+      if (!pendingFile) {
+        // no image selected yet, just close
+        closePrompt();
+        return;
+      }
+
+      const title = titleInput.value.trim() || "Untitled memory";
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        const imageUrl = event.target.result;
+        addMemoryCard(title, imageUrl);
+        closePrompt();
+        fileInput.value = "";
+      };
+
+      reader.readAsDataURL(pendingFile);
+    });
+
+    function formatToday() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function addMemoryCard(title, imageUrl) {
+      const article = document.createElement("article");
+      article.className = "memory-card";
+
+      article.innerHTML = `
+        <div class="memory-image-wrapper">
+          <img class="memory-image" src="${imageUrl}" alt="${title}" />
+        </div>
+        <div class="memory-body">
+          <div class="memory-text">
+            <div class="memory-title"></div>
+            <div class="memory-meta">
+              <span class="material-icons-outlined memory-date-icon">event</span>
+              <span class="memory-date">POSTED · ${formatToday()}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      article.querySelector(".memory-title").textContent = title;
+      feed.prepend(article);
+    }
+
+    // Close prompt if user taps outside it
+    promptBackdrop.addEventListener("click", (e) => {
+      if (e.target === promptBackdrop) {
+        closePrompt();
+      }
+    });
+  </script>
+</body>
+</html>
