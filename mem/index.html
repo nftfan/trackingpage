@@ -3,13 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <title>Memories</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1"
+  />
 
   <!-- Google Material Icons -->
   <link
     href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
     rel="stylesheet"
   />
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
 
   <style>
     * {
@@ -197,7 +206,7 @@
       border-radius: 10px;
       border: 1px solid var(--border);
       padding: 8px 10px;
-      font-size: 14px; /* >=16px to avoid zoom on iOS */
+      font-size: 16px; /* >=16px to avoid zoom on iOS */
       margin-bottom: 10px;
       outline: none;
       background: #000000;
@@ -259,6 +268,14 @@
       font-size: 16px;
     }
 
+    .status-bar {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 10px;
+      text-align: center;
+      min-height: 14px;
+    }
+
     @media (max-width: 360px) {
       body {
         padding: 10px;
@@ -306,13 +323,13 @@
     </header>
 
     <main class="feed" id="feed">
-      <!-- Sample Memory 1 -->
+      <!-- Static sample memories (also have real remote image) -->
       <article class="memory-card">
         <div class="memory-image-wrapper">
           <img
             class="memory-image"
             src="https://pbs.twimg.com/media/G5zd-Z5XEAA--WP?format=jpg&name=medium"
-            alt="Memory photo 1"
+            alt="Golden Hour Walk"
           />
         </div>
         <div class="memory-body">
@@ -326,13 +343,12 @@
         </div>
       </article>
 
-      <!-- Sample Memory 2 -->
       <article class="memory-card">
         <div class="memory-image-wrapper">
           <img
             class="memory-image"
             src="https://pbs.twimg.com/media/G5zd-Z5XEAA--WP?format=jpg&name=medium"
-            alt="Memory photo 2"
+            alt="Quiet City Evening"
           />
         </div>
         <div class="memory-body">
@@ -346,13 +362,12 @@
         </div>
       </article>
 
-      <!-- Sample Memory 3 -->
       <article class="memory-card">
         <div class="memory-image-wrapper">
           <img
             class="memory-image"
             src="https://pbs.twimg.com/media/G5zd-Z5XEAA--WP?format=jpg&name=medium"
-            alt="Memory photo 3"
+            alt="Lights Over the Bridge"
           />
         </div>
         <div class="memory-body">
@@ -366,6 +381,8 @@
         </div>
       </article>
     </main>
+
+    <div class="status-bar" id="statusBar"></div>
   </div>
 
   <!-- Hidden file input (camera + gallery) -->
@@ -417,6 +434,34 @@
   </div>
 
   <script>
+    /****************************************************
+     * CONFIG
+     ****************************************************/
+    const FIXED_MINT_PRICE_POL = 1;
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyC6wYBu-KOXkDmB-84_7OPtY71zBX4FzRY",
+      authDomain: "newnft-47bd7.firebaseapp.com",
+      databaseURL: "https://newnft-47bd7-default-rtdb.firebaseio.com",
+      projectId: "newnft-47bd7",
+      storageBucket: "newnft-47bd7.firebasestorage.app",
+      messagingSenderId: "172043823738",
+      appId: "1:172043823738:web:daf1fcfb7862d7d8f029c3",
+      measurementId: "G-8VB3DYRNXR",
+    };
+
+    // Cloudinary credentials (NOT SAFE for real use in frontend)
+    const CLOUDINARY_CLOUD_NAME = "demo"; // replace with your cloud name if you have one
+    const CLOUDINARY_API_KEY = "964153625392878";
+    const CLOUDINARY_API_SECRET = "dv-Oh2Cf_0B_O2ZtdhEyCxrlLA8";
+
+    // We'll use unsigned upload preset-less direct API here (for demo only).
+    const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+    /****************************************************
+     * DOM ELEMENTS
+     ****************************************************/
     const uploadButton = document.getElementById("uploadButton");
     const fileInput = document.getElementById("fileInput");
     const feed = document.getElementById("feed");
@@ -427,9 +472,17 @@
     const galleryOption = document.getElementById("galleryOption");
     const cancelPrompt = document.getElementById("cancelPrompt");
     const okPrompt = document.getElementById("okPrompt");
+    const statusBar = document.getElementById("statusBar");
 
     let pendingSource = null;
     let pendingFile = null;
+
+    /****************************************************
+     * UI HELPERS
+     ****************************************************/
+    function setStatus(message) {
+      statusBar.textContent = message || "";
+    }
 
     function openPrompt() {
       pendingSource = null;
@@ -443,8 +496,163 @@
       promptBackdrop.style.display = "none";
       pendingSource = null;
       pendingFile = null;
+      setStatus("");
     }
 
+    function formatDate(ts) {
+      const d = ts ? new Date(ts) : new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function createMemoryCardElement(memory) {
+      const article = document.createElement("article");
+      article.className = "memory-card";
+      const safeTitle = memory.title || "Untitled memory";
+      const dateString = memory.createdAt
+        ? formatDate(memory.createdAt)
+        : formatDate(Date.now());
+
+      article.innerHTML = `
+        <div class="memory-image-wrapper">
+          <img class="memory-image" src="${memory.imageUrl}" alt="${safeTitle}" />
+        </div>
+        <div class="memory-body">
+          <div class="memory-text">
+            <div class="memory-title"></div>
+            <div class="memory-meta">
+              <span class="material-icons-outlined memory-date-icon">event</span>
+              <span class="memory-date">POSTED · ${dateString}</span>
+            </div>
+          </div>
+        </div>
+      `;
+      article.querySelector(".memory-title").textContent = safeTitle;
+      return article;
+    }
+
+    function prependMemoryCard(memory) {
+      const card = createMemoryCardElement(memory);
+      feed.prepend(card);
+    }
+
+    /****************************************************
+     * FIREBASE INIT
+     ****************************************************/
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const storage = firebase.storage();
+
+    /****************************************************
+     * LOAD EXISTING MEMORIES FROM FIREBASE
+     ****************************************************/
+    function listenForMemories() {
+      // Order by createdAt so they are chronological; we'll prepend new ones as they come.
+      db.ref("memories")
+        .orderByChild("createdAt")
+        .limitToLast(50)
+        .on("child_added", (snapshot) => {
+          const data = snapshot.val();
+          if (!data || !data.imageUrl) return;
+          prependMemoryCard(data);
+        });
+    }
+
+    /****************************************************
+     * CLOUDINARY UPLOAD (DEMO ONLY)
+     ****************************************************/
+    async function uploadToCloudinary(file) {
+      // In a real app you would NEVER put API secret in the frontend
+      // and you would generate a signature on your server.
+      const timestamp = Math.floor(Date.now() / 1000);
+      const paramsToSign = `timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
+      // Simple SHA-1 helper using SubtleCrypto; for older browsers you'd need a polyfill.
+      async function sha1(message) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(message);
+        const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+      }
+      const signature = await sha1(paramsToSign);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("api_key", CLOUDINARY_API_KEY);
+      formData.append("timestamp", timestamp);
+      formData.append("signature", signature);
+
+      const res = await fetch(CLOUDINARY_UPLOAD_URL, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Cloudinary upload failed: ${res.status}`);
+      }
+      const json = await res.json();
+      return json.secure_url;
+    }
+
+    /****************************************************
+     * FIREBASE STORAGE UPLOAD
+     ****************************************************/
+    async function uploadToFirebaseStorage(id, file) {
+      const ref = storage.ref().child(`memories/${id}.jpg`);
+      const snapshot = await ref.put(file);
+      const url = await snapshot.ref.getDownloadURL();
+      return url;
+    }
+
+    /****************************************************
+     * CREATE MEMORY
+     ****************************************************/
+    async function createMemory(title, file) {
+      setStatus("Uploading photo...");
+
+      // 1) Upload to Cloudinary (for your requirement)
+      let cloudinaryUrl = "";
+      try {
+        cloudinaryUrl = await uploadToCloudinary(file);
+      } catch (err) {
+        console.error(err);
+        setStatus("Cloudinary upload failed, using Firebase Storage only.");
+      }
+
+      // 2) Create a new entry in Firebase
+      const ref = db.ref("memories").push();
+      const id = ref.key;
+      let storageUrl = "";
+
+      try {
+        storageUrl = await uploadToFirebaseStorage(id, file);
+      } catch (err) {
+        console.error(err);
+        setStatus("Firebase Storage upload failed.");
+        throw err;
+      }
+
+      // Choose which URL to use as primary image
+      const imageUrl = cloudinaryUrl || storageUrl;
+
+      const memoryData = {
+        id,
+        title: title || "Untitled memory",
+        imageUrl,
+        createdAt: Date.now(),
+        mintPricePOL: FIXED_MINT_PRICE_POL,
+      };
+
+      await ref.set(memoryData);
+      setStatus("Memory uploaded!");
+      return memoryData;
+    }
+
+    /****************************************************
+     * EVENT HANDLERS
+     ****************************************************/
     uploadButton.addEventListener("click", () => {
       openPrompt();
     });
@@ -469,63 +677,38 @@
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       pendingFile = file;
+      setStatus("Photo selected, tap Done to upload.");
     });
 
-    okPrompt.addEventListener("click", () => {
+    okPrompt.addEventListener("click", async () => {
       if (!pendingFile) {
+        setStatus("No image selected.");
         closePrompt();
         return;
       }
 
       const title = titleInput.value.trim() || "Untitled memory";
-      const reader = new FileReader();
-
-      reader.onload = (event) => {
-        const imageUrl = event.target.result;
-        addMemoryCard(title, imageUrl);
-        closePrompt();
+      try {
+        await createMemory(title, pendingFile);
+      } catch (err) {
+        console.error(err);
+        setStatus("Upload failed.");
+      } finally {
         fileInput.value = "";
-      };
-
-      reader.readAsDataURL(pendingFile);
+        closePrompt();
+      }
     });
-
-    function formatToday() {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, "0");
-      const day = String(now.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
-
-    function addMemoryCard(title, imageUrl) {
-      const article = document.createElement("article");
-      article.className = "memory-card";
-
-      article.innerHTML = `
-        <div class="memory-image-wrapper">
-          <img class="memory-image" src="${imageUrl}" alt="${title}" />
-        </div>
-        <div class="memory-body">
-          <div class="memory-text">
-            <div class="memory-title"></div>
-            <div class="memory-meta">
-              <span class="material-icons-outlined memory-date-icon">event</span>
-              <span class="memory-date">POSTED · ${formatToday()}</span>
-            </div>
-          </div>
-        </div>
-      `;
-
-      article.querySelector(".memory-title").textContent = title;
-      feed.prepend(article);
-    }
 
     promptBackdrop.addEventListener("click", (e) => {
       if (e.target === promptBackdrop) {
         closePrompt();
       }
     });
+
+    /****************************************************
+     * INITIALIZE
+     ****************************************************/
+    listenForMemories();
   </script>
 </body>
 </html>
