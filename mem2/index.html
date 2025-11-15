@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Events Timeline</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+  />
+ <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Personal Delivery">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/6050/6050331.png">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+
+  <!-- Google Material Icons -->
+  <link
+    href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+    rel="stylesheet"
+  />
+
+  <!-- Firebase SDKs (compat version) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: radial-gradient(circle at top, #1e1a4b 0, #050711 45%, #020308 100%);
+      --card-bg: rgba(8, 10, 26, 0.92);
+      --header-bg: linear-gradient(135deg, #ff6cab 0%, #7366ff 50%, #20e3b2 100%);
+      --glass: rgba(15, 18, 43, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+
+      --text-main: #f7f5ff;
+      --text-muted: #a9a8d6;
+      --accent-pink: #ff6cab;
+      --accent-cyan: #20e3b2;
+      --accent-gold: #f8d36a;
+      --accent-red: #ff5c7a;
+
+      --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.6);
+      --shadow-strong: 0 18px 46px rgba(0, 0, 0, 0.9);
+
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --radius-pill: 999px;
+    }
+
+    body {
+      font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      padding: 10px 8px;
+      min-height: 100vh;
+    }
+
+    .app-shell {
+      width: 100%;
+      max-width: 420px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+      border-radius: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 8px;
+      box-shadow: var(--shadow-strong);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .app-shell::before,
+    .app-shell::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(26px);
+      opacity: 0.55;
+      z-index: -1;
+    }
+
+    .app-shell::before {
+      width: 180px;
+      height: 180px;
+      background: radial-gradient(circle, rgba(255,108,171,0.55), transparent 60%);
+      top: -60px;
+      right: -80px;
+    }
+
+    .app-shell::after {
+      width: 180px;
+      height: 180px;
+      background: radial-gradient(circle, rgba(32,227,178,0.5), transparent 60%);
+      bottom: -60px;
+      left: -80px;
+    }
+
+    .app {
+      width: 100%;
+      background: radial-gradient(circle at top left, rgba(255,255,255,0.05), rgba(0,0,0,0.92) 55%);
+      border-radius: 18px;
+      padding: 10px 10px 12px;
+      backdrop-filter: blur(20px);
+    }
+
+    .app-header {
+      margin-bottom: 10px;
+      padding: 10px 10px 8px;
+      border-radius: 16px;
+      background: var(--glass);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .app-header::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--header-bg);
+      opacity: 0.16;
+      mix-blend-mode: screen;
+      pointer-events: none;
+    }
+
+    .header-main {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .app-title {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-size: 16px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #ffffff;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    }
+
+    .app-subtitle {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .pill {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 4px 8px;
+      border-radius: var(--radius-pill);
+      background: rgba(5, 8, 42, 0.9);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: var(--accent-gold);
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+    }
+
+    .pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent-gold);
+      box-shadow: 0 0 8px rgba(248, 211, 106, 0.8);
+    }
+
+    .icon-button {
+      border: none;
+      background: radial-gradient(circle at top left, #ffe3f0, #ff6cab);
+      padding: 6px;
+      border-radius: var(--radius-pill);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #1b0021;
+      box-shadow:
+        0 12px 26px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(255, 255, 255, 0.22);
+      transition: transform 0.14s ease-out, box-shadow 0.14s ease-out;
+    }
+
+    .icon-button span.material-icons-outlined {
+      font-size: 18px;
+    }
+
+    .icon-button:active {
+      transform: translateY(1px) scale(0.97);
+      box-shadow:
+        0 8px 18px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(255, 255, 255, 0.18);
+    }
+
+    .feed-wrapper {
+      background: radial-gradient(circle at top, rgba(255,255,255,0.02), rgba(0,0,0,0.9));
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 4px 6px;
+      box-shadow: var(--shadow-soft);
+      max-height: calc(100vh - 190px);
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .feed-wrapper::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.04), transparent 30%);
+      pointer-events: none;
+    }
+
+    .feed {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 2px 2px 2px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .empty-state {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 10px;
+      padding: 0 10px;
+    }
+
+    .event-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 8px;
+      border-radius: 14px;
+      background: radial-gradient(circle at top left, rgba(255,255,255,0.05), rgba(8,8,22,0.96));
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow:
+        0 10px 22px rgba(0, 0, 0, 0.88),
+        0 0 0 1px rgba(15, 255, 203, 0.05);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .event-row::before {
+      content: "";
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(115,102,255,0.45), transparent 65%);
+      top: -38px;
+      left: -38px;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .event-image-wrapper {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #7366ff, #ff6cab);
+      padding: 2px;
+      position: relative;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.9);
+    }
+
+    .event-image-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #050715;
+    }
+
+    .event-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scale(1.02);
+    }
+
+    .event-main {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .event-title-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 2px;
+    }
+
+    .event-title {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #ffffff;
+      flex: 1;
+      min-width: 0;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+    }
+
+    .event-chip {
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 3px 7px;
+      border-radius: var(--radius-pill);
+      background: rgba(6, 255, 201, 0.08);
+      border: 1px solid rgba(32, 227, 178, 0.55);
+      color: var(--accent-cyan);
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .event-chip-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px rgba(32, 227, 178, 0.9);
+    }
+
+    .event-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      margin-bottom: 3px;
+    }
+
+    .event-meta {
+      font-size: 10px;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      align-items: center;
+    }
+
+    .event-meta span.material-icons-outlined {
+      font-size: 13px;
+      color: var(--accent-gold);
+    }
+
+    .event-time-passed {
+      font-size: 10px;
+      color: #fefaf7;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .event-time-passed strong {
+      color: var(--accent-gold);
+      font-weight: 700;
+    }
+
+    .event-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 2px;
+      gap: 4px;
+    }
+
+    .event-timestamp {
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      color: rgba(169, 168, 214, 0.8);
+      white-space: nowrap;
+    }
+
+    .event-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .event-delete-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-size: 9px;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #ffb3c1, #ff5c7a);
+      color: #340010;
+      box-shadow:
+        0 8px 18px rgba(0, 0, 0, 0.9),
+        0 0 0 1px rgba(255, 255, 255, 0.15);
+    }
+
+    .event-delete-btn span.material-icons-outlined {
+      font-size: 13px;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .prompt-backdrop {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(15,10,53,0.96), rgba(1,1,8,0.98));
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      padding: 14px;
+    }
+
+    .prompt {
+      width: 100%;
+      max-width: 360px;
+      background: radial-gradient(circle at top left, rgba(255,255,255,0.05), rgba(1,2,12,0.98));
+      border-radius: 20px;
+      padding: 12px 12px 10px;
+      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.95);
+      color: var(--text-main);
+      border: 1px solid rgba(255,255,255,0.16);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .prompt::before {
+      content: "";
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(255,108,171,0.7), transparent 65%);
+      top: -90px;
+      right: -70px;
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    .prompt-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .prompt-title-text {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .prompt-title {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .prompt-subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .prompt-badge {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      background: rgba(5, 9, 28, 0.95);
+      padding: 4px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.2);
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      color: var(--accent-gold);
+    }
+
+    .prompt-badge-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--accent-gold);
+      box-shadow: 0 0 8px rgba(248,211,106,0.9);
+    }
+
+    .prompt-section {
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .prompt-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+    }
+
+    .prompt-field {
+      width: 100%;
+      border-radius: 11px;
+      border: 1px solid rgba(255,255,255,0.14);
+      padding: 8px 10px;
+      font-size: 14px;
+      outline: none;
+      background: rgba(4, 6, 26, 0.95);
+      color: var(--text-main);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    .prompt-field::placeholder {
+      color: #62628a;
+    }
+
+    .prompt-field:focus {
+      border-color: var(--accent-cyan);
+      box-shadow:
+        0 0 0 1px rgba(32, 227, 178, 0.6),
+        0 0 0 5px rgba(32, 227, 178, 0.15);
+    }
+
+    .prompt-options {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .prompt-option-button {
+      flex: 1;
+      border-radius: 11px;
+      border: 1px solid rgba(255,255,255,0.16);
+      padding: 6px 8px;
+      font-size: 10px;
+      background: radial-gradient(circle at top left, rgba(255,255,255,0.08), rgba(6, 9, 34, 0.96));
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      color: var(--text-main);
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.9);
+    }
+
+    .prompt-option-button span.material-icons-outlined {
+      font-size: 16px;
+      color: var(--accent-cyan);
+    }
+
+    .prompt-option-button:nth-child(2) span.material-icons-outlined {
+      color: var(--accent-pink);
+    }
+
+    .prompt-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .prompt-button {
+      border-radius: var(--radius-pill);
+      padding: 6px 10px;
+      font-size: 10px;
+      border: none;
+      cursor: pointer;
+      background: rgba(5, 9, 28, 0.96);
+      color: var(--text-main);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: 1px solid rgba(255,255,255,0.14);
+    }
+
+    .prompt-button.primary {
+      background: linear-gradient(135deg, #20e3b2, #7366ff);
+      color: #020011;
+      border: none;
+      box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.95),
+        0 0 0 1px rgba(255, 255, 255, 0.18);
+    }
+
+    .status-bar {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 8px;
+      text-align: center;
+      min-height: 14px;
+      padding: 0 10px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+    }
+
+    @media (min-width: 480px) {
+      .app-shell {
+        max-width: 480px;
+      }
+      .app {
+        padding: 12px 12px 14px;
+      }
+      .feed-wrapper {
+        max-height: calc(100vh - 210px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="app">
+      <header class="app-header">
+        <div class="header-main">
+          <h1 class="app-title">Events Timeline</h1>
+          <div class="app-subtitle">Your moments, tracked in time</div>
+        </div>
+        <div class="header-actions">
+          <div class="pill">
+            <span class="pill-dot"></span>
+            <span>Live since forever</span>
+          </div>
+          <button class="icon-button" id="uploadButton" aria-label="Add event">
+            <span class="material-icons-outlined">add</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="feed-wrapper">
+        <main class="feed" id="feed"></main>
+        <div class="empty-state" id="emptyState">No events yet. Add your first one to see time in motion.</div>
+      </section>
+
+      <div class="status-bar" id="statusBar"></div>
+    </div>
+  </div>
+
+  <input
+    type="file"
+    id="fileInput"
+    accept="image/*"
+    capture="environment"
+  />
+
+  <div class="prompt-backdrop" id="promptBackdrop">
+    <div class="prompt">
+      <div class="prompt-title-row">
+        <div class="prompt-title-text">
+          <div class="prompt-title">New Event</div>
+          <div class="prompt-subtitle">Give your moment a name, date, and a picture</div>
+        </div>
+        <div class="prompt-badge">
+          <span class="prompt-badge-dot"></span>
+          <span>Memory Maker</span>
+        </div>
+      </div>
+
+      <div class="prompt-section">
+        <div class="prompt-label">Title</div>
+        <input
+          type="text"
+          id="titleInput"
+          class="prompt-field"
+          placeholder="e.g. First day at university"
+          inputmode="text"
+        />
+      </div>
+
+      <div class="prompt-section">
+        <div class="prompt-label">Event date</div>
+        <input
+          type="date"
+          id="dateInput"
+          class="prompt-field"
+        />
+      </div>
+
+      <div class="prompt-section">
+        <div class="prompt-label">Photo</div>
+        <div class="prompt-options">
+          <button
+            class="prompt-option-button"
+            type="button"
+            id="cameraOption"
+          >
+            <span class="material-icons-outlined">photo_camera</span>
+            <span>Take photo</span>
+          </button>
+          <button
+            class="prompt-option-button"
+            type="button"
+            id="galleryOption"
+          >
+            <span class="material-icons-outlined">photo_library</span>
+            <span>From gallery</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="prompt-actions">
+        <button class="prompt-button" type="button" id="cancelPrompt">
+          Cancel
+        </button>
+        <button class="prompt-button primary" type="button" id="okPrompt">
+          Save Event
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const FIXED_MINT_PRICE_POL = 1;
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC6wYBu-KOXkDmB-84_7OPtY71zBX4FzRY",
+      authDomain: "newnft-47bd7.firebaseapp.com",
+      databaseURL: "https://newnft-47bd7-default-rtdb.firebaseio.com",
+      projectId: "newnft-47bd7",
+      storageBucket: "newnft-47bd7.firebasestorage.app",
+      messagingSenderId: "172043823738",
+      appId: "1:172043823738:web:daf1fcfb7862d7d8f029c3",
+      measurementId: "G-8VB3DYRNXR",
+    };
+
+    const CLOUDINARY_CLOUD_NAME = "dzuynnxtz";
+    const CLOUDINARY_API_KEY = "964153625392878";
+    const CLOUDINARY_API_SECRET = "dv-Oh2Cf_0B_O2ZtdhEyCxrlLA8";
+    const CLOUDINARY_UPLOAD_URL =
+      "https://api.cloudinary.com/v1_1/" + CLOUDINARY_CLOUD_NAME + "/image/upload";
+
+    const uploadButton = document.getElementById("uploadButton");
+    const fileInput = document.getElementById("fileInput");
+    const feed = document.getElementById("feed");
+    const emptyState = document.getElementById("emptyState");
+
+    const promptBackdrop = document.getElementById("promptBackdrop");
+    const titleInput = document.getElementById("titleInput");
+    const dateInput = document.getElementById("dateInput");
+    const cameraOption = document.getElementById("cameraOption");
+    const galleryOption = document.getElementById("galleryOption");
+    const cancelPrompt = document.getElementById("cancelPrompt");
+    const okPrompt = document.getElementById("okPrompt");
+    const statusBar = document.getElementById("statusBar");
+
+    let pendingFile = null;
+    const eventsCache = [];
+
+    function setStatus(message) {
+      statusBar.textContent = message || "";
+    }
+
+    function openPrompt() {
+      pendingFile = null;
+      titleInput.value = "";
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, "0");
+      const d = String(today.getDate()).padStart(2, "0");
+      dateInput.value = `${y}-${m}-${d}`;
+
+      promptBackdrop.style.display = "flex";
+      setTimeout(() => titleInput.focus(), 50);
+    }
+
+    function closePrompt() {
+      promptBackdrop.style.display = "none";
+      pendingFile = null;
+      setStatus("");
+      fileInput.value = "";
+    }
+
+    function formatDate(tsOrString) {
+      if (typeof tsOrString === "string") {
+        return tsOrString;
+      }
+      const d = tsOrString ? new Date(tsOrString) : new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function diffYMD(eventDateString) {
+      const now = new Date();
+      const parts = eventDateString.split("-");
+      if (parts.length !== 3) return { years: 0, months: 0, days: 0 };
+
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+
+      let start = new Date(y, m, d);
+      if (isNaN(start.getTime())) return { years: 0, months: 0, days: 0 };
+
+      let years = now.getFullYear() - start.getFullYear();
+      let months = now.getMonth() - start.getMonth();
+      let days = now.getDate() - start.getDate();
+
+      if (days < 0) {
+        months -= 1;
+        const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        days += prevMonth.getDate();
+      }
+      if (months < 0) {
+        years -= 1;
+        months += 12;
+      }
+
+      if (years < 0) {
+        years = 0;
+        months = 0;
+        days = 0;
+      }
+
+      return { years, months, days };
+    }
+
+    async function deleteEvent(id) {
+      if (!id) return;
+      const ok = window.confirm("Delete this event?");
+      if (!ok) return;
+
+      setStatus("Deleting event...");
+      try {
+        await db.ref("events/" + id).remove();
+
+        const idx = eventsCache.findIndex((e) => e.id === id);
+        if (idx !== -1) {
+          eventsCache.splice(idx, 1);
+        }
+
+        renderAllEvents();
+        setStatus("Event deleted.");
+      } catch (err) {
+        console.error(err);
+        setStatus("Failed to delete event.");
+      }
+    }
+
+    function createEventRowElement(event) {
+      const article = document.createElement("article");
+      article.className = "event-row";
+      article.dataset.eventId = event.id || "";
+
+      const safeTitle = event.title || "Untitled event";
+      const eventDate = event.eventDate || formatDate(event.createdAt || Date.now());
+      const { years, months, days } = diffYMD(eventDate);
+
+      const created = event.createdAt ? new Date(event.createdAt) : new Date();
+      const createdDate = `${String(created.getDate()).padStart(2, "0")}.${String(
+        created.getMonth() + 1
+      ).padStart(2, "0")}.${created.getFullYear()}`;
+
+      article.innerHTML = `
+        <div class="event-image-wrapper">
+          <div class="event-image-inner">
+            <img class="event-image" src="${event.imageUrl}" alt="${safeTitle}" />
+          </div>
+        </div>
+        <div class="event-main">
+          <div class="event-title-row">
+            <div class="event-title"></div>
+            <div class="event-chip">
+              <span class="event-chip-dot"></span>
+              <span>Tracked</span>
+            </div>
+          </div>
+          <div class="event-meta-row">
+            <div class="event-meta">
+              <span class="material-icons-outlined">event</span>
+              <span>${eventDate}</span>
+            </div>
+            <div class="event-time-passed">
+              <strong>${years}</strong>y&nbsp;
+              <strong>${months}</strong>m&nbsp;
+              <strong>${days}</strong>d ago
+            </div>
+          </div>
+          <div class="event-footer">
+            <div class="event-timestamp">Logged · ${createdDate}</div>
+            <div class="event-actions">
+              <button class="event-delete-btn" type="button">
+                <span class="material-icons-outlined">delete</span>
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      article.querySelector(".event-title").textContent = safeTitle;
+
+      const deleteBtn = article.querySelector(".event-delete-btn");
+      if (deleteBtn) {
+        deleteBtn.addEventListener("click", () => {
+          deleteEvent(event.id);
+        });
+      }
+
+      return article;
+    }
+
+    function renderAllEvents() {
+      feed.innerHTML = "";
+      eventsCache
+        .slice()
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .forEach((evt) => {
+          const row = createEventRowElement(evt);
+          feed.appendChild(row);
+        });
+
+      emptyState.style.display = eventsCache.length ? "none" : "block";
+    }
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function listenForEvents() {
+      db.ref("events")
+        .orderByChild("createdAt")
+        .limitToLast(100)
+        .on("child_added", (snap) => {
+          const data = snap.val();
+          if (!data || !data.imageUrl) return;
+
+          eventsCache.push(data);
+          renderAllEvents();
+        });
+
+      db.ref("events").on("child_removed", (snap) => {
+        const removed = snap.val();
+        if (!removed) return;
+        const idx = eventsCache.findIndex((e) => e.id === removed.id);
+        if (idx !== -1) {
+          eventsCache.splice(idx, 1);
+          renderAllEvents();
+        }
+      });
+
+      db.ref("events")
+        .limitToFirst(1)
+        .once("value")
+        .then((snap) => {
+          if (snap.exists() && emptyState) {
+            emptyState.style.display = "none";
+          }
+        });
+    }
+
+    async function sha1(message) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(message);
+      const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function uploadToCloudinary(file) {
+      const timestamp = Math.floor(Date.now() / 1000);
+      const stringToSign = `timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
+      const signature = await sha1(stringToSign);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("api_key", CLOUDINARY_API_KEY);
+      formData.append("timestamp", timestamp);
+      formData.append("signature", signature);
+
+      const res = await fetch(CLOUDINARY_UPLOAD_URL, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error("Cloudinary upload failed with status " + res.status);
+      }
+
+      const json = await res.json();
+      return json.secure_url;
+    }
+
+    async function createEvent(title, eventDateString, file) {
+      setStatus("Uploading photo...");
+      const imageUrl = await uploadToCloudinary(file);
+
+      setStatus("Saving event...");
+      const ref = db.ref("events").push();
+      const id = ref.key;
+
+      const nowTs = Date.now();
+      const eventData = {
+        id,
+        title: title || "Untitled event",
+        imageUrl,
+        eventDate: eventDateString || formatDate(nowTs),
+        createdAt: nowTs,
+        mintPricePOL: FIXED_MINT_PRICE_POL,
+      };
+
+      await ref.set(eventData);
+      setStatus("Event saved!");
+      return eventData;
+    }
+
+    uploadButton.addEventListener("click", () => {
+      openPrompt();
+    });
+
+    cancelPrompt.addEventListener("click", () => {
+      closePrompt();
+    });
+
+    cameraOption.addEventListener("click", () => {
+      fileInput.setAttribute("capture", "environment");
+      fileInput.click();
+    });
+
+    galleryOption.addEventListener("click", () => {
+      fileInput.removeAttribute("capture");
+      fileInput.click();
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      pendingFile = file;
+      setStatus("Photo selected, tap Save Event.");
+    });
+
+    okPrompt.addEventListener("click", async () => {
+      const title = titleInput.value.trim() || "Untitled event";
+      const eventDateString = dateInput.value;
+
+      if (!eventDateString) {
+        setStatus("Please select a date.");
+        return;
+      }
+
+      if (!pendingFile) {
+        setStatus("No image selected.");
+        return;
+      }
+
+      try {
+        const evt = await createEvent(title, eventDateString, pendingFile);
+        eventsCache.push(evt);
+        renderAllEvents();
+        closePrompt();
+      } catch (err) {
+        console.error(err);
+        setStatus("Upload failed.");
+      }
+    });
+
+    promptBackdrop.addEventListener("click", (e) => {
+      if (e.target === promptBackdrop) {
+        closePrompt();
+      }
+    });
+
+    listenForEvents();
+
+    setInterval(() => {
+      renderAllEvents();
+    }, 60000);
+  </script>
+</body>
+</html>
