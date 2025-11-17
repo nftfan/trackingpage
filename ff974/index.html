@@ -25,6 +25,9 @@
       --bar-height: 44px;
       --accent: #0056b3;
       --last-point: #ff8800;
+      --sidebar-width: 260px;
+      --icon-active: #28a745;
+      --icon-inactive: #d0d0d5;
     }
 
     * { box-sizing: border-box; }
@@ -106,6 +109,14 @@
       padding-top: calc(var(--bar-height) + env(safe-area-inset-top));
       height: 100%;
       position: relative;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .map-container {
+      flex: 1 1 auto;
+      position: relative;
+      min-width: 0;
     }
 
     #map {
@@ -152,7 +163,6 @@
       line-height: 1.1;
     }
 
-    /* Numbered marker for high zoom */
     .delivery-marker-circle {
       min-width: 26px;
       height: 26px;
@@ -184,7 +194,13 @@
       font-weight: 700;
     }
 
-    /* Label for last point */
+    /* SELECTED NUMBER LABEL BACKGROUND */
+    .delivery-marker-circle--selected {
+      background: #ff00aa;
+      border-color: #ff00aa;
+      color: #ffffff;
+    }
+
     .last-point-label {
       background: #ffffff;
       border-radius: 999px;
@@ -198,13 +214,11 @@
       transform: translateY(-4px);
     }
 
-    /* Polylines look cleaner */
     .leaflet-interactive {
       stroke-linecap: round;
       stroke-linejoin: round;
     }
 
-    /* Blinking animation for last point circleMarker via CSS class on SVG path */
     .last-point-circle {
       animation: last-point-blink 1s ease-in-out infinite;
       stroke-width: 4;
@@ -227,6 +241,115 @@
         filter: drop-shadow(0 0 4px rgba(255,136,0,0.5));
       }
     }
+
+    .sidebar {
+      width: var(--sidebar-width);
+      max-width: 100%;
+      background: #ffffff;
+      border-left: 1px solid var(--bar-border);
+      padding: 10px 10px 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      overflow-y: auto;
+    }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+
+    .sidebar-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .sidebar-subtitle {
+      font-size: 10px;
+      color: #6b7280;
+    }
+
+    .flyers-table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .flyers-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .flyers-table th,
+    .flyers-table td {
+      padding: 4px 6px;
+      border-bottom: 1px solid #f3f4f6;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .flyers-table th {
+      font-weight: 600;
+      color: #4b5563;
+      background-color: #f9fafb;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .flyers-table tbody tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+
+    .flyers-table-empty {
+      font-size: 11px;
+      color: #6b7280;
+      padding: 4px 0;
+    }
+
+    .flyer-number-cell {
+      color: #111827;
+      font-weight: 500;
+    }
+
+    .flyer-days-ago-cell {
+      color: #111827;
+    }
+
+    .flyer-date-cell {
+      color: #6b7280;
+    }
+
+    .flyers-table tbody tr {
+      cursor: pointer;
+      transition: background-color 0.12s ease;
+    }
+
+    .flyers-table tbody tr:hover {
+      background-color: #e5f0ff;
+    }
+
+    @media (max-width: 700px) {
+      main {
+        flex-direction: column;
+      }
+      .map-container {
+        height: 55%;
+      }
+      .sidebar {
+        width: 100%;
+        height: 45%;
+        border-left: none;
+        border-top: 1px solid var(--bar-border);
+      }
+      .floating-counter {
+        right: 12px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -241,15 +364,29 @@
   </header>
 
   <main>
-    <div
-      id="map"
-      role="application"
-      aria-label="Map showing where flyers were delivered. Zoom in to view each flyer delivery location."
-    ></div>
-    <div id="total-count-circle" class="floating-counter" role="status" aria-live="polite">
-      <div class="floating-counter-label">Deliveries</div>
-      <div class="floating-counter-value">0</div>
-    </div>
+    <section class="map-container">
+      <div
+        id="map"
+        role="application"
+        aria-label="Map showing where flyers were delivered. Zoom in to view each flyer delivery location."
+      ></div>
+      <div id="total-count-circle" class="floating-counter" role="status" aria-live="polite">
+        <div class="floating-counter-label">Deliveries</div>
+        <div class="floating-counter-value">0</div>
+      </div>
+    </section>
+
+    <aside class="sidebar" aria-label="Flyer deliveries list">
+      <div class="sidebar-header">
+        <div>
+          <div class="sidebar-title">Flyers</div>
+          <div class="sidebar-subtitle">Latest deliveries on top. Click a row to view the flyer location.</div>
+        </div>
+      </div>
+
+      <div id="flyers-table-container" class="flyers-table-container" aria-live="polite">
+      </div>
+    </aside>
   </main>
 
   <script
@@ -259,7 +396,7 @@
   ></script>
 
   <script type="module">
-    const LABEL_ZOOM_THRESHOLD = 17; // show numbers at this zoom or higher
+    const LABEL_ZOOM_THRESHOLD = 17;
 
     const map = L.map('map', {
       zoomControl: true,
@@ -275,21 +412,34 @@
 
     L.control.attribution({position: 'bottomright', prefix: ''}).addTo(map);
 
-    const postsLayer = L.layerGroup().addTo(map);   // base circleMarkers
-    const routeLayer = L.layerGroup().addTo(map);   // per-date polylines
-    const labelsLayer = L.layerGroup().addTo(map);  // numbered markers (only zoomed in)
+    const postsLayer = L.layerGroup().addTo(map);
+    const routeLayer = L.layerGroup().addTo(map);
+    const labelsLayer = L.layerGroup().addTo(map);
     const totalCountCircleEl = document.querySelector('.floating-counter-value');
+    const flyersTableContainerEl = document.getElementById('flyers-table-container');
 
-    let lastPointLabelOverlay = null;               // label for last point
-    let itemsCache = [];                            // store points for zoom handling
+    let lastPointLabelOverlay = null;
+    let itemsCache = [];
+    let lastClickedHighlight = null;
 
-    // Helper: get YYYY-MM-DD from timestamp
+    // Keep references
+    let circleMarkers = [];   // base circle markers
+    let labelMarkers = [];    // numbered divIcon markers
+
+    const baseCircleOptions = {
+      radius: 4,
+      color: '#0056b3',
+      weight: 1,
+      opacity: 1,
+      fillColor: '#ffffff',
+      fillOpacity: 0.9
+    };
+
     function getDateKeyFromTimestamp(timestamp) {
       if (!timestamp) return null;
 
       let d;
       if (typeof timestamp === 'number') {
-        // Support both ms and seconds; treat < 10^12 as seconds
         d = timestamp < 1e12 ? new Date(timestamp * 1000) : new Date(timestamp);
       } else {
         d = new Date(timestamp);
@@ -303,9 +453,30 @@
       return `${year}-${month}-${day}`;
     }
 
-    // Render numbered markers for current zoom if threshold is met
+    function formatDaysAgo(timestamp) {
+      if (!timestamp) return 'Unknown';
+
+      let d;
+      if (typeof timestamp === 'number') {
+        d = timestamp < 1e12 ? new Date(timestamp * 1000) : new Date(timestamp);
+      } else {
+        d = new Date(timestamp);
+      }
+
+      if (Number.isNaN(d.getTime())) return 'Unknown';
+
+      const now = new Date();
+      const diffMs = now - d;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      return `${diffDays} days ago`;
+    }
+
     function updateNumberLabels() {
       labelsLayer.clearLayers();
+      labelMarkers = [];
 
       if (!itemsCache.length) return;
       if (map.getZoom() < LABEL_ZOOM_THRESHOLD) return;
@@ -327,12 +498,175 @@
           iconAnchor: [16, 16]
         });
 
-        L.marker(latlng, { icon, interactive: false }).addTo(labelsLayer);
+        const marker = L.marker(latlng, { icon, interactive: false }).addTo(labelsLayer);
+        labelMarkers[idx] = marker;
       });
     }
 
+    // Highlight the clicked circle marker
+    function highlightCircleMarker(index) {
+      circleMarkers.forEach((m, i) => {
+        if (!m) return;
+        const isLast = i === circleMarkers.length - 1;
+        if (isLast) {
+          const lastColor = getComputedStyle(document.documentElement)
+            .getPropertyValue('--last-point') || '#ff8800';
+          m.setStyle({
+            ...baseCircleOptions,
+            radius: 8,
+            color: lastColor,
+            weight: 3
+          });
+        } else {
+          m.setStyle(baseCircleOptions);
+        }
+      });
+
+      const marker = circleMarkers[index];
+      if (!marker) return;
+
+      marker.setStyle({
+        radius: 10,
+        color: '#ff00aa',
+        weight: 4,
+        fillColor: '#ffb3e5',
+        fillOpacity: 0.9
+      });
+    }
+
+    // Change background of the numbered label circle for the clicked row
+    function highlightNumberLabel(index) {
+      labelMarkers.forEach((marker) => {
+        if (!marker) return;
+        const el = marker.getElement();
+        if (el) {
+          el.classList.remove('delivery-marker-circle--selected');
+        }
+      });
+
+      const marker = labelMarkers[index];
+      if (!marker) return;
+
+      const el = marker.getElement();
+      if (el) {
+        el.classList.add('delivery-marker-circle--selected');
+      }
+    }
+
+    function flyerRowClickHandler(index) {
+      const item = itemsCache[index];
+      if (!item) return;
+
+      const latlng = [item.lat, item.lng];
+
+      const targetZoom = Math.max(map.getZoom(), 18);
+      map.setView(latlng, targetZoom, { animate: true });
+
+      // Highlight base circle and number label
+      highlightCircleMarker(index);
+      highlightNumberLabel(index);
+
+      // Optional extra halo
+      if (lastClickedHighlight) {
+        map.removeLayer(lastClickedHighlight);
+        lastClickedHighlight = null;
+      }
+
+      lastClickedHighlight = L.circleMarker(latlng, {
+        radius: 14,
+        color: '#ff00aa',
+        weight: 2,
+        opacity: 0.7,
+        fillColor: '#ffb3e5',
+        fillOpacity: 0.2
+      }).addTo(map);
+
+      setTimeout(() => {
+        if (lastClickedHighlight) {
+          map.removeLayer(lastClickedHighlight);
+          lastClickedHighlight = null;
+        }
+      }, 4000);
+    }
+
+    function updateFlyersTable(items) {
+      flyersTableContainerEl.innerHTML = '';
+
+      if (!items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'flyers-table-empty';
+        empty.textContent = 'No flyers yet.';
+        flyersTableContainerEl.appendChild(empty);
+        return;
+      }
+
+      const reversed = items
+        .map((item, idx) => ({ ...item, originalIndex: idx }))
+        .reverse();
+
+      const table = document.createElement('table');
+      table.className = 'flyers-table';
+      table.setAttribute('aria-label', 'List of flyer deliveries');
+
+      const thead = document.createElement('thead');
+      thead.innerHTML = `
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Delivered</th>
+          <th scope="col">Date</th>
+        </tr>
+      `;
+
+      const tbody = document.createElement('tbody');
+
+      reversed.forEach((itemWithIndex) => {
+        const { timestamp, originalIndex } = itemWithIndex;
+
+        const tr = document.createElement('tr');
+        tr.dataset.originalIndex = String(originalIndex);
+        tr.setAttribute('tabindex', '0');
+        tr.setAttribute(
+          'aria-label',
+          `Flyer #${originalIndex + 1}, delivered ${formatDaysAgo(timestamp)} on ${getDateKeyFromTimestamp(timestamp) || 'unknown date'}`
+        );
+
+        const numberCell = document.createElement('td');
+        numberCell.className = 'flyer-number-cell';
+        numberCell.textContent = String(originalIndex + 1);
+
+        const daysAgoCell = document.createElement('td');
+        daysAgoCell.className = 'flyer-days-ago-cell';
+        daysAgoCell.textContent = formatDaysAgo(timestamp);
+
+        const dateCell = document.createElement('td');
+        dateCell.className = 'flyer-date-cell';
+        dateCell.textContent = getDateKeyFromTimestamp(timestamp) || 'Unknown';
+
+        tr.appendChild(numberCell);
+        tr.appendChild(daysAgoCell);
+        tr.appendChild(dateCell);
+
+        tr.addEventListener('click', () => {
+          flyerRowClickHandler(originalIndex);
+        });
+
+        tr.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            flyerRowClickHandler(originalIndex);
+          }
+        });
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      flyersTableContainerEl.appendChild(table);
+    }
+
     (async () => {
-      const TARGET_USER = 'FF974'; // <— Only show posts from this user
+      const TARGET_USER = 'FF974';
 
       const firebaseConfig = {
         apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
@@ -357,9 +691,16 @@
           postsLayer.clearLayers();
           routeLayer.clearLayers();
           labelsLayer.clearLayers();
+          circleMarkers = [];
+          labelMarkers = [];
+
           if (lastPointLabelOverlay) {
             map.removeLayer(lastPointLabelOverlay);
             lastPointLabelOverlay = null;
+          }
+          if (lastClickedHighlight) {
+            map.removeLayer(lastClickedHighlight);
+            lastClickedHighlight = null;
           }
 
           const items = [];
@@ -381,14 +722,14 @@
           const totalCount = items.length;
           totalCountCircleEl.textContent = String(totalCount);
 
+          updateFlyersTable(items);
+
           if (totalCount === 0) {
             return;
           }
 
           const allLatLngs = [];
-
-          // Group by date (indices) so we know sets per day
-          const byDate = new Map(); // dateKey -> array of indices into items
+          const byDate = new Map();
           items.forEach((p, idx) => {
             const dateKey = getDateKeyFromTimestamp(p.timestamp) || 'unknown';
             if (!byDate.has(dateKey)) {
@@ -399,16 +740,6 @@
 
           const lastOverallIndex = totalCount - 1;
 
-          // Base circle style
-          const baseCircleOptions = {
-            radius: 4,
-            color: '#0056b3',
-            weight: 1,
-            opacity: 1,
-            fillColor: '#ffffff',
-            fillOpacity: 0.9
-          };
-
           const lastCircleOptions = {
             ...baseCircleOptions,
             radius: 8,
@@ -417,7 +748,6 @@
             weight: 3
           };
 
-          // Draw circleMarkers
           items.forEach((p, idx) => {
             const latlng = [p.lat, p.lng];
             allLatLngs.push(latlng);
@@ -426,7 +756,8 @@
 
             const circle = L.circleMarker(latlng, options).addTo(postsLayer);
 
-            // Add blinking class to the SVG path for the last point
+            circleMarkers[idx] = circle;
+
             if (idx === lastOverallIndex) {
               circle.on('add', () => {
                 const path = circle._path;
@@ -437,7 +768,6 @@
             }
           });
 
-          // Build per-day polylines (only connect same-date points)
           const colors = ['#0056b3', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1'];
           let colorIndex = 0;
 
@@ -455,7 +785,6 @@
             }).addTo(routeLayer);
           }
 
-          // Add label overlay for last point (with its index)
           const lastItem = items[lastOverallIndex];
           const lastLatLng = [lastItem.lat, lastItem.lng];
           const lastIndexNumber = lastOverallIndex + 1;
@@ -470,18 +799,15 @@
             interactive: false
           }).addTo(map);
 
-          // Fit map view
           if (allLatLngs.length >= 2) {
             map.fitBounds(L.latLngBounds(allLatLngs).pad(0.25));
           } else if (allLatLngs.length === 1) {
             map.setView(allLatLngs[0], 16, { animate: true });
           }
 
-          // After we have data, update labels according to current zoom
           updateNumberLabels();
         });
 
-        // Re-render labels when zoom changes
         map.on('zoomend', () => {
           updateNumberLabels();
         });
