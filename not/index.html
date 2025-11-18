@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Notes</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1"
+  />
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Notes">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1828/1828817.png">
+
+  <!-- Google Material Icons -->
+  <link
+    href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+    rel="stylesheet"
+  />
+
+  <!-- Firebase SDKs (compat version for simplicity) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #000000;
+      --card-bg: #050505;
+      --text-main: #f2bd21;
+      --text-muted: #888888;
+      --accent: #606060;
+      --card-border: #333333;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card-bg);
+      padding: 12px 0 16px;
+      min-height: 100vh;
+    }
+
+    .app-header {
+      margin-bottom: 8px;
+      padding: 0 12px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .app-title {
+      font-size: 18px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-button {
+      border: none;
+      background: transparent;
+      padding: 4px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-main);
+    }
+
+    .icon-button:active {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .material-icons-outlined {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .feed {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 0 12px;
+    }
+
+    .empty-state {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 16px;
+      padding: 0 12px;
+    }
+
+    /* Text note card (base style, color is applied inline via JS) */
+    .note-card {
+      border-radius: 16px;
+      border: 1px solid var(--card-border);
+      padding: 12px 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.8);
+      background: radial-gradient(circle at top left, #2b2b2b 0, #050505 40%, #000000 100%);
+    }
+
+    .note-title {
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: var(--text-main);
+      word-break: break-word;
+    }
+
+    .note-body {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #f8e6aa;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .note-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .note-date {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .note-date-icon {
+      font-size: 12px;
+    }
+
+    .note-timing {
+      text-align: right;
+    }
+
+    /* Prompt overlay */
+    .prompt-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+
+    .prompt {
+      width: 100%;
+      max-width: 360px;
+      background: #141414;
+      border-radius: 14px;
+      padding: 14px 14px 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.9);
+      color: var(--text-main);
+    }
+
+    .prompt-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .prompt-field {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #333;
+      padding: 8px 10px;
+      font-size: 16px; /* avoid zoom */
+      margin-bottom: 10px;
+      outline: none;
+      background: #000000;
+      color: var(--text-main);
+    }
+
+    textarea.prompt-field {
+      min-height: 80px;
+      resize: vertical;
+      font-size: 14px;
+    }
+
+    .prompt-field::placeholder {
+      color: #555555;
+    }
+
+    .prompt-field:focus {
+      border-color: var(--accent);
+    }
+
+    .prompt-inline-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+      align-items: center;
+    }
+
+    .prompt-inline-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .prompt-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .prompt-button {
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      border: none;
+      cursor: pointer;
+      background: #222222;
+      color: var(--text-main);
+    }
+
+    .prompt-button.primary {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .status-bar {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 10px;
+      text-align: center;
+      min-height: 14px;
+      padding: 0 12px;
+    }
+
+    @media (min-width: 600px) {
+      .app {
+        max-width: 640px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1 class="app-title">Notes</h1>
+      <div class="header-actions">
+        <button class="icon-button" id="newNoteButton" aria-label="New note">
+          <span class="material-icons-outlined">add</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="feed" id="feed"></main>
+    <div class="empty-state" id="emptyState">No notes yet. Add your first one.</div>
+    <div class="status-bar" id="statusBar"></div>
+  </div>
+
+  <!-- Prompt for new note -->
+  <div class="prompt-backdrop" id="promptBackdrop">
+    <div class="prompt">
+      <div class="prompt-title">New note</div>
+
+      <div class="prompt-inline-label">Title</div>
+      <input
+        type="text"
+        id="titleInput"
+        class="prompt-field"
+        placeholder="Enter a title"
+        inputmode="text"
+      />
+
+      <div class="prompt-inline-label">Text</div>
+      <textarea
+        id="bodyInput"
+        class="prompt-field"
+        placeholder="Write something beautiful..."
+      ></textarea>
+
+      <div class="prompt-inline-row">
+        <div style="flex:1;">
+          <div class="prompt-inline-label">Date (past, today, or future)</div>
+          <input
+            type="date"
+            id="dateInput"
+            class="prompt-field"
+            style="margin-bottom:0;"
+          />
+        </div>
+      </div>
+
+      <div class="prompt-inline-row" style="margin-top:8px;">
+        <div style="flex:1;">
+          <div class="prompt-inline-label">Card color (optional)</div>
+          <input
+            type="color"
+            id="colorInput"
+            class="prompt-field"
+            style="padding:2px 4px;height:40px;margin-bottom:0;"
+            value="#2b2b2b"
+          />
+        </div>
+      </div>
+
+      <div class="prompt-actions">
+        <button class="prompt-button" type="button" id="cancelPrompt">
+          Cancel
+        </button>
+        <button class="prompt-button primary" type="button" id="okPrompt">
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Firebase config (same project as your Memories app)
+    const firebaseConfig = {
+      apiKey: "AIzaSyC6wYBu-KOXkDmB-84_7OPtY71zBX4FzRY",
+      authDomain: "newnft-47bd7.firebaseapp.com",
+      databaseURL: "https://newnft-47bd7-default-rtdb.firebaseio.com",
+      projectId: "newnft-47bd7",
+      storageBucket: "newnft-47bd7.firebasestorage.app",
+      messagingSenderId: "172043823738",
+      appId: "1:172043823738:web:daf1fcfb7862d7d8f029c3",
+      measurementId: "G-8VB3DYRNXR",
+    };
+
+    const newNoteButton = document.getElementById("newNoteButton");
+    const feed = document.getElementById("feed");
+    const emptyState = document.getElementById("emptyState");
+
+    const promptBackdrop = document.getElementById("promptBackdrop");
+    const titleInput = document.getElementById("titleInput");
+    const bodyInput = document.getElementById("bodyInput");
+    const dateInput = document.getElementById("dateInput");
+    const colorInput = document.getElementById("colorInput");
+    const cancelPrompt = document.getElementById("cancelPrompt");
+    const okPrompt = document.getElementById("okPrompt");
+    const statusBar = document.getElementById("statusBar");
+
+    // Local cache so we can sort
+    let allNotes = [];
+
+    function setStatus(message) {
+      statusBar.textContent = message || "";
+    }
+
+    function todayISODate() {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function openPrompt() {
+      titleInput.value = "";
+      bodyInput.value = "";
+      dateInput.value = todayISODate(); // default to today (past & future allowed)
+      colorInput.value = "#2b2b2b";     // default base color
+      promptBackdrop.style.display = "flex";
+      setTimeout(() => titleInput.focus(), 50);
+    }
+
+    function closePrompt() {
+      promptBackdrop.style.display = "none";
+      setStatus("");
+    }
+
+    function formatDateDisplay(dateString) {
+      if (!dateString) return "";
+      return dateString; // already YYYY-MM-DD
+    }
+
+    function daysBetween(dateA, dateB) {
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const diff = dateB - dateA;
+      return Math.floor(diff / msPerDay);
+    }
+
+    function computeTimingInfo(noteDateStr) {
+      if (!noteDateStr) return { label: "NO DATE", details: "" };
+
+      const [y, m, d] = noteDateStr.split("-").map(Number);
+      const noteDate = new Date(y, m - 1, d);
+
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      const diff = daysBetween(today, noteDate); // noteDate - today (in days)
+
+      if (diff === 0) {
+        return {
+          label: "TODAY",
+          details: "0 days passed · 0 days remaining"
+        };
+      } else if (diff > 0) {
+        // Future date
+        const daysRemaining = diff;
+        return {
+          label: "UPCOMING",
+          details: `${daysRemaining} day${daysRemaining !== 1 ? "s" : ""} remaining`
+        };
+      } else {
+        // Past date
+        const daysPassed = -diff;
+        return {
+          label: "PAST",
+          details: `${daysPassed} day${daysPassed !== 1 ? "s" : ""} passed`
+        };
+      }
+    }
+
+    // Apply background color: use cardColor if present, otherwise default gradient
+    function applyCardBackground(element, cardColor) {
+      if (cardColor) {
+        element.style.background =
+          `radial-gradient(circle at top left, ${cardColor} 0, #000000 65%, #000000 100%)`;
+      } else {
+        element.style.background =
+          "radial-gradient(circle at top left, #2b2b2b 0, #050505 40%, #000000 100%)";
+      }
+    }
+
+    function createNoteCardElement(note) {
+      const article = document.createElement("article");
+      article.className = "note-card";
+
+      const safeTitle = note.title || "Untitled note";
+      const safeBody = note.body || "";
+      const noteDate = note.noteDate || todayISODate();
+      const timing = computeTimingInfo(noteDate);
+      const cardColor = note.cardColor || "";
+
+      const dateString = formatDateDisplay(noteDate);
+
+      article.innerHTML = `
+        <div class="note-title"></div>
+        <div class="note-body"></div>
+        <div class="note-meta">
+          <div class="note-date">
+            <span class="material-icons-outlined note-date-icon">event</span>
+            <span>${dateString}</span>
+          </div>
+          <div class="note-timing">
+            <div>${timing.label}</div>
+            <div>${timing.details}</div>
+          </div>
+        </div>
+      `;
+
+      article.querySelector(".note-title").textContent = safeTitle;
+      article.querySelector(".note-body").textContent = safeBody;
+
+      applyCardBackground(article, cardColor);
+
+      return article;
+    }
+
+    // Render all notes from allNotes, sorted by noteDate desc, then createdAt desc
+    function renderNotes() {
+      feed.innerHTML = "";
+
+      if (!allNotes.length) {
+        if (emptyState) emptyState.style.display = "block";
+        return;
+      }
+      if (emptyState) emptyState.style.display = "none";
+
+      const sorted = [...allNotes].sort((a, b) => {
+        const dateA = a.noteDate || "";
+        const dateB = b.noteDate || "";
+        if (dateA !== dateB) {
+          // DESC: newer date first
+          return dateA < dateB ? 1 : -1;
+        }
+        // Same noteDate, fall back to createdAt DESC
+        const createdA = a.createdAt || 0;
+        const createdB = b.createdAt || 0;
+        return createdB - createdA;
+      });
+
+      for (const note of sorted) {
+        const card = createNoteCardElement(note);
+        feed.appendChild(card);
+      }
+    }
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function listenForNotes() {
+      // Load all notes once and listen for changes
+      db.ref("notes")
+        .limitToLast(500)
+        .on("value", (snap) => {
+          allNotes = [];
+          snap.forEach((child) => {
+            const data = child.val();
+            if (data) {
+              allNotes.push(data);
+            }
+          });
+          renderNotes();
+        });
+    }
+
+    async function createNote(title, body, noteDateStr, cardColor) {
+      setStatus("Saving note...");
+
+      const ref = db.ref("notes").push();
+      const id = ref.key;
+
+      const cleanColor = (cardColor || "").trim();
+
+      const noteData = {
+        id,
+        title: title || "Untitled note",
+        body: body || "",
+        noteDate: noteDateStr || todayISODate(), // can be past, present, or future
+        cardColor: cleanColor,                   // saved in Firebase
+        createdAt: Date.now()
+      };
+
+      await ref.set(noteData);
+      setStatus("Note saved!");
+      return noteData;
+    }
+
+    // UI events
+    newNoteButton.addEventListener("click", () => {
+      openPrompt();
+    });
+
+    cancelPrompt.addEventListener("click", () => {
+      closePrompt();
+    });
+
+    okPrompt.addEventListener("click", async () => {
+      const title = titleInput.value.trim() || "Untitled note";
+      const body = bodyInput.value.trim();
+      const noteDateStr = dateInput.value || todayISODate();
+      const cardColor = colorInput.value || "";
+
+      try {
+        await createNote(title, body, noteDateStr, cardColor);
+        // No need to manually add to UI; listener will re-render in sorted order
+      } catch (err) {
+        console.error(err);
+        setStatus("Save failed.");
+      } finally {
+        closePrompt();
+      }
+    });
+
+    promptBackdrop.addEventListener("click", (e) => {
+      if (e.target === promptBackdrop) {
+        closePrompt();
+      }
+    });
+
+    // Start listening
+    listenForNotes();
+  </script>
+</body>
+</html>
