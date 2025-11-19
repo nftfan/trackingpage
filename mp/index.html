@@ -15,6 +15,8 @@
             --accent: #2D88FF;
             --table-header: #202123;
             --table-row-alt: #222325;
+            --delete-bg: #e24343;
+            --delete-hover: #c02626;
         }
         body {
             background: var(--bg);
@@ -30,7 +32,7 @@
             color: var(--accent);
         }
         .container {
-            max-width: 600px;
+            max-width: 1200px; /* Increased width for better table display */
             margin: 0 auto;
             background: var(--card);
             border-radius: 12px;
@@ -58,7 +60,7 @@
         input:focus {
             border-color: var(--accent);
         }
-        button {
+        button, .delete-btn {
             background: var(--accent);
             color: white;
             border: none;
@@ -71,15 +73,26 @@
         button:hover {
             background: #185AC7;
         }
+        .delete-btn {
+            padding: 8px 14px;
+            background: var(--delete-bg);
+            font-size: 0.95rem;
+            border-radius: 6px;
+        }
+        .delete-btn:hover {
+            background: var(--delete-hover);
+        }
         table {
             border-collapse: collapse;
             width: 100%;
             margin-top: 12px;
-            font-size: 1rem;
+            font-size: 1.07rem; /* Slightly larger for visibility */
+            table-layout: fixed;
         }
         th, td {
-            padding: 12px 8px;
+            padding: 14px 6px;
             text-align: center;
+            word-break: break-word;
         }
         th {
             background: var(--table-header);
@@ -105,8 +118,11 @@
             font-weight: bold;
             color: var(--accent);
         }
+        @media (max-width: 900px) {
+            .container { max-width: 99vw; }
+        }
         @media (max-width: 600px) {
-            .container { padding: 10px; }
+            .container { padding: 10px; max-width: 99vw; }
             table { font-size: .90rem; }
             input, button { width: 100%; margin-bottom: 10px; }
             .form-group { flex-direction: column; gap: 10px; }
@@ -131,11 +147,13 @@
         <table id="projectsTable">
             <thead>
                 <tr>
-                    <th>Project Title</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Total Flyers</th>
-                    <th>Amount (€)</th>
+                    <th style="width:55px;">#</th>
+                    <th style="width:180px;">Project Title</th>
+                    <th style="width:140px;">Start Date</th>
+                    <th style="width:140px;">End Date</th>
+                    <th style="width:120px;">Total Flyers</th>
+                    <th style="width:140px;">Amount (€)</th>
+                    <th style="width:100px;">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -187,22 +205,48 @@
             }
         }
 
+        function deleteProject(projectId) {
+            if (confirm("Are you sure you want to delete this project?")) {
+                db.ref('projects/' + projectId).remove();
+            }
+        }
+
         function showProjects() {
             const tbody = document.getElementById('projectsTable').getElementsByTagName('tbody')[0];
             const flyersTotalDiv = document.getElementById('flyersTotal');
             const eurosTotalDiv = document.getElementById('eurosTotal');
             db.ref('projects').on('value', (snapshot) => {
+                // Collect all projects into array (with key for deletion)
+                const projects = [];
+                snapshot.forEach((child) => {
+                    const project = child.val();
+                    project._key = child.key;
+                    projects.push(project);
+                });
+                // Sort by startDate ascending (earliest first)
+                projects.sort((a, b) => {
+                    return a.startDate.localeCompare(b.startDate);
+                });
+
                 tbody.innerHTML = '';
                 let flyersSum = 0;
                 let eurosSum = 0;
-                snapshot.forEach((child) => {
-                    const project = child.val();
+                let serial = 1;
+                projects.forEach(project => {
                     const row = tbody.insertRow();
+                    row.insertCell().innerText = serial++;
                     row.insertCell().innerText = project.title;
                     row.insertCell().innerText = project.startDate;
                     row.insertCell().innerText = project.endDate;
                     row.insertCell().innerText = project.totalFlyers || 0;
                     row.insertCell().innerText = project.amountEuros !== undefined ? Number(project.amountEuros).toFixed(2) : "0.00";
+                    const actionCell = row.insertCell();
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = "delete-btn";
+                    deleteBtn.innerText = "Delete";
+                    deleteBtn.onclick = () => deleteProject(project._key);
+                    actionCell.appendChild(deleteBtn);
+
                     flyersSum += project.totalFlyers ? Number(project.totalFlyers) : 0;
                     eurosSum += project.amountEuros ? Number(project.amountEuros) : 0;
                 });
