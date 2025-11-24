@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lead Tracker - Weekly Calendar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Firebase scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        body { background: #202124; color: #F6F6F7; font-family: 'Segoe UI', Arial, sans-serif; margin:0 }
+        .container { max-width: 600px; margin: 40px auto; background: #292b2f; padding: 28px 18px 18px 18px; border-radius: 10px; box-shadow: 0 2px 12px #1113; }
+
+        .nav-row { display:flex; justify-content:space-between; margin-bottom:15px; }
+        .nav-btn {
+            background:#1f2937; color:#7dc0ff; border:1px solid #3c465a;
+            padding:8px 14px; border-radius:6px; cursor:pointer; font-size:0.95rem;
+        }
+        .nav-btn:hover { background:#2f3b52; }
+
+        .calendar-row { display: flex; justify-content: space-between; margin-bottom: 18px; }
+        .day {
+            padding: 12px 0; flex: 1 1 0; text-align: center;
+            margin: 0 4px; border-radius: 6px; cursor: pointer;
+            transition: background 0.15s; background: #37383c; color: #97a7ef; font-weight: 500;
+        }
+        .day.selected, .day:hover { background: #2847a6 !important; color: #fff; }
+
+        form { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+        input[type=text], textarea {
+            padding: 10px 12px; border-radius: 5px; border: 1.5px solid #393b44;
+            background: #323850; color: #fff; width: 47%; font-size: 1rem;
+        }
+        textarea { flex: 1 0 92%; resize: vertical; }
+        input:focus, textarea:focus { outline: 2px solid #4282fc; }
+
+        button { background: #3367d6; color:#fff; border:none; border-radius:5px;
+                 padding:10px 22px; font-size:1rem; cursor:pointer; margin-top:6px; }
+        button:hover { background:#1e46a7; }
+
+        table { width:100%; border-collapse:collapse; margin-top:18px; }
+        th, td { padding: 9px 5px; text-align: center; }
+        th { background:#2b3144; color:#7dc0ff; }
+        tr:nth-child(even) { background:#23252c; }
+
+        .del-btn {
+            background:#c93e3e; color:#fff; border:none;
+            padding:6px 14px; border-radius:4px; cursor:pointer;
+        }
+        .del-btn:hover { background:#812222; }
+
+        @media (max-width:550px) {
+            .calendar-row { flex-direction: column; }
+            .day { margin: 3px 0; }
+            .container { padding: 6px 2px; }
+            input[type=text], textarea { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="text-align:center;color:#7dc0ff">Weekly Lead Tracker</h2>
+
+    <div class="nav-row">
+        <button class="nav-btn" onclick="changeWeek(-1)">← Previous Week</button>
+        <button class="nav-btn" onclick="changeWeek(1)">Next Week →</button>
+    </div>
+
+    <div class="calendar-row" id="calendarRow"></div>
+
+    <form id="leadForm" autocomplete="off" onsubmit="addLead(event)">
+        <input type="text" id="clientName" placeholder="Client Name" required>
+        <textarea id="clientNote" placeholder="Notes" rows="2" required></textarea>
+        <button type="submit">Add Lead</button>
+    </form>
+
+    <table id="leadTable">
+        <thead>
+            <tr>
+                <th style="width:90px;">Day</th>
+                <th style="width:140px;">Client</th>
+                <th style="width:260px;">Note</th>
+                <th style="width:60px;">Action</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+    // ================== FIREBASE INIT ==================
+    const firebaseConfig = {
+        apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+        authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+        databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+        projectId: "tokentransfer-4a9b3",
+        storageBucket: "tokentransfer-4a9b3.appspot.com",
+        messagingSenderId: "205455490321",
+        appId: "1:205455490321:web:9919f5dde059316c9320b0",
+        measurementId: "G-Y6CVEDL9XH"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // ================== WEEK HANDLING ==================
+    let weekOffset = 0; // 0 = current week, -1 = previous week, +1 = next week
+    let selectedDate = null;
+    let weekDays = [];
+
+    function getMonday(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(d.setDate(diff));
+    }
+
+    function pad(v) { return v < 10 ? "0" + v : v; }
+
+    function setupCalendar() {
+        const calendarRow = document.getElementById("calendarRow");
+        calendarRow.innerHTML = "";
+        weekDays = [];
+
+        const base = new Date();
+        base.setDate(base.getDate() + weekOffset * 7);
+
+        const monday = getMonday(base);
+
+        const today = new Date();
+        const todayISO = today.toISOString().substring(0, 10);
+
+        let selectedFound = false;
+
+        for (let i = 0; i < 7; i++) {
+            let d = new Date(monday);
+            d.setDate(monday.getDate() + i);
+
+            const label = d.toLocaleDateString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric"
+            });
+            const iso = d.toISOString().substring(0, 10);
+
+            weekDays.push({ label, iso });
+
+            const div = document.createElement("div");
+            div.className = "day";
+
+            if (iso === selectedDate) {
+                div.classList.add("selected");
+                selectedFound = true;
+            }
+            if (!selectedFound && iso === todayISO && weekOffset === 0) {
+                div.classList.add("selected");
+                selectedDate = iso;
+            }
+
+            div.innerText = label;
+            div.onclick = () => selectDay(i);
+            calendarRow.appendChild(div);
+        }
+
+        if (!selectedFound) selectedDate = weekDays[0].iso;
+
+        showLeads();
+    }
+
+    function selectDay(idx) {
+        [...document.getElementById("calendarRow").children].forEach((el, i) =>
+            el.classList.toggle("selected", i === idx)
+        );
+        selectedDate = weekDays[idx].iso;
+        showLeads();
+    }
+
+    function changeWeek(change) {
+        weekOffset += change;
+        setupCalendar();
+    }
+
+    setupCalendar();
+
+    // ================== ADD LEAD ==================
+    function addLead(e) {
+        e.preventDefault();
+        const client = document.getElementById("clientName").value.trim();
+        const note   = document.getElementById("clientNote").value.trim();
+        if (!client || !note || !selectedDate) return;
+
+        const ref = db.ref("leads").push();
+        ref.set(
+            { day: selectedDate, client, note, createdAt: Date.now() },
+            (err) => {
+                if (!err) {
+                    document.getElementById("leadForm").reset();
+                    showLeads();
+                }
+            }
+        );
+    }
+
+    // ================== DISPLAY LEADS ==================
+    function showLeads() {
+        const tbody = document.querySelector("#leadTable tbody");
+        tbody.innerHTML = "";
+
+        const start = weekDays[0].iso;
+        const end   = weekDays[6].iso;
+
+        db.ref("leads")
+            .orderByChild("day")
+            .startAt(start)
+            .endAt(end)
+            .once("value", (snap) => {
+
+                let leads = [];
+                snap.forEach((c) => leads.push({ ...c.val(), key: c.key }));
+
+                leads.sort((a, b) =>
+                    a.day.localeCompare(b.day) || a.createdAt - b.createdAt
+                );
+
+                for (let i = 0; i < 7; i++) {
+                    const dayIso = weekDays[i].iso;
+                    const dayLeads = leads.filter((l) => l.day === dayIso);
+
+                    if (dayLeads.length) {
+                        dayLeads.forEach((ld) => {
+                            let row = tbody.insertRow();
+                            row.insertCell().innerText = weekDays[i].label;
+                            row.insertCell().innerText = ld.client;
+                            row.insertCell().innerText = ld.note;
+
+                            let del = row.insertCell();
+                            let dbtn = document.createElement("button");
+                            dbtn.innerText = "Delete";
+                            dbtn.className = "del-btn";
+                            dbtn.onclick = () => {
+                                if (confirm("Delete this lead?")) {
+                                    db.ref("leads/" + ld.key).remove().then(showLeads);
+                                }
+                            };
+                            del.appendChild(dbtn);
+                        });
+                    } else {
+                        let row = tbody.insertRow();
+                        row.insertCell().innerText = weekDays[i].label;
+                        row.insertCell().innerText = "-";
+                        row.insertCell().innerText = "-";
+                        row.insertCell().innerText = "";
+                    }
+                }
+            });
+    }
+</script>
+</body>
+</html>
