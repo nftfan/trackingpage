@@ -17,6 +17,12 @@
             --table-row-alt: #222325;
             --delete-bg: #e24343;
             --delete-hover: #c02626;
+            --lead-bg: #2D88FF;
+            --lead-text: #fff;
+            --done-bg: #36b37e;
+            --done-text: #fff;
+            --pending-bg: #FFAE42;
+            --pending-text: #242526;
         }
         body {
             background: var(--bg);
@@ -32,7 +38,7 @@
             color: var(--accent);
         }
         .container {
-            max-width: 1200px; /* Increased width for better table display */
+            max-width: 1200px;
             margin: 0 auto;
             background: var(--card);
             border-radius: 12px;
@@ -46,7 +52,7 @@
             margin-bottom: 22px;
             justify-content: center;
         }
-        input[type="text"], input[type="date"], input[type="number"] {
+        input[type="text"], input[type="date"], input[type="number"], select.label-select {
             background: var(--input-bg);
             border: 1.5px solid var(--input-border);
             color: var(--text);
@@ -57,36 +63,60 @@
             width: 170px;
             transition: border-color 0.2s;
         }
-        input:focus {
+        input:focus, select.label-select:focus {
             border-color: var(--accent);
         }
-        button, .delete-btn {
+        button, .delete-btn, .edit-btn, .save-btn, .cancel-btn {
             background: var(--accent);
             color: white;
             border: none;
             border-radius: 6px;
-            padding: 12px 22px;
+            padding: 10px 18px;
             font-size: 1rem;
             cursor: pointer;
             transition: background 0.18s;
         }
-        button:hover {
+        button:hover, .save-btn:hover, .edit-btn:hover {
             background: #185AC7;
         }
         .delete-btn {
             padding: 8px 14px;
             background: var(--delete-bg);
             font-size: 0.95rem;
-            border-radius: 6px;
         }
         .delete-btn:hover {
             background: var(--delete-hover);
+        }
+        .edit-btn {
+            margin-left: 4px;
+            background: #f5b942;
+            color: #363738;
+        }
+        .edit-btn:hover {
+            background: #FFAE42;
+            color: #2D2D2D;
+        }
+        .save-btn {
+            margin-left: 4px;
+            background: #36b37e;
+            color: #fff;
+        }
+        .save-btn:hover {
+            background: #259d67;
+        }
+        .cancel-btn {
+            margin-left: 4px;
+            background: #a5a5a5;
+            color: #464646;
+        }
+        .cancel-btn:hover {
+            background: #737373;
         }
         table {
             border-collapse: collapse;
             width: 100%;
             margin-top: 12px;
-            font-size: 1.07rem; /* Slightly larger for visibility */
+            font-size: 1.07rem;
             table-layout: fixed;
         }
         th, td {
@@ -118,20 +148,84 @@
             font-weight: bold;
             color: var(--accent);
         }
+        /* Month Tabs and Label Select */
+        .month-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 18px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .month-tab {
+            padding: 9px 18px;
+            background: var(--table-header);
+            color: var(--text);
+            border-radius: 20px;
+            border: 2px solid var(--accent);
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background 0.16s, color 0.16s;
+        }
+        .month-tab.selected {
+            background: var(--accent);
+            color: #fff;
+        }
+        /* Colored label backgrounds for selects and value */
+        .label-pill {
+            display: inline-block;
+            padding: 6px 14px;
+            font-size: 0.98rem;
+            font-weight: 600;
+            border-radius: 13px;
+            margin: 0 2px;
+        }
+        .label-lead {
+            background: var(--lead-bg);
+            color: var(--lead-text);
+        }
+        .label-done {
+            background: var(--done-bg);
+            color: var(--done-text);
+        }
+        .label-pending {
+            background: var(--pending-bg);
+            color: var(--pending-text);
+        }
+        .label-select.lead {
+            background: var(--lead-bg);
+            color: var(--lead-text);
+        }
+        .label-select.done {
+            background: var(--done-bg);
+            color: var(--done-text);
+        }
+        .label-select.pending {
+            background: var(--pending-bg);
+            color: var(--pending-text);
+        }
+        .label-select option {
+            color: #242526;
+        }
         @media (max-width: 900px) {
             .container { max-width: 99vw; }
         }
         @media (max-width: 600px) {
             .container { padding: 10px; max-width: 99vw; }
             table { font-size: .90rem; }
-            input, button { width: 100%; margin-bottom: 10px; }
+            input, button, select.label-select { width: 100%; margin-bottom: 10px; }
             .form-group { flex-direction: column; gap: 10px; }
+            .month-tab { font-size: .89rem; padding: 8px 8px; }
         }
     </style>
 </head>
 <body>
     <h2>My Projects</h2>
     <div class="container">
+        <div class="month-tabs" id="monthTabs"></div>
+
         <div class="grand-totals">
             <div id="flyersTotal">Total Flyers: 0</div>
             <div id="eurosTotal">Total Amount (€): 0</div>
@@ -142,27 +236,31 @@
             <input type="date" id="endDate" required>
             <input type="number" id="totalFlyers" placeholder="Total Flyers" min="0" required>
             <input type="number" id="amountEuros" placeholder="Amount (€)" min="0" step="0.01" required>
+            <select id="labelSelect" class="label-select lead">
+                <option value="Lead">Lead</option>
+                <option value="Done">Done</option>
+                <option value="Pending">Pending</option>
+            </select>
             <button onclick="addProject()">Add Project</button>
         </div>
         <table id="projectsTable">
             <thead>
                 <tr>
-                    <th style="width:55px;">#</th>
-                    <th style="width:180px;">Project Title</th>
-                    <th style="width:140px;">Start Date</th>
-                    <th style="width:140px;">End Date</th>
-                    <th style="width:120px;">Total Flyers</th>
-                    <th style="width:140px;">Amount (€)</th>
+                    <th style="width:40px;">#</th>
+                    <th style="width:140px;">Project Title</th>
+                    <th style="width:100px;">Start Date</th>
+                    <th style="width:100px;">End Date</th>
+                    <th style="width:90px;">Flyers</th>
+                    <th style="width:100px;">Amount (€)</th>
+                    <th style="width:110px;">Label</th>
                     <th style="width:100px;">Action</th>
                 </tr>
             </thead>
             <tbody>
-            <!-- Projects will go here -->
             </tbody>
         </table>
     </div>
     <script>
-        // Firebase Config and Init
         const firebaseConfig = {
             apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
             authDomain: "tokentransfer-4a9b3.firebaseapp.com",
@@ -176,21 +274,76 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
+        let selectedMonth = "";
+        const editRowStates = {}; // {project._key: data being edited}
+
+        function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+        function getMonthStr(dateStr) {
+            return dateStr ? dateStr.substring(0, 7) : "";
+        }
+        function getMonthName(ym) {
+            const y = parseInt(ym.substring(0, 4)), m = parseInt(ym.substring(5, 7));
+            const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+            return months[m-1] + " " + y;
+        }
+        function getLabelClass(label) {
+            if (!label) return 'lead';
+            label = label.toLowerCase();
+            if (label === "lead") return "lead";
+            if (label === "done") return "done";
+            if (label === "pending") return "pending";
+            return "lead";
+        }
+        // Color update for "add project"
+        document.getElementById('labelSelect').addEventListener('change', function() {
+            this.className = "label-select " + getLabelClass(this.value);
+        });
+
+        function createMonthTabs(projects) {
+            const allMonths = new Set();
+            projects.forEach(prj => {
+                if (prj.startDate) allMonths.add(getMonthStr(prj.startDate));
+            });
+            if (allMonths.size === 0) {
+                const today = new Date();
+                allMonths.add(today.getFullYear()+"-"+pad2(today.getMonth()+1));
+            }
+            const monthsSorted = Array.from(allMonths).sort().reverse();
+            if (!selectedMonth) {
+                const today = new Date();
+                const cur = today.getFullYear()+"-"+pad2(today.getMonth()+1);
+                selectedMonth = monthsSorted.includes(cur) ? cur : monthsSorted[0];
+            }
+            const tabsBar = document.getElementById('monthTabs');
+            tabsBar.innerHTML = '';
+            monthsSorted.forEach(monthStr => {
+                const tab = document.createElement('div');
+                tab.className = "month-tab" + (selectedMonth === monthStr ? " selected" : "");
+                tab.innerText = getMonthName(monthStr);
+                tab.onclick = () => {
+                    selectedMonth = monthStr;
+                    showProjects();
+                };
+                tabsBar.appendChild(tab);
+            });
+        }
+
         function addProject() {
             const title = document.getElementById('projectTitle').value.trim();
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             const totalFlyers = parseInt(document.getElementById('totalFlyers').value);
             const amountEuros = parseFloat(document.getElementById('amountEuros').value);
-
-            if(title && startDate && endDate && !isNaN(totalFlyers) && !isNaN(amountEuros)) {
+            const label = document.getElementById('labelSelect').value;
+            if(title && startDate && endDate && !isNaN(totalFlyers) && !isNaN(amountEuros) && label) {
                 const newRef = db.ref('projects').push();
                 newRef.set({
                     title,
                     startDate,
                     endDate,
                     totalFlyers,
-                    amountEuros
+                    amountEuros,
+                    label
                 }, (error) => {
                     if (!error) {
                         document.getElementById('projectTitle').value = "";
@@ -198,6 +351,8 @@
                         document.getElementById('endDate').value = "";
                         document.getElementById('totalFlyers').value = "";
                         document.getElementById('amountEuros').value = "";
+                        document.getElementById('labelSelect').value = "Lead";
+                        document.getElementById('labelSelect').className = "label-select lead";
                     }
                 });
             } else {
@@ -211,44 +366,195 @@
             }
         }
 
+        function saveProjectEdit(projectId, data) {
+            db.ref('projects/' + projectId).set(data, (error) => {
+                if (!error) {
+                    delete editRowStates[projectId];
+                    showProjects();
+                } else {
+                    alert('Failed to save.');
+                }
+            });
+        }
+
         function showProjects() {
             const tbody = document.getElementById('projectsTable').getElementsByTagName('tbody')[0];
             const flyersTotalDiv = document.getElementById('flyersTotal');
             const eurosTotalDiv = document.getElementById('eurosTotal');
-            db.ref('projects').on('value', (snapshot) => {
-                // Collect all projects into array (with key for deletion)
+            db.ref('projects').once('value').then((snapshot) => {
                 const projects = [];
                 snapshot.forEach((child) => {
                     const project = child.val();
                     project._key = child.key;
                     projects.push(project);
                 });
-                // Sort by startDate ascending (earliest first)
-                projects.sort((a, b) => {
-                    return a.startDate.localeCompare(b.startDate);
-                });
+                createMonthTabs(projects);
 
+                const filtered = projects.filter(prj => getMonthStr(prj.startDate) === selectedMonth);
+
+                filtered.sort((a, b) => a.startDate.localeCompare(b.startDate));
                 tbody.innerHTML = '';
-                let flyersSum = 0;
-                let eurosSum = 0;
-                let serial = 1;
-                projects.forEach(project => {
+                let flyersSum = 0, eurosSum = 0, serial = 1;
+                filtered.forEach(project => {
+                    const editing = !!editRowStates[project._key];
+                    const editData = editRowStates[project._key] || {};
                     const row = tbody.insertRow();
-                    row.insertCell().innerText = serial++;
-                    row.insertCell().innerText = project.title;
-                    row.insertCell().innerText = project.startDate;
-                    row.insertCell().innerText = project.endDate;
-                    row.insertCell().innerText = project.totalFlyers || 0;
-                    row.insertCell().innerText = project.amountEuros !== undefined ? Number(project.amountEuros).toFixed(2) : "0.00";
-                    const actionCell = row.insertCell();
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.className = "delete-btn";
-                    deleteBtn.innerText = "Delete";
-                    deleteBtn.onclick = () => deleteProject(project._key);
-                    actionCell.appendChild(deleteBtn);
+                    row.setAttribute('data-key', project._key);
 
-                    flyersSum += project.totalFlyers ? Number(project.totalFlyers) : 0;
-                    eurosSum += project.amountEuros ? Number(project.amountEuros) : 0;
+                    // # Serial
+                    const c0 = row.insertCell();
+                    c0.innerText = serial++;
+
+                    // Title
+                    const c1 = row.insertCell();
+                    if (editing) {
+                        const inp = document.createElement('input');
+                        inp.type = "text";
+                        inp.value = editData.title;
+                        inp.style.width = "98%";
+                        inp.oninput = e => { editData.title = inp.value; };
+                        c1.appendChild(inp);
+                    } else {
+                        c1.innerText = project.title;
+                    }
+
+                    // Start Date
+                    const c2 = row.insertCell();
+                    if (editing) {
+                        const inp = document.createElement('input');
+                        inp.type = "date";
+                        inp.value = editData.startDate;
+                        inp.oninput = e => { editData.startDate = inp.value; };
+                        c2.appendChild(inp);
+                    } else {
+                        c2.innerText = project.startDate;
+                    }
+
+                    // End Date
+                    const c3 = row.insertCell();
+                    if (editing) {
+                        const inp = document.createElement('input');
+                        inp.type = "date";
+                        inp.value = editData.endDate;
+                        inp.oninput = e => { editData.endDate = inp.value; };
+                        c3.appendChild(inp);
+                    } else {
+                        c3.innerText = project.endDate;
+                    }
+
+                    // Flyers
+                    const c4 = row.insertCell();
+                    if (editing) {
+                        const inp = document.createElement('input');
+                        inp.type = "number";
+                        inp.min = "0";
+                        inp.value = editData.totalFlyers;
+                        inp.oninput = e => { editData.totalFlyers = inp.value; };
+                        c4.appendChild(inp);
+                    } else {
+                        c4.innerText = project.totalFlyers || 0;
+                    }
+
+                    // Amount
+                    const c5 = row.insertCell();
+                    if (editing) {
+                        const inp = document.createElement('input');
+                        inp.type = "number";
+                        inp.min = "0";
+                        inp.step = "0.01";
+                        inp.value = editData.amountEuros;
+                        inp.oninput = e => { editData.amountEuros = inp.value; };
+                        c5.appendChild(inp);
+                    } else {
+                        c5.innerText = project.amountEuros !== undefined ? Number(project.amountEuros).toFixed(2) : "0.00";
+                    }
+
+                    // Label
+                    const c6 = row.insertCell();
+                    if (editing) {
+                        const sel = document.createElement('select');
+                        sel.className = "label-select " + getLabelClass(editData.label);
+                        ["Lead", "Done", "Pending"].forEach(lbl => {
+                            const opt = document.createElement('option');
+                            opt.value = lbl;
+                            opt.text = lbl;
+                            if ((editData.label||"Lead") === lbl) opt.selected = true;
+                            sel.appendChild(opt);
+                        });
+                        sel.onchange = () => {
+                            sel.className = "label-select " + getLabelClass(sel.value);
+                            editData.label = sel.value;
+                        };
+                        c6.appendChild(sel);
+                    } else {
+                        const labelDiv = document.createElement('span');
+                        labelDiv.className = 'label-pill label-' + getLabelClass(project.label);
+                        labelDiv.innerText = project.label || "Lead";
+                        c6.appendChild(labelDiv);
+                    }
+
+                    // Action
+                    const c7 = row.insertCell();
+                    if (editing) {
+                        // Save and Cancel
+                        const saveBtn = document.createElement('button');
+                        saveBtn.className = "save-btn";
+                        saveBtn.innerText = "Save";
+                        saveBtn.onclick = () => {
+                            // basic validation
+                            if (
+                                editData.title && editData.startDate && editData.endDate &&
+                                !isNaN(editData.totalFlyers) && !isNaN(editData.amountEuros) && editData.label
+                            ) {
+                                const rowKey = project._key;
+                                saveProjectEdit(rowKey, {
+                                    title: editData.title.trim(),
+                                    startDate: editData.startDate,
+                                    endDate: editData.endDate,
+                                    totalFlyers: parseInt(editData.totalFlyers) || 0,
+                                    amountEuros: parseFloat(editData.amountEuros) || 0,
+                                    label: editData.label
+                                });
+                            } else {
+                                alert('Please fill all fields.');
+                            }
+                        };
+                        c7.appendChild(saveBtn);
+
+                        const cancelBtn = document.createElement('button');
+                        cancelBtn.className = "cancel-btn";
+                        cancelBtn.innerText = "Cancel";
+                        cancelBtn.onclick = () => { delete editRowStates[project._key]; showProjects(); };
+                        c7.appendChild(cancelBtn);
+                    } else {
+                        // Delete and Edit
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = "delete-btn";
+                        deleteBtn.innerText = "Delete";
+                        deleteBtn.onclick = () => deleteProject(project._key);
+                        c7.appendChild(deleteBtn);
+
+                        const editBtn = document.createElement('button');
+                        editBtn.className = "edit-btn";
+                        editBtn.innerText = "Edit";
+                        editBtn.onclick = () => {
+                            // set editable state for this row, with current data
+                            editRowStates[project._key] = {
+                                title: project.title,
+                                startDate: project.startDate,
+                                endDate: project.endDate,
+                                totalFlyers: project.totalFlyers,
+                                amountEuros: project.amountEuros,
+                                label: project.label || "Lead"
+                            };
+                            showProjects();
+                        };
+                        c7.appendChild(editBtn);
+                    }
+                    if (!editing) {
+                        flyersSum += project.totalFlyers ? Number(project.totalFlyers) : 0;
+                        eurosSum += project.amountEuros ? Number(project.amountEuros) : 0;
+                    }
                 });
                 flyersTotalDiv.innerText = "Total Flyers: " + flyersSum;
                 eurosTotalDiv.innerText = "Total Amount (€): " + eurosSum.toFixed(2);
@@ -256,6 +562,7 @@
         }
 
         window.onload = showProjects;
+        db.ref('projects').on('value', showProjects);
     </script>
 </body>
 </html>
