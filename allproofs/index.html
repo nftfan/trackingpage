@@ -1,0 +1,1182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LeuvenFlyers — Mobile Collector</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#FFFFFF" />
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin="anonymous"
+  />
+
+  <style>
+    :root{
+      --bg: #f4f4f6;
+      --text: #1c1c1e;
+      --bar-bg: #ffffff;
+      --bar-border: #e5e5e5;
+      --brand-text: #0056b3;
+      --bar-height: 44px;
+      --accent: #0056b3;
+      --last-point: #ff8800;
+      
+      /* Colors preserved for markers */
+      --online-facebook: #1877f2;
+      --online-googlemaps: #34a853;
+      --online-tiktok: #000000;
+      --online-ig-reels: #e1306c;
+      --online-yt-shorts: #ff0000;
+      --poster-color: #f97316;
+      --flyer-color: #374151;
+      --handout-color: #059669;
+      --b2b-color: #0ea5e9;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      height: 100%;
+    }
+
+    body {
+      height: 100vh;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* LOGIN SCREEN STYLES */
+    #login-overlay {
+        position: fixed;
+        inset: 0;
+        background: #f4f4f6;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    
+    .login-card {
+        background: white;
+        padding: 30px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        width: 100%;
+        max-width: 320px;
+        text-align: center;
+    }
+
+    .login-logo {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        background: radial-gradient(circle at 30% 20%, #ffffff 0, #7fb3ff 25%, #4d7cff 55%, #1c3fa3 100%);
+        margin: 0 auto 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .login-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: #1c1c1e;
+        margin-bottom: 8px;
+    }
+
+    .login-subtitle {
+        font-size: 13px;
+        color: #6c757d;
+        margin-bottom: 24px;
+    }
+
+    .login-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e5e5e5;
+        border-radius: 12px;
+        font-size: 16px;
+        outline: none;
+        margin-bottom: 16px;
+        transition: border-color 0.2s;
+        text-transform: uppercase;
+        text-align: center;
+        letter-spacing: 1px;
+    }
+
+    .login-input:focus {
+        border-color: #0056b3;
+    }
+
+    .login-btn {
+        width: 100%;
+        padding: 12px;
+        background: #0056b3;
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .login-btn:active {
+        background: #004494;
+    }
+
+    /* APP STYLES */
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: var(--bar-height);
+      z-index: 1000;
+      background: var(--bar-bg);
+      border-bottom: 1px solid var(--bar-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      padding-top: env(safe-area-inset-top);
+    }
+
+    .brand {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-transform: uppercase;
+    }
+
+    .brand .logo {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      background: radial-gradient(circle at 30% 20%, #ffffff 0, #7fb3ff 25%, #4d7cff 55%, #1c3fa3 100%);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+      flex-shrink: 0;
+    }
+
+    .brand .name {
+      color: var(--brand-text);
+      white-space: nowrap;
+    }
+
+    main {
+      flex-grow: 1;
+      padding-top: calc(var(--bar-height) + env(safe-area-inset-top));
+      height: 100%;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .map-container {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+
+    .leaflet-container {
+      background: var(--bg);
+      outline: none;
+      font-family: inherit;
+    }
+
+    /* Hide stats table and sidebar for mobile view */
+    .floating-counter, .sidebar {
+      display: none !important;
+    }
+
+    /* Modal Styles */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal {
+      width: 380px;
+      max-width: calc(100% - 32px);
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+      padding: 14px 16px 12px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .modal-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .modal-close-btn {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      color: #6b7280;
+    }
+
+    .modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+
+    .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .modal-label {
+      font-size: 11px;
+      color: #374151;
+    }
+
+    .modal-input,
+    .modal-select {
+      font-size: 11px;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      outline: none;
+      background: #fff;
+    }
+
+    .modal-input:focus,
+    .modal-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(59,130,246,0.3);
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .modal-secondary-btn {
+      font-size: 11px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #374151;
+      cursor: pointer;
+    }
+
+    .modal-primary-btn {
+      font-size: 11px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: none;
+      background: #111827;
+      color: #f9fafb;
+      cursor: pointer;
+    }
+
+    .modal-error {
+      font-size: 10px;
+      color: #b91c1c;
+      min-height: 14px;
+    }
+
+    /* Marker Styles */
+    .online-box-marker {
+      border-radius: 10px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      background: #111827;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .online-box-marker-index {
+      min-width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.15);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .online-box-facebook  { background: var(--online-facebook); }
+    .online-box-googlemaps{ background: var(--online-googlemaps); }
+    .online-box-tiktok    { background: var(--online-tiktok); }
+    .online-box-igreels   { background: var(--online-ig-reels); }
+    .online-box-ytshorts  { background: var(--online-yt-shorts); }
+
+    .poster-box-label,
+    .flyer-box-label,
+    .handout-box-label,
+    .b2b-box-label {
+      border-radius: 8px;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .poster-box-label { background: var(--poster-color); }
+    .flyer-box-label { background: var(--flyer-color); }
+    .handout-box-label { background: var(--handout-color); }
+    .b2b-box-label { background: var(--b2b-color); }
+
+    .delivery-marker-circle {
+      min-width: 26px;
+      height: 26px;
+      padding: 0 6px;
+      background: #ffffff;
+      border-radius: 999px;
+      border: 2px solid var(--accent);
+      box-shadow: 0 2px 6px rgba(0,0,0,.25);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .delivery-marker-circle--last-overall {
+      border-color: var(--last-point);
+      color: #000;
+      font-weight: 700;
+    }
+    .last-point-label {
+      background: #ffffff;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #000000;
+      border: 2px solid var(--last-point);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      white-space: nowrap;
+      transform: translateY(-4px);
+    }
+    .last-point-circle {
+      animation: last-point-blink 1s ease-in-out infinite;
+      stroke-width: 4;
+    }
+    @keyframes last-point-blink {
+      0% { stroke: var(--last-point); stroke-opacity: 1; filter: drop-shadow(0 0 4px rgba(255,136,0,0.5)); }
+      50% { stroke: #ffcc00; stroke-opacity: 1; filter: drop-shadow(0 0 8px rgba(255,204,0,0.9)); }
+      100% { stroke: var(--last-point); stroke-opacity: 1; filter: drop-shadow(0 0 4px rgba(255,136,0,0.5)); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN OVERLAY -->
+  <div id="login-overlay">
+    <div class="login-card">
+        <div class="login-logo"></div>
+        <div class="login-title">LeuvenFlyers</div>
+        <div class="login-subtitle">Enter Campaign / User ID</div>
+        <input type="text" id="login-input" class="login-input" placeholder="e.g. FF1200" />
+        <button id="login-btn" class="login-btn">Login</button>
+        <div style="margin-top:15px; font-size:11px; color:#999;">
+          New IDs will be automatically registered.
+        </div>
+    </div>
+  </div>
+
+  <header class="top-bar" role="banner">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div class="name">LeuvenFlyers</div>
+      <div style="margin-left:10px; font-size:11px; color:#666;">Tap map to add</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="map-container">
+      <div id="map" role="application" aria-label="Map"></div>
+      
+      <!-- Hidden stats table (kept in DOM for JS compatibility) -->
+      <div id="stats-table-box" class="floating-counter" style="display:none;">
+        <table class="stats-table">
+          <tr><td id="stats-flyers">0</td></tr>
+          <tr><td id="stats-posters">0</td></tr>
+          <tr><td id="stats-b2b">0</td></tr>
+          <tr><td id="stats-handouts">0</td></tr>
+          <tr><td id="stats-online">0</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- Hidden sidebar (kept in DOM for JS compatibility) -->
+    <aside class="sidebar" style="display:none;">
+      <div id="online-counts"></div>
+      <div id="online-table-container"></div>
+      <div id="flyers-table-container"></div>
+      <!-- Hidden buttons needed for JS selectors -->
+      <button data-online-tag="facebook"></button>
+      <button data-online-tag="googlemaps"></button>
+      <button data-online-tag="tiktok"></button>
+      <button data-online-tag="igreels"></button>
+      <button data-online-tag="ytshorts"></button>
+      <button data-offline-tag="flyer"></button>
+      <button data-offline-tag="poster"></button>
+      <button data-offline-tag="b2b"></button>
+      <button data-offline-tag="handout"></button>
+    </aside>
+  </main>
+
+  <!-- PROOF MODAL -->
+  <div id="proof-modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Add Activity</div>
+        <button class="modal-close-btn" type="button" aria-label="Close" id="proof-modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <label class="modal-label" for="proof-type-select">Type</label>
+          <select id="proof-type-select" class="modal-select">
+            <option value="online-facebook">Online — Facebook Groups</option>
+            <option value="online-googlemaps">Online — Google Maps</option>
+            <option value="online-tiktok">Online — TikTok</option>
+            <option value="online-igreels">Online — Instagram Reels</option>
+            <option value="online-ytshorts">Online — YouTube Shorts</option>
+            <option value="offline-flyer">Offline — Mailbox</option>
+            <option value="offline-poster">Offline — Poster</option>
+            <option value="offline-b2b">Offline — B2B</option>
+            <option value="offline-handout">Offline — Handouts</option>
+          </select>
+        </div>
+
+        <div class="modal-field">
+          <label class="modal-label" for="proof-url-input">URL (Optional / Required for Online)</label>
+          <input id="proof-url-input" class="modal-input" type="url" placeholder="Paste link here" />
+        </div>
+
+        <div class="modal-field" id="proof-handout-field" style="display:none;">
+          <label class="modal-label" for="handout-count-input">Number of handouts</label>
+          <input id="handout-count-input" class="modal-input" type="number" min="1" step="1" placeholder="e.g. 500" />
+        </div>
+
+        <div class="modal-field">
+          <div style="font-size:10px;color:#6b7280;" id="proof-location-hint"></div>
+        </div>
+
+        <div id="proof-modal-error" class="modal-error"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-secondary-btn" type="button" id="proof-modal-cancel">Cancel</button>
+        <button class="modal-primary-btn" type="button" id="proof-modal-submit">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin="anonymous"
+  ></script>
+
+  <script type="module">
+    // The ID will be set by the user
+    let CURRENT_USER_ID = null;
+
+    const LABEL_ZOOM_THRESHOLD = 17;
+
+    // LOGIN LOGIC
+    const loginOverlay = document.getElementById('login-overlay');
+    const loginInput = document.getElementById('login-input');
+    const loginBtn = document.getElementById('login-btn');
+    const brandName = document.querySelector('.brand .name');
+
+    loginBtn.addEventListener('click', () => {
+        const val = loginInput.value.trim().toUpperCase();
+        if(!val) {
+            alert('Please enter an ID');
+            return;
+        }
+        
+        CURRENT_USER_ID = val;
+        brandName.textContent = `LeuvenFlyers • ${val}`;
+        loginOverlay.style.display = 'none';
+        
+        // Start loading data for this user
+        initAppData(val);
+    });
+
+    // Initial view centered on Leuven area
+    const map = L.map('map', {
+      zoomControl: false, 
+      tap: true,
+      attributionControl: false,
+      maxZoom: 22,
+    }).setView([50.8796, 4.7009], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 22,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    const postsLayer      = L.layerGroup().addTo(map);
+    const routeLayer      = L.layerGroup().addTo(map);
+    const labelsLayer     = L.layerGroup().addTo(map);
+    const onlineLayer     = L.layerGroup().addTo(map);
+    const onlineBoxLayer  = L.layerGroup().addTo(map);
+    const offlineLayer    = L.layerGroup().addTo(map);
+    const handoutLayer    = L.layerGroup().addTo(map);
+
+    // Elements must exist in DOM to avoid JS errors
+    const statsFlyersEl   = document.getElementById('stats-flyers');
+    const statsPostersEl  = document.getElementById('stats-posters');
+    const statsB2BEl      = document.getElementById('stats-b2b');
+    const statsHandoutsEl = document.getElementById('stats-handouts');
+    const statsOnlineEl   = document.getElementById('stats-online');
+
+    const flyersTableContainerEl = document.getElementById('flyers-table-container');
+    const onlineCountsEl         = document.getElementById('online-counts');
+    const onlineTableContainerEl = document.getElementById('online-table-container');
+
+    let lastPointLabelOverlay = null;
+    let itemsCache = [];
+    let lastClickedHighlight = null;
+    let circleMarkers = [];
+    let labelMarkers = [];
+
+    const baseCircleOptions = {
+      radius: 4,
+      color: '#0056b3',
+      weight: 1,
+      opacity: 1,
+      fillColor: '#ffffff',
+      fillOpacity: 0.9
+    };
+
+    const lastCircleHighlightOptions = {
+      ...baseCircleOptions,
+      radius: 8,
+      weight: 3
+    };
+
+    function getDateKeyFromTimestamp(timestamp) {
+      if (!timestamp) return null;
+      let d;
+      if (typeof timestamp === 'number') {
+        d = timestamp < 1e12 ? new Date(timestamp * 1000) : new Date(timestamp);
+      } else {
+        d = new Date(timestamp);
+      }
+      if (Number.isNaN(d.getTime())) return null;
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function formatDaysAgo(timestamp) {
+      if (!timestamp) return 'Unknown';
+      let d;
+      if (typeof timestamp === 'number') {
+        d = timestamp < 1e12 ? new Date(timestamp * 1000) : new Date(timestamp);
+      } else {
+        d = new Date(timestamp);
+      }
+      if (Number.isNaN(d.getTime())) return 'Unknown';
+      const now = new Date();
+      const diffMs = now - d;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays <= 0) return 'Today';
+      if (diffDays === 1) return '1 day ago';
+      return `${diffDays} days ago`;
+    }
+
+    function goToLatLng(lat, lng) {
+      const latlng = [lat, lng];
+      const targetZoom = Math.max(map.getZoom(), 18);
+      map.setView(latlng, targetZoom, { animate: true });
+
+      if (lastClickedHighlight) {
+        map.removeLayer(lastClickedHighlight);
+        lastClickedHighlight = null;
+      }
+
+      lastClickedHighlight = L.circleMarker(latlng, {
+        radius: 14,
+        color: '#ff00aa',
+        weight: 2,
+        opacity: 0.7,
+        fillColor: '#ffb3e5',
+        fillOpacity: 0.2
+      }).addTo(map);
+
+      setTimeout(() => {
+        if (lastClickedHighlight) {
+          map.removeLayer(lastClickedHighlight);
+          lastClickedHighlight = null;
+        }
+      }, 4000);
+    }
+
+    function openUrlIfAny(url) {
+      if (!url) return;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    function updateNumberLabels() {
+      labelsLayer.clearLayers();
+      labelMarkers = [];
+
+      if (!itemsCache.length) return;
+      if (map.getZoom() < LABEL_ZOOM_THRESHOLD) return;
+
+      const lastOverallIndex = itemsCache.length - 1;
+
+      itemsCache.forEach((p, idx) => {
+        const count = idx + 1;
+        const latlng = [p.lat, p.lng];
+
+        const extraClass = idx === lastOverallIndex
+          ? ' delivery-marker-circle--last-overall'
+          : '';
+
+        const icon = L.divIcon({
+          className: 'delivery-marker-circle' + extraClass,
+          html: `<span class="delivery-marker-circle-inner">${count}</span>`,
+          iconSize: null,
+          iconAnchor: [16, 16]
+        });
+
+        const marker = L.marker(latlng, { icon, interactive: false }).addTo(labelsLayer);
+        labelMarkers[idx] = marker;
+      });
+    }
+
+    /*******************
+     * OFFLINE
+     *******************/
+    const manualOfflineItems = []; 
+    let activeOfflineFilter = 'flyer';
+    let handoutsTotal = 0;
+    const handoutEvents = [];
+
+    function buildCombinedOfflineFlyerPosterB2B() {
+      const originalList = itemsCache.map((p) => ({
+        source: 'original',
+        kind: 'flyer',
+        lat: p.lat,
+        lng: p.lng,
+        url: '',
+        timestamp: p.timestamp ?? null
+      }));
+
+      const campaignList = manualOfflineItems.map((item) => ({
+        source: 'campaign',
+        kind: item.kind,
+        lat: item.lat,
+        lng: item.lng,
+        url: item.url || '',
+        timestamp: item.timestamp
+      }));
+
+      return [...originalList, ...campaignList].sort((a, b) => (a.timestamp||0) - (b.timestamp||0));
+    }
+
+    function updateOfflineStatsBox() {
+      if(statsFlyersEl) {
+          const flyersFirebase = itemsCache.length;
+          const flyersCampaign = manualOfflineItems.filter(i => i.kind === 'flyer').length;
+          statsFlyersEl.textContent   = String(flyersFirebase + flyersCampaign);
+          statsPostersEl.textContent  = String(manualOfflineItems.filter(i => i.kind === 'poster').length);
+          statsB2BEl.textContent      = String(manualOfflineItems.filter(i => i.kind === 'b2b').length);
+          statsHandoutsEl.textContent = String(handoutsTotal);
+          statsOnlineEl.textContent   = String(onlineItems.length);
+      }
+    }
+
+    function updateOfflineListAndMarkers() {
+      offlineLayer.clearLayers();
+      handoutLayer.clearLayers();
+      if(flyersTableContainerEl) flyersTableContainerEl.innerHTML = '';
+
+      manualOfflineItems.forEach(item => {
+        const kind = item.kind;
+        const kindLabel = kind === 'poster' ? 'Poster' : kind === 'b2b' ? 'B2B' : 'Mailbox';
+        const color = kind === 'poster' ? '#f97316' : kind === 'b2b' ? '#0ea5e9' : '#374151';
+
+        L.circleMarker([item.lat, item.lng], {
+          radius: kind === 'poster' || kind === 'b2b' ? 9 : 6,
+          color,
+          weight: 3,
+          opacity: 1,
+          fillColor: kind === 'poster' || kind === 'b2b' ? '#fed7aa' : '#e5e7eb',
+          fillOpacity: 0.9
+        }).addTo(offlineLayer).on('click', () => goToLatLng(item.lat, item.lng));
+
+        const labelClass = kind === 'poster' ? 'poster-box-label' : kind === 'b2b' ? 'b2b-box-label' : 'flyer-box-label';
+        const divId = `offline-label-${item.id}`;
+        const labelIcon = L.divIcon({
+          className: '',
+          html: `<div id="${divId}" class="${labelClass}">${kindLabel}</div>`,
+          iconSize: null,
+          iconAnchor: [0, 24]
+        });
+
+        L.marker([item.lat, item.lng], { icon: labelIcon }).addTo(offlineLayer);
+        setTimeout(() => {
+          const el = document.getElementById(divId);
+          if (el) el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            goToLatLng(item.lat, item.lng);
+            openUrlIfAny(item.url);
+          });
+        }, 0);
+      });
+
+      handoutEvents.forEach((ev, idx) => {
+        const divId = `handout-label-${idx}`;
+        const labelIcon = L.divIcon({
+          className: '',
+          html: `<div id="${divId}" class="handout-box-label">Handouts: ${ev.delta}</div>`,
+          iconSize: null,
+          iconAnchor: [0, 24]
+        });
+        L.marker([ev.lat, ev.lng], { icon: labelIcon }).addTo(handoutLayer);
+        setTimeout(() => {
+          const el = document.getElementById(divId);
+          if (el) el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            goToLatLng(ev.lat, ev.lng);
+            openUrlIfAny(ev.url);
+          });
+        }, 0);
+      });
+
+      updateOfflineStatsBox();
+    }
+
+    /*******************
+     * ONLINE
+     *******************/
+    let activeOnlineFilter = 'facebook';
+    const onlineItems = []; 
+
+    function tagToColor(tag) {
+      const style = getComputedStyle(document.documentElement);
+      switch (tag) {
+        case 'facebook': return style.getPropertyValue('--online-facebook') || '#1877f2';
+        case 'googlemaps': return style.getPropertyValue('--online-googlemaps') || '#34a853';
+        case 'tiktok': return style.getPropertyValue('--online-tiktok') || '#000000';
+        case 'igreels': return style.getPropertyValue('--online-ig-reels') || '#e1306c';
+        case 'ytshorts': return style.getPropertyValue('--online-yt-shorts') || '#ff0000';
+        default: return '#6b7280';
+      }
+    }
+
+    function updateOnlineCounts() {
+      updateOfflineStatsBox();
+    }
+
+    function addOnlineCircleMarker(item) {
+      const color = tagToColor(item.tag);
+      const marker = L.circleMarker([item.lat, item.lng], {
+        radius: 7,
+        color,
+        weight: 2,
+        opacity: 1,
+        fillColor: color,
+        fillOpacity: 0.7
+      }).addTo(onlineLayer);
+      item.marker = marker;
+      marker.on('click', () => {
+        goToLatLng(item.lat, item.lng);
+        openUrlIfAny(item.url);
+      });
+    }
+
+    function updateOnlineTableAndBoxes() {
+      if(onlineTableContainerEl) onlineTableContainerEl.innerHTML = '';
+      onlineBoxLayer.clearLayers();
+
+      onlineItems.forEach((item)=> {
+        const colorClass =
+          item.tag === 'facebook' ? 'online-box-facebook' :
+          item.tag === 'googlemaps' ? 'online-box-googlemaps' :
+          item.tag === 'tiktok' ? 'online-box-tiktok' :
+          item.tag === 'igreels' ? 'online-box-igreels' :
+          item.tag === 'ytshorts' ? 'online-box-ytshorts' : '';
+
+        const divId = `online-label-${item.id}`;
+        const icon = L.divIcon({
+          className: '',
+          html: `
+            <div id="${divId}" class="online-box-marker ${colorClass}">
+              <div class="online-box-marker-index">!</div>
+              <div class="online-box-marker-label">${item.tag}</div>
+            </div>
+          `,
+          iconSize: null,
+          iconAnchor: [24, 24]
+        });
+
+        L.marker([item.lat, item.lng], { icon }).addTo(onlineBoxLayer);
+        setTimeout(() => {
+          const el = document.getElementById(divId);
+          if (el) el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            goToLatLng(item.lat, item.lng);
+            openUrlIfAny(item.url);
+          });
+        }, 0);
+      });
+      updateOfflineStatsBox();
+    }
+
+    // Event Listeners for hidden tabs
+    document.querySelectorAll('[data-online-tag]').forEach(btn => {
+       btn.addEventListener('click', () => { });
+    });
+    document.querySelectorAll('[data-offline-tag]').forEach(btn => {
+       btn.addEventListener('click', () => { });
+    });
+
+    /*******************
+     * MODAL
+     *******************/
+    const proofModalBackdrop = document.getElementById('proof-modal-backdrop');
+    const proofModalClose = document.getElementById('proof-modal-close');
+    const proofModalCancel = document.getElementById('proof-modal-cancel');
+    const proofModalSubmit = document.getElementById('proof-modal-submit');
+    const proofUrlInput = document.getElementById('proof-url-input');
+    const proofTypeSelect = document.getElementById('proof-type-select');
+    const proofModalError = document.getElementById('proof-modal-error');
+    const proofLocationHint = document.getElementById('proof-location-hint');
+    const proofHandoutField = document.getElementById('proof-handout-field');
+    const handoutCountInput = document.getElementById('handout-count-input');
+
+    let pendingProofLatLng = null;
+
+    function refreshModalFields() {
+      const value = proofTypeSelect.value || '';
+      const [category, sub] = value.split('-');
+      if (category === 'offline' && sub === 'handout') {
+        proofHandoutField.style.display = 'flex';
+      } else {
+        proofHandoutField.style.display = 'none';
+      }
+    }
+
+    function showProofModal(latlng) {
+      pendingProofLatLng = latlng;
+      proofModalError.textContent = '';
+      proofUrlInput.value = '';
+      handoutCountInput.value = '';
+      proofTypeSelect.value = 'offline-flyer'; 
+      refreshModalFields();
+
+      if (latlng) {
+        proofLocationHint.textContent = `Location: ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+      } else {
+        proofLocationHint.textContent = '';
+      }
+
+      proofModalBackdrop.classList.add('show');
+      proofModalBackdrop.setAttribute('aria-hidden', 'false');
+      proofUrlInput.focus();
+    }
+
+    function hideProofModal() {
+      proofModalBackdrop.classList.remove('show');
+      proofModalBackdrop.setAttribute('aria-hidden', 'true');
+      pendingProofLatLng = null;
+    }
+
+    function validateProofForm() {
+      if (!pendingProofLatLng) {
+        return { ok: false, message: 'Click on the map to pick a location.' };
+      }
+      const typeValue = proofTypeSelect.value;
+      const [category, sub] = typeValue.split('-');
+      const url = proofUrlInput.value.trim();
+
+      if (category === 'online' && !url) {
+        return { ok: false, message: 'URL is required for online proofs.' };
+      }
+
+      if (category === 'offline' && sub === 'handout') {
+        const n = parseInt(handoutCountInput.value, 10);
+        if (Number.isNaN(n) || n <= 0) {
+          return { ok: false, message: 'Enter a positive number for handouts.' };
+        }
+        return { ok: true, category, sub, url: url || '', lat: pendingProofLatLng.lat, lng: pendingProofLatLng.lng, handouts: n };
+      }
+
+      return { ok: true, category, sub, url: url || '', lat: pendingProofLatLng.lat, lng: pendingProofLatLng.lng, handouts: 0 };
+    }
+
+    proofTypeSelect.addEventListener('change', refreshModalFields);
+    proofModalClose.addEventListener('click', hideProofModal);
+    proofModalCancel.addEventListener('click', hideProofModal);
+    proofModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === proofModalBackdrop) hideProofModal();
+    });
+
+    /*******************
+     * FIREBASE
+     *******************/
+    let db = null;
+    let campaignOnlineRef = null;
+    let campaignOfflineRef = null;
+    let campaignHandoutsRef = null;
+
+    async function initFirebaseCampaignRefs(userId) {
+      if (!db) {
+        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js");
+        const { getDatabase } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+            authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+            databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+            projectId: "tokentransfer-4a9b3",
+            storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+            messagingSenderId: "205455490321",
+            appId: "1:205455490321:web:9919f5dde059316c9320b0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        db = getDatabase(app);
+      }
+
+      const { ref } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      // DYNAMIC: User ID injected here
+      campaignOnlineRef   = ref(db, `campaigns/${userId}/online`);
+      campaignOfflineRef  = ref(db, `campaigns/${userId}/offline`);
+      campaignHandoutsRef = ref(db, `campaigns/${userId}/handouts`);
+    }
+
+    async function loadCampaignData(userId) {
+      try {
+        await initFirebaseCampaignRefs(userId);
+        const { onValue } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+        // Remove existing listeners (if switching users) - complex in vanilla, 
+        // here we assume one session per page load for simplicity.
+        
+        onValue(campaignOnlineRef, (snapshot) => {
+          onlineLayer.clearLayers();
+          onlineBoxLayer.clearLayers();
+          onlineItems.length = 0;
+          if (snapshot.exists()) {
+            snapshot.forEach(child => {
+              const v = child.val();
+              if (!v || !v.tag) return;
+              const item = { id: child.key, url: v.url, lat: v.lat, lng: v.lng, tag: v.tag, timestamp: v.timestamp };
+              addOnlineCircleMarker(item);
+              onlineItems.push(item);
+            });
+          }
+          updateOnlineTableAndBoxes();
+        });
+
+        onValue(campaignOfflineRef, (snapshot) => {
+          offlineLayer.clearLayers();
+          manualOfflineItems.length = 0;
+          if (snapshot.exists()) {
+            snapshot.forEach(child => {
+              const v = child.val();
+              if (!v || !['flyer','poster','b2b'].includes(v.kind)) return;
+              manualOfflineItems.push({ id: child.key, kind: v.kind, lat: v.lat, lng: v.lng, url: v.url||'', timestamp: v.timestamp });
+            });
+          }
+          updateOfflineListAndMarkers();
+        });
+
+        onValue(campaignHandoutsRef, (snapshot) => {
+          handoutEvents.length = 0;
+          handoutsTotal = 0;
+          if (snapshot.exists()) {
+            snapshot.forEach(child => {
+              const v = child.val();
+              if (!v || v.count <= 0) return;
+              handoutsTotal += v.count;
+              handoutEvents.push({ delta: v.count, totalAfter: handoutsTotal, lat: v.lat, lng: v.lng, url: v.url||'', timestamp: v.timestamp });
+            });
+          }
+          updateOfflineListAndMarkers();
+        });
+      } catch (e) { console.error('Firebase Error', e); }
+    }
+
+    async function saveOnlineToFirebase(item) {
+      await initFirebaseCampaignRefs(CURRENT_USER_ID);
+      const { push, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      await set(push(campaignOnlineRef), item);
+    }
+    async function saveOfflineToFirebase(item) {
+      await initFirebaseCampaignRefs(CURRENT_USER_ID);
+      const { push, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      await set(push(campaignOfflineRef), item);
+    }
+    async function saveHandoutEventToFirebase(ev) {
+      await initFirebaseCampaignRefs(CURRENT_USER_ID);
+      const { push, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      await set(push(campaignHandoutsRef), ev);
+    }
+
+    proofModalSubmit.addEventListener('click', async () => {
+      const result = validateProofForm();
+      if (!result.ok) {
+        proofModalError.textContent = result.message;
+        return;
+      }
+      proofModalSubmit.textContent = 'Saving...';
+      const { category, sub, url, lat, lng, handouts } = result;
+      const timestamp = Date.now();
+
+      if (category === 'online') {
+        await saveOnlineToFirebase({ url, lat, lng, tag: sub, timestamp });
+      } else if (category === 'offline') {
+        if (sub === 'handout') {
+          await saveHandoutEventToFirebase({ count: handouts, lat, lng, url, timestamp });
+        } else {
+          await saveOfflineToFirebase({ kind: (sub === 'poster' ? 'poster' : sub === 'b2b' ? 'b2b' : 'flyer'), url, lat, lng, timestamp });
+        }
+      }
+      proofModalSubmit.textContent = 'Save';
+      hideProofModal();
+    });
+
+    map.on('click', (e) => {
+      showProofModal(e.latlng);
+    });
+
+    // MAIN INIT FUNCTION
+    async function initAppData(userId) {
+      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js");
+      const { getDatabase, ref, query, orderByChild, onValue } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+      if(!db) {
+          // Re-using same firebase config
+          const firebaseConfig = {
+            apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+            authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+            databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+            projectId: "tokentransfer-4a9b3",
+            storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+            messagingSenderId: "205455490321",
+            appId: "1:205455490321:web:9919f5dde059316c9320b0"
+          };
+          const app = initializeApp(firebaseConfig);
+          db = getDatabase(app);
+      }
+
+      // 1. Load User Campaign Data (Proofs/Handouts)
+      await loadCampaignData(userId);
+
+      // 2. Load Original GPS Tracks (userPosts)
+      const userPostsRef = query(ref(db, `userPosts/${userId}`), orderByChild('timestamp'));
+
+      onValue(userPostsRef, (snapshot) => {
+        postsLayer.clearLayers();
+        routeLayer.clearLayers();
+        labelsLayer.clearLayers();
+        circleMarkers = [];
+        
+        const items = [];
+        if (snapshot.exists()) {
+          snapshot.forEach((child) => {
+            const v = child.val();
+            if (v && typeof v.lat === 'number' && typeof v.lng === 'number') {
+              items.push({ lat: v.lat, lng: v.lng, timestamp: v.timestamp ?? null });
+            }
+          });
+        }
+        itemsCache = items;
+
+        if (itemsCache.length > 0) {
+            const allLatLngs = items.map(p => [p.lat, p.lng]);
+            
+            // Draw circles
+            items.forEach((p, idx) => {
+              const isLast = idx === items.length - 1;
+              const options = isLast ? lastCircleHighlightOptions : baseCircleOptions;
+              if(isLast) options.color = '#ff8800';
+              L.circleMarker([p.lat, p.lng], options).addTo(postsLayer);
+            });
+
+            // Draw lines
+            const byDate = new Map();
+            items.forEach((p, idx) => {
+              const dateKey = getDateKeyFromTimestamp(p.timestamp) || 'unknown';
+              if (!byDate.has(dateKey)) byDate.set(dateKey, []);
+              byDate.get(dateKey).push(idx);
+            });
+            const colors = ['#0056b3', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1'];
+            let colorIndex = 0;
+            for (const [, indices] of byDate.entries()) {
+              if (indices.length < 2) continue;
+              const latLngs = indices.map(i => [items[i].lat, items[i].lng]);
+              L.polyline(latLngs, { color: colors[colorIndex++ % colors.length], weight: 2, opacity: 0.7 }).addTo(routeLayer);
+            }
+
+            if (allLatLngs.length >= 2) map.fitBounds(L.latLngBounds(allLatLngs).pad(0.1));
+            else if (allLatLngs.length === 1) map.setView(allLatLngs[0], 16);
+        }
+        updateOfflineListAndMarkers();
+      });
+    }
+  </script>
+</body>
+</html>
