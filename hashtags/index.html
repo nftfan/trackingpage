@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>EU Hashtag Helper</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #map {
+      width: 100%;
+      height: 45vh;
+    }
+
+    .panel {
+      flex: 1;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #020617;
+      border-top: 1px solid #1f2937;
+    }
+
+    .row {
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+
+    .status {
+      font-size: 0.9rem;
+      color: #facc15;
+    }
+    .status.error {
+      color: #fca5a5;
+    }
+
+    .hashtags {
+      flex: 1;
+      border: 1px solid #1f2937;
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 0.95rem;
+      white-space: pre-line;
+      overflow-y: auto;
+      background: #020617;
+    }
+
+    .btn-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    button {
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.9rem;
+      background: #1d4ed8;
+      color: white;
+      cursor: pointer;
+    }
+    button:active {
+      background: #1e40af;
+    }
+
+    @media (min-width: 768px) {
+      #map { height: 50vh; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div class="panel">
+    <div class="row" id="coords">Tap on Europe map.</div>
+    <div class="row" id="place">Town: –</div>
+    <div class="status" id="status">Waiting…</div>
+
+    <div class="btn-row">
+      <button id="copyBtn">Copy hashtags</button>
+    </div>
+
+    <div class="hashtags" id="hashtags">Hashtags will appear here…</div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <script>
+    // ===== CONFIG =====
+    const GEMINI_API_KEY = "AIzaSyC7zkrzFlqBZFcVV83BVOT73Ono5AZoKeA";
+    const GEMINI_ENDPOINT =
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+    const NOMINATIM_BASE =
+      "https://nominatim.openstreetmap.org/reverse?format=jsonv2";
+
+    const EUROPE_COUNTRIES = new Set([
+      "Albania","Andorra","Armenia","Austria","Azerbaijan",
+      "Belarus","Belgium","Bosnia and Herzegovina","Bulgaria",
+      "Croatia","Cyprus","Czechia","Czech Republic","Denmark",
+      "Estonia","Finland","France","Georgia","Germany","Greece",
+      "Hungary","Iceland","Ireland","Italy","Kazakhstan",
+      "Kosovo","Latvia","Liechtenstein","Lithuania","Luxembourg",
+      "Malta","Moldova","Monaco","Montenegro","Netherlands",
+      "North Macedonia","Norway","Poland","Portugal","Romania",
+      "Russia","San Marino","Serbia","Slovakia","Slovenia",
+      "Spain","Sweden","Switzerland","Turkey","Türkiye",
+      "Ukraine","United Kingdom","Vatican City","Holy See"
+    ]);
+
+    const COUNTRY_LANGUAGE_HINT = {
+      "Spain": "Spanish",
+      "France": "French",
+      "Germany": "German",
+      "Italy": "Italian",
+      "Portugal": "Portuguese",
+      "Netherlands": "Dutch",
+      "Belgium": "Dutch or French (choose what fits the town)",
+      "Switzerland": "German, French or Italian (choose what fits the town)",
+      "Austria": "German",
+      "Poland": "Polish",
+      "Czechia": "Czech",
+      "Czech Republic": "Czech",
+      "Slovakia": "Slovak",
+      "Hungary": "Hungarian",
+      "Romania": "Romanian",
+      "Bulgaria": "Bulgarian",
+      "Greece": "Greek",
+      "Croatia": "Croatian",
+      "Serbia": "Serbian",
+      "Bosnia and Herzegovina": "Bosnian, Croatian or Serbian",
+      "Montenegro": "Montenegrin or Serbian",
+      "North Macedonia": "Macedonian",
+      "Slovenia": "Slovenian",
+      "Albania": "Albanian",
+      "Turkey": "Turkish",
+      "Türkiye": "Turkish",
+      "Russia": "Russian",
+      "Ukraine": "Ukrainian",
+      "Belarus": "Belarusian or Russian",
+      "Lithuania": "Lithuanian",
+      "Latvia": "Latvian",
+      "Estonia": "Estonian",
+      "Finland": "Finnish",
+      "Sweden": "Swedish",
+      "Norway": "Norwegian",
+      "Denmark": "Danish",
+      "Iceland": "Icelandic",
+      "Ireland": "Irish English (with some Irish if you like)",
+      "United Kingdom": "British English",
+      "Malta": "Maltese or English",
+      "Cyprus": "Greek or Turkish",
+      "Georgia": "Georgian",
+      "Armenia": "Armenian",
+      "Azerbaijan": "Azerbaijani",
+      "Moldova": "Romanian or Moldovan",
+      "Luxembourg": "Luxembourgish, French or German",
+      "Liechtenstein": "German"
+    };
+
+    const coordsEl = document.getElementById("coords");
+    const placeEl = document.getElementById("place");
+    const statusEl = document.getElementById("status");
+    const hashtagsEl = document.getElementById("hashtags");
+    const copyBtn = document.getElementById("copyBtn");
+
+    let marker = null;
+
+    function formatLatLng(lat, lng) {
+      return lat.toFixed(4) + ", " + lng.toFixed(4);
+    }
+
+    function getLanguageHint(country) {
+      return COUNTRY_LANGUAGE_HINT[country] ||
+        "the main local language of that country (not English unless English is the native language)";
+    }
+
+    function normalizeTown(town) {
+      if (!town) return "MyCity";
+      return town.replace(/\s+/g, "");
+    }
+
+    async function reverseGeocode(lat, lng) {
+      const url = `${NOMINATIM_BASE}&lat=${lat}&lon=${lng}&addressdetails=1`;
+      const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!resp.ok) throw new Error("Geocode failed");
+      const data = await resp.json();
+      const addr = data.address || {};
+      const town = addr.city || addr.town || addr.village || addr.municipality ||
+                   addr.suburb || addr.hamlet || "";
+      const country = addr.country || "";
+      const state = addr.state || addr.region || "";
+      return { town, country, state };
+    }
+
+    function buildPrompt(town, country, state) {
+      const langHint = getLanguageHint(country);
+      const placeLine = [town, state, country].filter(Boolean).join(", ");
+      return `
+Location: ${placeLine || "Unknown town in Europe"}.
+
+Write hashtags for a short social media video from this town.
+Use ${langHint}. Do NOT use English unless it is the native language.
+
+Rules:
+- Only output hashtags, nothing else.
+- Each hashtag starts with # and has no spaces.
+- 15–25 hashtags.
+- At least 4–6 hashtags must include the town name, e.g. #${normalizeTown(
+        town
+      )} or similar local form.
+- Include local/city, country and trending-style tags (in local language).`;
+    }
+
+    async function generateHashtags(town, country, state) {
+      const prompt = buildPrompt(town, country, state);
+      statusEl.textContent = "Generating hashtags…";
+      statusEl.classList.remove("error");
+      hashtagsEl.textContent = "Please wait…";
+
+      const resp = await fetch(
+        `${GEMINI_ENDPOINT}?key=${encodeURIComponent(GEMINI_API_KEY)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      );
+      if (!resp.ok) throw new Error("Gemini error");
+      const data = await resp.json();
+      const text =
+        data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      if (!text) throw new Error("Empty AI response");
+      hashtagsEl.textContent = text;
+      statusEl.textContent = "Done. Tap another place for new hashtags.";
+    }
+
+    // ===== MAP =====
+    const map = L.map("map", {
+      worldCopyJump: true,
+      center: [50, 10], // central Europe
+      zoom: 4,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+    }).addTo(map);
+
+    map.on("click", async (e) => {
+      const { lat, lng } = e.latlng;
+      coordsEl.textContent = "Lat,Lng: " + formatLatLng(lat, lng);
+      placeEl.textContent = "Town: …";
+      statusEl.textContent = "Finding town (Europe only)…";
+      statusEl.classList.remove("error");
+      hashtagsEl.textContent = "";
+
+      if (!marker) {
+        marker = L.marker([lat, lng]).addTo(map);
+      } else {
+        marker.setLatLng([lat, lng]);
+      }
+
+      try {
+        const { town, country, state } = await reverseGeocode(lat, lng);
+        placeEl.textContent =
+          "Town: " + (town || "not found") + (country ? ", " + country : "");
+
+        if (!country || !EUROPE_COUNTRIES.has(country)) {
+          statusEl.textContent = "Not in Europe. Tap inside Europe.";
+          statusEl.classList.add("error");
+          hashtagsEl.textContent = "No hashtags. Choose a town in Europe.";
+          return;
+        }
+
+        await generateHashtags(town, country, state);
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Error. Try again.";
+        statusEl.classList.add("error");
+        hashtagsEl.textContent = "Error while getting town or hashtags.";
+      }
+    });
+
+    // ===== COPY BUTTON =====
+    copyBtn.addEventListener("click", async () => {
+      const text = hashtagsEl.textContent.trim();
+      if (!text || text === "Hashtags will appear here…") return;
+      try {
+        await navigator.clipboard.writeText(text);
+        statusEl.textContent = "Hashtags copied to clipboard.";
+        statusEl.classList.remove("error");
+      } catch {
+        statusEl.textContent = "Could not copy (browser blocked).";
+        statusEl.classList.add("error");
+      }
+    });
+  </script>
+</body>
+</html>
