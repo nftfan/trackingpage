@@ -1,0 +1,3023 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LeuvenFlyers — Delivery Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#FFFFFF" />
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin="anonymous"
+  />
+
+  <style>
+    :root{
+      --bg: #f3f4f7;
+      --text: #0f172a;
+      --bar-bg: rgba(255,255,255,0.96);
+      --bar-border: rgba(148, 163, 184, 0.35);
+      --brand-text: #0f172a;
+      --brand-subtle: #64748b;
+      --bar-height: 56px;
+      --accent: #2563eb;
+      --accent-soft: #e0edff;
+      --accent-strong: #1d4ed8;
+      --accent-border: rgba(37, 99, 235, 0.25);
+      --last-point: #f97316;
+      --sidebar-width: 820px;
+
+      --online-facebook: #1877f2;
+      --online-googlemaps: #22c55e;
+      --online-tiktok: #020617;
+      --online-ig-reels: #ec4899;
+      --online-yt-shorts: #ef4444;
+      --online-email: #0f766e;
+
+      --online-header-bg: #e0f2ff;
+      --offline-header-bg: #fff7ed;
+
+      --poster-row-bg: #fff5eb;
+      --flyer-row-bg: #f9fafb;
+
+      --poster-color: #f97316;
+      --flyer-color: #111827;
+      --handout-color: #059669;
+      --b2b-color: #0ea5e9;
+      --seminar-color: #7c3aed;
+
+      --customer-color: #dc2626;
+
+      --shadow-soft: 0 10px 35px rgba(15, 23, 42, 0.13);
+      --shadow-subtle: 0 1px 3px rgba(15, 23, 42, 0.10);
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      height: 100%;
+    }
+
+    body {
+      height: 100vh;
+      margin: 0;
+      background: radial-gradient(circle at top left, #e5edff 0, #f3f4f7 40%, #e2e8f0 100%);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: var(--bar-height);
+      z-index: 1000;
+      background: var(--bar-bg);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--bar-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 20px;
+      padding-top: env(safe-area-inset-top);
+    }
+
+    .top-bar-inner {
+      width: 100%;
+      max-width: 1320px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-logo {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      background:
+        radial-gradient(circle at 25% 20%, #ffffff 0, #dbeafe 32%, transparent 55%),
+        radial-gradient(circle at 80% 120%, #1d4ed8 0, #0f172a 60%);
+      box-shadow: 0 6px 22px rgba(15, 23, 42, 0.35);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .logo-orbit {
+      position: absolute;
+      inset: 4px;
+      border-radius: inherit;
+      border: 1px solid rgba(248, 250, 252, 0.75);
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
+    }
+
+    .brand-text-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .brand-first-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-name {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--brand-text);
+      white-space: nowrap;
+    }
+
+    .brand-divider {
+      width: 1px;
+      height: 26px;
+      background: linear-gradient(to bottom, transparent, #cbd5e1, transparent);
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(59,130,246,0.12), rgba(79,70,229,0.16));
+      color: #1d4ed8;
+      border: 1px solid rgba(129,140,248,0.45);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34,197,94,0.45);
+    }
+
+    .brand-second-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--brand-subtle);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .brand-subline {
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+    }
+
+    .top-middle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1 1 auto;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .instruction-pill {
+      font-size: 11px;
+      color: #475569;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #eff6ff;
+      border: 1px solid rgba(191, 219, 254, 0.9);
+      white-space: nowrap;
+    }
+
+    .campaign-pill {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.03);
+      border: 1px solid rgba(148,163,184,0.7);
+      color: #111827;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .campaign-label {
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 10px;
+      color: #94a3b8;
+    }
+
+    .campaign-value {
+      font-weight: 600;
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      white-space: nowrap;
+    }
+
+    /* LAYER SWITCH BUTTON */
+
+    .layer-switch {
+      display: inline-flex;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: #f9fafb;
+      box-shadow: 0 1px 4px rgba(148,163,184,0.5);
+      overflow: hidden;
+      font-size: 10px;
+    }
+
+    .layer-switch button {
+      border: none;
+      padding: 4px 8px;
+      font-size: 10px;
+      background: transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    .layer-switch button span.dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #e5e7eb;
+    }
+
+    .layer-switch button.active {
+      background: #111827;
+      color: #f9fafb;
+    }
+
+    .layer-switch button.active span.dot {
+      background: #22c55e;
+    }
+
+    .top-activity-btn {
+      border: none;
+      outline: none;
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #111827, #0f172a);
+      color: #f9fafb;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(15, 23, 42, 0.85);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, opacity 0.12s ease;
+    }
+
+    .top-activity-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 35px rgba(15, 23, 42, 0.55);
+      background: linear-gradient(135deg, #020617, #0f172a);
+    }
+
+    .top-activity-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.55);
+      opacity: 0.9;
+    }
+
+    .top-activity-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #fefce8 0, #fbbf24 32%, #ea580c 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      box-shadow: 0 0 0 1px rgba(248, 250, 252, 0.6);
+    }
+
+    .top-activity-chevron {
+      font-size: 12px;
+      opacity: 0.9;
+      transform: translateY(1px);
+    }
+
+    main {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      padding-top: calc(var(--bar-height) + env(safe-area-inset-top));
+      overflow: hidden;
+    }
+
+    .map-container {
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 12px 14px 18px 18px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .map-inner-shell {
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    /* Visual difference for each map mode */
+    .map-inner-shell.marketing-mode {
+      background: radial-gradient(circle at top, #eff6ff 0, #e2e8f0 40%, #cbd5f5 100%);
+    }
+
+    .map-inner-shell.customer-mode {
+      background: radial-gradient(circle at top, #fef3c7 0, #fee2e2 40%, #fecaca 100%);
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+      border-radius: inherit;
+    }
+
+    .leaflet-container {
+      background: var(--bg);
+      outline: none;
+      font-family: inherit;
+    }
+
+    /* subtle filter on tiles depending on mode */
+    .map-inner-shell.marketing-mode .leaflet-tile-pane {
+      filter: saturate(1.1) hue-rotate(-5deg);
+    }
+
+    .map-inner-shell.customer-mode .leaflet-tile-pane {
+      filter: saturate(0.9) hue-rotate(10deg) brightness(1.03);
+    }
+
+    .floating-counter {
+      position: absolute;
+      bottom: calc(16px + env(safe-area-inset-bottom));
+      right: 18px;
+      z-index: 1000;
+      background: rgba(15,23,42,0.92);
+      border-radius: 14px;
+      box-shadow: 0 16px 45px rgba(15,23,42,0.75);
+      padding: 6px 8px;
+      min-width: 230px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      backdrop-filter: blur(20px);
+    }
+
+    .stats-header {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+      padding: 0 4px 2px;
+    }
+
+    .stats-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 11px;
+    }
+
+    .stats-table td {
+      padding: 3px 4px;
+      border-top: 1px solid rgba(31,41,55,0.9);
+    }
+
+    .stats-label {
+      color: #9ca3af;
+      white-space: nowrap;
+      font-weight: 400;
+    }
+
+    .stats-value {
+      text-align: right;
+      font-weight: 600;
+      color: #f9fafb;
+      white-space: nowrap;
+    }
+
+    .stats-value-strong {
+      color: #facc15;
+    }
+
+    .sidebar-shell {
+      max-width: var(--sidebar-width);
+      width: var(--sidebar-width);
+      padding: 12px 18px 18px 4px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .sidebar {
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+      background: rgba(248, 250, 252, 0.98);
+      border-radius: 16px;
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      font-size: 12px;
+      overflow: hidden;
+    }
+
+    .sidebar-columns {
+      display: grid;
+      grid-template-columns: 1.1fr 0.95fr;
+      gap: 0;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid #e5e7eb;
+      min-width: 0;
+      background: #ffffff;
+      min-height: 0;
+    }
+
+    .sidebar-section:first-child {
+      border-left: none;
+    }
+
+    .section-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 8px 10px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .section-header--online {
+      background: linear-gradient(135deg, #e0f2ff 0, #eff6ff 40%, #e0f2ff 100%);
+    }
+
+    .section-header--offline {
+      background: linear-gradient(135deg, #fff7ed 0, #fffbeb 40%, #fff7ed 100%);
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #111827;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .section-title-pill-online {
+      height: 6px;
+      width: 6px;
+      border-radius: 999px;
+      background: #0ea5e9;
+      box-shadow: 0 0 0 4px rgba(14,165,233,0.3);
+    }
+
+    .section-title-pill-offline {
+      height: 6px;
+      width: 6px;
+      border-radius: 999px;
+      background: #f97316;
+      box-shadow: 0 0 0 4px rgba(249,115,22,0.28);
+    }
+
+    .section-subtitle {
+      font-size: 11px;
+      color: #374151;
+    }
+
+    .section-meta {
+      font-size: 10px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .section-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 8px 10px 10px;
+      background: radial-gradient(circle at top, rgba(248, 250, 252, 0.96) 0, #f9fafb 35%, #f5f5f5 100%);
+    }
+
+    .section-body-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0;
+    }
+
+    .tabs-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 8px;
+      margin-top: 2px;
+    }
+
+    .tab-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tab-button {
+      font-size: 10px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #4b5563;
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 1px 2px rgba(148, 163, 184, 0.3);
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease;
+    }
+
+    .tab-button::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #e5e7eb;
+    }
+
+    .tab-button.active {
+      border-color: var(--accent-strong);
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-weight: 600;
+      box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);
+      transform: translateY(-0.5px);
+    }
+
+    .tab-button.active::before {
+      background: #22c55e;
+      box-shadow: 0 0 0 2px rgba(34,197,94,0.4);
+    }
+
+    .add-category-btn {
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px dashed #cbd5e1;
+      background: #f9fafb;
+      color: #64748b;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .add-category-btn:hover {
+      background: #eff6ff;
+      border-style: solid;
+      border-color: #bfdbfe;
+    }
+
+    .online-counts {
+      font-size: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+
+    .online-count-pill {
+      padding: 2px 7px;
+      border-radius: 999px;
+      color: #ffffff;
+      font-weight: 500;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(15,23,42,0.45);
+      border: 1px solid rgba(15,23,42,0.1);
+    }
+
+    .online-count-pill-facebook  { background: var(--online-facebook); }
+    .online-count-pill-googlemaps{ background: var(--online-googlemaps); }
+    .online-count-pill-tiktok    { background: var(--online-tiktok); }
+    .online-count-pill-igreels   { background: var(--online-ig-reels); }
+    .online-count-pill-ytshorts  { background: var(--online-yt-shorts); }
+    .online-count-pill-email     { background: var(--online-email); }
+
+    .online-table,
+    .flyers-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: var(--shadow-subtle);
+      background: #ffffff;
+    }
+
+    .online-table th,
+    .online-table td,
+    .flyers-table th,
+    .flyers-table td {
+      padding: 5px 7px;
+      border-bottom: 1px solid #eef2f7;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .online-table th,
+    .flyers-table th {
+      font-weight: 600;
+      color: #4b5563;
+      background-color: #f3f4ff;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 10px;
+    }
+
+    .flyers-table th {
+      background-color: #f9fafb;
+    }
+
+    .online-table tbody tr,
+    .flyers-table tbody tr {
+      cursor: pointer;
+      transition: background-color 0.08s ease;
+    }
+
+    .online-table tbody tr:hover,
+    .flyers-table tbody tr:hover {
+      background-color: #e0edff;
+    }
+
+    .online-row-facebook  { background: #e8f1ff; }
+    .online-row-googlemaps{ background: #e7f7ec; }
+    .online-row-tiktok    { background: #f3f4f6; }
+    .online-row-igreels   { background: #ffe9f3; }
+    .online-row-ytshorts  { background: #ffeaea; }
+    .online-row-email     { background: #ecfeff; }
+
+    .flyers-table tbody tr:nth-child(even) {
+      background-color: var(--flyer-row-bg);
+    }
+
+    .flyers-table-empty {
+      font-size: 11px;
+      color: #6b7280;
+      padding: 6px 4px;
+      border-radius: 8px;
+      background: rgba(248, 250, 252, 0.9);
+      border: 1px dashed #d1d5db;
+      text-align: center;
+    }
+
+    .flyer-number-cell {
+      color: #111827;
+      font-weight: 600;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal {
+      width: 380px;
+      max-width: calc(100% - 32px);
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 26px 80px rgba(15, 23, 42, 0.7);
+      padding: 14px 16px 12px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .modal-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #111827;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .modal-close-btn {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      color: #6b7280;
+      transition: color 0.12s ease, transform 0.08s ease;
+    }
+
+    .modal-close-btn:hover {
+      color: #111827;
+      transform: scale(1.02);
+    }
+
+    .modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+
+    .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .modal-label {
+      font-size: 11px;
+      color: #374151;
+      font-weight: 500;
+    }
+
+    .modal-input,
+    .modal-select {
+      font-size: 11px;
+      padding: 5px 7px;
+      border-radius: 7px;
+      border: 1px solid #d1d5db;
+      outline: none;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+    }
+
+    .modal-input:focus,
+    .modal-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(59,130,246,0.35);
+      background-color: #eff6ff;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .modal-secondary-btn,
+    .modal-primary-btn {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: box-shadow 0.12s ease, transform 0.08s ease, background 0.12s ease, color 0.12s ease;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .modal-secondary-btn {
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #374151;
+    }
+
+    .modal-secondary-btn:hover {
+      box-shadow: 0 1px 4px rgba(148,163,184,0.5);
+      transform: translateY(-0.5px);
+    }
+
+    .modal-primary-btn {
+      border: none;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #f9fafb;
+      box-shadow: 0 10px 25px rgba(37,99,235,0.4);
+    }
+
+    .modal-primary-btn:hover {
+      box-shadow: 0 14px 32px rgba(37,99,235,0.5);
+      transform: translateY(-0.5px);
+    }
+
+    .modal-error {
+      font-size: 10px;
+      color: #b91c1c;
+      min-height: 14px;
+    }
+
+    .category-type-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .category-type-row select {
+      flex: 1 1 auto;
+    }
+
+    .online-box-marker {
+      border-radius: 12px;
+      padding: 4px 8px 4px 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+      background: #111827;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid rgba(15,23,42,0.35);
+      backdrop-filter: blur(4px);
+    }
+
+    .online-box-marker-label {
+      font-size: 10px;
+      opacity: 0.95;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .online-box-facebook  { background: var(--online-facebook); }
+    .online-box-googlemaps{ background: var(--online-googlemaps); }
+    .online-box-tiktok    { background: var(--online-tiktok); }
+    .online-box-igreels   { background: var(--online-ig-reels); }
+    .online-box-ytshorts  { background: var(--online-yt-shorts); }
+    .online-box-email     { background: var(--online-email); }
+
+    .poster-box-label,
+    .flyer-box-label,
+    .handout-box-label,
+    .b2b-box-label,
+    .seminar-box-label {
+      border-radius: 10px;
+      padding: 3px 7px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #ffffff;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid rgba(15,23,42,0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .poster-box-label  { background: var(--poster-color);  }
+    .flyer-box-label   { background: var(--flyer-color);   }
+    .handout-box-label { background: var(--handout-color); }
+    .b2b-box-label     { background: var(--b2b-color);     }
+    .seminar-box-label { background: var(--seminar-color); }
+
+    .delivery-marker-circle {
+      min-width: 26px;
+      height: 26px;
+      padding: 0 6px;
+      background: #ffffff;
+      border-radius: 999px;
+      border: 2px solid var(--accent);
+      box-shadow: 0 3px 10px rgba(15,23,42,0.45);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .delivery-marker-circle-inner {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 16px;
+    }
+
+    .delivery-marker-circle--last-overall {
+      border-color: var(--last-point);
+      color: #020617;
+      font-weight: 700;
+      background: #fffbeb;
+    }
+
+    .last-point-label {
+      background: #111827;
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #f9fafb;
+      border: 1px solid rgba(15,23,42,0.9);
+      box-shadow: 0 8px 26px rgba(15,23,42,0.9);
+      white-space: nowrap;
+      transform: translateY(-4px);
+    }
+
+    .last-point-label::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      margin-right: 6px;
+      background: radial-gradient(circle at 30% 30%, #fef9c3 0, #f97316 45%, #b91c1c 100%);
+      box-shadow: 0 0 0 3px rgba(248, 250, 252, 0.35);
+    }
+
+    .leaflet-interactive {
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .last-point-circle {
+      animation: last-point-blink 1s ease-in-out infinite;
+      stroke-width: 4;
+    }
+
+    @keyframes last-point-blink {
+      0% {
+        stroke: var(--last-point);
+        stroke-opacity: 1;
+        filter: drop-shadow(0 0 4px rgba(249,115,22,0.65));
+      }
+      50% {
+        stroke: #facc15;
+        stroke-opacity: 1;
+        filter: drop-shadow(0 0 10px rgba(250,204,21,0.95));
+      }
+      100% {
+        stroke: var(--last-point);
+        stroke-opacity: 1;
+        filter: drop-shadow(0 0 4px rgba(249,115,22,0.65));
+      }
+    }
+
+    .customer-marker {
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #fee2e2;
+      color: #b91c1c;
+      font-size: 11px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 4px 14px rgba(185,28,28,0.4);
+      border: 1px solid rgba(185,28,28,0.6);
+    }
+
+    .customer-marker-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #fee2e2 0, #f97373 40%, #b91c1c 100%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: #fef2f2;
+    }
+
+    .customer-marker-latest {
+      background: #b91c1c;
+      color: #fef2f2;
+      font-weight: 700;
+      box-shadow: 0 8px 22px rgba(185,28,28,0.7);
+    }
+
+    .customer-marker-latest .customer-marker-icon {
+      background: radial-gradient(circle at 30% 20%, #fee2e2 0, #fecaca 40%, #7f1d1d 100%);
+    }
+
+    .customer-count-pill {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid rgba(185,28,28,0.4);
+      box-shadow: 0 1px 4px rgba(185,28,28,0.4);
+      white-space: nowrap;
+    }
+
+    @media (max-width: 1100px) {
+      .sidebar-shell {
+        width: 360px;
+      }
+      .sidebar-columns {
+        grid-template-columns: 1.1fr 1.1fr;
+      }
+      .top-middle {
+        display: none;
+      }
+    }
+
+    @media (max-width: 900px) {
+      main {
+        flex-direction: column;
+      }
+
+      .map-container {
+        height: 50%;
+        padding: 10px 10px 6px;
+      }
+
+      .map-inner-shell {
+        border-radius: 14px;
+      }
+
+      .sidebar-shell {
+        width: 100%;
+        height: 50%;
+        padding: 6px 10px 10px;
+      }
+
+      .sidebar {
+        border-radius: 14px;
+      }
+
+      .top-bar {
+        padding: 0 10px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .sidebar-columns {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar-section {
+        border-left: none;
+        border-top: 1px solid #e5e7eb;
+      }
+
+      .sidebar-section:first-child {
+        border-top: none;
+      }
+
+      .top-middle {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .brand-divider,
+      .brand-badge,
+      .brand-subline {
+        display: none;
+      }
+
+      .brand-name {
+        font-size: 14px;
+      }
+
+      .instruction-pill {
+        padding-inline: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="top-bar" role="banner">
+    <div class="top-bar-inner">
+      <div class="top-left">
+        <div class="brand">
+          <div class="brand-logo" aria-hidden="true">
+            <div class="logo-orbit"></div>
+          </div>
+          <div class="brand-text-block">
+            <div class="brand-first-row">
+              <div class="brand-name">LeuvenFlyers</div>
+              <div class="brand-divider" aria-hidden="true"></div>
+              <div class="brand-badge">
+                <span class="badge-dot"></span>
+                Live Campaign
+              </div>
+            </div>
+            <div class="brand-second-row">
+              <span>Money spent: €270</span>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="top-middle">
+        <div class="instruction-pill" id="layer-indicator">
+          Marketing layer · click map to add proofs
+        </div>
+        <div class="campaign-pill" aria-hidden="true">
+          <span class="campaign-label">Campaign</span>
+          <span class="campaign-value">FF1300</span>
+        </div>
+      </div>
+
+      <div class="top-right">
+        <div class="layer-switch" id="layer-switch">
+          <button type="button" data-layer="marketing" class="active">
+            <span class="dot"></span> Marketing
+          </button>
+          <button type="button" data-layer="customer">
+            <span class="dot"></span> Customers
+          </button>
+        </div>
+        <button
+          type="button"
+          class="top-activity-btn"
+          id="view-activity-log-btn"
+          aria-label="View detailed activity log for this campaign"
+        >
+          <span class="top-activity-icon">⟳</span>
+          <span>View Activity Log</span>
+          <span class="top-activity-chevron">▾</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="map-container">
+      <div class="map-inner-shell marketing-mode" id="map-shell">
+        <div id="map" role="application"
+             aria-label="Map showing where flyers were delivered and customers pinned.">
+        </div>
+
+        <div class="floating-counter" role="status" aria-live="polite">
+          <div class="stats-header">Campaign Summary</div>
+          <table class="stats-table">
+            <tr class="marketing-stat-row">
+              <td class="stats-label">Mailboxes</td>
+              <td class="stats-value stats-value-strong" id="stats-flyers">0</td>
+            </tr>
+            <tr class="marketing-stat-row">
+              <td class="stats-label">Posters</td>
+              <td class="stats-value" id="stats-posters">0</td>
+            </tr>
+            <tr class="marketing-stat-row">
+              <td class="stats-label">B2B</td>
+              <td class="stats-value" id="stats-b2b">0</td>
+            </tr>
+            <tr class="marketing-stat-row">
+              <td class="stats-label">Seminars</td>
+              <td class="stats-value" id="stats-seminars">0</td>
+            </tr>
+            <tr class="marketing-stat-row">
+              <td class="stats-label">Handouts</td>
+              <td class="stats-value" id="stats-handouts">0</td>
+            </tr>
+            <tr class="marketing-stat-row">
+              <td class="stats-label">Online proofs</td>
+              <td class="stats-value" id="stats-online">0</td>
+            </tr>
+            <tr>
+              <td class="stats-label">Customers</td>
+              <td class="stats-value" id="stats-customers">0</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div class="sidebar-shell">
+      <aside class="sidebar" aria-label="Marketing activities list">
+        <div class="sidebar-columns">
+          <!-- ONLINE -->
+          <section class="sidebar-section" aria-label="Online marketing: Proofs">
+            <div class="section-header section-header--online">
+              <div class="section-title">
+                <span class="section-title-pill-online"></span>
+                Online Marketing
+              </div>
+              <div class="section-subtitle">Marketing layer only · click map to add a new online proof.</div>
+              <div class="section-meta">Facebook · Google Maps · TikTok · Instagram Reels · YouTube Shorts · Emails</div>
+            </div>
+            <div class="section-body">
+              <div class="section-body-inner">
+                <div class="tabs-row">
+                  <div class="tab-buttons" aria-label="Online marketing channels" id="online-tabs-container">
+                    <button class="tab-button" data-online-tag="facebook" type="button">Facebook Groups</button>
+                    <button class="tab-button" data-online-tag="googlemaps" type="button">Google Maps</button>
+                    <button class="tab-button" data-online-tag="tiktok" type="button">TikToks</button>
+                    <button class="tab-button" data-online-tag="igreels" type="button">Instagram Reels</button>
+                    <button class="tab-button" data-online-tag="ytshorts" type="button">YouTube Shorts</button>
+                    <button class="tab-button" data-online-tag="email" type="button">Emails</button>
+                  </div>
+                  <button class="add-category-btn" type="button" id="add-online-category-btn">+ Category</button>
+                </div>
+
+                <div id="online-counts" class="online-counts" aria-live="polite"></div>
+
+                <div id="online-table-container" aria-live="polite"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- OFFLINE -->
+          <section class="sidebar-section" aria-label="Offline marketing: Mailboxes, Posters, B2B, Seminars, Handouts">
+            <div class="section-header section-header--offline">
+              <div class="section-title">
+                <span class="section-title-pill-offline"></span>
+                Offline Marketing
+              </div>
+              <div class="section-subtitle">Marketing layer only · mailboxes, posters, B2B, seminars and handouts.</div>
+              <div class="section-meta">Scroll the list and click a row to focus the map.</div>
+            </div>
+            <div class="section-body">
+              <div class="section-body-inner">
+                <div class="tabs-row">
+                  <div class="tab-buttons" aria-label="Offline marketing types" id="offline-tabs-container">
+                    <button class="tab-button" data-offline-tag="flyer" type="button">Mailboxes</button>
+                    <button class="tab-button" data-offline-tag="poster" type="button">Posters</button>
+                    <button class="tab-button" data-offline-tag="b2b" type="button">B2B</button>
+                    <button class="tab-button" data-offline-tag="seminar" type="button">Seminars</button>
+                    <button class="tab-button" data-offline-tag="handout" type="button">Handouts</button>
+                  </div>
+                  <button class="add-category-btn" type="button" id="add-offline-category-btn">+ Category</button>
+                </div>
+                <div id="flyers-table-container" aria-live="polite"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- PROOF MODAL (MARKETING) -->
+  <div id="proof-modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Add Proof</div>
+        <button class="modal-close-btn" type="button" aria-label="Close" id="proof-modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <label class="modal-label" for="proof-type-select">Type</label>
+          <select id="proof-type-select" class="modal-select">
+            <optgroup label="Online">
+              <option value="online-facebook">Facebook Groups</option>
+              <option value="online-googlemaps">Google Maps</option>
+              <option value="online-tiktok">TikTok</option>
+              <option value="online-igreels">Instagram Reels</option>
+              <option value="online-ytshorts">YouTube Shorts</option>
+              <option value="online-email">Emails</option>
+            </optgroup>
+            <optgroup label="Offline">
+              <option value="offline-flyer">Mailbox</option>
+              <option value="offline-poster">Poster</option>
+              <option value="offline-b2b">B2B</option>
+              <option value="offline-seminar">Seminar</option>
+              <option value="offline-handout">Handouts</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="modal-field">
+          <label class="modal-label" for="proof-url-input">URL (optional for offline, required for online)</label>
+          <input id="proof-url-input" class="modal-input" type="url" placeholder="Paste the proof link (post, review, video, email campaign URL, etc.)" />
+        </div>
+
+        <div class="modal-field" id="proof-handout-field" style="display:none;">
+          <label class="modal-label" for="handout-count-input">Number of handouts</label>
+          <input id="handout-count-input" class="modal-input" type="number" min="1" step="1" placeholder="e.g. 500" />
+        </div>
+
+        <div class="modal-field">
+          <label class="modal-label">Location</label>
+          <div style="font-size:10px;color:#6b7280;" id="proof-location-hint">
+            Clicked location will be used.
+          </div>
+        </div>
+
+        <div id="proof-modal-error" class="modal-error"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-secondary-btn" type="button" id="proof-modal-cancel">Cancel</button>
+        <button class="modal-primary-btn" type="button" id="proof-modal-submit">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CATEGORY MODAL -->
+  <div id="category-modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Add Category</div>
+        <button class="modal-close-btn" type="button" aria-label="Close" id="category-modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <label class="modal-label">Category type</label>
+          <div class="category-type-row">
+            <select id="category-kind-select" class="modal-select">
+              <option value="online">Online</option>
+              <option value="offline">Offline</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label" for="category-name-input">Label (visible name)</label>
+          <input id="category-name-input" class="modal-input" type="text" placeholder="e.g. Flyers at events" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label" for="category-slug-input">Slug (short key, no spaces)</label>
+          <input id="category-slug-input" class="modal-input" type="text" placeholder="e.g. events" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label" for="category-color-input">Color (CSS color or hex)</label>
+          <input id="category-color-input" class="modal-input" type="text" placeholder="#3b82f6 or red" />
+        </div>
+
+        <div id="category-modal-error" class="modal-error"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-secondary-btn" type="button" id="category-modal-cancel">Cancel</button>
+        <button class="modal-primary-btn" type="button" id="category-modal-submit">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOMER MODAL (CUSTOMER LAYER) -->
+  <div id="customer-modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Add Customer</div>
+        <button class="modal-close-btn" type="button" aria-label="Close" id="customer-modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <label class="modal-label" for="customer-name-input">Customer name</label>
+          <input id="customer-name-input" class="modal-input" type="text" placeholder="e.g. Maria Janssens" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label" for="customer-notes-input">Notes (optional)</label>
+          <input id="customer-notes-input" class="modal-input" type="text" placeholder="e.g. Requested quote, hot lead, etc." />
+        </div>
+
+        <div class="modal-field">
+          <label class="modal-label">Location</label>
+          <div style="font-size:10px;color:#6b7280;" id="customer-location-hint">
+            Clicked location will be used.
+          </div>
+        </div>
+
+        <div id="customer-modal-error" class="modal-error"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-secondary-btn" type="button" id="customer-modal-cancel">Cancel</button>
+        <button class="modal-primary-btn" type="button" id="customer-modal-submit">Add</button>
+      </div>
+    </div>
+  </div>
+
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin="anonymous"
+></script>
+
+<script type="module">
+  const LABEL_ZOOM_THRESHOLD = 17;
+  const CAMPAIGN_ID = 'FF1300';
+
+  const extraOnlineCategories = {};
+  const extraOfflineCategories = {};
+
+  let activeLayerMode = 'marketing'; // 'marketing' | 'customer'
+
+  const mapShell = document.getElementById('map-shell');
+  const layerIndicator = document.getElementById('layer-indicator');
+  const layerSwitch = document.getElementById('layer-switch');
+
+  const map = L.map('map', {
+    zoomControl: true,
+    tap: true,
+    attributionControl: false,
+    maxZoom: 22,
+  }).setView([50.8796, 4.7009], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 22,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  L.control.attribution({position: 'bottomright', prefix: ''}).addTo(map);
+
+  const postsLayer      = L.layerGroup().addTo(map);
+  const routeLayer      = L.layerGroup().addTo(map);
+  const labelsLayer     = L.layerGroup().addTo(map);
+  const onlineLayer     = L.layerGroup().addTo(map);
+  const onlineBoxLayer  = L.layerGroup().addTo(map);
+  const offlineLayer    = L.layerGroup().addTo(map);
+  const handoutLayer    = L.layerGroup().addTo(map);
+  const customerLayer   = L.layerGroup(); // NOTE: not added by default
+
+  const statsFlyersEl    = document.getElementById('stats-flyers');
+  const statsPostersEl   = document.getElementById('stats-posters');
+  const statsB2BEl       = document.getElementById('stats-b2b');
+  const statsSeminarsEl  = document.getElementById('stats-seminars');
+  const statsHandoutsEl  = document.getElementById('stats-handouts');
+  const statsOnlineEl    = document.getElementById('stats-online');
+  const statsCustomersEl = document.getElementById('stats-customers');
+
+  const flyersTableContainerEl = document.getElementById('flyers-table-container');
+  const onlineCountsEl         = document.getElementById('online-counts');
+  const onlineTableContainerEl = document.getElementById('online-table-container');
+
+  let lastPointLabelOverlay = null;
+  let itemsCache = [];
+  let lastClickedHighlight = null;
+  let circleMarkers = [];
+  let labelMarkers = [];
+
+  const baseCircleOptions = {
+    radius: 4,
+    color: '#2563eb',
+    weight: 1,
+    opacity: 1,
+    fillColor: '#ffffff',
+    fillOpacity: 0.9
+  };
+
+  const lastCircleHighlightOptions = {
+    ...baseCircleOptions,
+    radius: 8,
+    weight: 3
+  };
+
+  function getDateKeyFromTimestamp(timestamp) {
+    if (!timestamp) return null;
+    let d;
+    if (typeof timestamp === 'number') {
+      d = timestamp < 1e12 ? new Date(timestamp * 1000) : new Date(timestamp);
+    } else {
+      d = new Date(timestamp);
+    }
+    if (Number.isNaN(d.getTime())) return null;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatDaysAgo(timestamp) {
+    if (!timestamp) return 'Unknown';
+    let d;
+    if (typeof timestamp === 'number') {
+      d = timestamp < 1e12 ? new Date(timestamp * 1000) : new Date(timestamp);
+    } else {
+      d = new Date(timestamp);
+    }
+    if (Number.isNaN(d.getTime())) return 'Unknown';
+    const now = new Date();
+    const diffMs = now - d;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return 'Today';
+    if (diffDays === 1) return '1 day ago';
+    return `${diffDays} days ago`;
+  }
+
+  function goToLatLng(lat, lng) {
+    const latlng = [lat, lng];
+    const targetZoom = Math.max(map.getZoom(), 18);
+    map.setView(latlng, targetZoom, { animate: true });
+
+    if (lastClickedHighlight) {
+      map.removeLayer(lastClickedHighlight);
+      lastClickedHighlight = null;
+    }
+
+    lastClickedHighlight = L.circleMarker(latlng, {
+      radius: 16,
+      color: '#f97316',
+      weight: 2,
+      opacity: 0.7,
+      fillColor: '#fed7aa',
+      fillOpacity: 0.25
+    }).addTo(map);
+
+    setTimeout(() => {
+      if (lastClickedHighlight) {
+        map.removeLayer(lastClickedHighlight);
+        lastClickedHighlight = null;
+      }
+    }, 4000);
+  }
+
+  function openUrlIfAny(url) {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function updateNumberLabels() {
+    labelsLayer.clearLayers();
+    labelMarkers = [];
+
+    if (!itemsCache.length) return;
+    if (map.getZoom() < LABEL_ZOOM_THRESHOLD) return;
+
+    const lastOverallIndex = itemsCache.length - 1;
+
+    itemsCache.forEach((p, idx) => {
+      const count = idx + 1;
+      const latlng = [p.lat, p.lng];
+
+      const extraClass = idx === lastOverallIndex
+        ? ' delivery-marker-circle--last-overall'
+        : '';
+
+      const icon = L.divIcon({
+        className: 'delivery-marker-circle' + extraClass,
+        html: `<span class="delivery-marker-circle-inner">${count}</span>`,
+        iconSize: null,
+        iconAnchor: [16, 16]
+      });
+
+      const marker = L.marker(latlng, { icon, interactive: false }).addTo(labelsLayer);
+      labelMarkers[idx] = marker;
+    });
+  }
+
+  /*******************
+   * OFFLINE
+   *******************/
+  const manualOfflineItems = [];
+  let activeOfflineFilter = 'flyer';
+
+  let handoutsTotal = 0;
+  let seminarsCount = 0;
+  const handoutEvents = [];
+
+  function buildCombinedOffline() {
+    const originalList = itemsCache.map((p) => ({
+      source: 'original',
+      kind: 'flyer',
+      lat: p.lat,
+      lng: p.lng,
+      url: '',
+      timestamp: p.timestamp ?? null
+    }));
+
+    const campaignList = manualOfflineItems.map((item) => ({
+      source: 'campaign',
+      kind: item.kind,
+      lat: item.lat,
+      lng: item.lng,
+      url: item.url || '',
+      timestamp: item.timestamp
+    }));
+
+    const all = [...originalList, ...campaignList].sort((a, b) => {
+      const ta = a.timestamp ?? 0;
+      const tb = b.timestamp ?? 0;
+      return ta - tb;
+    });
+
+    return all;
+  }
+
+  function countPosters() {
+    return manualOfflineItems.filter(i => i.kind === 'poster').length;
+  }
+
+  function countB2B() {
+    return manualOfflineItems.filter(i => i.kind === 'b2b').length;
+  }
+
+  function countSeminars() {
+    return manualOfflineItems.filter(i => i.kind === 'seminar').length;
+  }
+
+  const customerMarkers = [];
+  let latestCustomerId = null;
+
+  function updateStats() {
+    const flyersFirebase = itemsCache.length;
+    const flyersCampaign = manualOfflineItems.filter(i => i.kind === 'flyer').length;
+    const flyersCount  = flyersFirebase + flyersCampaign;
+    const postersCount = countPosters();
+    const b2bCount     = countB2B();
+    seminarsCount      = countSeminars();
+    const onlineCount  = onlineItems.length;
+    const customersCount = customerMarkers.length;
+
+    statsFlyersEl.textContent    = String(flyersCount);
+    statsPostersEl.textContent   = String(postersCount);
+    statsB2BEl.textContent       = String(b2bCount);
+    statsSeminarsEl.textContent  = String(seminarsCount);
+    statsHandoutsEl.textContent  = String(handoutsTotal);
+    statsOnlineEl.textContent    = String(onlineCount);
+    statsCustomersEl.textContent = String(customersCount);
+  }
+
+  function updateOfflineListAndMarkers() {
+    offlineLayer.clearLayers();
+    handoutLayer.clearLayers();
+    flyersTableContainerEl.innerHTML = '';
+
+    const rootStyle = getComputedStyle(document.documentElement);
+
+    manualOfflineItems.forEach(item => {
+      const kind = item.kind;
+      const kindLabel =
+        kind === 'poster'  ? 'Poster'  :
+        kind === 'b2b'     ? 'B2B'     :
+        kind === 'seminar' ? 'Seminar' :
+        extraOfflineCategories[kind]?.label || 'Mailbox';
+
+      const color =
+        kind === 'poster'
+          ? (rootStyle.getPropertyValue('--poster-color') || '#f97316')
+        : kind === 'b2b'
+          ? (rootStyle.getPropertyValue('--b2b-color') || '#0ea5e9')
+        : kind === 'seminar'
+          ? (rootStyle.getPropertyValue('--seminar-color') || '#7c3aed')
+        : extraOfflineCategories[kind]?.color
+          || (rootStyle.getPropertyValue('--flyer-color') || '#374151');
+
+      const marker = L.circleMarker([item.lat, item.lng], {
+        radius: (kind === 'poster' || kind === 'b2b' || kind === 'seminar' || extraOfflineCategories[kind]) ? 9 : 6,
+        color,
+        weight: (kind === 'poster' || kind === 'b2b' || kind === 'seminar' || extraOfflineCategories[kind]) ? 3 : 2,
+        opacity: 1,
+        fillColor: (kind === 'poster' || kind === 'b2b' || kind === 'seminar' || extraOfflineCategories[kind]) ? '#fed7aa' : '#e5e7eb',
+        fillOpacity: 0.9
+      }).addTo(offlineLayer);
+
+      let labelClass =
+        kind === 'poster'  ? 'poster-box-label'  :
+        kind === 'b2b'     ? 'b2b-box-label'     :
+        kind === 'seminar' ? 'seminar-box-label' :
+        'flyer-box-label';
+
+      const divId = `offline-label-${item.id}`;
+      const labelIcon = L.divIcon({
+        className: '',
+        html: `<div id="${divId}" class="${labelClass}">${kindLabel}</div>`,
+        iconSize: null,
+        iconAnchor: [0, 24]
+      });
+
+      const labelMarker = L.marker([item.lat, item.lng], { icon: labelIcon }).addTo(offlineLayer);
+
+      setTimeout(() => {
+        const el = document.getElementById(divId);
+        if (!el) return;
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          goToLatLng(item.lat, item.lng);
+          openUrlIfAny(item.url);
+        });
+      }, 0);
+
+      marker.on('click', () => goToLatLng(item.lat, item.lng));
+      labelMarker.on('click', () => {
+        goToLatLng(item.lat, item.lng);
+        openUrlIfAny(item.url);
+      });
+    });
+
+    handoutEvents.forEach((ev, idx) => {
+      const divId = `handout-label-${idx}`;
+      const labelIcon = L.divIcon({
+        className: '',
+        html: `<div id="${divId}" class="handout-box-label">Handouts: ${ev.delta}</div>`,
+        iconSize: null,
+        iconAnchor: [0, 24]
+      });
+      const m = L.marker([ev.lat, ev.lng], { icon: labelIcon }).addTo(handoutLayer);
+      setTimeout(() => {
+        const el = document.getElementById(divId);
+        if (!el) return;
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          goToLatLng(ev.lat, ev.lng);
+          openUrlIfAny(ev.url);
+        });
+      }, 0);
+      m.on('click', () => {
+        goToLatLng(ev.lat, ev.lng);
+        openUrlIfAny(ev.url);
+      });
+    });
+
+    const combined = buildCombinedOffline();
+
+    let handoutRows = [];
+    if (handoutEvents.length > 0) {
+      handoutRows = handoutEvents.map((ev, i) => ({
+        kind: 'handout',
+        lat: ev.lat,
+        lng: ev.lng,
+        url: ev.url,
+        handoutNumber: i + 1,
+        count: ev.delta,
+        timestamp: ev.timestamp
+      }));
+    }
+
+    let dataForFilter;
+    if (activeOfflineFilter === 'handout') {
+      dataForFilter = handoutRows;
+    } else if (activeOfflineFilter === 'poster') {
+      dataForFilter = combined.filter(i => i.kind === 'poster');
+    } else if (activeOfflineFilter === 'b2b') {
+      dataForFilter = combined.filter(i => i.kind === 'b2b');
+    } else if (activeOfflineFilter === 'seminar') {
+      dataForFilter = combined.filter(i => i.kind === 'seminar');
+    } else if (extraOfflineCategories[activeOfflineFilter]) {
+      dataForFilter = combined.filter(i => i.kind === activeOfflineFilter);
+    } else {
+      dataForFilter = combined.filter(i => i.kind === 'flyer');
+    }
+
+    if (!dataForFilter.length) {
+      const empty = document.createElement('div');
+      empty.className = 'flyers-table-empty';
+      empty.textContent = 'No items for this filter yet. Add a proof by clicking on the map.';
+      flyersTableContainerEl.appendChild(empty);
+      updateStats();
+      return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'flyers-table';
+    table.setAttribute('aria-label', 'List of offline activity');
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th scope="col" style="width:10%;">#</th>
+        <th scope="col" style="width:25%;">Type</th>
+        <th scope="col" style="width:30%;">Days ago</th>
+        <th scope="col" style="width:35%;">Date</th>
+      </tr>
+    `;
+
+    const tbody = document.createElement('tbody');
+
+    const ordered = [...dataForFilter].sort((a,b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+    ordered.forEach((item,i) => { item._serial = i+1; });
+    const rev = [...ordered].reverse();
+
+    rev.forEach(item => {
+      const tr = document.createElement('tr');
+      const idxCell = document.createElement('td');
+      idxCell.className = 'flyer-number-cell';
+      idxCell.textContent = String(item._serial);
+
+      const typeCell = document.createElement('td');
+      const daysCell = document.createElement('td');
+      const dateCell = document.createElement('td');
+
+      if (item.kind === 'handout') {
+        typeCell.textContent = `Handout #${item.handoutNumber} (${item.count})`;
+        if (item.timestamp) {
+          daysCell.textContent = formatDaysAgo(item.timestamp);
+          dateCell.textContent = getDateKeyFromTimestamp(item.timestamp) || 'Unknown';
+        } else {
+          daysCell.textContent = 'Unknown';
+          dateCell.textContent = 'Unknown';
+        }
+        tr.appendChild(idxCell);
+        tr.appendChild(typeCell);
+        tr.appendChild(daysCell);
+        tr.appendChild(dateCell);
+        tr.addEventListener('click', () => goToLatLng(item.lat, item.lng));
+        tbody.appendChild(tr);
+        return;
+      }
+
+      let kindLabel;
+      if (item.kind === 'poster') kindLabel = 'Poster';
+      else if (item.kind === 'b2b') kindLabel = 'B2B';
+      else if (item.kind === 'seminar') kindLabel = 'Seminar';
+      else if (extraOfflineCategories[item.kind]) kindLabel = extraOfflineCategories[item.kind].label;
+      else kindLabel = 'Mailbox';
+
+      typeCell.textContent = kindLabel;
+
+      if (item.timestamp) {
+        daysCell.textContent = formatDaysAgo(item.timestamp);
+        dateCell.textContent = getDateKeyFromTimestamp(item.timestamp) || 'Unknown';
+      } else {
+        daysCell.textContent = 'Unknown';
+        dateCell.textContent = 'Unknown';
+      }
+
+      tr.appendChild(idxCell);
+      tr.appendChild(typeCell);
+      tr.appendChild(daysCell);
+      tr.appendChild(dateCell);
+      tr.addEventListener('click', () => {
+        goToLatLng(item.lat, item.lng);
+        openUrlIfAny(item.url);
+      });
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    flyersTableContainerEl.appendChild(table);
+
+    updateStats();
+  }
+
+  /*******************
+   * ONLINE
+   *******************/
+  let activeOnlineFilter = 'facebook';
+  const onlineItems = [];
+
+  function tagToLabel(tag) {
+    switch (tag) {
+      case 'facebook':   return 'Facebook Groups';
+      case 'googlemaps': return 'Google Maps';
+      case 'tiktok':     return 'TikToks';
+      case 'igreels':    return 'Instagram Reels';
+      case 'ytshorts':   return 'YouTube Shorts';
+      case 'email':      return 'Emails';
+      default:
+        if (extraOnlineCategories[tag]) return extraOnlineCategories[tag].label;
+        return tag;
+    }
+  }
+
+  function tagToColor(tag) {
+    const style = getComputedStyle(document.documentElement);
+    if (extraOnlineCategories[tag]) {
+      return extraOnlineCategories[tag].color || '#6b7280';
+    }
+    switch (tag) {
+      case 'facebook':   return style.getPropertyValue('--online-facebook') || '#1877f2';
+      case 'googlemaps': return style.getPropertyValue('--online-googlemaps') || '#34a853';
+      case 'tiktok':     return style.getPropertyValue('--online-tiktok') || '#000000';
+      case 'igreels':    return style.getPropertyValue('--online-ig-reels') || '#e1306c';
+      case 'ytshorts':   return style.getPropertyValue('--online-yt-shorts') || '#ff0000';
+      case 'email':      return style.getPropertyValue('--online-email') || '#0f766e';
+      default:           return '#6b7280';
+    }
+  }
+
+  function updateOnlineCounts() {
+    const counts = {};
+
+    for (const item of onlineItems) {
+      counts[item.tag] = (counts[item.tag] || 0) + 1;
+    }
+
+    onlineCountsEl.innerHTML = '';
+
+    Object.entries(counts).forEach(([tag,count]) => {
+      if (count === 0) return;
+      const pill = document.createElement('div');
+      pill.className = 'online-count-pill';
+      if (tag === 'facebook')   pill.classList.add('online-count-pill-facebook');
+      if (tag === 'googlemaps') pill.classList.add('online-count-pill-googlemaps');
+      if (tag === 'tiktok')     pill.classList.add('online-count-pill-tiktok');
+      if (tag === 'igreels')    pill.classList.add('online-count-pill-igreels');
+      if (tag === 'ytshorts')   pill.classList.add('online-count-pill-ytshorts');
+      if (tag === 'email')      pill.classList.add('online-count-pill-email');
+      pill.textContent = `${tagToLabel(tag)}: ${count}`;
+      onlineCountsEl.appendChild(pill);
+    });
+
+    updateStats();
+  }
+
+  function addOnlineCircleMarker(item) {
+    const color = tagToColor(item.tag);
+    const marker = L.circleMarker([item.lat, item.lng], {
+      radius: 7,
+      color,
+      weight: 2,
+      opacity: 1,
+      fillColor: color,
+      fillOpacity: 0.7
+    }).addTo(onlineLayer);
+    item.marker = marker;
+    marker.on('click', () => {
+      goToLatLng(item.lat, item.lng);
+      openUrlIfAny(item.url);
+    });
+  }
+
+  function renderAllOnlineBoxMarkers() {
+    onlineBoxLayer.clearLayers();
+
+    onlineItems.forEach((item) => {
+      const baseClass =
+        item.tag === 'facebook'   ? 'online-box-facebook'  :
+        item.tag === 'googlemaps' ? 'online-box-googlemaps':
+        item.tag === 'tiktok'     ? 'online-box-tiktok'    :
+        item.tag === 'igreels'    ? 'online-box-igreels'   :
+        item.tag === 'ytshorts'   ? 'online-box-ytshorts'  :
+        item.tag === 'email'      ? 'online-box-email'     :
+        '';
+
+      const icon = L.divIcon({
+        className: '',
+        html: `
+          <div class="online-box-marker ${baseClass}">
+            <div class="online-box-marker-label">${tagToLabel(item.tag)}</div>
+          </div>
+        `,
+        iconSize: null,
+        iconAnchor: [24, 24]
+      });
+
+      const boxMarker = L.marker([item.lat, item.lng], { icon }).addTo(onlineBoxLayer);
+      boxMarker.on('click', () => {
+        goToLatLng(item.lat, item.lng);
+        openUrlIfAny(item.url);
+      });
+
+      item.boxMarker = boxMarker;
+    });
+  }
+
+  function updateOnlineTableAndBoxes() {
+    onlineTableContainerEl.innerHTML = '';
+
+    if (!onlineItems.length) {
+      const empty = document.createElement('div');
+      empty.className = 'flyers-table-empty';
+      empty.textContent = 'No online proofs yet. Add one by clicking on the map.';
+      onlineTableContainerEl.appendChild(empty);
+      updateStats();
+      return;
+    }
+
+    const filtered = onlineItems.filter(item => item.tag === activeOnlineFilter);
+
+    const table = document.createElement('table');
+    table.className = 'online-table';
+    table.setAttribute('aria-label', 'List of online marketing proofs');
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th scope="col" style="width:10%;">#</th>
+        <th scope="col" style="width:30%;">Channel</th>
+        <th scope="col" style="width:30%;">Days ago</th>
+        <th scope="col" style="width:30%;">Date</th>
+      </tr>
+    `;
+
+    const tbody = document.createElement('tbody');
+
+    if (!filtered.length) {
+      const trEmpty = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.textContent = 'No items for this channel yet.';
+      trEmpty.appendChild(td);
+      tbody.appendChild(trEmpty);
+
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      onlineTableContainerEl.appendChild(table);
+      renderAllOnlineBoxMarkers();
+      updateStats();
+      return;
+    }
+
+    const ordered = [...filtered].sort((a,b)=> (a.timestamp||0)-(b.timestamp||0));
+    ordered.forEach((item,i)=> { item._serial = i+1; });
+    const rev = [...ordered].reverse();
+
+    rev.forEach((item)=> {
+      const tr = document.createElement('tr');
+      tr.dataset.id = String(item.id);
+
+      let rowClass = '';
+      switch (item.tag) {
+        case 'facebook':   rowClass = 'online-row-facebook';   break;
+        case 'googlemaps': rowClass = 'online-row-googlemaps'; break;
+        case 'tiktok':     rowClass = 'online-row-tiktok';     break;
+        case 'igreels':    rowClass = 'online-row-igreels';    break;
+        case 'ytshorts':   rowClass = 'online-row-ytshorts';   break;
+        case 'email':      rowClass = 'online-row-email';      break;
+      }
+      if (rowClass) tr.classList.add(rowClass);
+
+      const indexCell = document.createElement('td');
+      indexCell.textContent = String(item._serial);
+
+      const channelCell = document.createElement('td');
+      channelCell.textContent = tagToLabel(item.tag);
+
+      const daysCell = document.createElement('td');
+      daysCell.textContent = formatDaysAgo(item.timestamp);
+
+      const dateCell = document.createElement('td');
+      dateCell.textContent = getDateKeyFromTimestamp(item.timestamp) || 'Unknown';
+
+      tr.appendChild(indexCell);
+      tr.appendChild(channelCell);
+      tr.appendChild(daysCell);
+      tr.appendChild(dateCell);
+
+      tr.addEventListener('click', () => {
+        goToLatLng(item.lat, item.lng);
+        openUrlIfAny(item.url);
+      });
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    onlineTableContainerEl.appendChild(table);
+
+    renderAllOnlineBoxMarkers();
+    updateStats();
+  }
+
+  /*******************
+   * TABS
+   *******************/
+  const onlineTabsContainer  = document.getElementById('online-tabs-container');
+  const offlineTabsContainer = document.getElementById('offline-tabs-container');
+
+  function getOnlineTabButtons() {
+    return Array.from(onlineTabsContainer.querySelectorAll('[data-online-tag]'));
+  }
+  function getOfflineTabButtons() {
+    return Array.from(offlineTabsContainer.querySelectorAll('[data-offline-tag]'));
+  }
+
+  function setOnlineFilter(tag) {
+    activeOnlineFilter = tag;
+    getOnlineTabButtons().forEach(btn => {
+      if (btn.dataset.onlineTag === tag) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+    updateOnlineTableAndBoxes();
+  }
+
+  function setOfflineFilter(tag) {
+    activeOfflineFilter = tag;
+    getOfflineTabButtons().forEach(btn => {
+      if (btn.dataset.offlineTag === tag) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+    updateOfflineListAndMarkers();
+  }
+
+  onlineTabsContainer.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-online-tag]');
+    if (!btn) return;
+    setOnlineFilter(btn.dataset.onlineTag);
+  });
+
+  offlineTabsContainer.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-offline-tag]');
+    if (!btn) return;
+    setOfflineFilter(btn.dataset.offlineTag);
+  });
+
+  setOnlineFilter('facebook');
+  setOfflineFilter('flyer');
+
+  /*******************
+   * LAYER SWITCHER (VISUAL)
+   *******************/
+  function setLayerMode(mode) {
+    activeLayerMode = mode;
+
+    const marketingRows = document.querySelectorAll('.marketing-stat-row');
+    marketingRows.forEach(row => {
+      row.style.display = mode === 'marketing' ? '' : 'none';
+    });
+
+    layerSwitch.querySelectorAll('button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.layer === mode);
+    });
+
+    if (mode === 'marketing') {
+      layerIndicator.textContent = 'Marketing layer · click map to add proofs';
+      mapShell.classList.remove('customer-mode');
+      mapShell.classList.add('marketing-mode');
+
+      postsLayer.addTo(map);
+      routeLayer.addTo(map);
+      labelsLayer.addTo(map);
+      onlineLayer.addTo(map);
+      onlineBoxLayer.addTo(map);
+      offlineLayer.addTo(map);
+      handoutLayer.addTo(map);
+
+      // DO NOT show customers in marketing mode
+      if (map.hasLayer(customerLayer)) {
+        map.removeLayer(customerLayer);
+      }
+    } else {
+      layerIndicator.textContent = 'Customer layer · click map to pin customers';
+      mapShell.classList.remove('marketing-mode');
+      mapShell.classList.add('customer-mode');
+
+      // hide marketing layers
+      map.removeLayer(postsLayer);
+      map.removeLayer(routeLayer);
+      map.removeLayer(labelsLayer);
+      map.removeLayer(onlineLayer);
+      map.removeLayer(onlineBoxLayer);
+      map.removeLayer(offlineLayer);
+      map.removeLayer(handoutLayer);
+
+      customerLayer.addTo(map);
+    }
+  }
+
+  layerSwitch.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-layer]');
+    if (!btn) return;
+    const mode = btn.dataset.layer;
+    setLayerMode(mode);
+  });
+
+  setLayerMode('marketing');
+
+  /*******************
+   * ACTIVITY LOG BUTTON
+   *******************/
+  const activityLogBtn = document.getElementById('view-activity-log-btn');
+  if (activityLogBtn) {
+    activityLogBtn.addEventListener('click', () => {
+      window.open('https://www.leuvenflyers.com/ff1300a/', '_blank', 'noopener,noreferrer');
+    });
+  }
+
+  /*******************
+   * PROOF MODAL
+   *******************/
+  const proofModalBackdrop = document.getElementById('proof-modal-backdrop');
+  const proofModalClose = document.getElementById('proof-modal-close');
+  const proofModalCancel = document.getElementById('proof-modal-cancel');
+  const proofModalSubmit = document.getElementById('proof-modal-submit');
+  const proofUrlInput = document.getElementById('proof-url-input');
+  const proofTypeSelect = document.getElementById('proof-type-select');
+  const proofModalError = document.getElementById('proof-modal-error');
+  const proofLocationHint = document.getElementById('proof-location-hint');
+  const proofHandoutField = document.getElementById('proof-handout-field');
+  const handoutCountInput = document.getElementById('handout-count-input');
+
+  let pendingProofLatLng = null;
+
+  function refreshModalFields() {
+    const value = proofTypeSelect.value || '';
+    const [category, sub] = value.split('-');
+    if (category === 'offline' && sub === 'handout') {
+      proofHandoutField.style.display = 'flex';
+    } else {
+      proofHandoutField.style.display = 'none';
+    }
+  }
+
+  function showProofModal(latlng) {
+    if (activeLayerMode !== 'marketing') return;
+    pendingProofLatLng = latlng;
+    proofModalError.textContent = '';
+    proofUrlInput.value = '';
+    handoutCountInput.value = '';
+    proofTypeSelect.value = 'online-facebook';
+    refreshModalFields();
+
+    if (latlng) {
+      proofLocationHint.textContent = `Location: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+    } else {
+      proofLocationHint.textContent = 'Click on the map to choose a location.';
+    }
+
+    proofModalBackdrop.classList.add('show');
+    proofModalBackdrop.setAttribute('aria-hidden', 'false');
+    proofUrlInput.focus();
+  }
+
+  function hideProofModal() {
+    proofModalBackdrop.classList.remove('show');
+    proofModalBackdrop.setAttribute('aria-hidden', 'true');
+    pendingProofLatLng = null;
+  }
+
+  function validateProofForm() {
+    if (!pendingProofLatLng) {
+      return { ok: false, message: 'Click on the map to pick a location.' };
+    }
+
+    const typeValue = proofTypeSelect.value;
+    const [category, sub] = typeValue.split('-');
+
+    const url = proofUrlInput.value.trim();
+
+    if (category === 'online' && !url) {
+      return { ok: false, message: 'URL is required for online proofs.' };
+    }
+
+    if (category === 'offline' && sub === 'handout') {
+      const n = parseInt(handoutCountInput.value, 10);
+      if (Number.isNaN(n) || n <= 0) {
+        return { ok: false, message: 'Enter a positive number for handouts.' };
+      }
+      return {
+        ok: true,
+        category,
+        sub,
+        url: url || '',
+        lat: pendingProofLatLng.lat,
+        lng: pendingProofLatLng.lng,
+        handouts: n
+      };
+    }
+
+    return {
+      ok: true,
+      category,
+      sub,
+      url: url || '',
+      lat: pendingProofLatLng.lat,
+      lng: pendingProofLatLng.lng,
+      handouts: 0
+    };
+  }
+
+  proofTypeSelect.addEventListener('change', refreshModalFields);
+  proofModalClose.addEventListener('click', hideProofModal);
+  proofModalCancel.addEventListener('click', hideProofModal);
+  proofModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === proofModalBackdrop) hideProofModal();
+  });
+
+  /*******************
+   * CATEGORY MODAL
+   *******************/
+  const categoryModalBackdrop = document.getElementById('category-modal-backdrop');
+  const categoryModalClose = document.getElementById('category-modal-close');
+  const categoryModalCancel = document.getElementById('category-modal-cancel');
+  const categoryModalSubmit = document.getElementById('category-modal-submit');
+  const categoryKindSelect = document.getElementById('category-kind-select');
+  const categoryNameInput = document.getElementById('category-name-input');
+  const categorySlugInput = document.getElementById('category-slug-input');
+  const categoryColorInput = document.getElementById('category-color-input');
+  const categoryModalError = document.getElementById('category-modal-error');
+
+  const addOnlineCategoryBtn = document.getElementById('add-online-category-btn');
+  const addOfflineCategoryBtn = document.getElementById('add-offline-category-btn');
+
+  let categoriesRefOnline = null;
+  let categoriesRefOffline = null;
+
+  function showCategoryModal(kind) {
+    categoryModalError.textContent = '';
+    categoryNameInput.value = '';
+    categorySlugInput.value = '';
+    categoryColorInput.value = '';
+    categoryKindSelect.value = kind || 'online';
+
+    categoryModalBackdrop.classList.add('show');
+    categoryModalBackdrop.setAttribute('aria-hidden', 'false');
+    categoryNameInput.focus();
+  }
+
+  function hideCategoryModal() {
+    categoryModalBackdrop.classList.remove('show');
+    categoryModalBackdrop.setAttribute('aria-hidden', 'true');
+  }
+
+  if (addOnlineCategoryBtn) {
+    addOnlineCategoryBtn.addEventListener('click', () => showCategoryModal('online'));
+  }
+  if (addOfflineCategoryBtn) {
+    addOfflineCategoryBtn.addEventListener('click', () => showCategoryModal('offline'));
+  }
+
+  categoryModalClose.addEventListener('click', hideCategoryModal);
+  categoryModalCancel.addEventListener('click', hideCategoryModal);
+  categoryModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === categoryModalBackdrop) hideCategoryModal();
+  });
+
+  async function persistCategory(kind, slug, payload) {
+    try {
+      await initFirebaseCampaignRefs();
+      const { child, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      if (kind === 'online') {
+        const cRef = child(categoriesRefOnline, slug);
+        await set(cRef, payload);
+      } else {
+        const cRef = child(categoriesRefOffline, slug);
+        await set(cRef, payload);
+      }
+    } catch (e) {
+      console.error('Failed to persist category', kind, slug, e);
+    }
+  }
+
+  function addOnlineCategoryLocally(slug, name, color) {
+    if (extraOnlineCategories[slug]) return;
+    extraOnlineCategories[slug] = { label: name, color };
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab-button';
+    btn.dataset.onlineTag = slug;
+    btn.textContent = name;
+    onlineTabsContainer.appendChild(btn);
+
+    const onlineGroup = proofTypeSelect.querySelector('optgroup[label="Online"]');
+    if (onlineGroup) {
+      const opt = document.createElement('option');
+      opt.value = `online-${slug}`;
+      opt.textContent = name;
+      onlineGroup.appendChild(opt);
+    }
+  }
+
+  function addOfflineCategoryLocally(slug, name, color) {
+    if (extraOfflineCategories[slug]) return;
+    extraOfflineCategories[slug] = { label: name, color };
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab-button';
+    btn.dataset.offlineTag = slug;
+    btn.textContent = name;
+    offlineTabsContainer.appendChild(btn);
+
+    const offlineGroup = proofTypeSelect.querySelector('optgroup[label="Offline"]');
+    if (offlineGroup) {
+      const opt = document.createElement('option');
+      opt.value = `offline-${slug}`;
+      opt.textContent = name;
+      offlineGroup.appendChild(opt);
+    }
+  }
+
+  categoryModalSubmit.addEventListener('click', async () => {
+    const kind = categoryKindSelect.value;
+    const name = categoryNameInput.value.trim();
+    let slug = categorySlugInput.value.trim().toLowerCase();
+    const color = categoryColorInput.value.trim() || '#6b7280';
+
+    if (!name) {
+      categoryModalError.textContent = 'Please enter a label.';
+      return;
+    }
+    if (!slug) {
+      slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g,'');
+    }
+    if (!slug || /[^a-z0-9\-]/.test(slug)) {
+      categoryModalError.textContent = 'Slug can only contain letters, numbers and dashes.';
+      return;
+    }
+
+    if (kind === 'online') {
+      if (extraOnlineCategories[slug]) {
+        categoryModalError.textContent = 'This online slug already exists.';
+        return;
+      }
+      addOnlineCategoryLocally(slug, name, color);
+    } else {
+      if (extraOfflineCategories[slug]) {
+        categoryModalError.textContent = 'This offline slug already exists.';
+        return;
+      }
+      addOfflineCategoryLocally(slug, name, color);
+    }
+
+    const payload = { label: name, slug, color };
+    await persistCategory(kind, slug, payload);
+
+    hideCategoryModal();
+  });
+
+  /*******************
+   * CUSTOMER MODAL
+   *******************/
+  const customerModalBackdrop = document.getElementById('customer-modal-backdrop');
+  const customerModalClose = document.getElementById('customer-modal-close');
+  const customerModalCancel = document.getElementById('customer-modal-cancel');
+  const customerModalSubmit = document.getElementById('customer-modal-submit');
+  const customerNameInput = document.getElementById('customer-name-input');
+  const customerNotesInput = document.getElementById('customer-notes-input');
+  const customerLocationHint = document.getElementById('customer-location-hint');
+  const customerModalError = document.getElementById('customer-modal-error');
+
+  let pendingCustomerLatLng = null;
+  let customersRef = null;
+
+  function showCustomerModal(latlng) {
+    if (activeLayerMode !== 'customer') return;
+    pendingCustomerLatLng = latlng;
+    customerModalError.textContent = '';
+    customerNameInput.value = '';
+    customerNotesInput.value = '';
+
+    if (latlng) {
+      customerLocationHint.textContent = `Location: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+    } else {
+      customerLocationHint.textContent = 'Click on the map to choose a location.';
+    }
+
+    customerModalBackdrop.classList.add('show');
+    customerModalBackdrop.setAttribute('aria-hidden', 'false');
+    customerNameInput.focus();
+  }
+
+  function hideCustomerModal() {
+    customerModalBackdrop.classList.remove('show');
+    customerModalBackdrop.setAttribute('aria-hidden', 'true');
+    pendingCustomerLatLng = null;
+  }
+
+  function validateCustomerForm() {
+    if (!pendingCustomerLatLng) {
+      return { ok: false, message: 'Click on the map to pick a location.' };
+    }
+    const name = customerNameInput.value.trim();
+    const notes = customerNotesInput.value.trim();
+    if (!name) {
+      return { ok: false, message: 'Please enter a customer name.' };
+    }
+    return {
+      ok: true,
+      name,
+      notes,
+      lat: pendingCustomerLatLng.lat,
+      lng: pendingCustomerLatLng.lng
+    };
+  }
+
+  customerModalClose.addEventListener('click', hideCustomerModal);
+  customerModalCancel.addEventListener('click', hideCustomerModal);
+  customerModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === customerModalBackdrop) hideCustomerModal();
+  });
+
+  async function saveCustomerToFirebase(customer) {
+    try {
+      await initFirebaseCampaignRefs();
+      const { push, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      const newRef = push(customersRef);
+      await set(newRef, customer);
+    } catch (e) {
+      console.error('Failed to save customer', e);
+    }
+  }
+
+  async function deleteCustomerFromFirebase(id) {
+    try {
+      await initFirebaseCampaignRefs();
+      const { child, remove } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      const cRef = child(customersRef, id);
+      await remove(cRef);
+    } catch (e) {
+      console.error('Failed to delete customer', e);
+    }
+  }
+
+  function renderCustomerMarkers() {
+    customerLayer.clearLayers();
+    let maxTs = -Infinity;
+    latestCustomerId = null;
+
+    customerMarkers.forEach(c => {
+      if (c.timestamp > maxTs) {
+        maxTs = c.timestamp;
+        latestCustomerId = c.id;
+      }
+    });
+
+    customerMarkers.forEach(c => {
+      const isLatest = c.id === latestCustomerId;
+      const icon = L.divIcon({
+        className: '',
+        html: `
+          <div class="customer-marker ${isLatest ? 'customer-marker-latest' : ''}" data-customer-id="${c.id}">
+            <div class="customer-marker-icon">★</div>
+            <span class="customer-marker-name">${c.name}</span>
+          </div>
+        `,
+        iconSize: null,
+        iconAnchor: [18, 18]
+      });
+      const marker = L.marker([c.lat, c.lng], { icon }).addTo(customerLayer);
+      c.marker = marker;
+
+      // Clicking the marker itself: just zoom in
+      marker.on('click', () => {
+        goToLatLng(c.lat, c.lng);
+      });
+
+      // Attach DOM listener to enable delete on tag click
+      setTimeout(() => {
+        const els = document.querySelectorAll(`.customer-marker[data-customer-id="${c.id}"]`);
+        els.forEach(el => {
+          el.addEventListener('click', async (e) => {
+            e.stopPropagation();
+
+            // Simple confirm – you can replace by nicer UI
+            const ok = window.confirm(`Delete customer "${c.name}"?`);
+            if (!ok) return;
+
+            await deleteCustomerFromFirebase(c.id);
+          });
+        });
+      }, 0);
+    });
+
+    updateStats();
+  }
+
+  customerModalSubmit.addEventListener('click', async () => {
+    const result = validateCustomerForm();
+    if (!result.ok) {
+      customerModalError.textContent = result.message;
+      return;
+    }
+
+    const { name, notes, lat, lng } = result;
+    const timestamp = Date.now();
+    const customer = { name, notes, lat, lng, timestamp };
+
+    await saveCustomerToFirebase(customer);
+    hideCustomerModal();
+  });
+
+  /*******************
+   * MAP CLICK: depending on layer
+   *******************/
+  map.on('click', (e) => {
+    if (activeLayerMode === 'marketing') {
+      showProofModal(e.latlng);
+    } else {
+      showCustomerModal(e.latlng);
+    }
+  });
+
+  /*******************
+   * FIREBASE CAMPAIGN
+   *******************/
+  let db = null;
+  let campaignOnlineRef = null;
+  let campaignOfflineRef = null;
+  let campaignHandoutsRef = null;
+  let categoriesOnlineRef = null;
+  let categoriesOfflineRef = null;
+  let campaignCustomersRef = null;
+
+  async function initFirebaseCampaignRefs() {
+    if (db) return;
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js");
+    const { getDatabase, ref } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    db = getDatabase(app);
+
+    campaignOnlineRef   = ref(db, `campaigns/${CAMPAIGN_ID}/online`);
+    campaignOfflineRef  = ref(db, `campaigns/${CAMPAIGN_ID}/offline`);
+    campaignHandoutsRef = ref(db, `campaigns/${CAMPAIGN_ID}/handouts`);
+    categoriesOnlineRef = ref(db, `campaigns/${CAMPAIGN_ID}/categories/online`);
+    categoriesOfflineRef= ref(db, `campaigns/${CAMPAIGN_ID}/categories/offline`);
+    campaignCustomersRef= ref(db, `campaigns/${CAMPAIGN_ID}/customers`);
+
+    categoriesRefOnline = categoriesOnlineRef;
+    categoriesRefOffline= categoriesOfflineRef;
+    customersRef        = campaignCustomersRef;
+  }
+
+  async function loadCampaignData() {
+    try {
+      await initFirebaseCampaignRefs();
+      const { onValue } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+      // Categories
+      onValue(categoriesOnlineRef, (snapshot) => {
+        if (!snapshot.exists()) return;
+        snapshot.forEach((childSnap) => {
+          const v = childSnap.val();
+          if (!v || !v.slug || !v.label) return;
+          addOnlineCategoryLocally(v.slug, v.label, v.color || '#6b7280');
+        });
+      });
+
+      onValue(categoriesOfflineRef, (snapshot) => {
+        if (!snapshot.exists()) return;
+        snapshot.forEach((childSnap) => {
+          const v = childSnap.val();
+          if (!v || !v.slug || !v.label) return;
+          addOfflineCategoryLocally(v.slug, v.label, v.color || '#6b7280');
+        });
+      });
+
+      // Online proofs
+      onValue(campaignOnlineRef, (snapshot) => {
+        onlineLayer.clearLayers();
+        onlineBoxLayer.clearLayers();
+        onlineItems.length = 0;
+
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            const v = child.val();
+            if (!v) return;
+            if (typeof v.lat !== 'number' || typeof v.lng !== 'number') return;
+            if (!v.tag || !v.url) return;
+
+            const item = {
+              id: child.key,
+              url: v.url,
+              lat: v.lat,
+              lng: v.lng,
+              tag: v.tag,
+              timestamp: v.timestamp || Date.now()
+            };
+            addOnlineCircleMarker(item);
+            onlineItems.push(item);
+          });
+        }
+
+        updateOnlineCounts();
+        updateOnlineTableAndBoxes();
+      });
+
+      // Offline
+      onValue(campaignOfflineRef, (snapshot) => {
+        offlineLayer.clearLayers();
+        manualOfflineItems.length = 0;
+
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            const v = child.val();
+            if (!v) return;
+            if (typeof v.lat !== 'number' || typeof v.lng !== 'number') return;
+            const kind = v.kind;
+            if (!kind) return;
+
+            manualOfflineItems.push({
+              id: child.key,
+              kind,
+              lat: v.lat,
+              lng: v.lng,
+              url: v.url || '',
+              timestamp: v.timestamp || Date.now()
+            });
+          });
+        }
+
+        updateOfflineListAndMarkers();
+      });
+
+      // Handouts
+      onValue(campaignHandoutsRef, (snapshot) => {
+        handoutEvents.length = 0;
+        handoutsTotal = 0;
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            const v = child.val();
+            if (!v) return;
+            if (typeof v.count !== 'number' || v.count <= 0) return;
+            if (typeof v.lat !== 'number' || typeof v.lng !== 'number') return;
+            const ts = v.timestamp || Date.now();
+            handoutsTotal += v.count;
+            handoutEvents.push({
+              delta: v.count,
+              totalAfter: handoutsTotal,
+              lat: v.lat,
+              lng: v.lng,
+              url: v.url || '',
+              timestamp: ts
+            });
+          });
+        }
+        updateOfflineListAndMarkers();
+      });
+
+      // Customers
+      onValue(campaignCustomersRef, (snapshot) => {
+        customerMarkers.length = 0;
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            const v = child.val();
+            if (!v) return;
+            if (typeof v.lat !== 'number' || typeof v.lng !== 'number') return;
+            const c = {
+              id: child.key,
+              name: v.name || 'Customer',
+              notes: v.notes || '',
+              lat: v.lat,
+              lng: v.lng,
+              timestamp: v.timestamp || Date.now()
+            };
+            customerMarkers.push(c);
+          });
+        }
+        renderCustomerMarkers();
+      });
+
+    } catch (e) {
+      console.error('Failed to load campaign data from Firebase', e);
+    }
+  }
+
+  async function saveOnlineToFirebase(item) {
+    try {
+      await initFirebaseCampaignRefs();
+      const { push, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      const newRef = push(campaignOnlineRef);
+      await set(newRef, item);
+    } catch (e) {
+      console.error('Failed to save online proof', e);
+    }
+  }
+
+  async function saveOfflineToFirebase(item) {
+    try {
+      await initFirebaseCampaignRefs();
+      const { push, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      const newRef = push(campaignOfflineRef);
+      await set(newRef, item);
+    } catch (e) {
+      console.error('Failed to save offline proof', e);
+    }
+  }
+
+  async function saveHandoutEventToFirebase(ev) {
+    try {
+      await initFirebaseCampaignRefs();
+      const { push, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      const newRef = push(campaignHandoutsRef);
+      await set(newRef, ev);
+    } catch (e) {
+      console.error('Failed to save handout event', e);
+    }
+  }
+
+  proofModalSubmit.addEventListener('click', async () => {
+    const result = validateProofForm();
+    if (!result.ok) {
+      proofModalError.textContent = result.message;
+      return;
+    }
+
+    const { category, sub, url, lat, lng, handouts } = result;
+    const timestamp = Date.now();
+
+    if (category === 'online') {
+      const itemForSave = { url, lat, lng, tag: sub, timestamp };
+      await saveOnlineToFirebase(itemForSave);
+    } else if (category === 'offline') {
+      if (sub === 'handout') {
+        const ev = { count: handouts, lat, lng, url, timestamp };
+        await saveHandoutEventToFirebase(ev);
+      } else {
+        const kind = sub;
+        const itemForSave = { kind, url, lat, lng, timestamp };
+        await saveOfflineToFirebase(itemForSave);
+      }
+    }
+
+    hideProofModal();
+  });
+
+  /*******************
+   * ORIGINAL FLYERS
+   *******************/
+  (async () => {
+    const TARGET_USER = 'FF1300';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0"
+    };
+
+    try {
+      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js");
+      const { getDatabase, ref, query, orderByChild, onValue } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+      const app = initializeApp(firebaseConfig);
+      const dbOriginal = getDatabase(app);
+
+      const userPostsRef = query(ref(dbOriginal, `userPosts/${TARGET_USER}`), orderByChild('timestamp'));
+
+      onValue(userPostsRef, (snapshot) => {
+        postsLayer.clearLayers();
+        routeLayer.clearLayers();
+        labelsLayer.clearLayers();
+        circleMarkers = [];
+
+        if (lastPointLabelOverlay) {
+          map.removeLayer(lastPointLabelOverlay);
+          lastPointLabelOverlay = null;
+        }
+        if (lastClickedHighlight) {
+          map.removeLayer(lastClickedHighlight);
+          lastClickedHighlight = null;
+        }
+
+        const items = [];
+        if (snapshot.exists()) {
+          snapshot.forEach((child) => {
+            const v = child.val();
+            if (v && typeof v.lat === 'number' && typeof v.lng === 'number') {
+              items.push({
+                lat: v.lat,
+                lng: v.lng,
+                timestamp: v.timestamp ?? null
+              });
+            }
+          });
+        }
+
+        itemsCache = items;
+
+        if (itemsCache.length === 0) {
+          updateOfflineListAndMarkers();
+          return;
+        }
+
+        const allLatLngs = [];
+        const byDate = new Map();
+        items.forEach((p, idx) => {
+          const dateKey = getDateKeyFromTimestamp(p.timestamp) || 'unknown';
+          if (!byDate.has(dateKey)) byDate.set(dateKey, []);
+          byDate.get(dateKey).push(idx);
+        });
+
+        const lastOverallIndex = items.length - 1;
+
+        const lastPointColor = getComputedStyle(document.documentElement)
+          .getPropertyValue('--last-point') || '#f97316';
+
+        items.forEach((p, idx) => {
+          const latlng = [p.lat, p.lng];
+          allLatLngs.push(latlng);
+
+          const isLast = idx === lastOverallIndex;
+          const options = isLast
+            ? { ...baseCircleOptions, ...lastCircleHighlightOptions, color: lastPointColor }
+            : baseCircleOptions;
+
+          const circle = L.circleMarker(latlng, options).addTo(postsLayer);
+          circleMarkers[idx] = circle;
+
+          if (isLast) {
+            circle.on('add', () => {
+              const path = circle._path;
+              if (path) path.classList.add('last-point-circle');
+            });
+          }
+        });
+
+        const colors = ['#2563eb', '#22c55e', '#f97316', '#ec4899', '#0ea5e9', '#8b5cf6'];
+        let colorIndex = 0;
+
+        for (const [, indices] of byDate.entries()) {
+          if (indices.length < 2) continue;
+          const latLngs = indices.map(i => [items[i].lat, items[i].lng]);
+          const color = colors[colorIndex % colors.length];
+          colorIndex += 1;
+
+          L.polyline(latLngs, {
+            color,
+            weight: 2,
+            opacity: 0.7
+          }).addTo(routeLayer);
+        }
+
+        const lastItem = items[lastOverallIndex];
+        const lastLatLng = [lastItem.lat, lastItem.lng];
+        const lastIndexNumber = lastOverallIndex + 1;
+
+        lastPointLabelOverlay = L.marker(lastLatLng, {
+          icon: L.divIcon({
+            className: '',
+            html: `<div class="last-point-label">#${lastIndexNumber} · Latest Drop</div>`,
+            iconSize: null,
+            iconAnchor: [0, 24]
+          }),
+          interactive: false
+        }).addTo(map);
+
+        if (allLatLngs.length >= 2) {
+          map.fitBounds(L.latLngBounds(allLatLngs).pad(0.25));
+        } else if (allLatLngs.length === 1) {
+          map.setView(allLatLngs[0], 16, { animate: true });
+        }
+
+        updateNumberLabels();
+        updateOfflineListAndMarkers();
+      });
+
+      map.on('zoomend', () => {
+        updateNumberLabels();
+      });
+
+      loadCampaignData();
+    } catch (e) {
+      console.error('Firebase failed to load. The map will remain active without data.', e);
+    }
+  })();
+</script>
+</body>
+</html>
