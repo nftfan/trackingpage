@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -35,19 +34,11 @@
       font-family: 'Inter','Roboto',system-ui,-apple-system,sans-serif;
       line-height: 1.6;
       min-height: 100vh;
+      padding-top: 88px; /* prevent content from hiding behind fixed header */
     }
 
     .page-wrap { padding: 0 clamp(18px, 6vw, 90px); }
-    .page {
-      display: grid;
-      grid-template-columns: minmax(0,1fr) 360px;
-      min-height: 100vh;
-      gap: 16px;
-    }
-    @media (max-width: 1200px) {
-      .page { grid-template-columns: 1fr; }
-      .sidebar { position: static; height: auto; width: 100%; }
-    }
+    .page { display: block; min-height: 100vh; }
 
     /* Glass helpers */
     .glass {
@@ -58,22 +49,27 @@
       box-shadow: var(--shadow);
     }
 
-    /* Sidebar */
-    .sidebar {
-      position: sticky;
-      top: 0;
-      height: calc(100vh - 1px);
-      border-radius: 18px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+    /* Sidebar (now under first slider, full width) */
+    .campaigns-section {
+      margin-top: 12px;
+      border-radius: 16px;
+      padding: 14px;
       background: linear-gradient(160deg, rgba(59,130,246,0.24), rgba(79,70,229,0.28));
       border: 1px solid rgba(255,255,255,0.08);
       backdrop-filter: blur(18px);
+      position: relative;
+      overflow: hidden;
     }
-    .sidebar h3 {
-      margin: 0 0 6px;
+    .campaigns-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .campaigns-header h3 {
+      margin: 0;
       font-size: 1.08rem;
       display: flex;
       align-items: center;
@@ -82,22 +78,48 @@
       font-weight: 800;
       letter-spacing: 0.2px;
     }
-    .campaigns-scroll {
-      flex: 1;
+    .campaigns-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .campaign-nav-btn {
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+    .campaign-nav-btn:hover { background: rgba(125,211,252,0.16); transform: translateY(-1px); }
+
+    .campaigns-slider {
+      position: relative;
       overflow: hidden;
-      border-radius: 16px;
+      border-radius: 14px;
       border: 1px solid var(--border);
       background: rgba(12,17,29,0.78);
-      position: relative;
       padding: 12px;
+      min-height: 210px;
     }
     .campaigns-track {
       display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(220px, 1fr);
       gap: 14px;
-      animation: scrollY 80s linear infinite;
+      transition: transform 0.4s ease;
+      opacity: 0;
+      transform: translateY(6px);
     }
-    .campaigns-scroll:hover .campaigns-track { animation-play-state: paused; }
-    @keyframes scrollY { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+    .campaigns-track.loaded {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
     .campaign-mini {
       display: grid;
       grid-template-rows: auto 1fr;
@@ -125,6 +147,41 @@
     .campaign-mini .client { font-size: 0.95rem; color: var(--text-secondary); font-weight: 800; }
     .campaign-mini .impressions { font-size: 1.2rem; font-weight: 900; color: var(--primary); }
 
+    /* Loading skeleton */
+    .campaigns-loader {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(220px, 1fr);
+      gap: 14px;
+      width: 100%;
+    }
+    .skeleton-card {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      padding: 12px;
+      overflow: hidden;
+    }
+    .skeleton-box {
+      position: relative;
+      background: #111827;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .skeleton-box::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+      transform: translateX(-100%);
+      animation: shimmer 1.2s infinite;
+    }
+    @keyframes shimmer { to { transform: translateX(100%); } }
+    .skeleton-img { height: 160px; margin-bottom: 10px; }
+    .skeleton-line { height: 14px; margin-bottom: 8px; }
+    .skeleton-line.short { width: 60%; }
+    .skeleton-line.mid { width: 80%; }
+
     /* Main */
     .main { overflow: hidden; }
     .container {
@@ -139,14 +196,16 @@
 
     /* Header */
     .header-bar {
-      position: sticky;
+      position: fixed;
       top: 0;
-      z-index: 5;
+      left: 0;
+      right: 0;
+      z-index: 20;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 18px 20px;
-      background: linear-gradient(120deg, rgba(12,18,34,0.9), rgba(28,41,64,0.78));
+      padding: 18px clamp(18px, 6vw, 90px);
+      background: linear-gradient(120deg, rgba(12,18,34,0.95), rgba(28,41,64,0.9));
       gap: 10px;
       flex-wrap: wrap;
       border-bottom: 1px solid var(--border);
@@ -528,32 +587,31 @@
 
 <body>
 <div class="page-wrap">
+  <header class="header-bar reveal">
+    <div class="brand">
+      <span class="logo-wrapper">
+        <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png" alt="Logo" />
+      </span>
+      <span class="brand-titlee">
+        <strong>LeuvenFlyers</strong>
+        <span>Your Flyer Everywhere.</span>
+      </span>
+    </div>
+    <nav class="header-actions">
+      <a href="http://www.leuvenflyers.com/newport/" target="_blank" class="header-btn"><span class="material-icons">group</span><span>Previous Campaigns</span></a>
+      <a href="http://www.leuvenflyers.com/newtrack/" target="_blank" class="header-btn"><span class="material-icons">track_changes</span><span>What we do?</span></a>
+      <a href="http://www.leuvenflyers.com/faq/" target="_blank" class="header-btn"><span class="material-icons">help_center</span><span>Terms</span></a>
+      <a href="#analytics" class="header-btn"><span class="material-icons">insights</span><span>Analytics</span></a>
+    </nav>
+  </header>
+
   <div class="page">
     <div class="main">
       <div class="container">
-        <header class="header-bar reveal">
-          <div class="brand">
-            <span class="logo-wrapper">
-              <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png" alt="Logo" />
-            </span>
-            <span class="brand-titlee">
-              <strong>LeuvenFlyers</strong>
-              <span>Your Flyer Everywhere.</span>
-            </span>
-          </div>
-          <nav class="header-actions">
-            <a href="http://www.leuvenflyers.com/newport/" target="_blank" class="header-btn"><span class="material-icons">group</span><span>Previous Campaigns</span></a>
-            <a href="http://www.leuvenflyers.com/newtrack/" target="_blank" class="header-btn"><span class="material-icons">track_changes</span><span>What we do?</span></a>
-            <a href="http://www.leuvenflyers.com/faq/" target="_blank" class="header-btn"><span class="material-icons">help_center</span><span>Terms</span></a>
-            <a href="#analytics" class="header-btn"><span class="material-icons">insights</span><span>Analytics</span></a>
-          </nav>
-        </header>
-
         <div class="main-content">
           <div class="carousel2 reveal">
             <div class="carousel2-inner">
               <!-- existing images -->
-              <!-- ... keep your image list unchanged ... -->
               <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749534349/4CLAkNH_uikrpe.jpg" alt="Image 1">
               <img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1764873088/DOOR_8_k70cq2.jpg" alt="Image 2">
               <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749534524/OIalg1J_dhzdjy.jpg" alt="Image 3">
@@ -581,6 +639,46 @@
               <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749534054/NNKnbo3_xs3oxz.jpg" alt="Image 28">
             </div>
           </div>
+
+          <!-- Sidebar moved here -->
+          <aside class="campaigns-section reveal">
+            <div class="campaigns-header">
+              <h3><span class="material-icons-round">dynamic_feed</span>Latest Campaigns</h3>
+              <div class="campaigns-controls">
+                <button class="campaign-nav-btn" id="campaign-prev" aria-label="Previous campaigns"><span class="material-icons-round">chevron_left</span></button>
+                <button class="campaign-nav-btn" id="campaign-next" aria-label="Next campaigns"><span class="material-icons-round">chevron_right</span></button>
+              </div>
+            </div>
+            <div class="campaigns-slider">
+              <div id="campaigns-loader" class="campaigns-loader">
+                <div class="skeleton-card">
+                  <div class="skeleton-box skeleton-img"></div>
+                  <div class="skeleton-box skeleton-line"></div>
+                  <div class="skeleton-box skeleton-line mid"></div>
+                  <div class="skeleton-box skeleton-line short"></div>
+                </div>
+                <div class="skeleton-card">
+                  <div class="skeleton-box skeleton-img"></div>
+                  <div class="skeleton-box skeleton-line"></div>
+                  <div class="skeleton-box skeleton-line mid"></div>
+                  <div class="skeleton-box skeleton-line short"></div>
+                </div>
+                <div class="skeleton-card">
+                  <div class="skeleton-box skeleton-img"></div>
+                  <div class="skeleton-box skeleton-line"></div>
+                  <div class="skeleton-box skeleton-line mid"></div>
+                  <div class="skeleton-box skeleton-line short"></div>
+                </div>
+                <div class="skeleton-card">
+                  <div class="skeleton-box skeleton-img"></div>
+                  <div class="skeleton-box skeleton-line"></div>
+                  <div class="skeleton-box skeleton-line mid"></div>
+                  <div class="skeleton-box skeleton-line short"></div>
+                </div>
+              </div>
+              <div id="campaigns-track" class="campaigns-track"></div>
+            </div>
+          </aside>
 
           <section class="offline-success reveal">
             <div>
@@ -636,11 +734,11 @@
               <div class="brand-card"><img src="https://res.cloudinary.com/de9axcrog/image/upload/v1759426210/photo_5978544203896047538_y_nilepz.jpg" alt="Brand 12"></div>
               <div class="brand-card"><img src="https://res.cloudinary.com/de9axcrog/image/upload/v1759474787/photo_5978544203896047564_y_1_b3nclu.jpg" alt="Brand 13"></div>
               <div class="brand-card"><img src="https://res.cloudinary.com/de9axcrog/image/upload/v1759473630/photo_5980796003709732862_y_jt2fe2.jpg" alt="Brand 14"></div>
-			  <div class="brand-card"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615292/photo_2025-12-13_09-40-43_s1anrh.jpg" alt="Brand 15"></div>
-			  <div class="brand-card"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615292/photo_2025-12-13_09-40-50_nx9quk.jpg" alt="Brand 16"></div>
-			  <div class="brand-card"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615292/photo_2025-12-13_09-41-06_kw5gqv.jpg" alt="Brand 17"></div>
-			  <div class="brand-card"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615292/photo_2025-12-13_09-40-54_rjp05a.jpg" alt="Brand 18"></div>
-			  <div class="brand-card"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615292/photo_2025-12-13_09-41-02_eidr4o.jpg" alt="Brand 19"></div>
+              <div class="brand-card"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615292/photo_2025-12-13_09-40-43_s1anrh.jpg" alt="Brand 15"></div>
+              <div class="brand-card"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615292/photo_2025-12-13_09-40-50_nx9quk.jpg" alt="Brand 16"></div>
+              <div class="brand-card"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615292/photo_2025-12-13_09-41-06_kw5gqv.jpg" alt="Brand 17"></div>
+              <div class="brand-card"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615292/photo_2025-12-13_09-40-54_rjp05a.jpg" alt="Brand 18"></div>
+              <div class="brand-card"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615292/photo_2025-12-13_09-41-02_eidr4o.jpg" alt="Brand 19"></div>
             </div>
             <div style="text-align:center; margin-top: 18px;">
               <a class="brand-view-btn" href="https://www.leuvenflyers.com/newport/" target="_blank" rel="noopener">Discover Our Portfolio</a>
@@ -663,10 +761,10 @@
                 <div class="photo-item"><img src="https://res.cloudinary.com/de9axcrog/image/upload/v1759473733/cli_gu6wkp.png" alt="Client 2"><div class="caption">CLIMO</div></div>
                 <div class="photo-item"><img src="https://res.cloudinary.com/de9axcrog/image/upload/v1759426404/mkk_vtutge.png" alt="Client 3"><div class="caption">MIKA'S CLUBHUIS</div></div>
                 <div class="photo-item"><img src="https://res.cloudinary.com/de9axcrog/image/upload/v1759472939/hf_btkngc.png" alt="Client 5"><div class="caption">HILLFIT</div></div>
-				<div class="photo-item"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615717/ter_cwdnf6.png" alt="Client 5"><div class="caption">Ter Korbeke Restaurant</div></div>
-				<div class="photo-item"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765616254/CatalogusAugustus2024_page-0001-1-768x768_mqbpua.jpg" alt="Client 5"><div class="caption">Bittersweet</div></div>
-				<div class="photo-item"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765616485/299187789_510418947563922_6390362532843593220_n_buauju.png" alt="Client 5"><div class="caption">Kingribs</div></div>
-				<div class="photo-item"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765616711/cropped-cropped-logo-JH-Workx-2_scldrk.jpg" alt="Client 5"><div class="caption">JH Workx</div></div>
+                <div class="photo-item"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765615717/ter_cwdnf6.png" alt="Client 5"><div class="caption">Ter Korbeke Restaurant</div></div>
+                <div class="photo-item"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765616254/CatalogusAugustus2024_page-0001-1-768x768_mqbpua.jpg" alt="Client 5"><div class="caption">Bittersweet</div></div>
+                <div class="photo-item"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765616485/299187789_510418947563922_6390362532843593220_n_buauju.png" alt="Client 5"><div class="caption">Kingribs</div></div>
+                <div class="photo-item"><img src="https://res.cloudinary.com/dvbwmtdwh/image/upload/v1765616711/cropped-cropped-logo-JH-Workx-2_scldrk.jpg" alt="Client 5"><div class="caption">JH Workx</div></div>
               </div>
             </div>
           </section>
@@ -770,7 +868,7 @@
                     <div class="stat-header"><div class="stat-icon"><span class="material-icons-round">groups</span></div><div style="color:#34d399;font-weight:800;">+8%</div></div>
                     <div class="stat-body"><h3 id="totalReach">0</h3><p>Unique People Reached</p></div>
                   </div>
-                  <div class="stat-card">
+                    <div class="stat-card">
                     <div class="stat-header"><div class="stat-icon"><span class="material-icons-round">visibility</span></div><div style="color:#34d399;font-weight:800;">+15%</div></div>
                     <div class="stat-body"><h3 id="totalImpressions">0</h3><p>Total Impressions</p></div>
                   </div>
@@ -821,17 +919,10 @@
         </div>
       </footer>
     </div>
-
-    <aside class="sidebar reveal">
-      <h3><span class="material-icons-round">dynamic_feed</span>Latest Campaigns</h3>
-      <div class="campaigns-scroll">
-        <div id="campaigns-track" class="campaigns-track"></div>
-      </div>
-    </aside>
   </div>
 </div>
 
-<!-- Scripts (unchanged logic, only added reveal observer) -->
+<!-- Scripts (added loader handling for campaigns slider) -->
 <script>
   // Reveal-on-scroll
   const revealEls = document.querySelectorAll('.reveal');
@@ -903,7 +994,7 @@
   }
   updateValues();
 
-  // Firebase Analytics Data (unchanged)
+  // Firebase Analytics Data (unchanged core, with loader + slider controls)
   import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js').then(({ initializeApp }) => {
     import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js').then(({ getDatabase, ref, onValue }) => {
       const firebaseConfig = {
@@ -922,7 +1013,9 @@
       onValue(campaignsRef, (snapshot) => {
         const campaignsData = snapshot.val() || {};
         const campaignsTrack = document.getElementById('campaigns-track');
+        const campaignsLoader = document.getElementById('campaigns-loader');
         const clientsGrid = document.getElementById('clients-grid');
+
         campaignsTrack.innerHTML = '';
         clientsGrid.innerHTML = '';
 
@@ -969,8 +1062,9 @@
           `;
         });
 
-        // duplicate for seamless scroll
-        campaignsTrack.innerHTML += campaignsTrack.innerHTML;
+        // Hide loader, show track with transition
+        campaignsLoader.style.display = 'none';
+        campaignsTrack.classList.add('loaded');
 
         const totalBusinesses = Object.keys(clientStats).length;
         animateCounter(document.getElementById('totalFlyers'), totalFlyers);
@@ -1014,6 +1108,29 @@
               </div>
             `;
           });
+
+        // Campaign slider controls (4 cards per move)
+        const prevBtn = document.getElementById('campaign-prev');
+        const nextBtn = document.getElementById('campaign-next');
+        let campaignIndex = 0;
+
+        const updateCampaignSlider = () => {
+          const items = campaignsTrack.querySelectorAll('.campaign-mini');
+          if (!items.length) return;
+          const firstItem = items[0].getBoundingClientRect();
+          const gap = 14; // matches CSS gap
+          const step = (firstItem.width + gap) * 4; // 4 items at a time
+          const maxIndex = Math.max(0, Math.ceil(items.length / 4) - 1);
+          campaignIndex = Math.min(Math.max(campaignIndex, 0), maxIndex);
+          campaignsTrack.style.transform = `translateX(${-campaignIndex * step}px)`;
+        };
+
+        prevBtn.onclick = () => { campaignIndex -= 1; updateCampaignSlider(); };
+        nextBtn.onclick = () => { campaignIndex += 1; updateCampaignSlider(); };
+
+        // Initialize position
+        requestAnimationFrame(updateCampaignSlider);
+        window.addEventListener('resize', updateCampaignSlider);
       });
     });
   });
