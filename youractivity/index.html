@@ -1,0 +1,1977 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>My Activity Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#FFFFFF" />
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin="anonymous"
+  />
+
+  <!-- Material Icons -->
+  <link
+    href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+    rel="stylesheet"
+  />
+
+  <style>
+    :root{
+      --bg: #f3f4f7;
+      --text: #0f172a;
+      --bar-bg: rgba(255,255,255,0.96);
+      --bar-border: rgba(148, 163, 184, 0.35);
+      --accent: #2563eb;
+      --accent-soft: #e0edff;
+      --accent-strong: #1d4ed8;
+      --shadow-soft: 0 10px 35px rgba(15, 23, 42, 0.13);
+      --shadow-subtle: 0 1px 3px rgba(15, 23, 42, 0.10);
+      --sidebar-width: 420px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at top left, #e5edff 0, #f3f4f7 40%, #e2e8f0 100%);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: var(--bar-bg);
+      border-bottom: 1px solid var(--bar-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 1000;
+      backdrop-filter: blur(18px);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .header-totals {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+
+    .money-total {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      box-shadow: var(--shadow-subtle);
+      font-weight: 700;
+    }
+
+    .money-positive { color: #16a34a; }
+    .money-negative { color: #dc2626; }
+
+    .material-icons-outlined {
+      font-size: 18px;
+      vertical-align: middle;
+    }
+
+    main {
+      flex: 1 1 auto;
+      display: flex;
+      padding-top: 56px;
+      min-height: 0;
+      overflow: hidden;
+      gap: 10px;
+    }
+
+    .map-container {
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 12px 10px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .map-shell {
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 0;
+      background: radial-gradient(circle at top, #eff6ff 0, #e2e8f0 40%, #cbd5f5 100%);
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+      border-radius: inherit;
+    }
+
+    .leaflet-container {
+      background: var(--bg);
+      outline: none;
+      font-family: inherit;
+    }
+
+    .sidebar-shell {
+      width: var(--sidebar-width);
+      padding: 12px 6px 16px 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .sidebar {
+      flex: 1 1 auto;
+      min-height: 0;
+      background: rgba(248, 250, 252, 0.98);
+      border-radius: 16px;
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      font-size: 12px;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: linear-gradient(135deg, #e0f2ff 0, #eff6ff 40%, #e0f2ff 100%);
+      flex-shrink: 0;
+    }
+
+    .sidebar-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .sidebar-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .sidebar-subtitle {
+      font-size: 11px;
+      color: #4b5563;
+    }
+
+    .btn {
+      border-radius: 999px;
+      border: 1px solid transparent;
+      padding: 5px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      transition: all 0.12s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #f9fafb;
+      border-color: rgba(37,99,235,0.9);
+      box-shadow: 0 8px 22px rgba(37,99,235,0.45);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 12px 28px rgba(37,99,235,0.6);
+      transform: translateY(-0.5px);
+    }
+
+    .btn-ghost {
+      background: #f9fafb;
+      color: #374151;
+      border-color: #d1d5db;
+    }
+
+    .btn-ghost:hover {
+      background: #e5edff;
+    }
+
+    .sidebar-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 8px 10px 10px;
+      gap: 8px;
+      background: radial-gradient(circle at top, rgba(248,250,252,0.98) 0, #f9fafb 40%, #f5f5f5 100%);
+      overflow: hidden;
+    }
+
+    .service-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .service-tab {
+      font-size: 11px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #4b5563;
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 1px 2px rgba(148, 163, 184, 0.3);
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease;
+    }
+
+    .service-tab-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .color-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,0.08);
+      display: inline-block;
+    }
+
+    .service-tab::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #e5e7eb;
+    }
+
+    .service-tab.active {
+      border-color: var(--accent-strong);
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-weight: 600;
+      box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);
+      transform: translateY(-0.5px);
+    }
+
+    .service-tab.active::before {
+      background: #22c55e;
+      box-shadow: 0 0 0 2px rgba(34,197,94,0.4);
+    }
+
+    .service-tab[data-service-id="__ALL__"]::before {
+      background: #e5e7eb;
+      box-shadow: none;
+    }
+
+    .service-tab-delete {
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 12px;
+      padding: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .service-tab-delete:hover {
+      color: #ef4444;
+    }
+
+    .activities-header {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #4b5563;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .activities-header span {
+      font-size: 11px;
+    }
+
+    .activities-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .activities-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .activities-table th,
+    .activities-table td {
+      padding: 5px 7px;
+      border-bottom: 1px solid #eef2f7;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .activities-table th {
+      font-weight: 600;
+      color: #4b5563;
+      background-color: #f3f4ff;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 10px;
+    }
+
+    .activities-table tbody tr {
+      cursor: pointer;
+      transition: background-color 0.08s ease;
+    }
+
+    .activities-table tbody tr:hover {
+      background-color: #e0edff;
+    }
+
+    .empty-state {
+      font-size: 11px;
+      color: #6b7280;
+      padding: 8px;
+      text-align: center;
+    }
+
+    /* modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal {
+      width: 360px;
+      max-width: calc(100% - 32px);
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 26px 80px rgba(15, 23, 42, 0.7);
+      padding: 12px 14px 12px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .modal-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .modal-close-btn {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      color: #6b7280;
+    }
+
+    .modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+
+    .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .modal-label {
+      font-size: 11px;
+      color: #374151;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .modal-input, .modal-textarea, .modal-select {
+      font-size: 11px;
+      padding: 6px 8px;
+      border-radius: 7px;
+      border: 1px solid #d1d5db;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .modal-textarea {
+      min-height: 60px;
+      resize: vertical;
+    }
+
+    .modal-input:focus, .modal-textarea:focus, .modal-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(59,130,246,0.35);
+      background-color: #eff6ff;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .modal-error {
+      font-size: 10px;
+      color: #b91c1c;
+      min-height: 14px;
+    }
+
+    /* map dots styling similar to original */
+    .delivery-marker-circle {
+      min-width: 26px;
+      height: 26px;
+      padding: 0 6px;
+      background: #ffffff;
+      border-radius: 999px;
+      border: 2px solid var(--accent);
+      box-shadow: 0 3px 10px rgba(15,23,42,0.45);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #2563eb;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .delivery-marker-circle-inner {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 16px;
+    }
+
+    .delivery-marker-circle--last-overall {
+      border-color: #f97316;
+      color: #020617;
+      font-weight: 700;
+      background: #fffbeb;
+    }
+
+    .last-point-label {
+      background: #111827;
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #f9fafb;
+      border: 1px solid rgba(15,23,42,0.9);
+      box-shadow: 0 8px 26px rgba(15,23,42,0.9);
+      white-space: nowrap;
+      transform: translateY(-4px);
+    }
+
+    .last-point-label::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      margin-right: 6px;
+      background: radial-gradient(circle at 30% 30%, #fef9c3 0, #f97316 45%, #b91c1c 100%);
+      box-shadow: 0 0 0 3px rgba(248, 250, 252, 0.35);
+    }
+
+    /* Activity proof labels on map */
+    .service-proof-label {
+      border-radius: 10px;
+      padding: 4px 8px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #ffffff;
+      background: #111827;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid rgba(15,23,42,0.3);
+      text-transform: none;
+      letter-spacing: 0;
+      max-width: 260px;
+      line-height: 1.4;
+    }
+
+    .service-proof-label-inner {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .service-proof-label-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.15);
+      font-size: 9px;
+      color: #fff7ed;
+      padding: 0 6px;
+    }
+
+    .label-title {
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .label-notes {
+      font-size: 10px;
+      opacity: 0.9;
+    }
+
+    .label-url {
+      font-size: 10px;
+      text-decoration: underline;
+      color: #e0f2fe;
+      word-break: break-all;
+    }
+
+    /* Chat sidebar */
+    .chat-shell {
+      width: var(--sidebar-width);
+      padding: 12px 6px 16px 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .chat-messages {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      padding: 10px;
+      box-shadow: var(--shadow-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .chat-message {
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      background: #f8fafc;
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .chat-meta {
+      font-size: 10px;
+      color: #6b7280;
+      margin-bottom: 2px;
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .chat-text {
+      font-size: 12px;
+      color: #111827;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .chat-input-area {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .chat-input {
+      width: 100%;
+      min-height: 60px;
+      resize: vertical;
+    }
+
+    @media (max-width: 1280px) {
+      :root { --sidebar-width: 360px; }
+    }
+
+    @media (max-width: 1024px) {
+      main { flex-direction: column; }
+      .map-container { padding: 8px 10px 6px; height: 50%; }
+      .sidebar-shell, .chat-shell { width: 100%; padding: 6px 10px 10px; height: auto; }
+      .chat-shell { order: 2; }
+      .sidebar-shell { order: 3; }
+      .map-container { order: 1; }
+    }
+
+    @media (max-width: 720px) {
+      .map-container { height: 45%; }
+      .sidebar-shell, .chat-shell { height: auto; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>
+    <span class="material-icons-outlined">map</span>
+    My Activity Map
+  </h1>
+  <div class="header-totals">
+    <span class="material-icons-outlined" style="font-size:18px;">euro</span>
+    <span id="total-money" class="money-total">€0</span>
+  </div>
+</header>
+
+<main>
+  <section class="map-container">
+    <div class="map-shell" id="map-shell">
+      <div id="map" role="application" aria-label="Activity map"></div>
+    </div>
+  </section>
+
+  <!-- Chat sidebar (placed before activity sidebar) -->
+  <aside class="chat-shell">
+    <div class="sidebar" aria-label="Chat box">
+      <div class="sidebar-header">
+        <div class="sidebar-title-block">
+          <div class="sidebar-title">
+            <span class="material-icons-outlined">forum</span>
+            Team Chat
+          </div>
+          <div class="sidebar-subtitle">Save chat in Firebase</div>
+        </div>
+      </div>
+      <div class="sidebar-body">
+        <div class="activities-header" style="margin-bottom:2px;">
+          <span>
+            <span class="material-icons-outlined" style="font-size:14px;vertical-align:middle;">chat</span>
+            Messages
+          </span>
+          <span id="chat-count-label">0</span>
+        </div>
+        <div class="chat-messages" id="chat-messages" aria-label="Chat messages">
+          <div class="empty-state">No messages yet. Say hello!</div>
+        </div>
+        <div class="chat-input-area">
+          <label class="modal-label" for="chat-input">Message</label>
+          <textarea id="chat-input" class="modal-textarea chat-input" placeholder="Type a message and hit Send..."></textarea>
+          <div style="display:flex;justify-content:flex-end;gap:6px;">
+            <button class="btn btn-primary" id="chat-send-btn" type="button">
+              <span class="material-icons-outlined" style="font-size:16px;">send</span>
+              Send
+            </button>
+          </div>
+          <div id="chat-error" class="modal-error"></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <aside class="sidebar-shell">
+    <div class="sidebar" aria-label="Activitys and activity log">
+      <div class="sidebar-header">
+        <div class="sidebar-title-block">
+          <div class="sidebar-title">
+            <span class="material-icons-outlined">campaign</span>
+            My Activity Map
+          </div>
+          <div class="sidebar-subtitle" id="service-summary">Activity log · All services</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span id="sidebar-money-total" class="money-total">€0</span>
+          <button class="btn btn-primary" id="add-service-btn" type="button">
+            <span class="material-icons-outlined" style="font-size:16px;">add</span>
+            Add Activity
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-body">
+        <div>
+          <div class="activities-header">
+            <span>
+              <span class="material-icons-outlined" style="font-size:14px;vertical-align:middle;">view_list</span>
+              Activitys
+            </span>
+            <span id="service-count-label">0 total</span>
+          </div>
+          <div class="service-tabs" id="service-tabs">
+            <!-- Activity log tab -->
+            <button class="service-tab active" type="button" data-service-id="__ALL__">
+              <span class="service-tab-label">
+                <span class="material-icons-outlined" style="font-size:14px;">all_inclusive</span>
+                Activity log
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div style="min-height:0;display:flex;flex-direction:column;gap:4px;">
+          <div class="activities-header" style="margin-top:4px;">
+            <span id="activity-header-label">
+              <span class="material-icons-outlined" style="font-size:14px;vertical-align:middle;">history</span>
+              Activity log · All
+            </span>
+            <span id="activity-count-label"></span>
+          </div>
+          <div class="activities-list" id="activities-list">
+            <div class="empty-state">
+              Add a service and click on the map or on a dot to log URL proofs.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- Add Activity Modal -->
+<div id="service-modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span class="material-icons-outlined" style="font-size:18px;">add_business</span>
+        Add Activity
+      </div>
+      <button class="modal-close-btn" type="button" id="service-modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field">
+        <label class="modal-label" for="service-name-input">Activity name</label>
+        <input id="service-name-input" class="modal-input" type="text" placeholder="e.g. Poster, Flyers, Facebook Ads" />
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="service-color-input">Activity color</label>
+        <input id="service-color-input" class="modal-input" type="color" value="#2563eb" />
+      </div>
+      <div id="service-modal-error" class="modal-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" id="service-modal-cancel">
+        <span class="material-icons-outlined" style="font-size:14px;">close</span>
+        Cancel
+      </button>
+      <button class="btn btn-primary" type="button" id="service-modal-submit">
+        <span class="material-icons-outlined" style="font-size:14px;">check</span>
+        Add
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Proof Modal -->
+<div id="proof-modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span class="material-icons-outlined" style="font-size:18px;">add_link</span>
+        Add Activity Proof
+      </div>
+      <button class="modal-close-btn" type="button" id="proof-modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field">
+        <label class="modal-label">Activity</label>
+        <div id="proof-service-name" style="font-size:11px;color:#111827;font-weight:600;"></div>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">Location</label>
+        <div id="proof-location-hint" style="font-size:10px;color:#6b7280;"></div>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="proof-title-input">Title</label>
+        <input id="proof-title-input" class="modal-input" type="text" placeholder="Short title" />
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="proof-notes-input">Notes</label>
+        <textarea id="proof-notes-input" class="modal-textarea" placeholder="Extra notes"></textarea>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="proof-url-input">Proof URL</label>
+        <input id="proof-url-input" class="modal-input" type="url" placeholder="Paste the campaign / post / review URL" />
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="proof-money-input">
+          Money (€) <span style="font-weight:500;color:#6b7280;">(use +30 or -100)</span>
+        </label>
+        <input id="proof-money-input" class="modal-input" type="text" placeholder="+30 or -100" />
+      </div>
+      <div id="proof-modal-error" class="modal-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" id="proof-modal-cancel">
+        <span class="material-icons-outlined" style="font-size:14px;">close</span>
+        Cancel
+      </button>
+      <button class="btn btn-primary" type="button" id="proof-modal-submit">
+        <span class="material-icons-outlined" style="font-size:14px;">check</span>
+        Add
+      </button>
+    </div>
+  </div>
+</div>
+
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin="anonymous"
+></script>
+
+<script type="module">
+  const LABEL_ZOOM_THRESHOLD = 17;
+  const CAMPAIGN_ID = 'FF5500';
+  const TARGET_USER = 'FF5500';
+  const CURRENT_USER = 'user';
+
+  let db = null;
+  let campaignActivitysRef = null;
+  let campaignActivityActivitiesRef = null;
+  let chatRef = null;
+
+  const map = L.map('map', {
+    zoomControl: true,
+    tap: true,
+    attributionControl: false,
+    maxZoom: 22,
+  }).setView([50.8796, 4.7009], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 22,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  L.control.attribution({position: 'bottomright', prefix: ''}).addTo(map);
+
+  const postsLayer        = L.layerGroup().addTo(map);
+  const routeLayer        = L.layerGroup().addTo(map);
+  const labelsLayer       = L.layerGroup().addTo(map);
+  const serviceProofLayer = L.layerGroup().addTo(map);
+
+  let lastPointLabelOverlay = null;
+  let lastClickedHighlight = null;
+  let itemsCache = [];
+  let circleMarkers = [];
+  let labelMarkers = [];
+  let totalMoney = 0;
+
+  const baseCircleOptions = {
+    radius: 4,
+    color: '#2563eb',
+    weight: 1,
+    opacity: 1,
+    fillColor: '#ffffff',
+    fillOpacity: 0.9
+  };
+
+  const lastCircleHighlightOptions = {
+    ...baseCircleOptions,
+    radius: 8,
+    weight: 3
+  };
+
+  function formatMoney(value) {
+    const n = Number(value) || 0;
+    const formatted = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return { text: `€${formatted}`, positive: n > 0, negative: n < 0 };
+  }
+
+  function updateMoneyTotals() {
+    const totalEl = document.getElementById('total-money');
+    const sidebarTotalEl = document.getElementById('sidebar-money-total');
+    const { text, positive, negative } = formatMoney(totalMoney);
+    [totalEl, sidebarTotalEl].forEach(el => {
+      if (!el) return;
+      el.textContent = text;
+      el.classList.toggle('money-positive', positive);
+      el.classList.toggle('money-negative', negative);
+    });
+  }
+
+  function getDateKeyFromTimestamp(timestamp) {
+    if (!timestamp) return null;
+    let d;
+    if (typeof timestamp === 'number') {
+      d = timestamp < 1e12 ? new Date(timestamp * 1000) : new Date(timestamp);
+    } else {
+      d = new Date(timestamp);
+    }
+    if (Number.isNaN(d.getTime())) return null;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatDaysAgo(timestamp) {
+    if (!timestamp) return 'Unknown';
+    let d;
+    if (typeof timestamp === 'number') {
+      d = timestamp < 1e12 ? new Date(timestamp * 1000) : new Date(timestamp);
+    } else {
+      d = new Date(timestamp);
+    }
+    if (Number.isNaN(d.getTime())) return 'Unknown';
+    const now = new Date();
+    const diffMs = now - d;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return 'Today';
+    if (diffDays === 1) return '1 day ago';
+    return `${diffDays} days ago`;
+  }
+
+  function goToLatLng(lat, lng) {
+    const latlng = [lat, lng];
+    const targetZoom = Math.max(map.getZoom(), 18);
+    map.setView(latlng, targetZoom, { animate: true });
+
+    if (lastClickedHighlight) {
+      map.removeLayer(lastClickedHighlight);
+      lastClickedHighlight = null;
+    }
+
+    lastClickedHighlight = L.circleMarker(latlng, {
+      radius: 16,
+      color: '#f97316',
+      weight: 2,
+      opacity: 0.7,
+      fillColor: '#fed7aa',
+      fillOpacity: 0.25
+    }).addTo(map);
+
+    setTimeout(() => {
+      if (lastClickedHighlight) {
+        map.removeLayer(lastClickedHighlight);
+        lastClickedHighlight = null;
+      }
+    }, 3000);
+  }
+
+  function updateNumberLabels() {
+    labelsLayer.clearLayers();
+    labelMarkers = [];
+
+    if (!itemsCache.length) return;
+    if (map.getZoom() < LABEL_ZOOM_THRESHOLD) return;
+
+    const lastOverallIndex = itemsCache.length - 1;
+
+    itemsCache.forEach((p, idx) => {
+      const count = idx + 1;
+      const latlng = [p.lat, p.lng];
+
+      const extraClass = idx === lastOverallIndex
+        ? ' delivery-marker-circle--last-overall'
+        : '';
+
+      const icon = L.divIcon({
+        className: 'delivery-marker-circle' + extraClass,
+        html: `<span class="delivery-marker-circle-inner">${count}</span>`,
+        iconSize: null,
+        iconAnchor: [16, 16]
+      });
+
+      const marker = L.marker(latlng, { icon, interactive: false }).addTo(labelsLayer);
+      labelMarkers[idx] = marker;
+    });
+  }
+
+  /*******************
+   * SERVICES + ACTIVITY
+   *******************/
+  const serviceTabsEl = document.getElementById('service-tabs');
+  const serviceCountLabel = document.getElementById('service-count-label');
+  const serviceSummary = document.getElementById('service-summary');
+  const activitiesListEl = document.getElementById('activities-list');
+  const activityHeaderLabel = document.getElementById('activity-header-label');
+  const activityCountLabel = document.getElementById('activity-count-label');
+
+  let services = []; // {id, name, color}
+  const serviceActivitiesCache = {}; // { [serviceId]: Activity[] }
+  // Activity: { id, postIndex|null, lat, lng, url, title, notes, money, timestamp, activityIndex:number }
+
+  // "__ALL__" = Activity log tab, otherwise service.id
+  let activeActivityId = '__ALL__';
+
+  serviceTabsEl.addEventListener('click', (e) => {
+    const deleteBtn = e.target.closest('.service-tab-delete');
+    if (deleteBtn) {
+      e.stopPropagation();
+      const parent = deleteBtn.closest('.service-tab');
+      const serviceId = parent?.dataset.serviceId;
+      if (serviceId && serviceId !== '__ALL__') {
+        handleDeleteActivity(serviceId);
+      }
+      return;
+    }
+
+    const btn = e.target.closest('.service-tab');
+    if (!btn) return;
+    setActiveActivity(btn.dataset.serviceId);
+  });
+
+  function renderActivityTabs() {
+    const existingActivity = serviceTabsEl.querySelector('[data-service-id="__ALL__"]');
+    serviceTabsEl.innerHTML = '';
+    const activityBtn = existingActivity || (() => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'service-tab';
+      b.dataset.serviceId = '__ALL__';
+      b.innerHTML = `
+        <span class="service-tab-label">
+          <span class="material-icons-outlined" style="font-size:14px;">all_inclusive</span>
+          Activity log
+        </span>
+      `;
+      return b;
+    })();
+    serviceTabsEl.appendChild(activityBtn);
+
+    services.forEach(s => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'service-tab';
+      btn.dataset.serviceId = s.id;
+      btn.innerHTML = `
+        <span class="service-tab-label">
+          <span class="color-dot" style="background:${s.color || '#2563eb'};"></span>
+          ${s.name}
+        </span>
+        <button class="service-tab-delete" type="button" aria-label="Delete service ${s.name}">
+          <span class="material-icons-outlined" style="font-size:14px;">close</span>
+        </button>
+      `;
+      serviceTabsEl.appendChild(btn);
+    });
+
+    serviceCountLabel.textContent = `${services.length} total`;
+
+    if (activeActivityId !== '__ALL__' && !services.find(s => s.id === activeActivityId)) {
+      activeActivityId = '__ALL__';
+    }
+
+    setActiveActivity(activeActivityId, false);
+  }
+
+  function setActiveActivity(id, updateTabs = true) {
+    activeActivityId = id;
+
+    serviceTabsEl.querySelectorAll('.service-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.serviceId === id);
+    });
+
+    if (id === '__ALL__') {
+      activityHeaderLabel.innerHTML = `
+        <span class="material-icons-outlined" style="font-size:14px;vertical-align:middle;">history</span>
+        Activity log · All
+      `;
+      serviceSummary.textContent = services.length
+        ? `Activity log · ${services.length} service${services.length>1?'s':''}`
+        : 'Activity log · 0 services';
+    } else {
+      const svc = services.find(s => s.id === id);
+      const name = svc ? svc.name : 'Activity';
+      activityHeaderLabel.innerHTML = `
+        <span class="material-icons-outlined" style="font-size:14px;vertical-align:middle;">history</span>
+        Activity log · ${name}
+      `;
+      serviceSummary.textContent = `Viewing ${name}`;
+    }
+
+    renderActivitiesTable();
+    renderActivityProofMarkers();
+  }
+
+  function buildCombinedForActivity(serviceId) {
+    const rows = [];
+
+    if (serviceId === '__ALL__') {
+      // ALL: all dots + all proofs
+      itemsCache.forEach((dot, idx) => {
+        rows.push({
+          kind: 'dot',
+          activityIndex: idx + 1,
+          whenTs: dot.timestamp ?? 0,
+          dateKey: getDateKeyFromTimestamp(dot.timestamp) || 'Unknown',
+          typeLabel: 'Dot',
+          url: '',
+          title: '',
+          notes: '',
+          money: 0,
+          lat: dot.lat,
+          lng: dot.lng,
+          serviceName: '',
+          color: '#2563eb'
+        });
+      });
+
+      services.forEach(svc => {
+        const proofs = serviceActivitiesCache[svc.id] || [];
+        proofs.forEach(pf => {
+          rows.push({
+            kind: 'proof',
+            activityIndex: pf.activityIndex || '–',
+            whenTs: pf.timestamp || 0,
+            dateKey: getDateKeyFromTimestamp(pf.timestamp) || 'Unknown',
+            typeLabel: svc.name,
+            url: pf.url || '',
+            title: pf.title || '',
+            notes: pf.notes || '',
+            money: pf.money || 0,
+            lat: pf.lat,
+            lng: pf.lng,
+            serviceName: svc.name,
+            color: svc.color || '#2563eb'
+          });
+        });
+      });
+
+      return rows;
+    }
+
+    // SINGLE SERVICE: only that service's dots+proofs
+    const svc = services.find(s => s.id === serviceId);
+    const svcName = svc?.name || '';
+    const svcColor = svc?.color || '#2563eb';
+    const proofs = serviceActivitiesCache[serviceId] || [];
+
+    // show dots with at least one proof for this service
+    const dotsWithProof = new Set(
+      proofs
+        .map(p => p.postIndex)
+        .filter(i => typeof i === 'number')
+    );
+
+    itemsCache.forEach((dot, idx) => {
+      if (!dotsWithProof.has(idx)) return;
+      const firstProof = proofs.find(p => p.postIndex === idx);
+      const actIndex = firstProof?.activityIndex ?? (idx + 1);
+
+      rows.push({
+        kind: 'dot',
+        activityIndex: actIndex,
+        whenTs: dot.timestamp ?? 0,
+        dateKey: getDateKeyFromTimestamp(dot.timestamp) || 'Unknown',
+        typeLabel: 'Dot',
+        url: '',
+        title: '',
+        notes: '',
+        money: 0,
+        lat: dot.lat,
+        lng: dot.lng,
+        serviceName: '',
+        color: svcColor
+      });
+    });
+
+    proofs.forEach(pf => {
+      rows.push({
+        kind: 'proof',
+        activityIndex: pf.activityIndex || '–',
+        whenTs: pf.timestamp || 0,
+        dateKey: getDateKeyFromTimestamp(pf.timestamp) || 'Unknown',
+        typeLabel: svcName || 'Activity',
+        url: pf.url || '',
+        title: pf.title || '',
+        notes: pf.notes || '',
+        money: pf.money || 0,
+        lat: pf.lat,
+        lng: pf.lng,
+        serviceName: svcName,
+        color: svcColor
+      });
+    });
+
+    return rows;
+  }
+
+  function renderActivitiesTable() {
+    activitiesListEl.innerHTML = '';
+
+    if (!services.length && !itemsCache.length) {
+      activitiesListEl.innerHTML = '<div class="empty-state">No data yet. When dots and services are added, activity will appear here.</div>';
+      activityCountLabel.textContent = '';
+      return;
+    }
+
+    const rows = buildCombinedForActivity(activeActivityId);
+
+    if (!rows.length) {
+      activitiesListEl.innerHTML = '<div class="empty-state">No activity yet for this view.</div>';
+      activityCountLabel.textContent = '0 rows';
+      return;
+    }
+
+    activityCountLabel.textContent = `${rows.length} row${rows.length === 1 ? '' : 's'}`;
+
+    const ordered = [...rows].sort((a,b) => (b.whenTs || 0) - (a.whenTs || 0));
+
+    const table = document.createElement('table');
+    table.className = 'activities-table';
+    table.setAttribute('aria-label', 'Activity log');
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th style="width:8%;">#</th>
+        <th style="width:8%;">Act #</th>
+        <th style="width:26%;">Type</th>
+        <th style="width:12%;">€</th>
+        <th style="width:18%;">When</th>
+        <th style="width:10%;">Date</th>
+      </tr>
+    `;
+
+    const tbody = document.createElement('tbody');
+
+    ordered.forEach((item, idx) => {
+      const tr = document.createElement('tr');
+
+      const idxCell = document.createElement('td');
+      idxCell.textContent = String(idx + 1);
+
+      const actCell = document.createElement('td');
+      actCell.textContent = item.activityIndex;
+
+      const typeCell = document.createElement('td');
+      typeCell.innerHTML = `
+        <span class="color-dot" style="background:${item.color};"></span>
+        ${item.typeLabel}
+      `;
+
+      const moneyCell = document.createElement('td');
+      const m = Number(item.money || 0);
+      if (m !== 0) {
+        moneyCell.textContent = m > 0 ? `+€${m}` : `-€${Math.abs(m)}`;
+        moneyCell.style.color = m > 0 ? '#16a34a' : '#dc2626';
+      } else {
+        moneyCell.textContent = '€0';
+        moneyCell.style.color = '#6b7280';
+      }
+
+      const whenCell = document.createElement('td');
+      whenCell.textContent = formatDaysAgo(item.whenTs);
+
+      const dateCell = document.createElement('td');
+      dateCell.textContent = item.dateKey || '';
+
+      tr.appendChild(idxCell);
+      tr.appendChild(actCell);
+      tr.appendChild(typeCell);
+      tr.appendChild(moneyCell);
+      tr.appendChild(whenCell);
+      tr.appendChild(dateCell);
+
+      tr.addEventListener('click', () => {
+        if (typeof item.lat === 'number' && typeof item.lng === 'number') {
+          goToLatLng(item.lat, item.lng);
+        }
+        if (item.url) {
+          window.open(item.url, '_blank', 'noopener,noreferrer');
+        }
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    activitiesListEl.appendChild(table);
+    activitiesListEl.scrollTop = 0;
+  }
+
+  function renderActivityProofMarkers() {
+    serviceProofLayer.clearLayers();
+
+    const rows = buildCombinedForActivity(activeActivityId)
+      .filter(r => r.kind === 'proof');
+
+    if (!rows.length) return;
+
+    // group by serviceName and re-number 1..n per service for current view
+    const grouped = {};
+    rows.forEach(r => {
+      const key = r.serviceName || 'Activity';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(r);
+    });
+
+    Object.entries(grouped).forEach(([name, proofs]) => {
+      proofs
+        .sort((a,b) => (a.whenTs || 0) - (b.whenTs || 0))
+        .forEach((pf, index) => {
+          const num = index + 1;
+          const lat = pf.lat;
+          const lng = pf.lng;
+          if (typeof lat !== 'number' || typeof lng !== 'number') return;
+
+          const label = `${name} #${num}`;
+          const bg = pf.color || '#111827';
+          const textColor = '#ffffff';
+          const safeTitle = pf.title || '';
+          const safeNotes = pf.notes || '';
+          const urlText = pf.url || '';
+
+          const icon = L.divIcon({
+            className: '',
+            html: `
+              <div class="service-proof-label" style="background:${bg};color:${textColor};border-color:${bg};">
+                <div class="service-proof-label-inner">
+                  <div>
+                    <span class="service-proof-label-number">${num}</span>
+                    <span class="label-title">${label}${safeTitle ? ' · ' + safeTitle : ''}</span>
+                  </div>
+                  ${safeNotes ? `<div class="label-notes">${safeNotes}</div>` : ''}
+                  ${urlText ? `<div class="label-url">${urlText}</div>` : ''}
+                </div>
+              </div>
+            `,
+            iconSize: null,
+            iconAnchor: [0, 20]
+          });
+
+          const marker = L.marker([lat, lng], { icon }).addTo(serviceProofLayer);
+          marker.on('click', () => {
+            goToLatLng(lat, lng);
+            if (pf.url) window.open(pf.url, '_blank', 'noopener,noreferrer');
+          });
+        });
+    });
+  }
+
+  async function handleDeleteActivity(serviceId) {
+    const svc = services.find(s => s.id === serviceId);
+    const name = svc ? svc.name : 'this service';
+    const ok = window.confirm(`Delete "${name}" and ALL of its activity?`);
+    if (!ok) return;
+
+    // Local delete
+    services = services.filter(s => s.id !== serviceId);
+    delete serviceActivitiesCache[serviceId];
+
+    // Remote delete
+    try {
+      await initFirebaseCampaignRefs();
+      const { child, remove } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      const svcRef = child(campaignActivitysRef, serviceId);
+      const actRef = child(campaignActivityActivitiesRef, serviceId);
+      await Promise.all([remove(svcRef), remove(actRef)]);
+    } catch (e) {
+      console.error('Failed to delete service', e);
+    }
+
+    if (activeActivityId === serviceId) {
+      activeActivityId = '__ALL__';
+    }
+    renderActivityTabs();
+    renderActivityProofMarkers();
+    recomputeTotalMoney();
+  }
+
+  /*******************
+   * SERVICE MODAL
+   *******************/
+  const addActivityBtn = document.getElementById('add-service-btn');
+  const serviceModalBackdrop = document.getElementById('service-modal-backdrop');
+  const serviceModalClose = document.getElementById('service-modal-close');
+  const serviceModalCancel = document.getElementById('service-modal-cancel');
+  const serviceModalSubmit = document.getElementById('service-modal-submit');
+  const serviceNameInput = document.getElementById('service-name-input');
+  const serviceColorInput = document.getElementById('service-color-input');
+  const serviceModalError = document.getElementById('service-modal-error');
+
+  function showActivityModal() {
+    serviceModalError.textContent = '';
+    serviceNameInput.value = '';
+    serviceColorInput.value = '#2563eb';
+    serviceModalBackdrop.classList.add('show');
+    serviceModalBackdrop.setAttribute('aria-hidden', 'false');
+    serviceNameInput.focus();
+  }
+
+  function hideActivityModal() {
+    serviceModalBackdrop.classList.remove('show');
+    serviceModalBackdrop.setAttribute('aria-hidden', 'true');
+  }
+
+  addActivityBtn.addEventListener('click', showActivityModal);
+  serviceModalClose.addEventListener('click', hideActivityModal);
+  serviceModalCancel.addEventListener('click', hideActivityModal);
+  serviceModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === serviceModalBackdrop) hideActivityModal();
+  });
+
+  async function saveActivityToFirebase(service) {
+    await initFirebaseCampaignRefs();
+    const { child, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+    const sRef = child(campaignActivitysRef, service.id);
+    await set(sRef, service);
+  }
+
+  serviceModalSubmit.addEventListener('click', async () => {
+    const name = serviceNameInput.value.trim();
+    if (!name) {
+      serviceModalError.textContent = 'Please enter a service name.';
+      return;
+    }
+
+    const color = serviceColorInput.value || '#2563eb';
+    const id = `svc_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    const service = { id, name, color, createdAt: Date.now() };
+
+    services.push(service);
+    serviceActivitiesCache[id] = [];
+
+    try {
+      await saveActivityToFirebase(service);
+    } catch (e) {
+      console.error('Failed to save service', e);
+    }
+
+    hideActivityModal();
+    renderActivityTabs();
+    renderActivityProofMarkers();
+  });
+
+  /*******************
+   * PROOF MODAL
+   *******************/
+  const proofModalBackdrop = document.getElementById('proof-modal-backdrop');
+  const proofModalClose = document.getElementById('proof-modal-close');
+  const proofModalCancel = document.getElementById('proof-modal-cancel');
+  const proofModalSubmit = document.getElementById('proof-modal-submit');
+  const proofActivityNameEl = document.getElementById('proof-service-name');
+  const proofLocationHint = document.getElementById('proof-location-hint');
+  const proofUrlInput = document.getElementById('proof-url-input');
+  const proofTitleInput = document.getElementById('proof-title-input');
+  const proofNotesInput = document.getElementById('proof-notes-input');
+  const proofMoneyInput = document.getElementById('proof-money-input');
+  const proofModalError = document.getElementById('proof-modal-error');
+
+  let pendingProof = null; // { postIndex?:number, lat:number, lng:number }
+
+  function showProofModalForLocation(lat, lng, postIndex) {
+    if (activeActivityId === '__ALL__') {
+      window.alert('Select a service tab first, then click the map to attach proofs.');
+      return;
+    }
+    pendingProof = {
+      lat,
+      lng,
+      postIndex: (typeof postIndex === 'number' ? postIndex : null)
+    };
+    proofModalError.textContent = '';
+    proofUrlInput.value = '';
+    proofTitleInput.value = '';
+    proofNotesInput.value = '';
+    proofMoneyInput.value = '';
+
+    const svc = services.find(s => s.id === activeActivityId);
+    proofActivityNameEl.textContent = svc ? svc.name : '(unknown service)';
+
+    proofLocationHint.textContent = pendingProof.postIndex != null
+      ? `Using dot #${pendingProof.postIndex + 1} · ${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      : `Location: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+    proofModalBackdrop.classList.add('show');
+    proofModalBackdrop.setAttribute('aria-hidden', 'false');
+    proofTitleInput.focus();
+  }
+
+  function hideProofModal() {
+    proofModalBackdrop.classList.remove('show');
+    proofModalBackdrop.setAttribute('aria-hidden', 'true');
+    pendingProof = null;
+  }
+
+  proofModalClose.addEventListener('click', hideProofModal);
+  proofModalCancel.addEventListener('click', hideProofModal);
+  proofModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === proofModalBackdrop) hideProofModal();
+  });
+
+  function parseMoneyInput(str) {
+    if (!str) return 0;
+    const cleaned = str.replace(/[^\d\+\-\.]/g, '');
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : 0;
+  }
+
+  function validateProofForm() {
+    if (!pendingProof || activeActivityId === '__ALL__') {
+      return { ok:false, message:'No service or location selected.' };
+    }
+    const url = proofUrlInput.value.trim();
+    if (!url) {
+      return { ok:false, message:'Please enter a proof URL.' };
+    }
+    const title = proofTitleInput.value.trim();
+    const notes = proofNotesInput.value.trim();
+    const money = parseMoneyInput(proofMoneyInput.value.trim());
+    return {
+      ok:true,
+      url,
+      title,
+      notes,
+      money,
+      lat: pendingProof.lat,
+      lng: pendingProof.lng,
+      postIndex: pendingProof.postIndex
+    };
+  }
+
+  async function saveProofToFirebase(serviceId, proof) {
+    await initFirebaseCampaignRefs();
+    const { child, push, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+    const svcActRef = child(campaignActivityActivitiesRef, serviceId);
+
+    // Next Activity # per service
+    const existing = serviceActivitiesCache[serviceId] || [];
+    let maxIndex = 0;
+    existing.forEach(p => {
+      if (typeof p.activityIndex === 'number' && p.activityIndex > maxIndex) {
+        maxIndex = p.activityIndex;
+      }
+    });
+    const nextIndex = maxIndex + 1;
+
+    const newRef = push(svcActRef);
+    const payload = {
+      url: proof.url,
+      title: proof.title,
+      notes: proof.notes,
+      money: proof.money,
+      lat: proof.lat,
+      lng: proof.lng,
+      postIndex: (typeof proof.postIndex === 'number' ? proof.postIndex : null),
+      timestamp: Date.now(),
+      activityIndex: nextIndex
+    };
+    await set(newRef, payload);
+  }
+
+  proofModalSubmit.addEventListener('click', async () => {
+    const result = validateProofForm();
+    if (!result.ok) {
+      proofModalError.textContent = result.message;
+      return;
+    }
+    const { url, lat, lng, postIndex, title, notes, money } = result;
+    try {
+      await saveProofToFirebase(activeActivityId, { url, lat, lng, postIndex, title, notes, money });
+    } catch (e) {
+      console.error('Failed to save proof', e);
+    }
+    hideProofModal();
+  });
+
+  /*******************
+   * FIREBASE INIT
+   *******************/
+  async function initFirebaseCampaignRefs() {
+    if (db) return;
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js");
+    const { getDatabase, ref } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    db = getDatabase(app);
+
+    campaignActivitysRef          = ref(db, `campaigns/${CAMPAIGN_ID}/services`);
+    campaignActivityActivitiesRef = ref(db, `campaigns/${CAMPAIGN_ID}/serviceActivities`);
+    chatRef                       = ref(db, `campaigns/${CAMPAIGN_ID}/chat`);
+  }
+
+  async function loadActivitysAndActivities() {
+    try {
+      await initFirebaseCampaignRefs();
+      const { onValue } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+      onValue(campaignActivitysRef, (snapshot) => {
+        services = [];
+        if (snapshot.exists()) {
+          snapshot.forEach(ch => {
+            const v = ch.val();
+            if (!v || !v.id || !v.name) return;
+            services.push({ id: v.id, name: v.name, color: v.color || '#2563eb', createdAt: v.createdAt || Date.now() });
+          });
+        }
+        renderActivityTabs();
+        renderActivityProofMarkers();
+      });
+
+      onValue(campaignActivityActivitiesRef, (snapshot) => {
+        Object.keys(serviceActivitiesCache).forEach(k => delete serviceActivitiesCache[k]);
+        if (snapshot.exists()) {
+          snapshot.forEach(serviceNode => {
+            const svcId = serviceNode.key;
+            const list = [];
+            serviceNode.forEach(actNode => {
+              const v = actNode.val();
+              if (!v) return;
+              const entry = {
+                id: actNode.key,
+                postIndex: (typeof v.postIndex === 'number' ? v.postIndex : null),
+                lat: v.lat,
+                lng: v.lng,
+                url: v.url || '',
+                title: v.title || '',
+                notes: v.notes || '',
+                money: Number(v.money || 0),
+                timestamp: v.timestamp || Date.now(),
+                activityIndex: typeof v.activityIndex === 'number' ? v.activityIndex : null
+              };
+              list.push(entry);
+            });
+            serviceActivitiesCache[svcId] = list;
+          });
+        }
+        renderActivitiesTable();
+        renderActivityProofMarkers();
+        recomputeTotalMoney();
+      });
+
+    } catch (e) {
+      console.error('Failed to load services/activities from Firebase', e);
+    }
+  }
+
+  function recomputeTotalMoney() {
+    let sum = 0;
+    Object.values(serviceActivitiesCache).forEach(list => {
+      list.forEach(p => {
+        const m = Number(p.money || 0);
+        if (Number.isFinite(m)) sum += m;
+      });
+    });
+    totalMoney = sum;
+    updateMoneyTotals();
+  }
+
+  /*******************
+   * CHAT
+   *******************/
+  const chatMessagesEl = document.getElementById('chat-messages');
+  const chatInputEl = document.getElementById('chat-input');
+  const chatSendBtn = document.getElementById('chat-send-btn');
+  const chatErrorEl = document.getElementById('chat-error');
+  const chatCountLabel = document.getElementById('chat-count-label');
+
+  function renderChatMessages(messages) {
+    chatMessagesEl.innerHTML = '';
+    if (!messages.length) {
+      chatMessagesEl.innerHTML = '<div class="empty-state">No messages yet. Say hello!</div>';
+      chatCountLabel.textContent = '0';
+      return;
+    }
+    chatCountLabel.textContent = messages.length.toString();
+    messages.sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0));
+    messages.forEach(msg => {
+      const div = document.createElement('div');
+      div.className = 'chat-message';
+      div.innerHTML = `
+        <div class="chat-meta">
+          <span>${msg.user || 'Anon'}</span>
+          <span>${formatDaysAgo(msg.timestamp)} · ${getDateKeyFromTimestamp(msg.timestamp) || ''}</span>
+        </div>
+        <div class="chat-text">${msg.text || ''}</div>
+      `;
+      chatMessagesEl.appendChild(div);
+    });
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }
+
+  async function initChatListener() {
+    try {
+      await initFirebaseCampaignRefs();
+      const { onValue } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      onValue(chatRef, (snapshot) => {
+        const msgs = [];
+        if (snapshot.exists()) {
+          snapshot.forEach(ch => {
+            const v = ch.val();
+            if (!v || !v.text) return;
+            msgs.push({
+              text: v.text,
+              user: v.user || 'Anon',
+              timestamp: v.timestamp || Date.now()
+            });
+          });
+        }
+        renderChatMessages(msgs);
+      });
+    } catch (e) {
+      console.error('Failed to load chat', e);
+    }
+  }
+
+  async function sendChatMessage(text) {
+    await initFirebaseCampaignRefs();
+    const { push, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+    const newRef = push(chatRef);
+    const payload = {
+      text,
+      user: CURRENT_USER,
+      timestamp: Date.now()
+    };
+    await set(newRef, payload);
+  }
+
+  chatSendBtn.addEventListener('click', async () => {
+    const txt = chatInputEl.value.trim();
+    if (!txt) {
+      chatErrorEl.textContent = 'Please enter a message.';
+      return;
+    }
+    chatErrorEl.textContent = '';
+    try {
+      await sendChatMessage(txt);
+      chatInputEl.value = '';
+    } catch (e) {
+      console.error('Failed to send chat', e);
+      chatErrorEl.textContent = 'Failed to send. Try again.';
+    }
+  });
+
+  chatInputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      chatSendBtn.click();
+    }
+  });
+
+  /*******************
+   * LOAD ORIGINAL DOTS
+   *******************/
+  (async () => {
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0"
+    };
+
+    try {
+      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js");
+      const { getDatabase, ref, query, orderByChild, onValue } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+      const app = initializeApp(firebaseConfig);
+      const dbOriginal = getDatabase(app);
+
+      const userPostsRef = query(ref(dbOriginal, `userPosts/${TARGET_USER}`), orderByChild('timestamp'));
+
+      onValue(userPostsRef, (snapshot) => {
+        postsLayer.clearLayers();
+        routeLayer.clearLayers();
+        labelsLayer.clearLayers();
+        circleMarkers = [];
+
+        if (lastPointLabelOverlay) {
+          map.removeLayer(lastPointLabelOverlay);
+          lastPointLabelOverlay = null;
+        }
+        if (lastClickedHighlight) {
+          map.removeLayer(lastClickedHighlight);
+          lastClickedHighlight = null;
+        }
+
+        const items = [];
+        if (snapshot.exists()) {
+          snapshot.forEach((child) => {
+            const v = child.val();
+            if (v && typeof v.lat === 'number' && typeof v.lng === 'number') {
+              items.push({
+                lat: v.lat,
+                lng: v.lng,
+                timestamp: v.timestamp ?? null
+              });
+            }
+          });
+        }
+
+        itemsCache = items;
+
+        if (itemsCache.length === 0) {
+          renderActivitiesTable();
+          renderActivityProofMarkers();
+          return;
+        }
+
+        const allLatLngs = [];
+        const byDate = new Map();
+        items.forEach((p, idx) => {
+          const dateKey = getDateKeyFromTimestamp(p.timestamp) || 'unknown';
+          if (!byDate.has(dateKey)) byDate.set(dateKey, []);
+          byDate.get(dateKey).push(idx);
+        });
+
+        const lastOverallIndex = items.length - 1;
+        const lastPointColor = '#f97316';
+
+        items.forEach((p, idx) => {
+          const latlng = [p.lat, p.lng];
+          allLatLngs.push(latlng);
+
+          const isLast = idx === lastOverallIndex;
+          const options = isLast
+            ? { ...baseCircleOptions, ...lastCircleHighlightOptions, color: lastPointColor }
+            : baseCircleOptions;
+
+          const circle = L.circleMarker(latlng, options).addTo(postsLayer);
+          circleMarkers[idx] = circle;
+
+          circle.on('click', () => {
+            goToLatLng(p.lat, p.lng);
+            showProofModalForLocation(p.lat, p.lng, idx);
+          });
+        });
+
+        const colors = ['#2563eb', '#22c55e', '#f97316', '#ec4899', '#0ea5e9', '#8b5cf6'];
+        let colorIndex = 0;
+
+        for (const [, indices] of byDate.entries()) {
+          if (indices.length < 2) continue;
+          const latLngs = indices.map(i => [items[i].lat, items[i].lng]);
+          const color = colors[colorIndex % colors.length];
+          colorIndex += 1;
+
+          L.polyline(latLngs, {
+            color,
+            weight: 2,
+            opacity: 0.7
+          }).addTo(routeLayer);
+        }
+
+        const lastItem = items[lastOverallIndex];
+        const lastLatLng = [lastItem.lat, lastItem.lng];
+        const lastIndexNumber = lastOverallIndex + 1;
+
+        lastPointLabelOverlay = L.marker(lastLatLng, {
+          icon: L.divIcon({
+            className: '',
+            html: `<div class="last-point-label">#${lastIndexNumber} · Latest Drop</div>`,
+            iconSize: null,
+            iconAnchor: [0, 24]
+          }),
+          interactive: false
+        }).addTo(map);
+
+        if (allLatLngs.length >= 2) {
+          map.fitBounds(L.latLngBounds(allLatLngs).pad(0.25));
+        } else if (allLatLngs.length === 1) {
+          map.setView(allLatLngs[0], 16, { animate: true });
+        }
+
+        updateNumberLabels();
+        renderActivitiesTable();
+        renderActivityProofMarkers();
+      });
+
+      map.on('zoomend', () => {
+        updateNumberLabels();
+      });
+
+      await loadActivitysAndActivities();
+      await initChatListener();
+
+      map.on('click', (e) => {
+        showProofModalForLocation(e.latlng.lat, e.latlng.lng, null);
+      });
+    } catch (e) {
+      console.error('Firebase failed to load. The map will remain active without data.', e);
+    }
+  })();
+</script>
+</body>
+</html>
