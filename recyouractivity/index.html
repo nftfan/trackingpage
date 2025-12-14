@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Activity Map · Mobile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin="anonymous"
+  />
+
+  <!-- Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --muted: #9ca3af;
+      --text: #e5e7eb;
+      --accent: #22c55e;
+      --accent2: #2563eb;
+      --shadow: 0 18px 45px rgba(0,0,0,0.35);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; height:100%; background: var(--bg); color: var(--text); font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { display:flex; flex-direction:column; }
+    #app { flex:1; display:flex; flex-direction:column; }
+    header {
+      height: 52px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 0 14px;
+      background: rgba(17,24,39,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    header h1 {
+      font-size: 15px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin:0;
+    }
+    .total-pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .money-pos { color: #22c55e; }
+    .money-neg { color: #f97316; }
+
+    .map-wrap { position: relative; height: 42vh; min-height: 260px; }
+    #map { height:100%; width:100%; }
+
+    .floating-btns {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 500;
+    }
+    .icon-btn {
+      width: 44px; height: 44px;
+      border: none;
+      border-radius: 12px;
+      background: rgba(17,24,39,0.92);
+      color: #e5e7eb;
+      box-shadow: var(--shadow);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      border: 1px solid rgba(255,255,255,0.08);
+      touch-action: manipulation;
+    }
+    .icon-btn:active { transform: translateY(1px); }
+
+    .panel {
+      flex:1;
+      background: var(--card);
+      border-top-left-radius: var(--radius);
+      border-top-right-radius: var(--radius);
+      box-shadow: 0 -10px 30px rgba(0,0,0,0.45);
+      padding: 14px 14px 22px;
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+    }
+
+    .row { display:flex; gap:8px; align-items:center; }
+    select, input, textarea {
+      width:100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 16px; /* Prevent iOS zoom on focus */
+      outline: none;
+      -webkit-text-size-adjust: 100%;
+    }
+    textarea { min-height: 70px; resize: vertical; }
+    label { font-size: 12px; color: var(--muted); letter-spacing:0.02em; }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      color: #0f172a;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      box-shadow: var(--shadow);
+      touch-action: manipulation;
+    }
+    .btn:active { transform: translateY(1px); }
+
+    .muted { color: var(--muted); font-size: 12px; }
+
+    /* Login overlay */
+    #auth-overlay {
+      position: fixed; inset: 0;
+      background: radial-gradient(circle at top, #111827 0, #0b1222 45%, #060b17 100%);
+      display:flex; align-items:center; justify-content:center;
+      padding: 20px;
+      z-index: 2000;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(17,24,39,0.88);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+    .auth-card h2 {
+      margin:0;
+      font-size: 17px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .auth-btn { background: linear-gradient(135deg, #2563eb, #1d4ed8); color:#f8fafc; }
+    .divider { height:1px; background: rgba(255,255,255,0.06); margin: 6px 0; }
+
+    /* Sheet for add proof */
+    #proof-sheet {
+      position: fixed;
+      left:0; right:0; bottom:-100%;
+      background: #0b1222;
+      border-top-left-radius: 18px;
+      border-top-right-radius: 18px;
+      box-shadow: 0 -18px 40px rgba(0,0,0,0.55);
+      padding: 16px;
+      transition: bottom 0.28s ease;
+      z-index: 1500;
+      touch-action: manipulation;
+    }
+    #proof-sheet.show { bottom: 0; }
+    .sheet-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .sheet-title { font-weight:800; letter-spacing:0.06em; text-transform:uppercase; }
+    .close-btn { border:none; background:transparent; color: var(--text); font-size:22px; cursor:pointer; touch-action: manipulation; }
+
+    .pill {
+      display:inline-flex; align-items:center; gap:6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1><span class="material-icons-outlined">map</span> Activity Map</h1>
+    <div id="money-total" class="total-pill">€0.00</div>
+  </header>
+
+  <div class="map-wrap">
+    <div id="map" aria-label="Map"></div>
+    <div class="floating-btns">
+      <button id="loc-btn" class="icon-btn" title="Go to my location">
+        <span class="material-icons-outlined">my_location</span>
+      </button>
+      <button id="add-proof-btn" class="icon-btn" title="Add proof (pick location on map)">
+        <span class="material-icons-outlined">add_link</span>
+      </button>
+    </div>
+  </div>
+
+  <section class="panel">
+    <div>
+      <label for="activity-select">Select Activity</label>
+      <div class="row">
+        <select id="activity-select"></select>
+        <button id="refresh-activities" class="icon-btn" style="flex:0 0 44px;" title="Refresh activities">
+          <span class="material-icons-outlined">refresh</span>
+        </button>
+      </div>
+      <div class="muted">Tap on the map to set a pin, then add a proof.</div>
+    </div>
+    <div class="row" style="gap:10px;">
+      <div class="pill" id="latlng-pill">No location selected</div>
+    </div>
+    <button id="open-proof-sheet" class="btn" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">
+      Add Proof
+    </button>
+  </section>
+</div>
+
+<!-- Auth overlay -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <h2><span class="material-icons-outlined">login</span> Login / Register</h2>
+    <div class="muted">Enter your campaign code (e.g., FF100, FF5400). This will create or join that campaign space.</div>
+    <label for="campaign-input">Campaign Code</label>
+    <input id="campaign-input" placeholder="FF100" autocapitalize="characters" />
+    <button id="auth-submit" class="btn auth-btn">Enter</button>
+    <div class="divider"></div>
+    <div class="muted" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- Add proof sheet -->
+<div id="proof-sheet">
+  <div class="sheet-header">
+    <div class="sheet-title">Add Proof</div>
+    <button class="close-btn" id="close-proof-sheet">&times;</button>
+  </div>
+  <div class="row" style="margin-bottom:6px;">
+    <div class="pill" id="sheet-loc-pill">No location selected</div>
+  </div>
+  <label for="proof-title">Title</label>
+  <input id="proof-title" placeholder="Short title" />
+
+  <label for="proof-notes">Notes</label>
+  <textarea id="proof-notes" placeholder="Notes..."></textarea>
+
+  <label for="proof-url">URL</label>
+  <input id="proof-url" type="url" placeholder="https://example.com" />
+
+  <label for="proof-money">Money (€) — use +30 or -100</label>
+  <input id="proof-money" inputmode="decimal" placeholder="+30 or -100" />
+
+  <div class="row" style="margin-top:12px;">
+    <button id="save-proof" class="btn">Save Proof</button>
+  </div>
+  <div class="muted" id="proof-error"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin="anonymous"></script>
+
+<script type="module">
+  const CURRENT_USER = 'mobile-user';
+  let CAMPAIGN_ID = null;
+  let db = null;
+  let servicesRef = null;
+  let serviceActivitiesRef = null;
+
+  // State
+  let services = [];
+  let lastLatLng = null;
+  let totalMoney = 0;
+
+  // UI refs
+  const authOverlay = document.getElementById('auth-overlay');
+  const authInput   = document.getElementById('campaign-input');
+  const authError   = document.getElementById('auth-error');
+  const moneyTotal  = document.getElementById('money-total');
+  const activitySelect = document.getElementById('activity-select');
+  const latlngPill  = document.getElementById('latlng-pill');
+  const sheetLocPill= document.getElementById('sheet-loc-pill');
+  const proofSheet  = document.getElementById('proof-sheet');
+  const proofTitle  = document.getElementById('proof-title');
+  const proofNotes  = document.getElementById('proof-notes');
+  const proofUrl    = document.getElementById('proof-url');
+  const proofMoney  = document.getElementById('proof-money');
+  const proofError  = document.getElementById('proof-error');
+
+  /*********** Map ************/
+  const map = L.map('map', {
+    zoomControl: false,
+    maxZoom: 20
+  }).setView([50.8796, 4.7009], 14);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 20,
+    attribution: ''
+  }).addTo(map);
+
+  let selectionMarker = null;
+
+  function setSelection(latlng) {
+    lastLatLng = latlng;
+    if (selectionMarker) map.removeLayer(selectionMarker);
+    selectionMarker = L.marker(latlng, { draggable: false }).addTo(map);
+    const text = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+    latlngPill.textContent = text;
+    sheetLocPill.textContent = text;
+  }
+
+  map.on('click', (e) => setSelection(e.latlng));
+
+  document.getElementById('loc-btn').onclick = () => {
+    if (!navigator.geolocation) return alert('Geolocation not supported.');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const latlng = { lat: latitude, lng: longitude };
+        map.setView(latlng, 17, { animate:true });
+        setSelection(latlng);
+      },
+      (err) => alert('Location error: ' + err.message),
+      { enableHighAccuracy:true, timeout:8000, maximumAge:2000 }
+    );
+  };
+
+  /*********** Auth ***********/
+  authInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') doAuth(); });
+  document.getElementById('auth-submit').onclick = doAuth;
+
+  function validateCode(code) {
+    return /^FF\d{2,5}$/i.test(code.trim());
+  }
+
+  async function doAuth() {
+    const code = authInput.value.trim().toUpperCase();
+    if (!validateCode(code)) {
+      authError.textContent = 'Enter a code like FF100 or FF5400';
+      return;
+    }
+    authError.textContent = '';
+    CAMPAIGN_ID = code;
+    localStorage.setItem('campaignCode', CAMPAIGN_ID);
+    try {
+      await initFirebase();
+      await loadServices();
+      await loadActivitiesAndComputeMoney();
+      authOverlay.style.display = 'none';
+    } catch (e) {
+      console.error(e);
+      authError.textContent = 'Failed to load. Check connection.';
+    }
+  }
+
+  // Restore session
+  const storedCode = localStorage.getItem('campaignCode');
+  if (storedCode && validateCode(storedCode)) {
+    CAMPAIGN_ID = storedCode.toUpperCase();
+    authInput.value = CAMPAIGN_ID;
+    doAuth();
+  }
+
+  /*********** Firebase ***********/
+  async function initFirebase() {
+    if (db) return;
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js");
+    const { getDatabase, ref } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    db = getDatabase(app);
+    servicesRef = ref(db, `campaigns/${CAMPAIGN_ID}/services`);
+    serviceActivitiesRef = ref(db, `campaigns/${CAMPAIGN_ID}/serviceActivities`);
+  }
+
+  /*********** Services ***********/
+  async function loadServices() {
+    const { onValue } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+    services = [];
+    onValue(servicesRef, (snap) => {
+      services = [];
+      if (snap.exists()) {
+        snap.forEach(ch => {
+          const v = ch.val();
+          if (v?.id && v?.name) services.push(v);
+        });
+      }
+      renderServiceSelect();
+    });
+  }
+
+  function renderServiceSelect() {
+    activitySelect.innerHTML = '';
+    if (!services.length) {
+      activitySelect.innerHTML = `<option value="">No activities yet</option>`;
+      return;
+    }
+    services.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      activitySelect.appendChild(opt);
+    });
+  }
+
+  document.getElementById('refresh-activities').onclick = () => {
+    if (!CAMPAIGN_ID) return;
+    loadServices();
+  };
+
+  /*********** Money total ***********/
+  function setMoneyTotal(sum) {
+    const txt = sum.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+    moneyTotal.textContent = `€${txt}`;
+    moneyTotal.classList.toggle('money-pos', sum > 0);
+    moneyTotal.classList.toggle('money-neg', sum < 0);
+  }
+
+  async function loadActivitiesAndComputeMoney() {
+    const { onValue } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+    onValue(serviceActivitiesRef, (snap) => {
+      let total = 0;
+      if (snap.exists()) {
+        snap.forEach(svc => {
+          svc.forEach(act => {
+            const v = act.val();
+            const m = Number(v?.money || 0);
+            if (Number.isFinite(m)) total += m;
+          });
+        });
+      }
+      totalMoney = total;
+      setMoneyTotal(totalMoney);
+    });
+  }
+
+  /*********** Proof sheet ***********/
+  const openSheetBtn = document.getElementById('open-proof-sheet');
+  const closeSheetBtn = document.getElementById('close-proof-sheet');
+  const addProofBtn   = document.getElementById('add-proof-btn');
+
+  openSheetBtn.onclick = () => {
+    if (!lastLatLng) return alert('Tap the map to choose a location first.');
+    showSheet();
+  };
+  addProofBtn.onclick = () => {
+    if (!lastLatLng) return alert('Tap the map to choose a location first.');
+    showSheet();
+  };
+  closeSheetBtn.onclick = hideSheet;
+
+  function showSheet() { proofSheet.classList.add('show'); }
+  function hideSheet() { proofSheet.classList.remove('show'); }
+
+  function parseMoney(str) {
+    if (!str) return 0;
+    const cleaned = str.replace(/[^\d\+\-\.]/g,'');
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  document.getElementById('save-proof').onclick = async () => {
+    proofError.textContent = '';
+    if (!lastLatLng) { proofError.textContent = 'Pick a map location first.'; return; }
+    const serviceId = activitySelect.value;
+    if (!serviceId) { proofError.textContent = 'Select an activity.'; return; }
+    const url   = proofUrl.value.trim();
+    if (!url) { proofError.textContent = 'Enter a URL.'; return; }
+    const title = proofTitle.value.trim();
+    const notes = proofNotes.value.trim();
+    const money = parseMoney(proofMoney.value.trim());
+
+    try {
+      await initFirebase();
+      const { child, push, set } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      const svcActRef = child(serviceActivitiesRef, serviceId);
+      const newRef = push(svcActRef);
+      const payload = {
+        url, title, notes, money,
+        lat: lastLatLng.lat,
+        lng: lastLatLng.lng,
+        timestamp: Date.now(),
+        user: CURRENT_USER
+      };
+      await set(newRef, payload);
+      hideSheet();
+      proofTitle.value = '';
+      proofNotes.value = '';
+      proofUrl.value = '';
+      proofMoney.value = '';
+      alert('Proof saved!');
+    } catch (e) {
+      console.error(e);
+      proofError.textContent = 'Failed to save. Try again.';
+    }
+  };
+</script>
+</body>
+</html>
