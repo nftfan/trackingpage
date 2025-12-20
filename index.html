@@ -1,10 +1,11 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LeuvenFlyers | Offline Marketing & Analytics</title>
+  <title>LeuvenFlyers</title>
 
   <!-- Google Fonts & Icons -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
@@ -1181,27 +1182,42 @@
 
   // (Existing Telegram/IP notification script retained as-is)
 </script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script>
-// Replace with your Telegram Bot Token and Chat ID
-const botToken = '7761334520:AAH2N1Ksa9NToLr6gd6DcknzpyB27q-_d14';
-const chatId = '2141064153';
+// Your Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+  authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+  databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+  projectId: "tokentransfer-4a9b3",
+  storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+  messagingSenderId: "205455490321",
+  appId: "1:205455490321:web:9919f5dde059316c9320b0",
+  measurementId: "G-Y6CVEDL9XH"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-function sendNotification() {
-    const pageTitle = document.title;
-    fetch('https://api.ipify.org?format=json')
-        .then(response => response.json())
-        .then(data => {
-            const userIP = data.ip;
-            const message = `A user has opened the page: ${pageTitle}, IP Address: ${userIP}`;
-            const url = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`;
-            fetch(url)
-                .then(response => response.json())
-                .then(data => { if (data.ok) { console.log('Notification sent successfully.'); } else { console.error('Failed to send notification:', data); } })
-                .catch(error => console.error('Error:', error));
-        })
-        .catch(error => console.error('Failed to fetch IP address:', error));
+function logVisitor() {
+  const now = new Date();
+  const visitor = {
+    timestamp: now.toISOString(),
+    userAgent: navigator.userAgent || ''
+  };
+  // Get IP from ipify
+  fetch('https://api.ipify.org?format=json')
+    .then(response => response.json())
+    .then(data => {
+      visitor.ip = data.ip;
+      db.ref('visitors').push(visitor);
+    })
+    .catch(error => {
+      visitor.ip = 'N/A';
+      db.ref('visitors').push(visitor);
+    });
 }
-document.addEventListener('DOMContentLoaded', function() { sendNotification(); });
+document.addEventListener('DOMContentLoaded', logVisitor);
 </script>
 </body>
 </html>
