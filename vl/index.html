@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Visitor Logs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <style>
+    body {
+      background: #181824;
+      color: #e2e8f0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 11px;
+      margin: 0;
+      padding: 0;
+    }
+    h2 {
+      text-align: center;
+      letter-spacing: 1px;
+      font-size: 13px;
+      margin: 22px 0 7px 0;
+      color: #7dd3fc;
+    }
+    #totalCount {
+      text-align: center;
+      color: #cbd5e1;
+      font-size: 11px;
+      margin-bottom: 13px;
+      margin-top: 0;
+      letter-spacing: 0.5px;
+    }
+    table {
+      margin: 0 auto;
+      font-size: 11px;
+      border-collapse: collapse;
+      background: #232338;
+      min-width: 70vw;
+      max-width: 98vw;
+      box-shadow: 0 1px 4px #08090b70;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      border: 1px solid #27283e;
+      padding: 4px 8px;
+      text-align: left;
+      max-width: 220px;
+      overflow: auto;
+    }
+    th {
+      background: #22223a;
+      color: #38bdf8;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    tr:nth-child(even) {
+      background: #20203a;
+    }
+    tr:hover {
+      background: #263042;
+    }
+    .scroll-x {
+      overflow-x: auto;
+      width: 100%;
+    }
+    ::selection {
+      background: #7dd3fc40;
+    }
+    @media (max-width: 700px) {
+      table, th, td {
+        font-size: 10px;
+      }
+      #totalCount {
+        font-size: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>Visitor Logs</h2>
+  <div id="totalCount">Loading...</div>
+  <div class="scroll-x">
+    <table id="visitorsTable">
+      <thead>
+        <tr>
+          <th>Date/Time</th>
+          <th>IP</th>
+          <th>User Agent</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Visitor data will be appended here -->
+      </tbody>
+    </table>
+  </div>
+  <script>
+    // Correct Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.appspot.com",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0",
+      measurementId: "G-Y6CVEDL9XH"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function escapeHTML(str) {
+      if (!str) return '';
+      return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      }[tag]));
+    }
+
+    function addRow(table, data) {
+      const dt = data.timestamp ? data.timestamp.replace('T',' ').split('.')[0] : '';
+      const ipVal = (typeof data.ip === "undefined" || data.ip === null || data.ip === "") ? '<span style="color:#f87171">N/A</span>' : escapeHTML(data.ip);
+      const uaVal = escapeHTML(data.userAgent || '');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHTML(dt)}</td>
+        <td>${ipVal}</td>
+        <td title="${uaVal}">${uaVal}</td>
+      `;
+      table.appendChild(tr);
+    }
+
+    // Fetch and display data
+    db.ref('visitors').orderByChild('timestamp').once('value', snapshot => {
+      const tbody = document.getElementById('visitorsTable').querySelector('tbody');
+      const countDiv = document.getElementById('totalCount');
+      tbody.innerHTML = '';
+      const logs = [];
+      snapshot.forEach(child => {
+        logs.push(child.val());
+      });
+      logs.reverse(); // Most recent on top
+      logs.forEach(row => addRow(tbody, row));
+      countDiv.textContent = `Total Visitors: ${logs.length}`;
+    });
+  </script>
+</body>
+</html>
