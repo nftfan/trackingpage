@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Prevent mobile zoom on inputs -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Entry Logger (Dark Theme)</title>
+  <style>
+    body {
+      background: #181828;
+      color: #e0e0e7;
+      font-family: 'Segoe UI',Arial,sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 400px;
+      margin: 32px auto;
+      background: #212136;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px #0003;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    h2 {
+      text-align: center;
+      margin: 0 0 16px 0;
+    }
+    .totals {
+      text-align: center;
+      margin-bottom: 8px;
+      font-size: 1.12rem;
+    }
+    .currency {
+      font-weight: 600;
+      color: #b8b8ff;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    input, button {
+      border-radius: 8px;
+      border: 1px solid #44445a;
+      background: #191930;
+      color: #e0e0e7;
+      font-size: 16px; /* avoid input zoom */
+      padding: 10px 14px;
+      outline: none;
+      transition: border 0.15s;
+    }
+    input:focus { border-color: #6060d6; }
+    button {
+      cursor: pointer;
+      font-weight: 600;
+      background: linear-gradient(90deg, #363670 60%, #262646 100%);
+      border: none;
+      margin-top: 8px;
+      box-shadow: 0 2px 8px #0002;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      background: #17172c;
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 0.95rem;
+    }
+    th, td {
+      padding: 8px 6px;
+      text-align: left;
+      border-bottom: 1px solid #292936;
+    }
+    th { background: #232346; }
+    th, .currency { color: #b8b8ff; }
+    tr:last-child td { border-bottom: none; }
+    @media (max-width: 500px) {
+      .container { max-width: 98vw; padding: 12px; }
+      table, th, td { font-size: 0.93rem; }
+      .totals { font-size: 1.01rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="totals" id="totals">
+      Total: <span class="currency">PKR 0.00</span> &mdash; <span class="currency">EUR 0.00</span>
+    </div>
+    <h2>New Entry</h2>
+    <form id="entryForm">
+      <input type="text" id="text" placeholder="Text/Description" required>
+      <input type="number" id="amount" placeholder="Amount (PKR)" step="0.01" min="0" required>
+      <input type="date" id="date" required>
+      <button type="submit">Add Entry</button>
+    </form>
+    <div>
+      <table id="entriesTable">
+        <thead>
+          <tr>
+            <th>Text</th>
+            <th>Amount (PKR)</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="entriesBody">
+          <!-- Entries will be placed here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <!-- Firebase + conversion logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, push, query, orderByChild, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0",
+      measurementId: "G-Y6CVEDL9XH"
+    };
+
+    // Default exchange rate PKR->EUR
+    let pkrToEur = 0.0032; // fallback (e.g. 1 PKR ≈ 0.0032 EUR)
+    // Fetch live rate from exchangerate-api
+    async function fetchExchangeRate() {
+      try {
+        // euro-api.com is preferred, fallback to exchangerate.host
+        const r = await fetch('https://api.exchangerate.host/latest?base=PKR&symbols=EUR');
+        const d = await r.json();
+        if (d && d.rates && d.rates.EUR) {
+          pkrToEur = d.rates.EUR;
+        }
+      } catch{}
+    }
+    fetchExchangeRate();
+
+    // Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const entriesRef = ref(db, 'entries');
+
+    // Show totals
+    function updateTotals(entries) {
+      let totalPKR = 0;
+      Object.values(entries || {}).forEach(e => {
+        totalPKR += Number(e.amount) || 0;
+      });
+      const totalEUR = totalPKR * pkrToEur;
+      document.getElementById('totals').innerHTML =
+        `Total: <span class="currency">PKR ${totalPKR.toLocaleString(undefined, {minimumFractionDigits:2})}</span> &mdash; <span class="currency">EUR ${totalEUR.toLocaleString(undefined, {minimumFractionDigits:2})}</span>`;
+    }
+
+    // Show the table
+    function displayEntries(entries) {
+      const tbody = document.getElementById('entriesBody');
+      tbody.innerHTML = '';
+      // Show latest first
+      const rows = Object.entries(entries || {}).sort((a,b) => (b[1].date||'').localeCompare(a[1].date||''));
+      for (const [key, entry] of rows) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${entry.text || ''}</td>
+          <td>${Number(entry.amount).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+          <td>${entry.date || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+      updateTotals(entries);
+    }
+
+    // Listen for changes
+    onValue(query(entriesRef, orderByChild('date')), snapshot => {
+      displayEntries(snapshot.val());
+    });
+
+    // Form submit
+    document.getElementById('entryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = document.getElementById('text').value.trim();
+      const amount = document.getElementById('amount').value;
+      const date = document.getElementById('date').value;
+      if (!text || !amount || !date) return;
+      await push(entriesRef, {text, amount, date});
+      e.target.reset();
+    });
+
+    // Update exchange rate regularly
+    setInterval(fetchExchangeRate, 5*60*1000); // every 5 min
+
+  </script>
+</body>
+</html>
