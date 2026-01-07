@@ -566,6 +566,7 @@
     const buildingDataByZone = new Map();
     const buildingFetchPromises = new Map();
     let currentBuildingLayerGroup = null;
+    let buildingLayerZone = null;
 
     // Chat state
     const CHAT_PATH = 'campaigns/XX1500/chat/messages';
@@ -576,7 +577,7 @@
     const myName = 'Viewer';
     const lastReadKey = 'XX1500_chat_last_read_ts';
 
-    // FF1500 dots
+    // FF1500 dots (blue circles)
     const FF1500_USER = 'FF1500';
     let ff974DotsLayer = null;
     let ff974DotsPolyline = null;
@@ -955,7 +956,7 @@
 
         const meta=statusMeta(z.status, impressionInfo.fullyViewed);
 
-        // Ensure polygon fill changes to yellow on booking (not just label)
+        // Polygon fill reflects status (yellow when booked)
         poly.setStyle({
           fillColor: meta.color,
           fillOpacity: impressionInfo.isViewing ? (poly.options.fillOpacity || 0.22) : 0.28,
@@ -969,7 +970,7 @@
         let actionButtonsHtml = '';
 
         if(canBook) {
-          actionButtonsHtml += `<button class="zp-btn warn" data-act="book" data-zone="${zoneNum}"><span class="material-icons-outlined" style="font-size:14px;">bookmark_add</span>Book</button>`;
+          actionButtonsHtml += `<button class="zp-btn warn" data-act="book" data-zone="${zoneNum}" data-ready="false"><span class="material-icons-outlined" style="font-size:14px;">bookmark_add</span>Book</button>`;
         }
         if(canUnbook) {
           actionButtonsHtml += `<button class="zp-btn danger" data-act="unbook" data-zone="${zoneNum}"><span class="material-icons-outlined" style="font-size:14px;">bookmark_remove</span>Unbook</button>`;
@@ -1010,6 +1011,8 @@
             </div>`;
         }
 
+        const helpNote = canBook ? `<div class="mini-hint" style="margin-top:8px;color:#5b6872;">Loading building dots for this zone… Booking will be enabled once dots are visible.</div>` : '';
+
         let popupHTML=`
           <div style="text-align:left;">
             <strong style="display:flex;justify-content:flex-start;align-items:center;gap:4px;color:#0e3450;font-size:12px;">
@@ -1030,6 +1033,9 @@
                 Status: <strong>${meta.text}</strong>
               </span>
             </div>
+            ${helpNote}
+            <div style="margin-top: 8px; display: flex; gap: 6px;">${actionButtonsHtml}</div>
+          </div>
         `;
         if(z.gpsProof || z.gpsUrl){
           popupHTML+=`<div style="margin-top:8px;"><a href="${z.gpsProof||z.gpsUrl}" target="_blank" rel="noopener"
@@ -1043,7 +1049,7 @@
                 loading="lazy" decoding="async"
                 style="max-width:110px;border-radius:10px;cursor:pointer;border:1px solid #d9e2e8;"></div>`;
         }
-        popupHTML += `<div style="margin-top: 8px; display: flex; gap: 6px;">${actionButtonsHtml}</div></div>`;
+
         poly.bindPopup(popupHTML);
 
         const label = labelMarkersByZone.get(zoneNum);
@@ -1064,21 +1070,64 @@
           const img = popupEl.querySelector('.popup-img-thumb[data-proof]');
           if(img) img.addEventListener('click',()=>showModal('imgModal', img.getAttribute('data-proof')), { passive: true });
 
+          // Preload building dots for PENDING zones; enable booking only after visible
+          const statusObj = zoneStatusByZone.get(zoneNum) || {};
+          const bookBtn = popupEl.querySelector('.zp-btn[data-act="book"][data-zone="'+zoneNum+'"]');
+
+          if (bookBtn) {
+            // Disable until visible
+            bookBtn.disabled = true;
+            bookBtn.textContent = 'Loading buildings…';
+            ensureBuildingDotsLoaded(zoneNum, poly)
+              .then(ok => {
+                if (ok) {
+                  bookBtn.disabled = false;
+                  bookBtn.dataset.ready = 'true';
+                  bookBtn.innerHTML = `<span class="material-icons-outlined" style="font-size:14px;">bookmark_add</span>Book`;
+                } else {
+                  bookBtn.disabled = false;
+                  bookBtn.dataset.ready = 'false';
+                  bookBtn.innerHTML = `Retry loading`;
+                }
+              });
+
+            bookBtn.addEventListener('click', async e => {
+              e.preventDefault(); e.stopPropagation();
+              // Allow booking only if building dots are visible
+              const ready = bookBtn.dataset.ready === 'true' && currentBuildingLayerGroup && buildingLayerZone === zoneNum;
+              if (!ready) {
+                alert('Building dots are not visible yet. Please try again after they load.');
+                return;
+              }
+              bookBtn.disabled = true;
+              bookBtn.textContent = 'Booking…';
+              try {
+                await applyStatusToZones([zoneNum], 'booked');
+              } catch (err) {
+                console.error('Booking failed', err);
+                alert('Failed to book. Please try again.');
+                bookBtn.disabled = false;
+                bookBtn.innerHTML = `<span class="material-icons-outlined" style="font-size:14px;">bookmark_add</span>Book`;
+                return;
+              }
+              poly.closePopup();
+            });
+          }
+
+          // Other actions
           popupEl.querySelectorAll('.zp-btn[data-act]').forEach(btn => {
+            if (btn.dataset.act === 'book') return; // handled above
             btn.addEventListener('click', async e => {
               e.preventDefault(); e.stopPropagation();
               const act = btn.dataset.act;
               const znum = parseInt(btn.dataset.zone, 10);
               btn.disabled = true;
-              btn.textContent = 'Working...';
+              btn.textContent = 'Working…';
 
               if (act === 'verify') {
                 await verifyZone(znum);
-              } else if (act === 'book' || act === 'unbook') {
-                if (act === 'book') {
-                  await showBuildingDotsOnBooking(znum, poly);
-                }
-                await applyStatusToZones([znum], act === 'book' ? 'booked' : 'pending');
+              } else if (act === 'unbook') {
+                await applyStatusToZones([znum], 'pending');
               }
               poly.closePopup();
             });
@@ -1385,6 +1434,46 @@
       qrCounter.addEventListener('click',()=>{ alert('QR Scans list is only available if active for this campaign.'); });
     }
 
+    // Building dots helpers
+    function clearBuildingDots(){
+      if(currentBuildingLayerGroup){
+        map.removeLayer(currentBuildingLayerGroup);
+        currentBuildingLayerGroup = null;
+        buildingLayerZone = null;
+      }
+    }
+
+    async function ensureBuildingDotsLoaded(zoneNum, poly){
+      try{
+        // If already cached & visible for this zone, consider OK
+        const cached = buildingDataByZone.get(zoneNum);
+        if (cached && cached.count > 0 && currentBuildingLayerGroup && buildingLayerZone === zoneNum) {
+          return true;
+        }
+        clearBuildingDots();
+        const count = await computeBuildingCount(zoneNum, poly);
+        const data = buildingDataByZone.get(zoneNum);
+        if(!data || count <= 0){ return false; }
+        // Draw black dots for building centers
+        currentBuildingLayerGroup = L.layerGroup();
+        data.centers.forEach(c=>{
+          L.circleMarker(c,{
+            radius:2,
+            color:'#000',
+            fillColor:'#000',
+            fillOpacity:0.85,
+            stroke:false
+          }).addTo(currentBuildingLayerGroup);
+        });
+        currentBuildingLayerGroup.addTo(map);
+        buildingLayerZone = zoneNum;
+        return true;
+      }catch(err){
+        console.error('ensureBuildingDotsLoaded failed', err);
+        return false;
+      }
+    }
+
     async function computeBuildingCount(zoneNum, poly) {
       if (buildingDataByZone.has(zoneNum)) {
         return buildingDataByZone.get(zoneNum).count;
@@ -1445,32 +1534,6 @@
 
       buildingFetchPromises.set(zoneNum, prom);
       return prom;
-    }
-
-    function clearBuildingDots(){
-      if(currentBuildingLayerGroup){
-        map.removeLayer(currentBuildingLayerGroup);
-        currentBuildingLayerGroup = null;
-      }
-    }
-
-    function showBuildingDotsOnBooking(zoneNum, poly){
-      clearBuildingDots();
-      return computeBuildingCount(zoneNum, poly).then(() => {
-        const data = buildingDataByZone.get(zoneNum);
-        if(!data) return;
-        currentBuildingLayerGroup = L.layerGroup();
-        data.centers.forEach(c=>{
-          L.circleMarker(c,{
-            radius:2,
-            color:'#000',
-            fillColor:'#000',
-            fillOpacity:0.85,
-            stroke:false
-          }).addTo(currentBuildingLayerGroup);
-        });
-        currentBuildingLayerGroup.addTo(map);
-      }).catch(err=>console.error('Dots error',err));
     }
 
     /* FF1500 dots: tiny blue circles (#1f6feb) and a blue path. Live box shows only the number. */
