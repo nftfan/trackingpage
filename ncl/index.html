@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeuvenFlyers — Offer Leads</title>
+  <meta name="description" content="List of submitted offer leads (emails) from Firebase Realtime Database." />
+  <style>
+    :root{
+      --bg:#070A12;
+      --bg2:#0B1030;
+      --card: rgba(255,255,255,.08);
+      --stroke: rgba(255,255,255,.14);
+      --text:#F3F7FF;
+      --muted:rgba(243,247,255,.70);
+      --brandA:#7C3AED;
+      --brandB:#22D3EE;
+      --brandC:#F97316;
+      --shadow: 0 22px 70px rgba(0,0,0,.45);
+      --radius: 18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(1000px 620px at 10% 0%, rgba(124,58,237,.38), transparent 60%),
+        radial-gradient(900px 620px at 92% 10%, rgba(34,211,238,.26), transparent 60%),
+        linear-gradient(180deg, var(--bg), var(--bg2) 55%, #050611);
+      min-height:100vh;
+    }
+    .wrap{max-width:1100px; margin:0 auto; padding:18px 16px 70px}
+    .topbar{
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      padding:12px 14px;
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      background: rgba(255,255,255,.06);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 10px;
+      z-index: 10;
+    }
+    .brand{display:flex; align-items:center; gap:10px; font-weight:950}
+    .mark{
+      width:34px; height:34px; border-radius:14px;
+      background: conic-gradient(from 210deg, var(--brandB), var(--brandA), var(--brandC), var(--brandB));
+      border:1px solid rgba(255,255,255,.18);
+    }
+    .actions{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+    .pill{
+      font-size:12px; font-weight:950; color:rgba(0,0,0,.85);
+      background: linear-gradient(135deg, #A7F3D0, #67E8F9);
+      padding:8px 10px; border-radius:999px; white-space:nowrap;
+    }
+    .btn{
+      width:auto;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.20);
+      color: var(--text);
+      cursor:pointer;
+      font-weight:900;
+      font-size:12px;
+    }
+    h1{
+      margin:18px 0 6px;
+      font-size: clamp(26px, 3.6vw, 40px);
+      letter-spacing:-.6px;
+      font-weight:1000;
+    }
+    .sub{margin:0 0 14px; color:var(--muted); line-height:1.6}
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+      margin-top: 12px;
+    }
+    .card{
+      border:1px solid var(--stroke);
+      border-radius: 22px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .toolbar{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      padding:12px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      flex-wrap:wrap;
+    }
+    .toolbar input{
+      width:min(520px, 100%);
+      padding:11px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(0,0,0,.20);
+      color: var(--text);
+      outline:none;
+      font-size: 14px;
+    }
+    .meta{color: var(--muted); font-size: 13px}
+    table{
+      width:100%;
+      border-collapse: collapse;
+    }
+    th, td{
+      padding: 12px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.10);
+      text-align:left;
+      vertical-align: top;
+    }
+    th{
+      font-size: 12px;
+      color: rgba(243,247,255,.75);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      background: rgba(0,0,0,.18);
+      position: sticky;
+      top: 74px; /* below topbar */
+      z-index: 5;
+    }
+    td{
+      font-size: 14px;
+      color: rgba(243,247,255,.92);
+    }
+    .mono{font-family: var(--mono)}
+    .muted{color: var(--muted)}
+    .empty{
+      padding: 16px 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .rowKey{opacity:.9}
+    @media (max-width: 720px){
+      th:nth-child(4), td:nth-child(4){display:none;} /* hide userAgent on mobile */
+      th{top: 120px;}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"></div>
+        <div>LeuvenFlyers <span style="opacity:.75">• Leads</span></div>
+      </div>
+      <div class="actions">
+        <div class="pill" id="statusPill">Loading…</div>
+        <button class="btn" id="refreshBtn" type="button">Refresh</button>
+        <button class="btn" id="copyBtn" type="button">Copy emails</button>
+      </div>
+    </div>
+
+    <h1>Offer Leads (Emails)</h1>
+    <p class="sub">
+      Data source: <span class="mono">/flyerDistributionOfferLeads</span> in Firebase Realtime Database.
+      (For internal/admin use.)
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <div class="toolbar">
+          <input id="filter" type="search" placeholder="Filter by email, language, offer, source…" />
+          <div class="meta"><span id="count">0</span> lead(s)</div>
+        </div>
+
+        <div style="overflow:auto; max-height: 70vh;">
+          <table aria-label="Leads table">
+            <thead>
+              <tr>
+                <th style="min-width:180px;">Email</th>
+                <th style="min-width:170px;">Created</th>
+                <th style="min-width:90px;">Lang</th>
+                <th style="min-width:260px;">User agent</th>
+                <th style="min-width:260px;">Source</th>
+                <th style="min-width:220px;">Key</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td class="empty" colspan="6">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, query, orderByChild, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0",
+      measurementId: "G-Y6CVEDL9XH"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const statusPill = document.getElementById("statusPill");
+    const tbody = document.getElementById("tbody");
+    const countEl = document.getElementById("count");
+    const filterEl = document.getElementById("filter");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const copyBtn = document.getElementById("copyBtn");
+
+    const leadsRef = ref(db, "flyerDistributionOfferLeads");
+    const leadsQuery = query(leadsRef, orderByChild("createdAt"));
+
+    let allRows = []; // normalized rows: {key, email, createdAt, language, userAgent, sourcePage, offer}
+
+    function escapeHtml(s){
+      return String(s ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    function formatDate(iso){
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso);
+      return new Intl.DateTimeFormat(undefined, {
+        year:"numeric", month:"2-digit", day:"2-digit",
+        hour:"2-digit", minute:"2-digit"
+      }).format(d);
+    }
+
+    function render(){
+      const q = String(filterEl.value || "").trim().toLowerCase();
+
+      const rows = q
+        ? allRows.filter(r => (
+            (r.email || "").includes(q) ||
+            (r.language || "").includes(q) ||
+            (r.offer || "").toLowerCase().includes(q) ||
+            (r.sourcePage || "").toLowerCase().includes(q) ||
+            (r.userAgent || "").toLowerCase().includes(q) ||
+            (r.key || "").toLowerCase().includes(q)
+          ))
+        : allRows;
+
+      countEl.textContent = String(rows.length);
+
+      if (!rows.length){
+        tbody.innerHTML = `<tr><td class="empty" colspan="6">No leads found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td class="mono">${escapeHtml(r.email)}</td>
+          <td>${escapeHtml(formatDate(r.createdAt))}</td>
+          <td class="mono">${escapeHtml((r.language || "").toUpperCase())}</td>
+          <td class="muted">${escapeHtml(r.userAgent || "")}</td>
+          <td class="muted">${r.sourcePage ? `<a href="${escapeHtml(r.sourcePage)}" target="_blank" rel="noopener noreferrer" style="color: rgba(34,211,238,.95); text-decoration:none;">${escapeHtml(r.sourcePage)}</a>` : ""}</td>
+          <td class="mono rowKey">${escapeHtml(r.key)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function normalize(snapshotVal){
+      const arr = [];
+      if (!snapshotVal) return arr;
+
+      for (const [key, value] of Object.entries(snapshotVal)){
+        const v = value || {};
+        arr.push({
+          key,
+          email: String(v.email || "").toLowerCase(),
+          createdAt: v.createdAt || "",
+          language: v.language || "",
+          userAgent: v.userAgent || "",
+          sourcePage: v.sourcePage || "",
+          offer: v.offer || ""
+        });
+      }
+
+      // newest first
+      arr.sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      return arr;
+    }
+
+    function attach(){
+      statusPill.textContent = "Live";
+      onValue(leadsQuery, (snap) => {
+        allRows = normalize(snap.val());
+        statusPill.textContent = `Loaded: ${allRows.length}`;
+        render();
+      }, (err) => {
+        console.error(err);
+        statusPill.textContent = "Error";
+        tbody.innerHTML = `<tr><td class="empty" colspan="6">Could not load leads. Check Firebase rules / permissions.</td></tr>`;
+      });
+    }
+
+    filterEl.addEventListener("input", render);
+    refreshBtn.addEventListener("click", () => location.reload());
+
+    copyBtn.addEventListener("click", async () => {
+      const emails = allRows.map(r => r.email).filter(Boolean);
+      const unique = Array.from(new Set(emails)).sort();
+      const text = unique.join("\n");
+
+      try{
+        await navigator.clipboard.writeText(text);
+        statusPill.textContent = `Copied ${unique.length}`;
+        setTimeout(() => statusPill.textContent = `Loaded: ${allRows.length}`, 1400);
+      } catch (e){
+        console.error(e);
+        statusPill.textContent = "Copy failed";
+      }
+    });
+
+    attach();
+  </script>
+</body>
+</html>
