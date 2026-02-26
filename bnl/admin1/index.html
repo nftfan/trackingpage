@@ -1,0 +1,463 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Polygon Saver</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Roboto', Arial, sans-serif;
+      background: #f5f5f7;
+    }
+    #map {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      height: 100%;
+      width: 100%;
+      border: none;
+      margin: 0;
+      padding: 0;
+      z-index: 0;
+      background: #e9ecef;
+    }
+    .action-bar {
+      position: fixed;
+      bottom: 18px;
+      right: 10px;
+      z-index: 1001;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: rgba(255,255,255,0.98);
+      border-radius: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+      padding: 10px 8px 10px 8px;
+    }
+    .action-btn {
+      outline: none;
+      border: none;
+      border-radius: 8px;
+      background: #fff;
+      color: #444;
+      font-size: 11px;
+      padding: 6px 10px 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.08);
+      transition: background 0.18s;
+      min-width: 0;
+      width: 100%;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+    }
+    .action-btn:active, .action-btn.selected {
+      background: #e3e8fd;
+      color: #0060df;
+    }
+    .action-btn.delete { color: #e53935; }
+    .action-btn.copy { color: #43a047; }
+    .action-btn.save { color: #007bff; }
+    .action-btn.selectall { color: #6c757d; }
+    .material-icons {
+      font-size: 14px;
+      margin-right: 3px;
+      vertical-align: middle;
+    }
+    .leaflet-popup-content-wrapper { border-radius: 8px; font-size: 10px; }
+    .selected-polygon { stroke: #43a047 !important; stroke-width: 5 !important; fill-opacity: 0.2 !important; }
+    @media (max-width: 600px) {
+      .action-bar {
+        right: 0;
+        left: 0;
+        bottom: 0;
+        border-radius: 11px 11px 0 0;
+        flex-direction: row;
+        gap: 2px;
+        justify-content: space-around;
+        padding: 7px 3px 5px 3px;
+      }
+      .action-btn {
+        font-size: 10px;
+        min-width: 0;
+        padding: 6px 7px;
+        border-radius: 7px;
+      }
+    }
+    ::-webkit-scrollbar { width: 2px; background: #eee; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+    /* PIN popup styling */
+    #pin-popup-bg {
+      position: fixed;
+      left: 0; top: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.18);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+    }
+    #pin-popup {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.19);
+      padding: 22px 20px 18px 20px;
+      min-width: 260px;
+      max-width: 95vw;
+      text-align: center;
+    }
+    #pin-popup input[type="password"] {
+      font-size: 15px;
+      padding: 6px 12px;
+      margin: 8px 0 18px 0;
+      border-radius: 7px;
+      border: 1px solid #bbb;
+      width: 80%;
+      text-align: center;
+      letter-spacing: 0.18em;
+    }
+    #pin-popup button {
+      background: #007bff;
+      color: #fff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-right: 7px;
+      font-weight: 500;
+    }
+    #pin-popup button.cancel {
+      background: #eee;
+      color: #333;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    #pin-popup .err-msg {
+      color: #d32f2f;
+      font-size: 11px;
+      margin-bottom: 7px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="action-bar">
+    <button id="save-polygon" class="action-btn save" style="display:none;">
+      <span class="material-icons">save</span>
+      Save
+    </button>
+    <button id="copy-selected" class="action-btn copy" style="display:none;">
+      <span class="material-icons">content_copy</span>
+      Copy
+    </button>
+    <button id="delete-selected" class="action-btn delete" style="display:none;">
+      <span class="material-icons">delete</span>
+      Delete
+    </button>
+    <button id="select-all" class="action-btn selectall" style="display:none;">
+      <span class="material-icons">done_all</span>
+      Select All
+    </button>
+  </div>
+
+  <!-- PIN popup for delete -->
+  <div id="pin-popup-bg">
+    <div id="pin-popup">
+      <div style="font-size:16px;font-weight:500;margin-bottom:7px;">
+        Enter PIN to Delete
+      </div>
+      <input id="pin-input" type="password" maxlength="6" autocomplete="off" placeholder="Enter PIN" />
+      <div id="pin-err-msg" class="err-msg">Incorrect PIN!</div>
+      <button id="pin-confirm">Confirm</button>
+      <button class="cancel" id="pin-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <!-- Leaflet and Draw -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+  <script>
+    // Firebase config
+  const firebaseConfig = {
+  apiKey: "AIzaSyBWPCkYNw7gT_T7kcwbp5laZgIHac18bvE",
+  authDomain: "expandlf.firebaseapp.com",
+  databaseURL: "https://expandlf-default-rtdb.firebaseio.com",
+  projectId: "expandlf",
+  storageBucket: "expandlf.firebasestorage.app",
+  messagingSenderId: "890066961009",
+  appId: "1:890066961009:web:3a2ed1e7c2cf797f3751d0",
+  measurementId: "G-QPRSX7ZVZ5"
+};
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Map setup: Center on Belgium and set appropriate zoom
+    var map = L.map('map', { zoomControl: false }).setView([50.8503, 4.3517], 8); // Brussels, Belgium
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+    var drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    var drawControl = new L.Control.Draw({
+      draw: { polygon: true, polyline: false, marker: false, circle: false, circlemarker: false, rectangle: false },
+      edit: { featureGroup: drawnItems }
+    });
+    map.addControl(drawControl);
+
+    var lastLayer = null;
+    var polygonRefs = {}; // key: polygon._leaflet_id, value: { key, layer, coords }
+    var selectedPolygons = new Set();
+
+    function updateActionButtons() {
+      const hasPolygons = Object.keys(polygonRefs).length > 0;
+      const hasSelection = selectedPolygons.size > 0;
+      document.getElementById('copy-selected').style.display = hasSelection ? 'inline-flex' : 'none';
+      document.getElementById('delete-selected').style.display = hasSelection ? 'inline-flex' : 'none';
+      document.getElementById('select-all').style.display = hasPolygons ? 'inline-flex' : 'none';
+      document.getElementById('select-all').innerHTML = 
+        `<span class="material-icons">done_all</span> ${(selectedPolygons.size === Object.keys(polygonRefs).length && hasPolygons) ? "Unselect" : "Select"} All`;
+    }
+
+    // Draw event
+    map.on('draw:created', function (e) {
+      drawnItems.clearLayers();
+      lastLayer = e.layer;
+      drawnItems.addLayer(lastLayer);
+      document.getElementById('save-polygon').style.display = 'inline-flex';
+    });
+
+    // Save polygon to Firebase manually
+    document.getElementById('save-polygon').onclick = function() {
+      if (!lastLayer) return;
+      var coords = lastLayer.getLatLngs()[0].map(p => ({lat: p.lat, lng: p.lng}));
+      db.ref('polygons').push(coords, function(error) {
+        if (!error) {
+          showToast('Polygon saved!');
+          document.getElementById('save-polygon').style.display = 'none';
+          lastLayer = null;
+          drawnItems.clearLayers();
+          loadPolygons();
+        }
+      });
+    };
+
+    function formatCoordsArray(coordsArray) {
+      return '[\n' + coordsArray.map(
+        poly => '  [\n' + poly.map(
+          pt => `    [${pt[0]}, ${pt[1]}]`
+        ).join(',\n') + '\n  ]'
+      ).join(',\n') + '\n]';
+    }
+
+    function copyToClipboard(str) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(str).then(() => {
+          showToast("Copied!");
+        }, () => {
+          showToast("Failed to copy.");
+        });
+      } else {
+        var textarea = document.createElement("textarea");
+        textarea.value = str;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try { document.execCommand('copy'); showToast("Copied!"); }
+        catch (err) { showToast("Failed to copy."); }
+        document.body.removeChild(textarea);
+      }
+    }
+
+    function showToast(msg) {
+      let toast = document.createElement('div');
+      toast.style.position = 'fixed';
+      toast.style.bottom = '28px';
+      toast.style.left = '50%';
+      toast.style.transform = 'translateX(-50%)';
+      toast.style.background = "#222";
+      toast.style.color = "#fff";
+      toast.style.fontSize = "11px";
+      toast.style.borderRadius = "7px";
+      toast.style.padding = "7px 18px";
+      toast.style.zIndex = "2000";
+      toast.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
+      toast.innerText = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => { toast.remove(); }, 1600);
+    }
+
+    function loadPolygons() {
+      drawnItems.clearLayers();
+      polygonRefs = {};
+      selectedPolygons.clear();
+
+      db.ref('polygons').once('value', function(snapshot) {
+        snapshot.forEach(function(child) {
+          var raw = child.val();
+          // handle object with numeric keys (not array)
+          var coordsArr = Object.keys(raw)
+            .filter(k => !isNaN(Number(k)))
+            .sort((a,b) => Number(a) - Number(b))
+            .map(k => [raw[k].lat, raw[k].lng]);
+          if (coordsArr.length === 0) return; // skip non-polygon entries
+
+          var polygon = L.polygon(coordsArr, {color: '#d32f2f', weight: 2, fillOpacity: 0.13});
+          drawnItems.addLayer(polygon);
+
+          polygonRefs[polygon._leaflet_id] = { key: child.key, layer: polygon, coords: coordsArr };
+
+          polygon.on('click', function(e) {
+            // Toggle selection
+            if (selectedPolygons.has(polygon._leaflet_id)) {
+              selectedPolygons.delete(polygon._leaflet_id);
+              polygon.setStyle({ color: '#d32f2f', weight: 2, fillOpacity: 0.13 });
+            } else {
+              selectedPolygons.add(polygon._leaflet_id);
+              polygon.setStyle({ color: '#43a047', weight: 4, fillOpacity: 0.22 });
+            }
+            updateActionButtons();
+            L.DomEvent.stopPropagation(e);
+          });
+
+          polygon.on('dblclick', function(e) {
+            // Show popup for copy (single polygon, double click)
+            var coordStr = formatCoordsArray([coordsArr]);
+            var popupContent = `<b style="font-size:10px;">Polygon Coords:</b>
+              <pre style="max-width:280px;overflow-x:auto;font-size:9px;">${coordStr}</pre>
+              <button onclick="window.copyPolygonCoords('${btoa(coordStr)}')" style="font-size:10px;padding:5px 9px;background:#007bff;color:#fff;border:none;border-radius:4px;cursor:pointer;">
+                <span class="material-icons" style="font-size:12px;vertical-align:middle;">content_copy</span>Copy
+              </button>
+              <br><span style="font-size:9px;color:#999;">Tip: Tap polygon to select for batch.</span>`;
+            polygon.bindPopup(popupContent).openPopup();
+            L.DomEvent.stopPropagation(e);
+          });
+        });
+        updateActionButtons();
+      });
+    }
+
+    window.copyPolygonCoords = function(encoded) {
+      var str = atob(encoded);
+      copyToClipboard(str);
+    };
+
+    // --- PIN Popup Logic ---
+    const pinPopupBg = document.getElementById('pin-popup-bg');
+    const pinInput = document.getElementById('pin-input');
+    const pinConfirm = document.getElementById('pin-confirm');
+    const pinCancel = document.getElementById('pin-cancel');
+    const pinErrMsg = document.getElementById('pin-err-msg');
+    let deleteQueue = [];
+
+    function openPinPopup(queue) {
+      deleteQueue = queue;
+      pinInput.value = '';
+      pinErrMsg.style.display = 'none';
+      pinPopupBg.style.display = 'flex';
+      pinInput.focus();
+    }
+
+    function closePinPopup() {
+      pinPopupBg.style.display = 'none';
+      deleteQueue = [];
+    }
+
+    pinCancel.onclick = function() {
+      closePinPopup();
+    };
+
+    pinPopupBg.onclick = function(e) {
+      if (e.target === pinPopupBg) {
+        closePinPopup();
+      }
+    };
+
+    pinConfirm.onclick = function() {
+      const PIN = "000888";
+      if (pinInput.value === PIN) {
+        // Proceed to delete polygons
+        let promises = [];
+        deleteQueue.forEach(id => {
+          let ref = polygonRefs[id];
+          if (ref) {
+            promises.push(db.ref('polygons/' + ref.key).remove());
+            drawnItems.removeLayer(ref.layer);
+          }
+        });
+        Promise.all(promises).then(() => {
+          selectedPolygons.clear();
+          updateActionButtons();
+          loadPolygons();
+          showToast('Deleted polygons!');
+        });
+        closePinPopup();
+      } else {
+        pinErrMsg.style.display = 'block';
+        pinInput.value = '';
+        pinInput.focus();
+      }
+    };
+
+    document.getElementById('delete-selected').onclick = function() {
+      if (selectedPolygons.size === 0) return;
+      openPinPopup(Array.from(selectedPolygons));
+    };
+
+    document.getElementById('copy-selected').onclick = function() {
+      if (selectedPolygons.size === 0) return;
+      var coordsArray = [];
+      selectedPolygons.forEach(id => {
+        let ref = polygonRefs[id];
+        if (ref) {
+          coordsArray.push(ref.coords);
+        }
+      });
+      var jsArray = formatCoordsArray(coordsArray);
+      copyToClipboard(jsArray);
+    };
+
+    document.getElementById('select-all').onclick = function() {
+      const allIds = Object.keys(polygonRefs);
+      // If all are selected, unselect all
+      if (selectedPolygons.size === allIds.length) {
+        selectedPolygons.forEach(id => {
+          const ref = polygonRefs[id];
+          if (ref) ref.layer.setStyle({ color: '#d32f2f', weight: 2, fillOpacity: 0.13 });
+        });
+        selectedPolygons.clear();
+      } else {
+        // Otherwise, select all polygons
+        allIds.forEach(id => {
+          if (!selectedPolygons.has(id)) {
+            selectedPolygons.add(id);
+            polygonRefs[id].layer.setStyle({ color: '#43a047', weight: 4, fillOpacity: 0.22 });
+          }
+        });
+      }
+      updateActionButtons();
+    };
+
+    window.onload = loadPolygons;
+  </script>
+</body>
+</html>
