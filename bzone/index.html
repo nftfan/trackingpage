@@ -1,0 +1,1055 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Zones</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <style>
+    :root{
+      --bg:#0b0b0e;
+      --panel:#141419;
+      --muted:#8b8b95;
+      --text:#f2f2f7;
+      --accent:#4f8cff;
+      --accent2:#7a5cff;
+      --shadow:0 4px 16px rgba(0,0,0,.35);
+      --r-md:12px;
+      --r-lg:14px;
+      --red:#ef4444;
+      --yellow:#f59e0b;
+      --green:#22c55e;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;background:var(--bg);color:var(--text);font:14px/1.3 Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;overflow:hidden;}
+    .app{max-width:520px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;gap:8px;padding:env(safe-area-inset-top,8px) 10px env(safe-area-inset-bottom,10px);}
+
+    header{
+      display:flex;align-items:center;gap:10px;
+      padding:10px 12px;border-radius:var(--r-md);
+      background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+      flex-shrink:0;
+    }
+    .title{font-weight:800;font-size:13px;flex:1}
+
+    .user-pill{
+      font-size:11px;color:#cbd5ff;
+      background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);
+      padding:2px 8px;border-radius:999px;
+      display:none;align-items:center;gap:8px;flex-shrink:0;
+    }
+    .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:700;font-size:11px;}
+
+    .map-card{
+      border-radius:var(--r-lg);overflow:hidden;border:1px solid rgba(255,255,255,.08);
+      background:#0f0f12;box-shadow:var(--shadow);
+      flex:0 0 auto;
+    }
+    #map{height:260px;width:100%;}
+    .leaflet-control-attribution{display:none!important;}
+
+    .tabs{display:flex;gap:6px;flex-shrink:0;align-items:center;justify-content:space-between;}
+    .tab-btn{
+      padding:4px 10px;border-radius:999px;
+      border:1px solid rgba(79,140,255,.5);
+      background:rgba(79,140,255,.18);
+      color:#e5e7ff;font-size:10px;font-weight:800;
+    }
+
+    .goto{
+      display:flex;gap:0;align-items:center;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(79,140,255,.35);
+      border-radius:999px;
+      padding:3px 3px 3px 10px;
+      transition:border-color .2s;
+    }
+    .goto:focus-within{border-color:rgba(79,140,255,.7);box-shadow:0 0 0 3px rgba(79,140,255,.12);}
+    .goto input{
+      width:70px;background:transparent;border:0;outline:none;
+      color:var(--text);font-weight:800;font-size:11px;padding:2px 4px;
+    }
+    .goto input::placeholder{color:rgba(255,255,255,.3);font-weight:600;}
+    .goto button{
+      appearance:none;border:0;cursor:pointer;
+      padding:5px 12px;border-radius:999px;
+      font-weight:900;font-size:11px;color:#fff;letter-spacing:.3px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      box-shadow:0 2px 8px rgba(79,140,255,.3);
+      transition:opacity .15s;
+    }
+    .goto button:active{opacity:.8;}
+
+    .card{
+      flex:1;min-height:0;overflow:hidden;
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.07);
+      border-radius:var(--r-md);
+      display:flex;flex-direction:column;
+    }
+    .card-header{
+      padding:8px 10px 6px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      display:flex;justify-content:space-between;align-items:center;gap:6px;
+      flex-shrink:0;flex-wrap:wrap;
+    }
+    .card-header .h{font-size:10px;font-weight:900;color:#e5e7ff;}
+    .pill{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:3px 8px;border-radius:999px;
+      background:rgba(245,158,11,.14);
+      border:1px solid rgba(245,158,11,.32);
+      color:#fde68a;font-size:10px;font-weight:900;white-space:nowrap;
+    }
+    .pill.green{
+      background:rgba(34,197,94,.12);
+      border-color:rgba(34,197,94,.32);
+      color:#86efac;
+    }
+    .scroll{overflow:auto;flex:1;}
+    table{width:100%;border-collapse:collapse;font-size:10px;color:#d5d7ff;}
+    thead{position:sticky;top:0;z-index:1;background:linear-gradient(90deg,rgba(79,140,255,.16),rgba(122,92,255,.18));}
+    th,td{padding:5px 7px;text-align:left;white-space:nowrap;}
+    th{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#f3f4ff;border-bottom:1px solid rgba(255,255,255,.1);}
+    tbody tr:nth-child(even){background:rgba(255,255,255,.025);}
+    tbody tr:hover{background:rgba(79,140,255,.1);}
+    .empty td{color:var(--muted);text-align:center;padding:12px;font-size:10px;}
+
+    .action-btn{
+      appearance:none;border:0;cursor:pointer;
+      padding:3px 9px;border-radius:999px;
+      font-weight:900;font-size:9px;color:#fff;letter-spacing:.3px;
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      box-shadow:0 1px 4px rgba(34,197,94,.3);
+      transition:opacity .15s,transform .1s;
+      white-space:nowrap;
+    }
+    .action-btn:active{opacity:.7;transform:scale(.96);}
+    .action-btn:disabled{opacity:.35;cursor:not-allowed;}
+    .done-chip{
+      display:inline-flex;align-items:center;gap:3px;
+      padding:3px 8px;border-radius:999px;
+      background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);
+      color:#86efac;font-size:9px;font-weight:900;
+    }
+
+    .zone-badge{
+      display:inline-flex;align-items:center;gap:5px;
+      padding:3px 9px 3px 6px;
+      font-family:Inter,system-ui,-apple-system,sans-serif;
+      font-size:10px;font-weight:900;letter-spacing:.3px;line-height:1;white-space:nowrap;
+      color:#fff;
+      background:rgba(15,18,35,0.72);
+      backdrop-filter:blur(6px) saturate(1.4);
+      -webkit-backdrop-filter:blur(6px) saturate(1.4);
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:999px;
+      box-shadow:0 2px 12px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12);
+      pointer-events:none;transform:translateZ(0);
+    }
+    .zone-badge::before{
+      content:"";flex-shrink:0;width:7px;height:7px;border-radius:50%;
+      background:linear-gradient(135deg,#4f8cff,#7a5cff);
+      box-shadow:0 0 6px rgba(79,140,255,.7);
+    }
+    .zone-badge.booked{
+      background:rgba(30,22,8,0.78);border-color:rgba(245,158,11,.45);
+      box-shadow:0 2px 12px rgba(0,0,0,.45),0 0 8px rgba(245,158,11,.25),inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .zone-badge.booked::before{
+      background:linear-gradient(135deg,#f59e0b,#fbbf24);
+      box-shadow:0 0 6px rgba(245,158,11,.7);
+    }
+    .zone-badge.completed{
+      background:rgba(8,28,14,0.82);border-color:rgba(34,197,94,.45);
+      box-shadow:0 2px 12px rgba(0,0,0,.45),0 0 8px rgba(34,197,94,.25),inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .zone-badge.completed::before{
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      box-shadow:0 0 6px rgba(34,197,94,.7);
+    }
+    .leaflet-div-icon.zone-label-wrap{background:transparent!important;border:none!important;overflow:visible!important;}
+
+    .toast{
+      position:fixed;z-index:9999;left:50%;bottom:22px;transform:translateX(-50%);
+      background:#1a1a22;border:1px solid rgba(255,255,255,.1);
+      padding:8px 15px;border-radius:10px;color:var(--text);
+      box-shadow:var(--shadow);font-weight:800;font-size:13px;
+      opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;
+    }
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+    .modal-backdrop{
+      position:fixed;inset:0;background:rgba(0,0,0,.65);
+      backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9998;
+    }
+    .modal-backdrop.show{display:flex;}
+    .modal{
+      width:min(90vw,380px);background:var(--panel);
+      border:1px solid rgba(255,255,255,.1);border-radius:16px;
+      box-shadow:var(--shadow);padding:20px;
+    }
+    .modal h2{font-size:17px;margin-bottom:6px;}
+    .modal p{color:var(--muted);font-size:12px;margin-bottom:14px;}
+    .input-row{display:flex;gap:8px;}
+    .input{
+      flex:1;height:44px;border-radius:10px;padding:0 12px;
+      border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);
+      color:var(--text);font-weight:900;letter-spacing:.4px;font-size:14px;
+    }
+    .btn{
+      height:44px;border-radius:10px;border:0;cursor:pointer;
+      padding:0 16px;font-weight:900;color:#fff;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+    }
+    .err{color:#ff8a8a;font-size:11px;min-height:14px;padding-top:5px;}
+
+    #loadingScreen{
+      position:fixed;inset:0;z-index:99999;
+      background:var(--bg);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+      transition:opacity .4s ease;
+    }
+    #loadingScreen.hidden{opacity:0;pointer-events:none;}
+    .loader-logo{font-size:28px;font-weight:900;color:var(--text);letter-spacing:-.5px;}
+    .loader-logo span{background:linear-gradient(135deg,#4f8cff,#7a5cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    .loader-spinner{width:40px;height:40px;border:3px solid rgba(79,140,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loader-status{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.3px;}
+
+    .confirm-btns{display:flex;gap:8px;margin-top:14px;}
+    .confirm-btns button{flex:1;height:40px;border-radius:10px;border:0;cursor:pointer;font-weight:900;font-size:13px;}
+    #confirmYes{color:#fff;background:linear-gradient(135deg,#22c55e,#16a34a);}
+    #confirmNo{color:var(--text);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);}
+
+    /* ── Dot legend strip ── */
+    .dot-legend{
+      display:flex;align-items:center;gap:10px;
+      padding:4px 10px;
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:999px;
+      font-size:9px;font-weight:700;color:var(--muted);
+      flex-shrink:0;
+      align-self:flex-end;
+    }
+    .dot-legend span{display:flex;align-items:center;gap:4px;}
+    .dot-legend .d{width:8px;height:8px;border-radius:50%;display:inline-block;}
+    .dot-legend .d.g{background:#22c55e;}
+    .dot-legend .d.r{background:#ef4444;}
+    .dot-legend .d.l{width:18px;height:2px;border-radius:1px;background:repeating-linear-gradient(90deg,#60a5fa 0 4px,transparent 4px 8px);}
+  </style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loadingScreen">
+  <div class="loader-logo">Zone<span>s</span></div>
+  <div class="loader-spinner"></div>
+  <div id="loaderStatus" class="loader-status">Initialising…</div>
+</div>
+
+<div class="app">
+
+  <header>
+    <div class="title">Zones</div>
+    <!-- dot legend inline in header -->
+    <div class="dot-legend">
+      <span><div class="d g"></div>Right</span>
+      <span><div class="d r"></div>Left</span>
+      <span><div class="d l"></div>path</span>
+    </div>
+    <div id="userPill" class="user-pill">
+      <span id="userPillText"></span>
+      <button id="changeUserBtn">Change</button>
+    </div>
+  </header>
+
+  <div class="map-card">
+    <div id="map" role="application" aria-label="Map showing dots and zones"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn" type="button">Zones</button>
+    <div class="goto" title="Go to a zone by number">
+      <input id="gotoInput" inputmode="numeric" placeholder="Zone #" aria-label="Go to zone number">
+      <button id="gotoBtn" type="button">Go →</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="h">Zones status</div>
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+        <div class="pill"><span id="bookedCount">0</span> booked</div>
+        <div class="pill green"><span id="completedCount">0</span> done</div>
+      </div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Zone</th>
+            <th>Status</th>
+            <th>My dots</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="zonesBody">
+          <tr class="empty"><td colspan="4">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- Login modal -->
+<div id="loginBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
+  <div class="modal">
+    <h2>Enter User ID</h2>
+    <p>3–10 letters/numbers, e.g. FF2631.</p>
+    <div class="input-row">
+      <input id="userIdInput" class="input" type="text" placeholder="e.g. FF2631"
+             autocomplete="off" autocapitalize="characters" maxlength="12" inputmode="text">
+      <button id="userJoinBtn" class="btn">Join</button>
+    </div>
+    <div id="loginError" class="err"></div>
+  </div>
+</div>
+
+<!-- Confirm complete modal -->
+<div id="confirmBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
+  <div class="modal">
+    <h2 id="confirmTitle">Mark as Completed?</h2>
+    <p id="confirmMsg">This will mark the zone as completed. This cannot be undone.</p>
+    <div class="confirm-btns">
+      <button id="confirmNo">Cancel</button>
+      <button id="confirmYes">✓ Complete</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import {
+    getDatabase, ref, query, orderByChild,
+    onValue, set, update, get, off
+  } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  /* ── Firebase #1 — dots / bookings (Dot Poster DB) ── */
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+    messagingSenderId: "205455490321",
+    appId: "1:205455490321:web:9919f5dde059316c9320b0"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  /* ── Firebase #2 — zones / polygons (Polygon Saver DB) ── */
+  const polygonsFirebaseConfig = {
+    apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+    authDomain: "leuvenflyers-23584.firebaseapp.com",
+    databaseURL: "https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+    projectId: "leuvenflyers-23584",
+    storageBucket: "leuvenflyers-23584.firebasestorage.app",
+    messagingSenderId: "1077790950414",
+    appId: "1:1077790950414:web:036fafe06df86f41ed285f"
+  };
+  const polygonsApp = initializeApp(polygonsFirebaseConfig, 'polygonsApp');
+  const polygonsDb  = getDatabase(polygonsApp);
+
+  /* ── DOM refs ── */
+  const zonesBody        = document.getElementById('zonesBody');
+  const bookedCountEl    = document.getElementById('bookedCount');
+  const completedCountEl = document.getElementById('completedCount');
+  const toastEl          = document.getElementById('toast');
+  const loadingScreen    = document.getElementById('loadingScreen');
+  const loaderStatus     = document.getElementById('loaderStatus');
+
+  const loginBackdrop    = document.getElementById('loginBackdrop');
+  const userIdInput      = document.getElementById('userIdInput');
+  const userJoinBtn      = document.getElementById('userJoinBtn');
+  const loginError       = document.getElementById('loginError');
+
+  const userPill         = document.getElementById('userPill');
+  const userPillText     = document.getElementById('userPillText');
+  const changeUserBtn    = document.getElementById('changeUserBtn');
+
+  const gotoInput        = document.getElementById('gotoInput');
+  const gotoBtn          = document.getElementById('gotoBtn');
+
+  const confirmBackdrop  = document.getElementById('confirmBackdrop');
+  const confirmTitle     = document.getElementById('confirmTitle');
+  const confirmMsg       = document.getElementById('confirmMsg');
+  const confirmYes       = document.getElementById('confirmYes');
+  const confirmNo        = document.getElementById('confirmNo');
+
+  /* ─�� Map ── */
+  const canvasRenderer = L.canvas({ padding: 0.5 });
+  const map = L.map('map', {
+    zoomControl: true, attributionControl: false,
+    preferCanvas: true, renderer: canvasRenderer, tap: true
+  }).setView([50.8503, 4.3517], 12);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, crossOrigin: true
+  }).addTo(map);
+
+  /* Layer order: zones → labels → line → dots (dots always on top) */
+  const zoneLayer  = L.layerGroup().addTo(map);
+  const labelLayer = L.layerGroup().addTo(map);
+  const lineLayer  = L.layerGroup().addTo(map);  // connecting path
+  const dotsLayer  = L.layerGroup().addTo(map);  // dots on top
+
+  /* ── App state ── */
+  let currentUserId            = null;
+  let bookedZonesListenerUnsub = null;
+  let dotsListenerUnsub        = null;
+
+  const zonesByNumber = new Map(); // zoneNum → { poly, coords, bounds, labelMarker }
+  const bookedZones   = new Map(); // zoneNum → { bookedAt, status }
+  let myDotsCache     = [];        // logged-in user's dots array
+
+  /* ── Dot styles (match Dot Poster exactly) ──
+     green = "Right / Ja", red = "Left / Nee"           */
+  const DOT_RADIUS = 3;   // px — visible but small
+  const greenDotStyle = {
+    radius: DOT_RADIUS,
+    color: '#16a34a', weight: 0.5,
+    fillColor: '#22c55e', fillOpacity: 1,
+    renderer: canvasRenderer
+  };
+  const redDotStyle = {
+    radius: DOT_RADIUS,
+    color: '#991b1b', weight: 0.5,
+    fillColor: '#ef4444', fillOpacity: 1,
+    renderer: canvasRenderer
+  };
+
+  /* ── Connecting line: thin, dotted, blue ── */
+  const LINE_STYLE = {
+    color: '#60a5fa',       // soft blue so it doesn't clash with red zones
+    weight: 1.5,
+    opacity: 0.75,
+    dashArray: '4 5',       // short dash, gap → dotted feel
+    lineCap: 'round',
+    lineJoin: 'round'
+  };
+
+  /* ── Zone polygon styles ── */
+  const zoneStyleDefault   = { color:'#ef4444', weight:1.5, fillColor:'#ef4444', fillOpacity:0.05, renderer: canvasRenderer };
+  const zoneStyleBooked    = { color:'#f59e0b', weight:2,   fillColor:'#f59e0b', fillOpacity:0.12, renderer: canvasRenderer };
+  const zoneStyleCompleted = { color:'#22c55e', weight:2.5, fillColor:'#22c55e', fillOpacity:0.13, renderer: canvasRenderer };
+
+  /* ── Auto-zoom state ── */
+  let lastAutoFocusedZone  = null;
+  let initialAutoFocusDone = false;
+
+  /* ════════════════════════════
+     Loading screen helpers
+  ════════════════════════════ */
+  function setLoaderStatus(msg) { loaderStatus.textContent = msg; }
+  function hideLoadingScreen() {
+    loadingScreen.classList.add('hidden');
+    setTimeout(() => { loadingScreen.style.display = 'none'; }, 450);
+  }
+
+  /* ════════════════════════════
+     Toast
+  ════════════════════════════ */
+  function showToast(text) {
+    toastEl.textContent = text;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 2000);
+  }
+
+  /* ════════════════════════════
+     Confirm dialog (promise)
+  ════════════════════════════ */
+  function showConfirm(title, msg) {
+    confirmTitle.textContent = title;
+    confirmMsg.textContent   = msg;
+    confirmBackdrop.classList.add('show');
+    return new Promise(resolve => {
+      const cleanup = result => {
+        confirmBackdrop.classList.remove('show');
+        confirmYes.removeEventListener('click', onYes);
+        confirmNo.removeEventListener('click',  onNo);
+        resolve(result);
+      };
+      const onYes = () => cleanup(true);
+      const onNo  = () => cleanup(false);
+      confirmYes.addEventListener('click', onYes);
+      confirmNo.addEventListener('click',  onNo);
+    });
+  }
+
+  /* ══════════��═════════════════
+     Point-in-polygon
+  ════════════════════════════ */
+  function pointInPolygon(lat, lng, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i][1], yi = poly[i][0];
+      const xj = poly[j][1], yj = poly[j][0];
+      const intersect = ((yi > lat) !== (yj > lat)) &&
+        (lng < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  function countDotsInZone(zoneNum, dotsArr) {
+    const z = zonesByNumber.get(zoneNum);
+    if (!z) return 0;
+    const b = z.bounds, pts = z.coords;
+    let c = 0;
+    for (const d of dotsArr) {
+      if (!d || typeof d.lat !== 'number' || typeof d.lng !== 'number') continue;
+      if (b && !b.contains([d.lat, d.lng])) continue;
+      if (pointInPolygon(d.lat, d.lng, pts)) c++;
+    }
+    return c;
+  }
+
+  /* ════════════════════════════
+     Zone-label icon
+  ════════════════════════════ */
+  function getZoneBadgeClass(zoneNum) {
+    const entry = bookedZones.get(zoneNum);
+    if (!entry) return '';
+    return entry.status === 'completed' ? ' completed' : ' booked';
+  }
+  function zoneLabelIcon(zoneNum) {
+    const cls = getZoneBadgeClass(zoneNum);
+    return L.divIcon({
+      className: 'zone-label-wrap',
+      html: `<div class="zone-badge${cls}" aria-label="Zone ${zoneNum}">${zoneNum}</div>`,
+      iconSize: [1,1], iconAnchor: [0,0]
+    });
+  }
+  function refreshLabelIcon(zoneNum) {
+    const z = zonesByNumber.get(zoneNum);
+    if (!z || !z.labelMarker) return;
+    z.labelMarker.setIcon(zoneLabelIcon(zoneNum));
+  }
+  function refreshAllLabelIcons() {
+    for (const zn of zonesByNumber.keys()) refreshLabelIcon(zn);
+  }
+
+  /* ════════════════════════════
+     Zone polygon style
+  ════════════════════════════ */
+  function styleZone(zoneNum) {
+    const z = zonesByNumber.get(zoneNum);
+    if (!z) return;
+    const entry = bookedZones.get(zoneNum);
+    if (!entry)                          z.poly.setStyle(zoneStyleDefault);
+    else if (entry.status==='completed') z.poly.setStyle(zoneStyleCompleted);
+    else                                 z.poly.setStyle(zoneStyleBooked);
+  }
+  function styleAllZones() {
+    for (const zn of zonesByNumber.keys()) styleZone(zn);
+  }
+
+  /* ════════════════════════════
+     Firebase write helpers
+  ════════════════════════════ */
+  async function bookZone(zoneNum) {
+    if (!currentUserId) return;
+    await set(ref(db, `users/${currentUserId}/bookedZones/${zoneNum}`), {
+      bookedAt: Date.now(),
+      status: 'booked'
+    });
+  }
+
+  async function completeZone(zoneNum) {
+    if (!currentUserId) return;
+    await update(ref(db, `users/${currentUserId}/bookedZones/${zoneNum}`), {
+      status: 'completed',
+      completedAt: Date.now()
+    });
+  }
+
+  /* ════════════════════════════
+     Load zones from polygonsDb
+  ════════════════════════════ */
+  async function loadZones() {
+    setLoaderStatus('Loading zones…');
+    const snap = await get(ref(polygonsDb, 'polygons'));
+    zoneLayer.clearLayers();
+    labelLayer.clearLayers();
+    zonesByNumber.clear();
+
+    const allLatLngs = [];
+    let fallbackZoneNum = 1;
+
+    if (!snap.exists()) {
+      zonesBody.innerHTML = '<tr class="empty"><td colspan="4">No zones found.</td></tr>';
+      return;
+    }
+
+    snap.forEach(child => {
+      const raw    = child.val();
+      const coords = parsePolygonCoords(raw);
+      if (coords.length < 3) return;
+
+      let zoneNum = raw?.zoneNumber;
+      zoneNum = (zoneNum === undefined || zoneNum === null || zoneNum === '')
+        ? fallbackZoneNum : parseInt(zoneNum, 10);
+      if (!Number.isFinite(zoneNum)) zoneNum = fallbackZoneNum;
+      fallbackZoneNum++;
+
+      const poly   = L.polygon(coords, zoneStyleDefault).addTo(zoneLayer);
+      const bounds = poly.getBounds();
+      const center = bounds.getCenter();
+
+      const labelMarker = L.marker(center, {
+        icon: zoneLabelIcon(zoneNum),
+        interactive: false
+      }).addTo(labelLayer);
+
+      zonesByNumber.set(zoneNum, { poly, coords, bounds, labelMarker });
+      coords.forEach(ll => allLatLngs.push(ll));
+
+      poly.on('click', () => openZonePopup(zoneNum, poly));
+    });
+
+    if (allLatLngs.length) {
+      map.fitBounds(L.latLngBounds(allLatLngs).pad(0.05), { animate: false });
+    }
+    styleAllZones();
+    renderZonesTable();
+  }
+
+  function parsePolygonCoords(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+      return raw.map(pt => {
+        if (!pt) return null;
+        if (Array.isArray(pt) && pt.length === 2) return [pt[0], pt[1]];
+        if (typeof pt.lat === 'number' && typeof pt.lng === 'number') return [pt.lat, pt.lng];
+        return null;
+      }).filter(Boolean);
+    }
+    if (typeof raw === 'object') {
+      return Object.keys(raw)
+        .filter(k => !isNaN(Number(k)))
+        .sort((a, b) => Number(a) - Number(b))
+        .map(k => {
+          const pt = raw[k];
+          if (!pt) return null;
+          if (Array.isArray(pt) && pt.length === 2) return [pt[0], pt[1]];
+          if (typeof pt.lat === 'number' && typeof pt.lng === 'number') return [pt.lat, pt.lng];
+          return null;
+        }).filter(Boolean);
+    }
+    return [];
+  }
+
+  /* ════════════════════════════
+     Zone popup
+  ════════════════════════════ */
+  function openZonePopup(zoneNum, poly) {
+    const entry    = bookedZones.get(zoneNum);
+    const status   = entry?.status || 'available';
+    const dotsIn   = countDotsInZone(zoneNum, myDotsCache);
+
+    const statusColor = status === 'completed' ? '#22c55e'
+                      : status === 'booked'    ? '#f59e0b' : '#ef4444';
+
+    let actionHtml = '';
+    if (status === 'available') {
+      actionHtml = `<button id="popBookBtn"
+        style="padding:6px 14px;border-radius:10px;border:1px solid rgba(245,158,11,.55);
+               background:rgba(245,158,11,.22);color:#fde68a;font-weight:900;font-size:11px;cursor:pointer;">
+        Book this zone</button>`;
+    } else if (status === 'booked') {
+      actionHtml = `
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button disabled
+            style="opacity:.5;padding:6px 12px;border-radius:10px;
+                   border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.16);
+                   color:#fde68a;font-weight:900;font-size:11px;cursor:not-allowed;">✓ Booked</button>
+          <button id="popCompleteBtn"
+            style="padding:6px 14px;border-radius:10px;
+                   border:1px solid rgba(34,197,94,.55);background:rgba(34,197,94,.2);
+                   color:#86efac;font-weight:900;font-size:11px;cursor:pointer;">Mark Completed</button>
+        </div>`;
+    } else {
+      actionHtml = `<div style="display:inline-flex;align-items:center;gap:4px;
+        padding:5px 12px;border-radius:10px;background:rgba(34,197,94,.14);
+        border:1px solid rgba(34,197,94,.35);color:#86efac;font-weight:900;font-size:11px;">
+        ✓ Completed</div>`;
+    }
+
+    const html = `
+      <div style="min-width:190px;font-family:Inter,system-ui,sans-serif;">
+        <div style="font-weight:900;font-size:13px;margin-bottom:6px;">Zone ${zoneNum}</div>
+        <div style="font-size:11px;opacity:.9;margin-bottom:10px;">
+          Status: <b style="color:${statusColor}">${status.toUpperCase()}</b><br/>
+          My dots in zone: <b>${dotsIn}</b>
+        </div>
+        ${actionHtml}
+      </div>`;
+
+    poly.bindPopup(html).openPopup();
+
+    setTimeout(() => {
+      const bookBtn = document.getElementById('popBookBtn');
+      if (bookBtn) {
+        bookBtn.onclick = async () => {
+          bookBtn.disabled = true; bookBtn.textContent = 'Booking…';
+          try {
+            await bookZone(zoneNum);
+            poly.closePopup();
+            showToast(`✓ Zone ${zoneNum} booked`);
+          } catch(e) {
+            console.error(e);
+            bookBtn.disabled = false; bookBtn.textContent = 'Book this zone';
+            showToast('Booking failed');
+          }
+        };
+      }
+      const complBtn = document.getElementById('popCompleteBtn');
+      if (complBtn) {
+        complBtn.onclick = async () => {
+          poly.closePopup();
+          await handleCompleteZone(zoneNum);
+        };
+      }
+    }, 30);
+  }
+
+  async function handleCompleteZone(zoneNum) {
+    const confirmed = await showConfirm(
+      `Complete Zone ${zoneNum}?`,
+      `Mark Zone ${zoneNum} as completed. This cannot be undone.`
+    );
+    if (!confirmed) return;
+    try {
+      await completeZone(zoneNum);
+      showToast(`✅ Zone ${zoneNum} marked as completed`);
+    } catch(e) {
+      console.error(e);
+      showToast('Failed to update zone');
+    }
+  }
+
+  /* ════════════════════════════
+     DOTS — render dots + line
+     Same data path as Dot Poster:
+       userPosts/{userId}
+       Each entry: { lat, lng, color, timestamp, … }
+       color === 'green'  → Right / Ja
+       color === 'red'    → Left / Nee
+  ════════════════════════════ */
+  function renderDotsAndLine(dotsArr) {
+    dotsLayer.clearLayers();
+    lineLayer.clearLayers();
+    if (!dotsArr || !dotsArr.length) return;
+
+    // Sort chronologically so the path makes sense
+    const sorted  = [...dotsArr].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const latlngs = [];
+
+    for (const d of sorted) {
+      if (typeof d.lat !== 'number' || typeof d.lng !== 'number') continue;
+      const ll = [d.lat, d.lng];
+      latlngs.push(ll);
+      // Pick style by color field (set by Dot Poster)
+      const style = d.color === 'green' ? greenDotStyle : redDotStyle;
+      L.circleMarker(ll, style)
+        .bindTooltip(
+          `${d.color === 'green' ? '✓ Right' : '✗ Left'} — ${formatLocalTime(d.timestamp)}`,
+          { direction: 'top', offset: [0, -6] }
+        )
+        .addTo(dotsLayer);
+    }
+
+    // Draw thin dotted connecting line between all dots in order
+    if (latlngs.length >= 2) {
+      L.polyline(latlngs, LINE_STYLE).addTo(lineLayer);
+    }
+  }
+
+  function formatLocalTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  /* ════════════════════════════
+     Dots listener
+     Reads userPosts/{userId} (same path Dot Poster writes to)
+  ════════════════════════════ */
+  function attachDotsListener(userId) {
+    if (typeof dotsListenerUnsub === 'function') dotsListenerUnsub();
+
+    const postsRef = query(
+      ref(db, `userPosts/${userId}`),
+      orderByChild('timestamp')
+    );
+
+    const handler = snap => {
+      const arr = [];
+      snap.forEach(child => {
+        const v = child.val();
+        // Accept any entry that has valid lat/lng
+        if (v && typeof v.lat === 'number' && typeof v.lng === 'number') {
+          arr.push(v);
+        }
+      });
+      myDotsCache = arr;
+      renderDotsAndLine(arr);
+      renderZonesTable(); // refresh dot-counts in table
+    };
+
+    onValue(postsRef, handler);
+    dotsListenerUnsub = () => off(postsRef, 'value', handler);
+  }
+
+  /* ════════════════════════════
+     Focus / auto-zoom
+  ════════════════════════════ */
+  function focusZone(zoneNum, { openPopup = false, animate = true } = {}) {
+    const z = zonesByNumber.get(zoneNum);
+    if (!z) { showToast(`Zone ${zoneNum} not found`); return; }
+    map.fitBounds(z.bounds.pad(0.18), { animate, maxZoom: 16 });
+    if (openPopup) {
+      setTimeout(() => {
+        try { openZonePopup(zoneNum, z.poly); } catch {}
+      }, animate ? 320 : 60);
+    }
+  }
+
+  /* ════════════════════════════
+     Booked-zones listener
+  ════════════════════════════ */
+  function attachBookedZonesListener(userId) {
+    if (typeof bookedZonesListenerUnsub === 'function') bookedZonesListenerUnsub();
+
+    const bzRef   = ref(db, `users/${userId}/bookedZones`);
+    const handler = snap => {
+      bookedZones.clear();
+      let latestZone = null, latestBookedAt = -1;
+
+      const v = snap.val() || {};
+      Object.keys(v).forEach(k => {
+        const zn = parseInt(k, 10);
+        if (!Number.isFinite(zn)) return;
+        const entry    = v[k] || {};
+        const status   = entry.status || 'booked';
+        const bookedAt = typeof entry.bookedAt === 'number' ? entry.bookedAt : 0;
+        bookedZones.set(zn, { bookedAt, status });
+        if (bookedAt > latestBookedAt) { latestBookedAt = bookedAt; latestZone = zn; }
+      });
+
+      let nBooked = 0, nCompleted = 0;
+      for (const e of bookedZones.values()) {
+        if (e.status === 'completed') nCompleted++; else nBooked++;
+      }
+      bookedCountEl.textContent    = String(nBooked);
+      completedCountEl.textContent = String(nCompleted);
+
+      styleAllZones();
+      refreshAllLabelIcons();
+      renderZonesTable();
+
+      if (latestZone != null) {
+        const isNewZone = lastAutoFocusedZone !== latestZone;
+        if (!initialAutoFocusDone || isNewZone) {
+          const tryFocus = (attempt = 0) => {
+            if (zonesByNumber.has(latestZone)) {
+              initialAutoFocusDone = true;
+              lastAutoFocusedZone  = latestZone;
+              focusZone(latestZone, { openPopup: false, animate: initialAutoFocusDone });
+              showToast(`↗ Auto-zoomed to Zone ${latestZone}`);
+            } else if (attempt < 12) {
+              setTimeout(() => tryFocus(attempt + 1), 200);
+            }
+          };
+          tryFocus();
+        }
+      }
+    };
+
+    onValue(bzRef, handler);
+    bookedZonesListenerUnsub = () => off(bzRef, 'value', handler);
+  }
+
+  /* ════════════════════════════
+     Zones table
+  ════════════════════════════ */
+  function renderZonesTable() {
+    const zoneNums   = [...zonesByNumber.keys()].sort((a, b) => a - b);
+    const bookedList = zoneNums.filter(z => bookedZones.has(z));
+
+    let nBooked = 0, nCompleted = 0;
+    for (const e of bookedZones.values()) {
+      if (e.status === 'completed') nCompleted++; else nBooked++;
+    }
+    bookedCountEl.textContent    = String(nBooked);
+    completedCountEl.textContent = String(nCompleted);
+
+    zonesBody.innerHTML = '';
+
+    if (!zoneNums.length) {
+      zonesBody.innerHTML = '<tr class="empty"><td colspan="4">No zones loaded.</td></tr>';
+      return;
+    }
+    if (!bookedList.length) {
+      zonesBody.innerHTML = '<tr class="empty"><td colspan="4">No booked zones yet. Tap a red zone on the map to book.</td></tr>';
+      return;
+    }
+
+    for (const zoneNum of bookedList) {
+      const entry       = bookedZones.get(zoneNum);
+      const status      = entry?.status || 'booked';
+      const isCompleted = status === 'completed';
+      const dotsIn      = countDotsInZone(zoneNum, myDotsCache);
+
+      const statusCell = isCompleted
+        ? `<span style="font-weight:900;color:#22c55e;">✓ DONE</span>`
+        : `<span style="font-weight:900;color:#f59e0b;">BOOKED</span>`;
+
+      const actionCell = isCompleted
+        ? `<span class="done-chip">✓ Done</span>`
+        : `<button class="action-btn" data-zone="${zoneNum}">Mark Done</button>`;
+
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.innerHTML = `
+        <td style="font-weight:900;color:${isCompleted ? '#86efac' : '#fde68a'};">${zoneNum}</td>
+        <td>${statusCell}</td>
+        <td style="font-weight:900;color:#a5f3fc;">${dotsIn}</td>
+        <td>${actionCell}</td>`;
+
+      tr.addEventListener('click', e => {
+        if (e.target.closest('.action-btn')) return;
+        focusZone(zoneNum, { openPopup: true });
+      });
+
+      const btn = tr.querySelector('.action-btn');
+      if (btn) {
+        btn.addEventListener('click', async e => {
+          e.stopPropagation();
+          btn.disabled = true;
+          await handleCompleteZone(zoneNum);
+          btn.disabled = false;
+        });
+      }
+
+      zonesBody.appendChild(tr);
+    }
+  }
+
+  /* ════════════════════════════
+     Go-to zone
+  ════════════════════════════ */
+  gotoBtn.addEventListener('click', () => {
+    const n = parseInt(String(gotoInput.value || '').trim(), 10);
+    if (!Number.isFinite(n)) { showToast('Enter a valid zone number'); return; }
+    focusZone(n, { openPopup: true });
+    gotoInput.blur();
+  });
+  gotoInput.addEventListener('keydown', e => { if (e.key === 'Enter') gotoBtn.click(); });
+
+  /* ════════════════════════════
+     User management
+  ════════════════════════════ */
+  const LS_KEY = 'zonesOnly:userId';
+  function normalizeUserId(id) { return (id || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  function validateUserId(id)  { return /^[A-Z0-9]{3,10}$/.test(id); }
+
+  function showLogin() {
+    loginBackdrop.classList.add('show');
+    userIdInput.value = ''; loginError.textContent = '';
+    currentUserId = null;
+    // Clear dots
+    myDotsCache = [];
+    renderDotsAndLine([]);
+    // Clear bookings
+    bookedZones.clear();
+    bookedCountEl.textContent    = '0';
+    completedCountEl.textContent = '0';
+    styleAllZones();
+    refreshAllLabelIcons();
+    renderZonesTable();
+    lastAutoFocusedZone  = null;
+    initialAutoFocusDone = false;
+  }
+  function hideLogin() { loginBackdrop.classList.remove('show'); }
+
+  async function registerUser(id) {
+    const now     = Date.now();
+    const userRef = ref(db, `users/${id}`);
+    try {
+      const snap = await get(userRef);
+      if (snap.exists()) await update(userRef, { lastActiveAt: now });
+      else await set(userRef, { createdAt: now, lastActiveAt: now, ua: navigator.userAgent || '' });
+    } catch(e) { console.error(e); }
+  }
+
+  function onUserReady(id) {
+    currentUserId = id;
+    localStorage.setItem(LS_KEY, id);
+    userPillText.textContent = id;
+    userPill.style.display   = 'flex';
+    attachDotsListener(id);           // ← reads userPosts/{id} (Dot Poster's path)
+    attachBookedZonesListener(id);
+    renderZonesTable();
+  }
+
+  userJoinBtn.addEventListener('click', async () => {
+    loginError.textContent = '';
+    const id = normalizeUserId(userIdInput.value);
+    if (!validateUserId(id)) { loginError.textContent = 'Use 3–10 letters/numbers, e.g. FF2631'; return; }
+    userJoinBtn.disabled = true; userJoinBtn.textContent = '…';
+    await registerUser(id);
+    onUserReady(id);
+    hideLogin();
+    showToast(`Welcome, ${id}`);
+    userJoinBtn.disabled = false; userJoinBtn.textContent = 'Join';
+  });
+  userIdInput.addEventListener('keyup', e => { if (e.key === 'Enter') userJoinBtn.click(); });
+  changeUserBtn.addEventListener('click', showLogin);
+
+  /* ════════════════════════════
+     INIT
+  ════════════════════════════ */
+  (async () => {
+    setLoaderStatus('Loading map…');
+    await new Promise(r => setTimeout(r, 80));
+
+    setLoaderStatus('Loading zones…');
+    await loadZones();
+
+    setLoaderStatus('Ready!');
+    await new Promise(r => setTimeout(r, 300));
+    hideLoadingScreen();
+
+    const stored = normalizeUserId(localStorage.getItem(LS_KEY));
+    if (validateUserId(stored)) {
+      await registerUser(stored);
+      onUserReady(stored);
+    } else {
+      showLogin();
+    }
+  })();
+</script>
+</body>
+</html>
