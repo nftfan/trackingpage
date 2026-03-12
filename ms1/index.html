@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -124,6 +123,23 @@
     #map { height: 160px; width: 100%; }
     .leaflet-container { background: #0f0f12; outline: none; }
     .leaflet-control-attribution { display: none !important; }
+
+    /* ── Polygon label ── */
+    .poly-label {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    .poly-label-inner {
+      font-size: 9px;
+      font-weight: 700;
+      color: #ef4444;
+      font-family: Menlo, Monaco, Consolas, monospace;
+      letter-spacing: .02em;
+      white-space: nowrap;
+      text-shadow: 0 0 3px #000, 0 0 3px #000;
+      pointer-events: none;
+    }
 
     /* ── Controls ── */
     .controls {
@@ -415,6 +431,10 @@
   </div>
 </div>
 
+<!-- Firebase v8 SDK (for Polygon Saver DB — read-only) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
@@ -425,6 +445,7 @@
     set, update, get, runTransaction, off
   } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
+  // ── Firebase v9 (Dot Poster) ──
   const firebaseConfig = {
     apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
     authDomain: "tokentransfer-4a9b3.firebaseapp.com",
@@ -475,8 +496,66 @@
   const map = L.map('map', { zoomControl:false, attributionControl:false, tap:true }).setView([20,0],2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
   L.control.zoom({position:'topright'}).addTo(map);
-  const postsLayer = L.layerGroup().addTo(map);
+
+  // polygon layer sits BELOW dots
+  const polygonLayer = L.layerGroup().addTo(map);
+  const postsLayer   = L.layerGroup().addTo(map);
   let polyline = null;
+
+  // ── Polygon Saver Firebase (v8, separate instance) ──
+  const polyApp = firebase.initializeApp({
+    apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+    authDomain: "leuvenflyers-23584.firebaseapp.com",
+    databaseURL: "https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+    projectId: "leuvenflyers-23584",
+    storageBucket: "leuvenflyers-23584.firebasestorage.app",
+    messagingSenderId: "1077790950414",
+    appId: "1:1077790950414:web:036fafe06df86f41ed285f"
+  }, "polygonSaver");  // named instance so it doesn't conflict
+  const polyDb = polyApp.database();
+
+  // ── Load & draw polygons ──
+  function loadAndDrawPolygons() {
+    polygonLayer.clearLayers();
+    polyDb.ref('polygons').once('value', snapshot => {
+      let idx = 1;
+      snapshot.forEach(child => {
+        const raw = child.val();
+        const coordsArr = Object.keys(raw)
+          .filter(k => !isNaN(Number(k)))
+          .sort((a, b) => Number(a) - Number(b))
+          .map(k => [raw[k].lat, raw[k].lng]);
+        if (coordsArr.length < 3) return;
+
+        // Draw polygon — thin red, minimal fill
+        const poly = L.polygon(coordsArr, {
+          color: '#ef4444',
+          weight: 1,
+          opacity: 0.85,
+          fillColor: '#ef4444',
+          fillOpacity: 0.06,
+          interactive: false   // don't interfere with dot taps
+        }).addTo(polygonLayer);
+
+        // Centroid label
+        const bounds = poly.getBounds();
+        const center = bounds.getCenter();
+        const label  = L.marker(center, {
+          icon: L.divIcon({
+            className: 'poly-label',
+            html: `<div class="poly-label-inner">Z${idx}</div>`,
+            iconAnchor: [0, 0]
+          }),
+          interactive: false
+        }).addTo(polygonLayer);
+
+        idx++;
+      });
+    });
+  }
+
+  // Load polygons on startup
+  loadAndDrawPolygons();
 
   // ── State ──
   let currentLatLng  = null;
@@ -486,14 +565,11 @@
   let myPostsUnsub   = null;
 
   // ── Session state ──
-  // sessionStart: ms timestamp of first dot today (or manual start kept in memory)
-  // sessionEnded: true if user manually ended — stops auto-restart until new dot posted
   let sessionStart   = null;
-  let sessionEnded   = false;   // user manually ended this session
+  let sessionEnded   = false;
   let timerInterval  = null;
   let minuteLog      = new Map();
   let sessionDots    = 0;
-  // endedAt: timestamp when user ended session (for summary)
   let sessionEndedAt = null;
 
   // ── Dot styles ──
@@ -555,14 +631,12 @@
     if (manualEnd) {
       sessionEnded   = true;
       sessionEndedAt = Date.now();
-      // Keep last elapsed shown, freeze it
       if (sessionStart) {
         sessionTimerEl.textContent = formatHMS(sessionEndedAt - sessionStart);
       }
       sessionTimerEl.classList.add('inactive');
       btnEndSession.style.display = 'none';
     } else {
-      // Full reset (e.g. user change / no dots)
       sessionStart   = null;
       sessionEnded   = false;
       sessionEndedAt = null;
@@ -639,7 +713,6 @@
         count:0, green:0, red:0,
         clockLabel: formatLocalTime(sessionStart + m * 60000)
       };
-      // ⭐ star per minute if >10 dots
       const star = entry.count > 10 ? '⭐' : '';
       const tr   = document.createElement('tr');
       tr.innerHTML = `
@@ -763,7 +836,6 @@
       renderDaily(arr);
       renderPerf(arr);
 
-      // Session: today's dots
       const todayKey  = getTodayKeyUtc();
       const todayDots = arr.filter(d=>formatDate(d.timestamp)===todayKey);
       todayDots.sort((a,b)=>a.timestamp-b.timestamp);
@@ -773,17 +845,13 @@
         sessionDots   = todayDots.length;
 
         if (!sessionEnded) {
-          // Auto-start or keep running
           if (!sessionStart || firstTs < sessionStart) {
             startSessionTimer(firstTs);
           }
         } else {
-          // Session was manually ended — just update counts/log, don't restart timer
           sessionTotalEl.textContent = String(sessionDots);
-          // If a NEW dot arrived after the manual end → restart automatically
           const latestDotTs = todayDots[todayDots.length-1].timestamp;
           if (sessionEndedAt && latestDotTs > sessionEndedAt) {
-            // new dot posted after ending — restart
             startSessionTimer(firstTs);
           }
         }
