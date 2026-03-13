@@ -6,116 +6,395 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0f0f12" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <style>
-    :root{--bg:#0b0b0e;--panel:#141419;--muted:#8b8b95;--text:#f2f2f7;--accent:#4f8cff;--accent-2:#7a5cff;--shadow:0 4px 16px rgba(0,0,0,.35);--radius-lg:14px;--radius-md:12px}
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%;background:var(--bg);color:var(--text);font:14px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;overflow:hidden}
-    .app{max-width:480px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;gap:7px;padding:env(safe-area-inset-top,6px) 10px env(safe-area-inset-bottom,6px)}
-
-    header{display:flex;align-items:center;gap:8px;padding:7px 11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);flex-shrink:0}
-    .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#4f8cff,#7a5cff);border-radius:7px;flex-shrink:0}
-    .header-title{font-size:13px;font-weight:700;flex:1}
-    .header-total{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#bfdbfe;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.35)}
-    .header-total b{font-size:12px;color:#dbeafe}
-    .user-pill{font-size:11px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px}
-    .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600;font-size:11px}
-
-    /* OP input + Start/End row */
-    .worker-row{display:flex;align-items:center;gap:8px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0}
-    .op-input{
-      flex:1;height:36px;border-radius:9px;border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:13px;
-      padding:0 10px;text-transform:uppercase
+    :root {
+      --bg: #0b0b0e;
+      --panel: #141419;
+      --muted: #8b8b95;
+      --text: #f2f2f7;
+      --accent: #4f8cff;
+      --accent-2: #7a5cff;
+      --shadow: 0 4px 16px rgba(0,0,0,.35);
+      --radius-lg: 14px;
+      --radius-md: 12px;
     }
-    .op-input:focus{outline:none;border-color:#3b82f6}
-    .op-input:disabled{opacity:.55}
-    .btn-start{appearance:none;border:0;cursor:pointer;padding:8px 14px;border-radius:9px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;font-size:12px;font-weight:700}
-    .btn-end{appearance:none;border:1px solid rgba(239,68,68,.4);cursor:pointer;padding:8px 12px;border-radius:9px;background:rgba(239,68,68,.18);color:#fca5a5;font-size:12px;font-weight:700;display:none}
-    .op-pill{display:none;align-items:center;gap:6px;font-size:11px;color:#bfdbfe;background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.35);padding:4px 8px;border-radius:999px}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      overflow: hidden;
+    }
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding: env(safe-area-inset-top, 6px) 10px env(safe-area-inset-bottom, 6px);
+    }
 
-    .session-strip{display:flex;align-items:center;gap:8px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0}
-    .session-timer{font-family:Menlo,Monaco,Consolas,monospace;font-size:15px;font-weight:700;color:#e5e7ff;letter-spacing:.5px;flex:1}
-    .session-timer.inactive{color:var(--muted)}
-    .session-meta{font-size:10px;color:var(--muted);display:flex;gap:10px}
-    .session-meta span{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
-    .session-meta b{font-size:12px;font-weight:700;color:#e5e7ff}
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 11px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius-md);
+      flex-shrink: 0;
+    }
+    .logo {
+      width: 26px; height: 26px;
+      display: grid; place-items: center;
+      background: radial-gradient(120% 120% at 20% 20%, #4f8cff, #7a5cff);
+      border-radius: 7px; flex-shrink: 0;
+    }
+    .header-title { font-size: 13px; font-weight: 700; flex: 1; }
+    .header-counts { display: flex; gap: 5px; align-items: center; }
+    .count-pill {
+      display: flex; align-items: center; gap: 6px;
+      padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 800;
+      background: rgba(79,140,255,.12); border: 1px solid rgba(79,140,255,.35); color: #dbeafe;
+    }
+    .user-pill {
+      font-size: 11px; color: #cbd5ff;
+      background: rgba(122,92,255,.12); border: 1px solid rgba(122,92,255,.3);
+      padding: 2px 7px; border-radius: 999px;
+      display: none; align-items: center; gap: 5px; flex-shrink: 0;
+    }
+    .user-pill button {
+      appearance: none; border: 0; background: transparent;
+      color: #aab7ff; cursor: pointer; font-weight: 600; font-size: 11px;
+    }
 
-    .map-card{border-radius:var(--radius-lg);overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#0f0f12;box-shadow:var(--shadow);flex-shrink:0}
-    #map{height:190px;width:100%}.leaflet-container{background:#0f0f12;outline:none}.leaflet-control-attribution{display:none!important}
+    /* ── Worker row ── */
+    .worker-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 11px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: var(--radius-md);
+      flex-shrink: 0;
+      font-size: 12px;
+    }
+    .op-input {
+      flex: 1;
+      min-width: 0;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.07);
+      color: var(--text);
+      padding: 0 10px;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: .3px;
+    }
+    .op-input:disabled { opacity: .6; }
+    .btn-start-worker, .btn-end-session {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      padding: 7px 12px;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      transition: transform .1s ease, filter .1s ease;
+      flex-shrink: 0;
+    }
+    .btn-start-worker { background: linear-gradient(135deg,#2563eb,#3b82f6); }
+    .btn-end-session { background: linear-gradient(135deg,#dc2626,#ef4444); display: none; }
+    .btn-start-worker:active, .btn-end-session:active { transform: scale(.97); filter: brightness(.95); }
+    .worker-name-pill {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: #bfdbfe;
+      background: rgba(59,130,246,.14);
+      border: 1px solid rgba(59,130,246,.35);
+      padding: 3px 7px;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
 
-    .zone-nav{display:flex;align-items:center;gap:8px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0}
-    .zone-nav-label{font-size:11px;font-weight:600;color:var(--muted)}
-    .zone-nav-input{width:60px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:13px;text-align:center}
-    .btn-zone-go{height:30px;padding:0 14px;border-radius:8px;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:12px;font-weight:700}
-    .zone-hint{font-size:10px;color:var(--muted);flex:1;text-align:right}
+    /* ── Session strip ── */
+    .session-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 11px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: var(--radius-md);
+      flex-shrink: 0;
+    }
+    .session-timer {
+      font-family: Menlo, Monaco, Consolas, monospace;
+      font-size: 15px; font-weight: 700;
+      color: #e5e7ff; letter-spacing: .5px;
+      flex: 1;
+    }
+    .session-timer.inactive { color: var(--muted); }
+    .session-meta {
+      font-size: 10px; color: var(--muted);
+      display: flex; gap: 10px;
+    }
+    .session-meta span { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+    .session-meta b { font-size: 12px; font-weight: 700; color: #e5e7ff; }
 
-    .poly-label{background:transparent!important;border:none!important;box-shadow:none!important}
-    .poly-label-inner{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:rgba(239,68,68,.75);border:1px solid rgba(239,68,68,.9);font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.03em}
+    /* ── Map ── */
+    .map-card {
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.08);
+      background: #0f0f12;
+      box-shadow: var(--shadow);
+      flex-shrink: 0;
+    }
+    #map { height: 190px; width: 100%; }
+    .leaflet-container { background: #0f0f12; outline: none; }
+    .leaflet-control-attribution { display: none !important; }
 
-    .flag-marker{width:22px;height:34px;position:relative;pointer-events:none}
-    .flag-pole{position:absolute;left:3px;top:0;bottom:0;width:2px;background:rgba(255,255,255,.85)}
-    .flag-cloth{position:absolute;left:5px;top:2px;width:14px;height:10px;border-radius:2px;box-shadow:0 1px 4px rgba(0,0,0,.5)}
-    .flag-cloth.red{background:#ef4444}.flag-cloth.green{background:#22c55e}
-    .flag-dot{position:absolute;left:-1px;bottom:0;width:6px;height:6px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7)}
-    .flag-dot.red{background:#ef4444}.flag-dot.green{background:#22c55e}
-    .flag-name-label{background:transparent!important;border:none!important;box-shadow:none!important}
-    .flag-name-label .inner{font-size:8px;font-weight:700;color:#dbeafe;background:rgba(15,23,42,.75);border:1px solid rgba(148,163,184,.35);border-radius:999px;padding:1px 4px;white-space:nowrap}
+    /* ── Zone navigator ── */
+    .zone-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 11px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: var(--radius-md);
+      flex-shrink: 0;
+    }
+    .zone-nav-label {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      white-space: nowrap;
+    }
+    .zone-nav-input {
+      width: 60px; height: 30px;
+      border-radius: 8px; border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.07);
+      color: var(--text); font-weight: 700; font-size: 13px;
+      text-align: center; padding: 0 6px;
+    }
+    .zone-nav-input:focus { outline: none; border-color: var(--accent); }
+    .btn-zone-go {
+      height: 30px; padding: 0 14px;
+      border-radius: 8px; border: 0; cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff; font-size: 12px; font-weight: 700;
+      transition: transform .1s ease;
+    }
+    .btn-zone-go:active { transform: scale(.96); }
+    .zone-hint {
+      font-size: 10px; color: var(--muted); flex: 1; text-align: right;
+    }
 
-    .controls{display:grid;grid-template-columns:42px 1fr 1fr;gap:7px;flex-shrink:0}
-    .btn-icon{appearance:none;border:0;cursor:pointer;height:46px;width:42px;border-radius:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:var(--text);display:grid;place-items:center}
-    .btn-ja,.btn-nee{appearance:none;border:0;cursor:pointer;border-radius:11px;height:46px;color:#fff;font-weight:700;font-size:15px}
-    .btn-ja{background:linear-gradient(135deg,#16a34a,#22c55e)} .btn-nee{background:linear-gradient(135deg,#dc2626,#ef4444)}
-    .btn-ja[disabled],.btn-nee[disabled]{opacity:.5;cursor:not-allowed}
+    .poly-label { background: transparent !important; border: none !important; box-shadow: none !important; }
+    .poly-label-inner {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 800;
+      color: #fff;
+      background: rgba(239,68,68,.75);
+      border: 1px solid rgba(239,68,68,.9);
+      font-family: Menlo, Monaco, Consolas, monospace;
+      letter-spacing: .03em;
+      white-space: nowrap;
+      box-shadow: 0 1px 6px rgba(0,0,0,.5);
+      pointer-events: none;
+    }
 
-    .stats{display:flex;gap:7px;flex-shrink:0}
-    .stat{flex:1;padding:8px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:6px}
-    .stat .label{color:var(--muted);font-size:11px}
-    .mydot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-    .chip{border-radius:9px;padding:5px 6px;text-align:center;font-size:10px;font-weight:700;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
-    .chip b{display:block;font-size:14px;color:#f3f4ff}
-    .chip.green{border-color:rgba(34,197,94,.35);color:#86efac}.chip.red{border-color:rgba(239,68,68,.35);color:#fca5a5}
+    .flag-marker {
+      width: 22px; height: 34px;
+      position: relative;
+      pointer-events: none;
+    }
+    .flag-pole {
+      position: absolute;
+      left: 3px; top: 0; bottom: 0;
+      width: 2px;
+      background: rgba(255,255,255,.85);
+      border-radius: 1px;
+    }
+    .flag-cloth {
+      position: absolute;
+      left: 5px; top: 2px;
+      width: 14px; height: 10px;
+      border-radius: 2px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.5);
+    }
+    .flag-cloth.red   { background: #ef4444; }
+    .flag-cloth.green { background: #22c55e; }
+    .flag-dot {
+      position: absolute;
+      left: -1px; bottom: 0;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,.7);
+    }
+    .flag-dot.red   { background: #ef4444; }
+    .flag-dot.green { background: #22c55e; }
 
-    .table-card{flex:1;overflow:hidden;background:rgba(255,255,255,.03);border-radius:var(--radius-md);border:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;min-height:0}
-    .table-card-header{padding:6px 10px 4px;font-size:10px;font-weight:600;color:#e5e7ff;border-bottom:1px solid rgba(255,255,255,.06)}
-    .table-scroll{overflow:auto;flex:1}
-    .data-table{width:100%;border-collapse:collapse;font-size:10px;color:#d5d7ff}
-    .data-table thead{position:sticky;top:0;z-index:1;background:linear-gradient(90deg,rgba(79,140,255,.16),rgba(122,92,255,.18))}
-    .data-table th,.data-table td{padding:4px 7px;text-align:left;white-space:nowrap}
-    .data-table th{font-weight:600;font-size:9px;text-transform:uppercase;color:#f3f4ff;border-bottom:1px solid rgba(255,255,255,.1)}
-    .col-date{font-family:monospace}.col-opid{color:#bfdbfe;font-weight:700}.col-dots{color:#a5f3fc;font-weight:700}.col-green{color:#86efac;font-weight:700}.col-red{color:#fca5a5;font-weight:700}.col-work{color:#fde68a}
-    .empty-row td{text-align:center;color:var(--muted);padding:10px}
+    .flag-name-label {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    .flag-name-label .inner {
+      font-size: 8px;
+      font-weight: 700;
+      color: #dbeafe;
+      background: rgba(15,23,42,.7);
+      border: 1px solid rgba(148,163,184,.35);
+      border-radius: 999px;
+      padding: 1px 4px;
+      white-space: nowrap;
+      letter-spacing: .02em;
+    }
 
-    .toast{position:fixed;z-index:9999;left:50%;bottom:22px;transform:translateX(-50%);background:#1a1a22;border:1px solid rgba(255,255,255,.1);padding:8px 15px;border-radius:10px;color:var(--text);box-shadow:var(--shadow);font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
-    .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+    .controls {
+      display: grid; grid-template-columns: 42px 1fr 1fr; gap: 7px; flex-shrink: 0;
+    }
+    .btn-icon {
+      appearance: none; border: 0; cursor: pointer;
+      height: 46px; width: 42px; border-radius: 11px;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+      color: var(--text); display: grid; place-items: center;
+      transition: transform .1s ease;
+    }
+    .btn-icon:active { transform: scale(.96); }
+    .btn-ja, .btn-nee {
+      appearance: none; border: 0; cursor: pointer;
+      border-radius: 11px; height: 46px;
+      color: white; font-weight: 700; font-size: 15px; letter-spacing: .3px;
+      transition: transform .1s ease, filter .1s ease;
+    }
+    .btn-ja:active, .btn-nee:active { transform: translateY(1px); filter: brightness(.92); }
+    .btn-ja[disabled], .btn-nee[disabled] { opacity: .5; cursor: not-allowed; }
+    .btn-ja  { background: linear-gradient(135deg,#16a34a,#22c55e); box-shadow: 0 5px 14px rgba(34,197,94,.3); }
+    .btn-nee { background: linear-gradient(135deg,#dc2626,#ef4444); box-shadow: 0 5px 14px rgba(239,68,68,.3); }
 
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center}
-    .modal-backdrop.show{display:flex}
-    .modal{width:min(90vw,380px);background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:var(--shadow);padding:20px}
-    .modal h2{font-size:17px;margin-bottom:6px}.modal p{color:var(--muted);font-size:12px;margin-bottom:14px}
-    .input-row{display:flex;gap:8px}
-    .input{flex:1;height:44px;border-radius:10px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-weight:700}
-    .btn-modal{height:44px;border-radius:10px;border:0;cursor:pointer;padding:0 16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2))}
-    .error{color:#ff8a8a;font-size:11px;min-height:14px;padding-top:5px}
+    .stats { display: flex; gap: 7px; flex-shrink: 0; }
+    .stat {
+      flex: 1; padding: 8px 11px;
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .stat .label { color: var(--muted); font-size: 11px; }
+    .stat .value { font-size: 16px; font-weight: 800; }
+    .stat-value-row { display: flex; align-items: center; gap: 8px; }
+
+    .table-card {
+      flex: 1; overflow: hidden;
+      background: rgba(255,255,255,.03); border-radius: var(--radius-md);
+      border: 1px solid rgba(255,255,255,.07);
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .table-card-header {
+      padding: 6px 10px 4px; font-size: 10px; font-weight: 600; color: #e5e7ff;
+      border-bottom: 1px solid rgba(255,255,255,.06); flex-shrink: 0;
+    }
+    .table-scroll { overflow: auto; flex: 1; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 10px; color: #d5d7ff; }
+    .data-table thead {
+      position: sticky; top: 0; z-index: 1;
+      background: linear-gradient(90deg,rgba(79,140,255,.16),rgba(122,92,255,.18));
+    }
+    .data-table th, .data-table td { padding: 4px 7px; text-align: left; white-space: nowrap; }
+    .data-table th {
+      font-weight: 600; font-size: 9px; text-transform: uppercase;
+      letter-spacing: .4px; color: #f3f4ff;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+    .data-table tbody tr:nth-child(even) { background: rgba(255,255,255,.025); }
+    .data-table tbody tr:hover           { background: rgba(79,140,255,.15); }
+    .col-date  { font-family: monospace; color: #e5e7ff; }
+    .col-dots  { font-weight: 700; color: #a5f3fc; }
+    .col-green { font-weight: 700; color: #86efac; }
+    .col-red   { font-weight: 700; color: #fca5a5; }
+    .col-work  { color: #fde68a; }
+    .empty-row td { color: var(--muted); text-align: center; padding: 10px; font-size: 10px; }
+
+    .toast {
+      position: fixed; z-index: 9999; left: 50%; bottom: 22px; transform: translateX(-50%);
+      background: #1a1a22; border: 1px solid rgba(255,255,255,.1);
+      padding: 8px 15px; border-radius: 10px; color: var(--text);
+      box-shadow: var(--shadow); font-weight: 600; font-size: 13px;
+      opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.65);
+      backdrop-filter: blur(4px); display: none; align-items: center;
+      justify-content: center; z-index: 9998;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      width: min(90vw,380px); background: var(--panel);
+      border: 1px solid rgba(255,255,255,.1); border-radius: 16px;
+      box-shadow: var(--shadow); padding: 20px;
+    }
+    .modal h2 { font-size: 17px; margin-bottom: 6px; }
+    .modal p  { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+    .input-row { display: flex; gap: 8px; }
+    .input {
+      flex: 1; height: 44px; border-radius: 10px; padding: 0 12px;
+      border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
+      color: var(--text); font-weight: 700; letter-spacing: .4px; font-size: 14px;
+    }
+    .btn-modal {
+      height: 44px; border-radius: 10px; border: 0; cursor: pointer;
+      padding: 0 16px; font-weight: 700; color: #fff;
+      background: linear-gradient(135deg,var(--accent),var(--accent-2));
+    }
+    .error { color: #ff8a8a; font-size: 11px; min-height: 14px; padding-top: 5px; }
   </style>
 </head>
 <body>
 <div class="app">
+
+  <!-- Header -->
   <header>
-    <div class="logo" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="white" stroke-opacity=".9" stroke-width="1.6"/><circle cx="12" cy="12" r="3.2" fill="white"/></svg></div>
+    <div class="logo" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="white" stroke-opacity=".9" stroke-width="1.6"/>
+        <circle cx="12" cy="12" r="3.2" fill="white"/>
+      </svg>
+    </div>
     <div class="header-title">Dot Poster</div>
-    <div class="header-total">Total dots: <b id="headerTotalDots">0</b></div>
-    <div id="userPill" class="user-pill"><span id="userPillText"></span><button id="changeUserBtn">Change</button></div>
+    <div class="header-counts">
+      <div class="count-pill">Total dots: <span id="headerTotal">0</span></div>
+    </div>
+    <div id="userPill" class="user-pill">
+      <span id="userPillText"></span>
+      <button id="changeUserBtn">Change</button>
+    </div>
   </header>
 
-  <!-- OP text input BEFORE start button -->
+  <!-- Worker row inline -->
   <div class="worker-row">
-    <input id="opIdInput" class="op-input" type="text" placeholder="Enter OP ID (e.g. OP26311)" maxlength="20" />
-    <button id="btnStartWorker" class="btn-start">Start</button>
-    <button id="btnEndSessionInline" class="btn-end">■ End</button>
-    <div id="opPill" class="op-pill">OP: <b id="opPillText"></b></div>
+    <input id="opInput" class="op-input" type="text" placeholder="Enter OP ID (e.g. OP26311)" maxlength="24" autocomplete="off">
+    <button id="btnStartWorker" class="btn-start-worker">Start</button>
+    <button id="btnEndSession" class="btn-end-session">End</button>
+    <div id="workerNamePill" class="worker-name-pill">OP: <b id="workerNameText"></b></div>
   </div>
 
+  <!-- Session strip -->
   <div class="session-strip">
     <div id="sessionTimer" class="session-timer inactive">00:00:00</div>
     <div class="session-meta">
@@ -124,53 +403,76 @@
     </div>
   </div>
 
-  <div class="map-card"><div id="map"></div></div>
+  <div class="map-card">
+    <div id="map" role="application" aria-label="Map showing posted dots"></div>
+  </div>
 
   <div class="zone-nav">
     <span class="zone-nav-label">Go to Zone</span>
-    <input id="zoneInput" class="zone-nav-input" type="number" min="1" placeholder="№">
+    <input id="zoneInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
     <button id="btnZoneGo" class="btn-zone-go">Go</button>
     <span class="zone-hint" id="zoneHint">enter zone number</span>
   </div>
 
   <div class="controls">
-    <button id="btnLocate" class="btn-icon" aria-label="Locate me">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>
+    <button id="btnLocate" class="btn-icon" title="Locate me" aria-label="Locate me">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+      </svg>
     </button>
-    <button id="btnJa" class="btn-ja" disabled>Right</button>
+    <button id="btnJa"  class="btn-ja"  disabled>Right</button>
     <button id="btnNee" class="btn-nee" disabled>Left</button>
   </div>
 
   <div class="stats">
     <div class="stat">
-      <span class="label">My dots (active OP)</span>
-      <div class="mydot-grid">
-        <div class="chip"><b id="myDots">0</b>Total</div>
-        <div class="chip green"><b id="myGreen">0</b>Right</div>
-        <div class="chip red"><b id="myRed">0</b>Left</div>
+      <span class="label">My dots (all OPs)</span>
+      <div class="stat-value-row">
+        <span id="myDots" class="value">0</span>
+      </div>
+    </div>
+    <div class="stat">
+      <span class="label">Right / Left</span>
+      <div class="stat-value-row">
+        <span class="value" id="myGreen">0</span>
+        <span class="value" id="myRed" style="color:#fca5a5">/ 0</span>
       </div>
     </div>
   </div>
 
-  <div class="table-card">
-    <div class="table-card-header">OP daily breakdown — Date / OP ID / Dots / Right / Left / Work time</div>
+  <div class="table-card" style="height: 150px;">
+    <div class="table-card-header">OP breakdown — totals by OP ID</div>
     <div class="table-scroll">
       <table class="data-table">
-        <thead><tr><th>Date</th><th>OP ID</th><th>Dots</th><th>Right</th><th>Left</th><th>Work time</th></tr></thead>
-        <tbody id="dailyBody"><tr class="empty-row"><td colspan="6">No dots yet.</td></tr></tbody>
+        <thead><tr><th>OP ID</th><th>Total</th><th>Right</th><th>Left</th><th>Last Active</th></tr></thead>
+        <tbody id="opBody"><tr class="empty-row"><td colspan="5">No OPs yet.</td></tr></tbody>
       </table>
     </div>
   </div>
+
+  <div id="dailyCard" class="table-card">
+    <div class="table-card-header">Daily breakdown — dots, Right / Left & work time</div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Dots</th><th>Right</th><th>Left</th><th>Work time</th></tr></thead>
+        <tbody id="dailyBody"><tr class="empty-row"><td colspan="5">No dots yet.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <div id="loginBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
   <div class="modal">
     <h2>Enter User ID</h2>
     <p>3–10 letters/numbers, e.g. FF001. Registers instantly.</p>
     <div class="input-row">
-      <input id="userIdInput" class="input" type="text" placeholder="e.g. FF993" maxlength="12" autocomplete="off">
+      <input id="userIdInput" class="input" type="text" placeholder="e.g. FF993"
+             autocomplete="off" autocapitalize="characters" maxlength="12" inputmode="text">
       <button id="userJoinBtn" class="btn-modal">Join</button>
     </div>
     <div id="loginError" class="error"></div>
@@ -179,355 +481,631 @@
 
 <div id="confirmBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
   <div class="modal">
-    <h2>End Session?</h2>
-    <p id="confirmMsg">This will stop timer for current OP.</p>
-    <div class="input-row">
-      <button id="btnConfirmNo" class="btn-modal" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;">Cancel</button>
-      <button id="btnConfirmYes" class="btn-modal" style="background:linear-gradient(135deg,#dc2626,#ef4444)">End Session</button>
+    <h3>End Session?</h3>
+    <p id="confirmMsg">This will stop the timer and save your session summary. Your dots remain stored.</p>
+    <div class="input-row" style="margin-top:10px;">
+      <button class="btn-modal" id="btnConfirmNo" style="background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); color:#fff;">Cancel</button>
+      <button class="btn-modal" id="btnConfirmYes" style="background:linear-gradient(135deg,#dc2626,#ef4444);">End Session</button>
     </div>
   </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getDatabase, ref, push, query, orderByChild, onValue, set, update, get, runTransaction, off } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import {
+    getDatabase, ref, push, query, orderByChild, onValue,
+    set, update, get, runTransaction, off
+  } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-const firebaseConfig = {
-  apiKey:"AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
-  authDomain:"tokentransfer-4a9b3.firebaseapp.com",
-  databaseURL:"https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
-  projectId:"tokentransfer-4a9b3",
-  storageBucket:"tokentransfer-4a9b3.firebasestorage.app",
-  messagingSenderId:"205455490321",
-  appId:"1:205455490321:web:9919f5dde059316c9320b0"
-};
-const app=initializeApp(firebaseConfig), db=getDatabase(app);
-
-const $=id=>document.getElementById(id);
-const btnLocate=$('btnLocate'), btnJa=$('btnJa'), btnNee=$('btnNee');
-const myDotsEl=$('myDots'), myGreenEl=$('myGreen'), myRedEl=$('myRed'), headerTotalDotsEl=$('headerTotalDots');
-const loginBackdrop=$('loginBackdrop'), userIdInput=$('userIdInput'), userJoinBtn=$('userJoinBtn'), loginError=$('loginError');
-const userPill=$('userPill'), userPillText=$('userPillText'), changeUserBtn=$('changeUserBtn');
-const dailyBody=$('dailyBody'), sessionTimerEl=$('sessionTimer'), sessionAvgEl=$('sessionAvg'), sessionTotalEl=$('sessionTotal');
-const btnEndInline=$('btnEndSessionInline'), confirmBackdrop=$('confirmBackdrop'), btnConfirmYes=$('btnConfirmYes'), btnConfirmNo=$('btnConfirmNo'), confirmMsg=$('confirmMsg');
-const zoneInput=$('zoneInput'), btnZoneGo=$('btnZoneGo'), zoneHint=$('zoneHint');
-const opIdInput=$('opIdInput'), btnStart=$('btnStartWorker'), opPill=$('opPill'), opPillText=$('opPillText');
-const toastEl=$('toast');
-
-const map=L.map('map',{zoomControl:false,attributionControl:false,tap:true}).setView([20,0],2);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-L.control.zoom({position:'topright'}).addTo(map);
-const polygonLayer=L.layerGroup().addTo(map), postsLayer=L.layerGroup().addTo(map), zoneLayers={};
-
-function makeFlagIcon(color){return L.divIcon({className:'',html:`<div class="flag-marker"><div class="flag-pole"></div><div class="flag-cloth ${color}"></div><div class="flag-dot ${color}"></div></div>`,iconSize:[22,34],iconAnchor:[3,34]});}
-const redFlagIcon=makeFlagIcon('red'), greenFlagIcon=makeFlagIcon('green');
-const tinyLabel=t=>L.divIcon({className:'flag-name-label',html:`<div class="inner">${t}</div>`,iconSize:[70,12],iconAnchor:[5,12]});
-
-const polyApp=firebase.initializeApp({
-  apiKey:"AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",authDomain:"leuvenflyers-23584.firebaseapp.com",
-  databaseURL:"https://leuvenflyers-23584-default-rtdb.firebaseio.com",projectId:"leuvenflyers-23584",
-  storageBucket:"leuvenflyers-23584.firebasestorage.app",messagingSenderId:"1077790950414",
-  appId:"1:1077790950414:web:036fafe06df86f41ed285f"
-},"polygonSaver");
-const polyDb=polyApp.database();
-
-function loadAndDrawPolygons(){
-  polygonLayer.clearLayers(); Object.keys(zoneLayers).forEach(k=>delete zoneLayers[k]);
-  polyDb.ref('polygons').once('value',snap=>{
-    let idx=1; snap.forEach(ch=>{
-      const raw=ch.val();
-      const coords=Object.keys(raw).filter(k=>!isNaN(Number(k))).sort((a,b)=>Number(a)-Number(b)).map(k=>[raw[k].lat,raw[k].lng]);
-      if(coords.length<3)return;
-      const poly=L.polygon(coords,{color:'#ef4444',weight:1.2,opacity:.85,fillColor:'#ef4444',fillOpacity:.06,interactive:false}).addTo(polygonLayer);
-      zoneLayers[String(idx)]=poly;
-      L.marker(poly.getBounds().getCenter(),{icon:L.divIcon({className:'poly-label',html:`<div class="poly-label-inner">Z${idx}</div>`,iconAnchor:[16,8]}),interactive:false}).addTo(polygonLayer);
-      idx++;
-    });
-    if(idx>1) zoneHint.textContent=`1 – ${idx-1} available`;
-  });
-}
-loadAndDrawPolygons();
-
-btnZoneGo.addEventListener('click',()=>{
-  const n=parseInt(zoneInput.value,10); if(!n||n<1)return showToast('Enter valid zone');
-  const p=zoneLayers[String(n)]; if(!p)return showToast(`Zone ${n} not found`);
-  map.flyToBounds(p.getBounds(),{padding:[28,28],duration:.9,maxZoom:17});
-});
-zoneInput.addEventListener('keyup',e=>{if(e.key==='Enter')btnZoneGo.click()});
-
-let currentUserId=null,currentOpId=null,currentLatLng=null,currentMarker=null,myStatsUnsub=null,myPostsUnsub=null,allPosts=[];
-let sessionStart=null,sessionEnded=false,sessionEndedAt=null,timerInterval=null,sessionDots=0;
-
-const formatDate=ts=>{const d=new Date(ts);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;}
-const todayKey=()=>formatDate(Date.now());
-const formatLocal=ts=>{const d=new Date(ts);return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
-const formatHMS=ms=>{ms=Math.max(ms,0);const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;}
-const formatWork=ms=>{if(!ms||ms<=0)return'0h 00m';const m=Math.floor(ms/60000);return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;}
-const showToast=t=>{toastEl.textContent=t;toastEl.classList.add('show');setTimeout(()=>toastEl.classList.remove('show'),1800)}
-const normUser=v=>(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-const validUser=v=>/^[A-Z0-9]{3,10}$/.test(v);
-const normOp=v=>(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'').trim();
-const validOp=v=>/^OP[A-Z0-9]{3,14}$/.test(v);
-
-function mood(avg){if(avg>7)return'🔥';if(avg>5)return'😮';if(avg<3)return'😐';return'';}
-function setPostingEnabled(on){const ok=on&&!!currentUserId&&!!currentOpId;btnJa.disabled=!ok;btnNee.disabled=!ok;}
-
-function setOpUiActive(active){
-  opIdInput.disabled=active;
-  btnStart.disabled=active;
-  btnEndInline.style.display=active?'inline-block':'none';
-  opPill.style.display=active?'inline-flex':'none';
-  if(!active){opPillText.textContent='';}
-}
-
-function updateOpPill(){
-  if(!currentOpId){setOpUiActive(false);return;}
-  const mineToday=allPosts.filter(d=>d.workerId===currentOpId&&formatDate(d.timestamp)===todayKey()).sort((a,b)=>a.timestamp-b.timestamp);
-  let avg=0;
-  if(mineToday.length>0){
-    const elapsed=Math.max(mineToday[mineToday.length-1].timestamp-mineToday[0].timestamp,1);
-    avg=mineToday.length/(elapsed/60000);
-  }
-  opPillText.textContent=`${currentOpId} ${mood(avg)}`.trim();
-  setOpUiActive(true);
-}
-
-function startTimer(startTs){
-  sessionStart=startTs;sessionEnded=false;sessionEndedAt=null;sessionTimerEl.classList.remove('inactive');
-  if(timerInterval)clearInterval(timerInterval);
-  timerInterval=setInterval(tick,1000);tick();
-}
-function stopTimer(manual=false){
-  if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
-  if(manual){
-    sessionEnded=true;sessionEndedAt=Date.now();
-    if(sessionStart)sessionTimerEl.textContent=formatHMS(sessionEndedAt-sessionStart);
-    sessionTimerEl.classList.add('inactive');
-  }else{
-    sessionStart=null;sessionEnded=false;sessionEndedAt=null;
-    sessionTimerEl.textContent='00:00:00';sessionTimerEl.classList.add('inactive');
-    sessionAvgEl.textContent='0.00';sessionTotalEl.textContent='0';
-  }
-}
-function tick(){
-  if(!sessionStart)return;
-  const now=(sessionEnded&&sessionEndedAt)?sessionEndedAt:Date.now();
-  const elapsed=now-sessionStart;
-  sessionTimerEl.textContent=formatHMS(elapsed);
-  const avg=elapsed>0?sessionDots/(elapsed/60000):0;
-  sessionAvgEl.textContent=avg.toFixed(2);
-  sessionTotalEl.textContent=String(sessionDots);
-  updateOpPill();
-}
-
-function updateMyDots(arr){
-  if(!currentOpId){myDotsEl.textContent='0';myGreenEl.textContent='0';myRedEl.textContent='0';return;}
-  const mine=arr.filter(d=>d.workerId===currentOpId);
-  myDotsEl.textContent=String(mine.length);
-  myGreenEl.textContent=String(mine.filter(d=>d.color==='green').length);
-  myRedEl.textContent=String(mine.filter(d=>d.color!=='green').length);
-}
-
-function rebuildMap(arr){
-  postsLayer.clearLayers();
-  if(!arr.length)return;
-
-  // draw worker-wise dotted lines
-  const byOp={};
-  arr.sort((a,b)=>a.timestamp-b.timestamp).forEach(d=>{(byOp[d.workerId||'UNKNOWN']??=[]).push(d);});
-
-  Object.keys(byOp).forEach(op=>{
-    const list=byOp[op].sort((a,b)=>a.timestamp-b.timestamp);
-    if(list.length>1){
-      L.polyline(list.map(d=>[d.lat,d.lng]),{color:'#4f8cff',weight:1.5,opacity:.7,dashArray:'4,7'}).addTo(postsLayer);
-    }
-
-    // draw dots
-    list.forEach(d=>{
-      const style=d.color==='green'
-        ?{radius:2.5,color:'#16a34a',weight:1,fillColor:'#22c55e',fillOpacity:.9}
-        :{radius:2.5,color:'#991b1b',weight:1,fillColor:'#ef4444',fillOpacity:.9};
-      L.circleMarker([d.lat,d.lng],style).addTo(postsLayer);
-    });
-
-    // START and END flag for EACH OP (today)
-    const td=list.filter(d=>formatDate(d.timestamp)===todayKey());
-    if(td.length){
-      const first=td[0], last=td[td.length-1];
-      L.marker([first.lat,first.lng],{icon:redFlagIcon,zIndexOffset:200}).addTo(postsLayer);
-      L.marker([first.lat,first.lng],{icon:tinyLabel(`${op} START`),zIndexOffset:202}).addTo(postsLayer);
-
-      L.marker([last.lat,last.lng],{icon:greenFlagIcon,zIndexOffset:201}).addTo(postsLayer);
-      L.marker([last.lat,last.lng],{icon:tinyLabel(`${op} END`),zIndexOffset:203}).addTo(postsLayer);
-    }
-  });
-}
-
-function renderTable(arr){
-  dailyBody.innerHTML='';
-  if(!arr.length){dailyBody.innerHTML='<tr class="empty-row"><td colspan="6">No dots yet.</td></tr>';return;}
-  const g={};
-  arr.forEach(d=>{
-    const date=formatDate(d.timestamp),op=d.workerId||'UNKNOWN',k=`${date}__${op}`;
-    if(!g[k])g[k]={date,op,count:0,green:0,red:0,earliest:d.timestamp,latest:d.timestamp};
-    const r=g[k];r.count++;d.color==='green'?r.green++:r.red++;if(d.timestamp<r.earliest)r.earliest=d.timestamp;if(d.timestamp>r.latest)r.latest=d.timestamp;
-  });
-  Object.values(g).sort((a,b)=>a.date===b.date?a.op.localeCompare(b.op):b.date.localeCompare(a.date)).forEach(r=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td class="col-date">${r.date}</td><td class="col-opid">${r.op}</td><td class="col-dots">${r.count}</td><td class="col-green">${r.green}</td><td class="col-red">${r.red}</td><td class="col-work">${formatWork(r.latest-r.earliest)}</td>`;
-    dailyBody.appendChild(tr);
-  });
-}
-
-function attachListeners(uid){
-  if(myStatsUnsub)myStatsUnsub();
-  myStatsUnsub=onValue(ref(db,`users/${uid}/stats`),s=>headerTotalDotsEl.textContent=String((s.val()||{}).totalDots||0));
-
-  if(myPostsUnsub)myPostsUnsub();
-  const postsRef=query(ref(db,`userPosts/${uid}`),orderByChild('timestamp'));
-  const handler=snap=>{
-    const arr=[];snap.forEach(ch=>{const v=ch.val();if(v&&typeof v.lat==='number'&&typeof v.lng==='number')arr.push(v);});
-    allPosts=arr;
-    rebuildMap(arr);renderTable(arr);updateMyDots(arr);updateOpPill();
-
-    if(currentOpId){
-      const mineToday=arr.filter(d=>d.workerId===currentOpId&&formatDate(d.timestamp)===todayKey()).sort((a,b)=>a.timestamp-b.timestamp);
-      if(mineToday.length){
-        sessionDots=mineToday.length;
-        const firstTs=mineToday[0].timestamp;
-        if(!sessionEnded){if(!sessionStart||firstTs<sessionStart)startTimer(firstTs);}
-        else {const latest=mineToday[mineToday.length-1].timestamp;if(sessionEndedAt&&latest>sessionEndedAt)startTimer(firstTs);}
-      }else{sessionDots=0;stopTimer(false);}
-    }
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+    messagingSenderId: "205455490321",
+    appId: "1:205455490321:web:9919f5dde059316c9320b0"
   };
-  onValue(postsRef,handler); myPostsUnsub=()=>off(postsRef,'value',handler);
-}
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
 
-async function registerUser(uid){
-  const now=Date.now(),uRef=ref(db,`users/${uid}`),snap=await get(uRef);
-  if(snap.exists()) await update(uRef,{lastActiveAt:now});
-  else await set(uRef,{createdAt:now,lastActiveAt:now,ua:navigator.userAgent||'',stats:{totalDots:0,totalEarningsCents:0}});
-}
+  const btnLocate       = document.getElementById('btnLocate');
+  const btnJa           = document.getElementById('btnJa');
+  const btnNee          = document.getElementById('btnNee');
+  const myDotsEl        = document.getElementById('myDots');
+  const myGreenEl       = document.getElementById('myGreen');
+  const myRedEl         = document.getElementById('myRed');
+  const headerTotalEl   = document.getElementById('headerTotal');
+  const toastEl         = document.getElementById('toast');
+  const loginBackdrop   = document.getElementById('loginBackdrop');
+  const userIdInput     = document.getElementById('userIdInput');
+  const userJoinBtn     = document.getElementById('userJoinBtn');
+  const loginError      = document.getElementById('loginError');
+  const userPill        = document.getElementById('userPill');
+  const userPillText    = document.getElementById('userPillText');
+  const changeUserBtn   = document.getElementById('changeUserBtn');
+  const dailyBody       = document.getElementById('dailyBody');
+  const opBody          = document.getElementById('opBody');
+  const sessionTimerEl  = document.getElementById('sessionTimer');
+  const sessionAvgEl    = document.getElementById('sessionAvg');
+  const sessionTotalEl  = document.getElementById('sessionTotal');
+  const btnEndSession   = document.getElementById('btnEndSession');
+  const confirmBackdrop = document.getElementById('confirmBackdrop');
+  const btnConfirmYes   = document.getElementById('btnConfirmYes');
+  const btnConfirmNo    = document.getElementById('btnConfirmNo');
+  const confirmMsg      = document.getElementById('confirmMsg');
+  const zoneInput       = document.getElementById('zoneInput');
+  const btnZoneGo       = document.getElementById('btnZoneGo');
+  const zoneHint        = document.getElementById('zoneHint');
 
-function onUserReady(uid){
-  currentUserId=uid;localStorage.setItem('dotPoster:userId',uid);
-  userPillText.textContent=uid;userPill.style.display='flex';
-  attachListeners(uid);setPostingEnabled(!!currentLatLng);
-}
+  // OP controls
+  const btnStartWorker  = document.getElementById('btnStartWorker');
+  const opInput         = document.getElementById('opInput');
+  const workerNamePill  = document.getElementById('workerNamePill');
+  const workerNameText  = document.getElementById('workerNameText');
 
-function showLogin(){
-  loginBackdrop.classList.add('show');
-  userIdInput.value='';loginError.textContent='';
-  currentUserId=null;currentOpId=null;allPosts=[];
-  if(myStatsUnsub)myStatsUnsub();if(myPostsUnsub)myPostsUnsub();
-  postsLayer.clearLayers();headerTotalDotsEl.textContent='0';
-  myDotsEl.textContent='0';myGreenEl.textContent='0';myRedEl.textContent='0';
-  stopTimer(false);setOpUiActive(false);opIdInput.value='';renderTable([]);setPostingEnabled(false);
-}
-function hideLogin(){loginBackdrop.classList.remove('show');}
+  const map = L.map('map', { zoomControl:false, attributionControl:false, tap:true }).setView([20,0],2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+  L.control.zoom({ position:'topright' }).addTo(map);
 
-btnStart.addEventListener('click',async()=>{
-  if(!currentUserId)return showToast('Join with User ID first');
-  if(currentOpId)return showToast('End current OP first');
-  const op=normOp(opIdInput.value);
-  if(!validOp(op))return showToast('Enter valid OP ID (e.g. OP26311)');
-  const now=Date.now();
-  await set(ref(db,`users/${currentUserId}/workers/${op}`),{opId:op,createdAt:now,lastActiveAt:now});
-  currentOpId=op;
-  localStorage.setItem(`dotPoster:${currentUserId}:activeOpId`,op);
-  updateOpPill();
-  updateMyDots(allPosts);
-  setPostingEnabled(!!currentLatLng);
-  showToast(`Started ${op}`);
-});
+  const polygonLayer = L.layerGroup().addTo(map);
+  const postsLayer   = L.layerGroup().addTo(map);
 
-btnEndInline.addEventListener('click',()=>{
-  if(!currentOpId)return;
-  const elapsed=sessionStart?Date.now()-sessionStart:0;
-  const avg=(elapsed>0?sessionDots/(elapsed/60000):0).toFixed(2);
-  confirmMsg.textContent=`OP ${currentOpId} · ${sessionDots} dots · ${avg} avg/min`;
-  confirmBackdrop.classList.add('show');
-});
-btnConfirmNo.addEventListener('click',()=>confirmBackdrop.classList.remove('show'));
-btnConfirmYes.addEventListener('click',()=>{
-  confirmBackdrop.classList.remove('show');
-  stopTimer(true);
-  currentOpId=null;
-  opIdInput.value='';
-  setOpUiActive(false);
-  setPostingEnabled(!!currentLatLng);
-  updateMyDots(allPosts);
-  showToast('OP session ended');
-});
+  const zoneLayers = {};
 
-function ensureLocMarker(latlng){
-  if(!currentMarker) currentMarker=L.circleMarker(latlng,{radius:6,color:'#4f8cff',weight:2,fillColor:'#4f8cff',fillOpacity:.9}).addTo(map);
-  else currentMarker.setLatLng(latlng);
-}
-async function goToCurrentLocation({focus=true}={}){
-  if(!('geolocation'in navigator))return showToast('Geolocation not supported');
-  return new Promise(res=>{
-    navigator.geolocation.getCurrentPosition(
-      p=>{currentLatLng=[p.coords.latitude,p.coords.longitude];ensureLocMarker(currentLatLng);if(focus)map.setView(currentLatLng,Math.max(map.getZoom(),15),{animate:true});setPostingEnabled(true);res(currentLatLng);},
-      ()=>{showToast('Location permission needed');setPostingEnabled(false);res(null);},
-      {enableHighAccuracy:true,timeout:10000,maximumAge:10000}
-    );
+  function makeFlagIcon(color) {
+    return L.divIcon({
+      className: '',
+      html: `
+        <div class="flag-marker">
+          <div class="flag-pole"></div>
+          <div class="flag-cloth ${color}"></div>
+          <div class="flag-dot ${color}"></div>
+        </div>`,
+      iconSize:   [22, 34],
+      iconAnchor: [3, 34]
+    });
+  }
+  const redFlagIcon   = makeFlagIcon('red');
+  const greenFlagIcon = makeFlagIcon('green');
+
+  function makeTinyNameLabel(name) {
+    return L.divIcon({
+      className: 'flag-name-label',
+      html: `<div class="inner">${name || 'Unknown'}</div>`,
+      iconSize: [40, 12],
+      iconAnchor: [5, 12]
+    });
+  }
+
+  const polyApp = firebase.initializeApp({
+    apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+    authDomain: "leuvenflyers-23584.firebaseapp.com",
+    databaseURL: "https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+    projectId: "leuvenflyers-23584",
+    storageBucket: "leuvenflyers-23584.firebasestorage.app",
+    messagingSenderId: "1077790950414",
+    appId: "1:1077790950414:web:036fafe06df86f41ed285f"
+  }, "polygonSaver");
+  const polyDb = polyApp.database();
+
+  function loadAndDrawPolygons() {
+    polygonLayer.clearLayers();
+    Object.keys(zoneLayers).forEach(k => delete zoneLayers[k]);
+
+    polyDb.ref('polygons').once('value', snapshot => {
+      let idx = 1;
+      snapshot.forEach(child => {
+        const raw = child.val();
+        const coordsArr = Object.keys(raw)
+          .filter(k => !isNaN(Number(k)))
+          .sort((a, b) => Number(a) - Number(b))
+          .map(k => [raw[k].lat, raw[k].lng]);
+        if (coordsArr.length < 3) return;
+
+        const poly = L.polygon(coordsArr, {
+          color: '#ef4444', weight: 1.2, opacity: 0.85,
+          fillColor: '#ef4444', fillOpacity: 0.06,
+          interactive: false
+        }).addTo(polygonLayer);
+
+        zoneLayers[String(idx)] = poly;
+
+        const center = poly.getBounds().getCenter();
+        L.marker(center, {
+          icon: L.divIcon({
+            className: 'poly-label',
+            html: `<div class="poly-label-inner">Z${idx}</div>`,
+            iconAnchor: [16, 8]
+          }),
+          interactive: false
+        }).addTo(polygonLayer);
+
+        idx++;
+      });
+      const total = idx - 1;
+      if (total > 0) zoneHint.textContent = `1 – ${total} available`;
+    });
+  }
+  loadAndDrawPolygons();
+
+  function goToZone(num) {
+    const poly = zoneLayers[String(num)];
+    if (!poly) { showToast(`Zone ${num} not found`); return; }
+    map.flyToBounds(poly.getBounds(), { padding:[28,28], duration:0.9, maxZoom:17 });
+    showToast(`Zoomed to Zone ${num}`);
+  }
+  btnZoneGo.addEventListener('click', () => {
+    const n = parseInt(zoneInput.value, 10);
+    if (!n || n < 1) { showToast('Enter a valid zone number'); return; }
+    goToZone(n);
   });
-}
-if('geolocation'in navigator){
-  navigator.geolocation.watchPosition(
-    p=>{currentLatLng=[p.coords.latitude,p.coords.longitude];ensureLocMarker(currentLatLng);setPostingEnabled(true);},
-    ()=>{},
-    {enableHighAccuracy:true,maximumAge:15000,timeout:15000}
-  );
-}
+  zoneInput.addEventListener('keyup', e => { if (e.key === 'Enter') btnZoneGo.click(); });
 
-async function postDot(color){
-  if(!currentUserId)return showLogin();
-  if(!currentOpId)return showToast('Enter OP ID and press Start first');
-  if(!currentLatLng){await goToCurrentLocation({focus:true});if(!currentLatLng)return;}
+  let currentLatLng  = null;
+  let currentMarker  = null;
+  let currentUserId  = null;
+  let myStatsUnsub   = null;
+  let myPostsUnsub   = null;
 
-  const [lat,lng]=currentLatLng,now=Date.now();
-  const data={lat,lng,userId:currentUserId,workerId:currentOpId,color,timestamp:now,ua:navigator.userAgent||''};
-  const newRef=push(ref(db,`userPosts/${currentUserId}`)),key=newRef.key;
+  // current OP
+  let currentWorkerName = null;
 
-  const up={};
-  up[`userPosts/${currentUserId}/${key}`]=data;
-  up[`dotColors/${currentUserId}/${key}`]={color,timestamp:now,workerId:currentOpId};
-  up[`users/${currentUserId}/lastPostAt`]=now;
-  up[`users/${currentUserId}/workers/${currentOpId}/lastActiveAt`]=now;
-  await update(ref(db),up);
+  let sessionStart   = null;
+  let sessionEnded   = false;
+  let timerInterval  = null;
+  let sessionDots    = 0;
+  let sessionEndedAt = null;
 
-  await Promise.all([
-    runTransaction(ref(db,`users/${currentUserId}/stats/totalDots`),v=>(v||0)+1),
-    runTransaction(ref(db,`users/${currentUserId}/stats/totalEarningsCents`),v=>(v||0)+10),
-    runTransaction(ref(db,`users/${currentUserId}/workers/${currentOpId}/totalDots`),v=>(v||0)+1),
-    runTransaction(ref(db,`users/${currentUserId}/workers/${currentOpId}/${color==='green'?'rightDots':'leftDots'}`),v=>(v||0)+1)
-  ]);
+  const locStyle   = { radius:6,   color:'#4f8cff', weight:2,   fillColor:'#4f8cff', fillOpacity:.9 };
+  const greenStyle = { radius:2.5, color:'#16a34a', weight:1,   fillColor:'#22c55e', fillOpacity:.9 };
+  const redStyle   = { radius:2.5, color:'#991b1b', weight:1,   fillColor:'#ef4444', fillOpacity:.9 };
 
-  showToast(color==='green'?`✓ Right posted (${currentOpId})`:`✗ Left posted (${currentOpId})`);
-}
+  function showToast(text) {
+    toastEl.textContent = text;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 1800);
+  }
+  function setPostEnabled(on) {
+    const ok = on && !!currentUserId && !!currentWorkerName;
+    btnJa.disabled  = !ok;
+    btnNee.disabled = !ok;
+  }
+  function formatDate(ts) {
+    const d = new Date(ts);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+  }
+  function getTodayKeyUtc() { return formatDate(Date.now()); }
+  function formatWorkDuration(ms) {
+    if (!ms || ms <= 0) return '0h 00m';
+    const m = Math.floor(ms / 60000);
+    return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;
+  }
+  function formatLocalTime(ts) {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  function formatHMS(ms) {
+    if (ms < 0) ms = 0;
+    const s  = Math.floor(ms / 1000);
+    const h  = Math.floor(s / 3600);
+    const m  = Math.floor((s % 3600) / 60);
+    const sc = s % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
+  }
 
-btnLocate.addEventListener('click',()=>goToCurrentLocation({focus:true}));
-btnJa.addEventListener('click',()=>postDot('green'));
-btnNee.addEventListener('click',()=>postDot('red'));
-changeUserBtn.addEventListener('click',showLogin);
+  function normalizeWorkerName(v) {
+    return (v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+  function validateWorkerName(v) {
+    return /^OP[0-9A-Z]{3,10}$/.test(v);
+  }
+  function updateWorkerUi() {
+    if (currentWorkerName) {
+      workerNameText.textContent = currentWorkerName;
+      workerNamePill.style.display = 'inline-flex';
+    } else {
+      workerNameText.textContent = '';
+      workerNamePill.style.display = 'none';
+    }
+  }
 
-userJoinBtn.addEventListener('click',async()=>{
-  const uid=normUser(userIdInput.value);
-  if(!validUser(uid)){loginError.textContent='Use 3–10 letters/numbers, e.g. FF001';return;}
-  await registerUser(uid);onUserReady(uid);hideLogin();showToast(`User ${uid} ready`);
-});
-userIdInput.addEventListener('keyup',e=>{if(e.key==='Enter')userJoinBtn.click()});
+  function startSessionTimer(startTs) {
+    sessionStart   = startTs;
+    sessionEnded   = false;
+    sessionEndedAt = null;
+    sessionTimerEl.classList.remove('inactive');
+    btnEndSession.style.display = 'inline-block';
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(tickTimer, 1000);
+    tickTimer();
+  }
+  function stopSessionTimer(manualEnd = false) {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    if (manualEnd) {
+      sessionEnded   = true;
+      sessionEndedAt = Date.now();
+      if (sessionStart) sessionTimerEl.textContent = formatHMS(sessionEndedAt - sessionStart);
+      sessionTimerEl.classList.add('inactive');
+      btnEndSession.style.display = 'none';
+    } else {
+      sessionStart   = null;
+      sessionEnded   = false;
+      sessionEndedAt = null;
+      sessionTimerEl.textContent = '00:00:00';
+      sessionTimerEl.classList.add('inactive');
+      sessionAvgEl.textContent   = '0.00';
+      sessionTotalEl.textContent = '0';
+      btnEndSession.style.display = 'none';
+    }
+  }
+  function tickTimer() {
+    if (!sessionStart) return;
+    const now     = sessionEnded && sessionEndedAt ? sessionEndedAt : Date.now();
+    const elapsed = now - sessionStart;
+    sessionTimerEl.textContent = formatHMS(elapsed);
+    const elapsedMin = elapsed / 60000;
+    sessionAvgEl.textContent   = (elapsedMin > 0 ? sessionDots / elapsedMin : 0).toFixed(2);
+    sessionTotalEl.textContent = String(sessionDots);
+  }
 
-const stored=normUser(localStorage.getItem('dotPoster:userId'));
-if(validUser(stored)) registerUser(stored).then(()=>onUserReady(stored)); else showLogin();
+  function openEndSessionConfirm() {
+    if (!sessionStart) return;
+    const elapsed    = Date.now() - sessionStart;
+    const elapsedMin = elapsed / 60000;
+    const avg = (elapsedMin > 0 ? sessionDots / elapsedMin : 0).toFixed(2);
+    confirmMsg.textContent =
+      `Session time: ${formatHMS(elapsed)} · ${sessionDots} dots · ${avg} avg/min. Your dots stay saved. The timer will stop.`;
+    confirmBackdrop.classList.add('show');
+  }
+  function closeEndSessionConfirm() { confirmBackdrop.classList.remove('show'); }
 
-goToCurrentLocation({focus:false});
+  btnEndSession.addEventListener('click', openEndSessionConfirm);
+  btnConfirmNo.addEventListener('click',  closeEndSessionConfirm);
+  btnConfirmYes.addEventListener('click', () => {
+    closeEndSessionConfirm();
+    stopSessionTimer(true);
+    opInput.disabled = false;
+    btnStartWorker.disabled = false;
+    currentWorkerName = null;
+    updateWorkerUi();
+    setPostEnabled(!!currentLatLng);
+    showToast('Session ended');
+  });
+
+  function rebuildMapLayer(dotsArray) {
+    postsLayer.clearLayers();
+    if (!dotsArray || dotsArray.length === 0) return;
+
+    // group by workerName (OP)
+    const byOp = {};
+    dotsArray.forEach(d => {
+      const op = d.workerName || 'UNKNOWN';
+      if (!byOp[op]) byOp[op] = [];
+      byOp[op].push(d);
+    });
+
+    Object.keys(byOp).forEach(op => {
+      const list = byOp[op].sort((a,b)=>a.timestamp-b.timestamp);
+      const latlngs = list.map(d => [d.lat, d.lng]);
+      if (latlngs.length > 1) {
+        L.polyline(latlngs, {
+          color: '#4f8cff', weight: 1.5, opacity: 0.7, dashArray: '4, 7'
+        }).addTo(postsLayer);
+      }
+      list.forEach(d => {
+        const style = d.color === 'green' ? greenStyle : redStyle;
+        L.circleMarker([d.lat, d.lng], style).addTo(postsLayer);
+      });
+
+      // start and end flags for this OP (overall)
+      const first = list[0];
+      const last  = list[list.length - 1];
+      L.marker([first.lat, first.lng], { icon: redFlagIcon, zIndexOffset: 200 }).addTo(postsLayer);
+      L.marker([first.lat, first.lng], { icon: makeTinyNameLabel(op+' start'), zIndexOffset: 202 }).addTo(postsLayer);
+      L.marker([last.lat, last.lng], { icon: greenFlagIcon, zIndexOffset: 201 }).addTo(postsLayer);
+      L.marker([last.lat, last.lng], { icon: makeTinyNameLabel(op+' end'), zIndexOffset: 203 }).addTo(postsLayer);
+    });
+  }
+
+  function renderDaily(dotsArray) {
+    dailyBody.innerHTML = '';
+    if (!dotsArray || dotsArray.length === 0) {
+      dailyBody.innerHTML = '<tr class="empty-row"><td colspan="5">No dots yet.</td></tr>'; return;
+    }
+    const byDate = {};
+    dotsArray.forEach(d => {
+      const k = formatDate(d.timestamp);
+      if (!byDate[k]) byDate[k] = { count:0, green:0, red:0, earliest:d.timestamp, latest:d.timestamp };
+      const e = byDate[k]; e.count++;
+      if (d.color === 'green') e.green++; else e.red++;
+      if (d.timestamp < e.earliest) e.earliest = d.timestamp;
+      if (d.timestamp > e.latest)   e.latest   = d.timestamp;
+    });
+    Object.keys(byDate).sort((a,b) => b.localeCompare(a)).forEach(date => {
+      const { count, green, red, earliest, latest } = byDate[date];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="col-date">${date}</td>
+        <td class="col-dots">${count}</td>
+        <td class="col-green">${green}</td>
+        <td class="col-red">${red}</td>
+        <td class="col-work">${formatWorkDuration(Math.max(latest - earliest, 0))}</td>`;
+      dailyBody.appendChild(tr);
+    });
+  }
+
+  function emojiForAvg(avg) {
+    if (avg > 7) return '🔥';
+    if (avg > 5) return '😮';
+    if (avg < 3) return '😐';
+    return '';
+  }
+
+  function renderOpsTable(perOp) {
+    opBody.innerHTML = '';
+    const ids = Object.keys(perOp);
+    if (ids.length === 0) {
+      opBody.innerHTML = '<tr class="empty-row"><td colspan="5">No OPs yet.</td></tr>'; return;
+    }
+    ids.sort();
+    ids.forEach(id => {
+      const { total, green, red, earliest, latest, lastActive } = perOp[id];
+      const durationMs = (earliest && latest && latest>earliest) ? (latest - earliest) : 0;
+      const minutes = durationMs/60000;
+      const avg = minutes>0 ? total/minutes : total;
+      const emo = emojiForAvg(avg);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${id} ${emo}</td>
+        <td class="col-dots">${total}</td>
+        <td class="col-green">${green}</td>
+        <td class="col-red">${red}</td>
+        <td>${lastActive ? formatLocalTime(lastActive) : '—'}</td>`;
+      opBody.appendChild(tr);
+    });
+  }
+
+  function attachMyStatsListener(id) {
+    if (typeof myStatsUnsub === 'function') { myStatsUnsub(); myStatsUnsub = null; }
+    myStatsUnsub = onValue(ref(db, `users/${id}/stats`), snap => {
+      const s     = snap.val() || {};
+      const total = s.totalDots || 0;
+      myDotsEl.textContent    = String(total);
+      headerTotalEl.textContent = String(total);
+    });
+  }
+
+  function attachMyPostsListener(id) {
+    if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
+    const postsRef = query(ref(db, `userPosts/${id}`), orderByChild('timestamp'));
+    const handler  = snap => {
+      const arr = [];
+      snap.forEach(child => {
+        const v = child.val();
+        if (v && typeof v.lat === 'number' && typeof v.lng === 'number') arr.push(v);
+      });
+
+      let gc = 0, rc = 0;
+      const perOp = {};
+      arr.forEach(d => {
+        if (d.color === 'green') gc++; else rc++;
+        const opId = d.workerName || 'UNKNOWN';
+        if (!perOp[opId]) perOp[opId] = { total:0, green:0, red:0, lastActive: null, earliest:null, latest:null };
+        perOp[opId].total++;
+        if (d.color === 'green') perOp[opId].green++; else perOp[opId].red++;
+        if (!perOp[opId].lastActive || d.timestamp > perOp[opId].lastActive) perOp[opId].lastActive = d.timestamp;
+        if (!perOp[opId].earliest || d.timestamp < perOp[opId].earliest) perOp[opId].earliest = d.timestamp;
+        if (!perOp[opId].latest || d.timestamp > perOp[opId].latest) perOp[opId].latest = d.timestamp;
+      });
+      myGreenEl.textContent = String(gc);
+      myRedEl.textContent   = `/ ${rc}`;
+      renderOpsTable(perOp);
+
+      rebuildMapLayer(arr);
+      renderDaily(arr);
+
+      const todayKey  = getTodayKeyUtc();
+      const todayDots = arr.filter(d => formatDate(d.timestamp) === todayKey);
+      todayDots.sort((a,b) => a.timestamp - b.timestamp);
+
+      if (todayDots.length > 0) {
+        const firstTs = todayDots[0].timestamp;
+        sessionDots   = todayDots.length;
+        if (!sessionEnded) {
+          if (!sessionStart || firstTs < sessionStart) startSessionTimer(firstTs);
+        } else {
+          sessionTotalEl.textContent = String(sessionDots);
+          const latestDotTs = todayDots[todayDots.length - 1].timestamp;
+          if (sessionEndedAt && latestDotTs > sessionEndedAt) startSessionTimer(firstTs);
+        }
+      } else {
+        stopSessionTimer(false);
+        sessionDots = 0;
+      }
+    };
+    onValue(postsRef, handler);
+    myPostsUnsub = () => off(postsRef, 'value', handler);
+  }
+
+  const LS_KEY = 'dotPoster:userId';
+  function normalizeUserId(id) { return (id||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
+  function validateUserId(id)  { return /^[A-Z0-9]{3,10}$/.test(id); }
+
+  function showLogin() {
+    loginBackdrop.classList.add('show');
+    userIdInput.value = ''; loginError.textContent = '';
+    setPostEnabled(false);
+    if (typeof myStatsUnsub === 'function') { myStatsUnsub(); myStatsUnsub = null; }
+    if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
+    currentUserId = null;
+    currentWorkerName = null;
+    updateWorkerUi();
+    postsLayer.clearLayers();
+    myDotsEl.textContent = '0';
+    myGreenEl.textContent = '0';
+    myRedEl.textContent = '/ 0';
+    headerTotalEl.textContent = '0';
+    stopSessionTimer(false);
+    sessionDots = 0;
+    renderDaily(null);
+    renderOpsTable({});
+    opInput.disabled = false;
+    btnStartWorker.disabled = false;
+  }
+  function hideLogin() { loginBackdrop.classList.remove('show'); }
+
+  async function registerUser(id) {
+    const now = Date.now(), userRef = ref(db, `users/${id}`);
+    try {
+      const snap = await get(userRef);
+      if (snap.exists()) { await update(userRef, { lastActiveAt: now }); }
+      else {
+        await set(userRef, {
+          createdAt: now, lastActiveAt: now, ua: navigator.userAgent || '',
+          stats: { totalDots: 0, totalEarningsCents: 0 }
+        });
+      }
+    } catch(e) { console.error('Register error', e); }
+  }
+
+  function onUserReady(id) {
+    currentUserId = id;
+    localStorage.setItem(LS_KEY, id);
+    userPillText.textContent = id;
+    userPill.style.display   = 'flex';
+    attachMyStatsListener(id);
+    attachMyPostsListener(id);
+    setPostEnabled(!!currentLatLng);
+  }
+
+  const stored = normalizeUserId(localStorage.getItem(LS_KEY));
+  if (validateUserId(stored)) { registerUser(stored).then(() => onUserReady(stored)); }
+  else { showLogin(); }
+
+  userJoinBtn.addEventListener('click', async () => {
+    loginError.textContent = '';
+    const id = normalizeUserId(userIdInput.value);
+    if (!validateUserId(id)) { loginError.textContent = 'Use 3–10 letters/numbers, e.g. FF001'; return; }
+    await registerUser(id);
+    onUserReady(id);
+    hideLogin();
+    showToast(`User ${id} ready`);
+  });
+  userIdInput.addEventListener('keyup', e => { if (e.key === 'Enter') userJoinBtn.click(); });
+  changeUserBtn.addEventListener('click', showLogin);
+
+  // OP ID inline events
+  btnStartWorker.addEventListener('click', async () => {
+    if (!currentUserId) { showToast('Join with User ID first'); return; }
+    const name = normalizeWorkerName(opInput.value);
+    if (!validateWorkerName(name)) { showToast('Use OP followed by 3–10 letters/numbers (e.g. OP26311)'); return; }
+    try {
+      const now = Date.now();
+      await set(ref(db, `users/${currentUserId}/workers/${name}`), {
+        opId: name,
+        createdAt: now,
+        lastActiveAt: now
+      });
+      currentWorkerName = name;
+      updateWorkerUi();
+      setPostEnabled(!!currentLatLng);
+      opInput.value = name;
+      opInput.disabled = true;
+      btnStartWorker.disabled = true;
+      btnEndSession.style.display = 'inline-block';
+      showToast(`OP ${name} selected`);
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to save OP ID');
+    }
+  });
+
+  function ensureLocMarker(latlng) {
+    if (!currentMarker) currentMarker = L.circleMarker(latlng, locStyle).addTo(map);
+    else currentMarker.setLatLng(latlng);
+  }
+  async function goToCurrentLocation({ focus = true } = {}) {
+    if (!('geolocation' in navigator)) { showToast('Geolocation not supported'); return; }
+    return new Promise(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          currentLatLng = [pos.coords.latitude, pos.coords.longitude];
+          ensureLocMarker(currentLatLng);
+          if (focus) map.setView(currentLatLng, Math.max(map.getZoom(), 15), { animate:true });
+          setPostEnabled(true);
+          resolve(currentLatLng);
+        },
+        () => { showToast('Location permission needed'); setPostEnabled(false); resolve(null); },
+        { enableHighAccuracy:true, timeout:10000, maximumAge:10000 }
+      );
+    });
+  }
+  if ('geolocation' in navigator) {
+    navigator.geolocation.watchPosition(
+      pos => {
+        currentLatLng = [pos.coords.latitude, pos.coords.longitude];
+        ensureLocMarker(currentLatLng);
+        setPostEnabled(true);
+      },
+      () => {},
+      { enableHighAccuracy:true, maximumAge:15000, timeout:15000 }
+    );
+  }
+
+  async function postDot(color) {
+    if (!currentUserId) { showLogin(); return; }
+    if (!currentWorkerName) { showToast('Set OP ID first'); return; }
+
+    if (!currentLatLng) {
+      await goToCurrentLocation({ focus:true });
+      if (!currentLatLng) return;
+    }
+    const [lat, lng] = currentLatLng, now = Date.now();
+    const data = {
+      lat, lng, userId:currentUserId, color, timestamp:now,
+      workerName: currentWorkerName,
+      ua:navigator.userAgent||''
+    };
+    try {
+      const newRef = push(ref(db, `userPosts/${currentUserId}`));
+      const newKey = newRef.key;
+      const updates = {};
+      updates[`userPosts/${currentUserId}/${newKey}`]      = data;
+      updates[`dotColors/${currentUserId}/${newKey}`]      = { color, timestamp:now, workerName: currentWorkerName };
+      updates[`users/${currentUserId}/lastPostAt`]         = now;
+      updates[`users/${currentUserId}/workers/${currentWorkerName}/lastActiveAt`] = now;
+      await update(ref(db), updates);
+      await Promise.all([
+        runTransaction(ref(db, `users/${currentUserId}/stats/totalDots`),         v => (v||0)+1),
+        runTransaction(ref(db, `users/${currentUserId}/stats/totalEarningsCents`), v => (v||0)+10),
+        runTransaction(ref(db, `users/${currentUserId}/workers/${currentWorkerName}/totalDots`), v => (v||0)+1),
+        runTransaction(ref(db, `users/${currentUserId}/workers/${currentWorkerName}/${color === 'green' ? 'greenDots' : 'redDots'}`), v => (v||0)+1)
+      ]);
+      showToast(color === 'green' ? `✓ Right posted (OP ${currentWorkerName})` : `✗ Left posted (OP ${currentWorkerName})`);
+      if (currentMarker) {
+        const pulse = L.circle(currentMarker.getLatLng(), {
+          radius:8, color:color==='green'?'#22c55e':'#ef4444',
+          weight:1, opacity:.7, fillOpacity:0
+        });
+        pulse.addTo(map);
+        setTimeout(() => map.removeLayer(pulse), 500);
+      }
+    } catch(e) { console.error(e); showToast('Failed to post'); }
+  }
+
+  btnLocate.addEventListener('click', () => goToCurrentLocation({ focus:true }));
+  btnJa.addEventListener('click',  () => postDot('green'));
+  btnNee.addEventListener('click', () => postDot('red'));
+
+  goToCurrentLocation({ focus:false });
+  updateWorkerUi();
 </script>
 </body>
 </html>
