@@ -319,7 +319,8 @@
   L.control.zoom({ position:'topright' }).addTo(map);
 
   const polygonLayer = L.layerGroup().addTo(map);
-  const postsLayer   = L.layerGroup().addTo(map);
+  const postsLayer   = L.layerGroup().addTo(map);       // dots + lines + flags
+  const postClicksLayer = L.layerGroup().addTo(map);    // persistent orange post markers
 
   const zoneLayers = {};
 
@@ -408,7 +409,7 @@
   const locStyle   = { radius:6,   color:'#4f8cff', weight:2,   fillColor:'#4f8cff', fillOpacity:.9 };
   const greenStyle = { radius:2.5, color:'#16a34a', weight:1,   fillColor:'#22c55e', fillOpacity:.9 };
   const redStyle   = { radius:2.5, color:'#991b1b', weight:1,   fillColor:'#ef4444', fillOpacity:.9 };
-  const orangeStyle= { color:'#f97316', weight:2, fillColor:'#f97316', fillOpacity:0.6, opacity:0.9 };
+  const orangeDotStyle = { radius:5, color:'#f97316', weight:1.5, fillColor:'#f97316', fillOpacity:0.75, opacity:0.9 };
 
   function showToast(text) { toastEl.textContent = text; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),1800); }
   function setPostEnabled(on) {
@@ -503,7 +504,7 @@
       const mins=w.workMs>0?w.workMs/60000:0;
       const avg=mins>0?w.count/mins:0;
       return {name,...w,avg};
-    }).sort((a,b)=> (b.posts||0)-(a.posts||0) || b.avg-a.avg); // posts desc, then avg
+    }).sort((a,b)=> (b.posts||0)-(a.posts||0) || b.avg-a.avg);
 
     if(!rows.length){workerBody.innerHTML='<tr class="empty-row"><td colspan="7">No data yet.</td></tr>';return;}
     rows.forEach(r=>{
@@ -614,6 +615,7 @@
     workersMeta={}; workersCache=null;
     updateWorkerUi();
     postsLayer.clearLayers();
+    postClicksLayer.clearLayers();
     greenCountEl.textContent='0'; redCountEl.textContent='0';
     stopSessionTimer(false); sessionDots=0;
     renderWorkerTable();
@@ -735,14 +737,9 @@
     }catch(e){console.error(e);showToast('Failed to post');}
   }
 
-  function showPostSquare(){
+  function showPostDot(){
     if(!currentLatLng) return;
-    const [lat,lng]=currentLatLng;
-    const d=0.00015;
-    const bounds=[[lat-d,lng-d],[lat+d,lng+d]];
-    const rect=L.rectangle(bounds,orangeStyle);
-    rect.addTo(postsLayer);
-    setTimeout(()=>postsLayer.removeLayer(rect),1200);
+    L.circleMarker(currentLatLng, orangeDotStyle).addTo(postClicksLayer);
   }
 
   async function recordPostClick(){
@@ -759,7 +756,7 @@
     }catch(e){console.error(e);}
     showToast(`Post recorded for ${currentWorkerName} (P${newCount})`);
     renderWorkerTable();
-    showPostSquare();
+    showPostDot();
   }
 
   btnLocate.addEventListener('click',()=>goToCurrentLocation({focus:true}));
