@@ -45,34 +45,38 @@
     .leaflet-container{background:#0f0f12;outline:none;}
     .leaflet-control-attribution{display:none!important;}
 
-    .zone-nav{display:flex;align-items:center;gap:8px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;}
+    /* Modified zone nav to fit segment controls */
+    .zone-nav{display:flex;align-items:center;gap:6px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;overflow-x:auto;}
+    .zone-nav::-webkit-scrollbar{display:none;}
     .zone-nav-label{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;}
-    .zone-nav-input{width:60px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:13px;text-align:center;padding:0 6px;}
+    .zone-nav-input{width:48px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:13px;text-align:center;padding:0 2px;}
     .zone-nav-input:focus{outline:none;border-color:var(--accent);}
-    .btn-zone-go,.btn-locate{height:32px;padding:0 14px;border-radius:8px;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:12px;font-weight:700;transition:transform .1s ease;}
+    .btn-zone-go,.btn-locate{height:32px;padding:0 10px;border-radius:8px;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:11px;font-weight:700;transition:transform .1s ease;white-space:nowrap;}
     .btn-zone-go:active,.btn-locate:active{transform:scale(.96);}
-    .zone-hint{font-size:10px;color:var(--muted);flex:1;text-align:right;}
+    .btn-locate{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:var(--text);}
+    .divider-v{width:1px;height:20px;background:rgba(255,255,255,.1);margin:0 2px;}
 
     .poly-label{background:transparent!important;border:none!important;box-shadow:none!important;}
-    .poly-label-inner{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:rgba(239,68,68,.75);border:1px solid rgba(239,68,68,.9);font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.03em;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.5);pointer-events:none;}
+    .poly-label-inner{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:rgba(239,68,68,.85);border:1px solid rgba(239,68,68,1);font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.03em;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.5);pointer-events:none;}
 
-    /* segment labels */
     .segment-label{background:transparent!important;border:none!important;box-shadow:none!important;}
     .segment-label-inner{
       display:inline-flex;align-items:center;gap:4px;
-      padding:2px 5px;border-radius:999px;
-      font-size:7px;font-weight:800;
-      color:#f5f3ff;background:rgba(124,58,237,.8);
-      border:1px solid rgba(124,58,237,0.9);
+      padding:3px 7px; border-radius:999px;
+      font-size:8px; font-weight:800;
+      color:#000;
       font-family:Menlo,Monaco,Consolas,monospace;
-      letter-spacing:.02em;white-space:nowrap;
-      box-shadow:0 1px 6px rgba(0,0,0,.45);
-      pointer-events:none;
+      letter-spacing:.02em; white-space:nowrap;
+      box-shadow:0 2px 8px rgba(0,0,0,.6);
+      pointer-events:auto;
+      opacity: 1 !important;
     }
+    .segment-label.start .segment-label-inner { background:#facc15; border:1px solid #eab308; }
+    .segment-label.end   .segment-label-inner { background:#60a5fa; border:1px solid #3b82f6; color:#0f172a; }
 
     .segment-square {
       width: 9px; height: 9px;
-      background: #ef4444; /* default red, override inline */
+      background: #ef4444;
       border: 1.5px solid rgba(255,255,255,0.9);
       border-radius: 2px;
       box-shadow: 0 1px 4px rgba(0,0,0,.45);
@@ -176,12 +180,21 @@
   </div>
 
   <div class="zone-nav">
-    <span class="zone-nav-label">Go to Zone</span>
+    <span class="zone-nav-label">Zone</span>
     <input id="zoneInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
     <button id="btnZoneGo" class="btn-zone-go">Go</button>
+    
+    <div class="divider-v"></div>
+
+    <span class="zone-nav-label">Seg</span>
+    <input id="segInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
+    <button id="btnSegGo" class="btn-zone-go">Focus</button>
+    
+    <div class="divider-v"></div>
+
     <button id="btnLocate" class="btn-locate" title="Locate me" aria-label="Locate me">Locate</button>
-    <span class="zone-hint" id="zoneHint">enter zone number</span>
   </div>
+  <div style="font-size:10px;color:#8b8b95;text-align:right;padding:0 11px;" id="zoneHint"></div>
 
   <div class="controls">
     <button id="btnPost" class="btn-post" title="Post action">
@@ -284,9 +297,13 @@
   const btnConfirmYes   = document.getElementById('btnConfirmYes');
   const btnConfirmNo    = document.getElementById('btnConfirmNo');
   const confirmMsg      = document.getElementById('confirmMsg');
+  
   const zoneInput       = document.getElementById('zoneInput');
   const btnZoneGo       = document.getElementById('btnZoneGo');
   const zoneHint        = document.getElementById('zoneHint');
+
+  const segInput        = document.getElementById('segInput');
+  const btnSegGo        = document.getElementById('btnSegGo');
 
   const btnStartWorker  = document.getElementById('btnStartWorker');
   const workerNamePill  = document.getElementById('workerNamePill');
@@ -359,9 +376,9 @@
     return d;
   }
 
-  function makeSegmentLabel(text) {
+  function makeSegmentLabel(text, variant) {
     return L.divIcon({
-      className: 'segment-label',
+      className: `segment-label ${variant}`,
       html: `<div class="segment-label-inner">${text}</div>`,
       iconSize: [10,10],
       iconAnchor: [0, 0]
@@ -395,7 +412,7 @@
         idx++;
       });
       const total = idx - 1;
-      if (total > 0) zoneHint.textContent = `1 – ${total} available`;
+      if (total > 0) zoneHint.textContent = `Zones: 1–${total} available`;
     });
   }
 
@@ -407,21 +424,26 @@
       if (!map.hasLayer(s.endSq)) s.endSq.addTo(segmentsLayer);
       if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
       if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
-      s.poly.setStyle({ opacity: 0.9 });
+      s.poly.setStyle({ opacity: 0.9, weight: 3 });
     });
   }
 
   function isolateSegment(id) {
     isolatedSegmentId = id;
+    let found = false;
     segments.forEach(s => {
       const on = s.id === id;
       if (on) {
+        found = true;
         if (!map.hasLayer(s.poly)) s.poly.addTo(segmentsLayer);
         if (!map.hasLayer(s.startSq)) s.startSq.addTo(segmentsLayer);
         if (!map.hasLayer(s.endSq)) s.endSq.addTo(segmentsLayer);
         if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
         if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
-        s.poly.setStyle({ opacity: 1 });
+        s.poly.setStyle({ opacity: 1, weight: 5 });
+        
+        // Focus view on this segment
+        map.flyToBounds(s.poly.getBounds(), { padding: [50, 50], duration: 1.0 });
       } else {
         map.removeLayer(s.poly);
         map.removeLayer(s.startSq);
@@ -430,6 +452,7 @@
         map.removeLayer(s.endLabel);
       }
     });
+    return found;
   }
 
   // Load purple dotted segments with start/end labels & distance + colored squares
@@ -458,37 +481,47 @@
 
         const startSq = L.marker([start.lat, start.lng], {
           icon: makeSegmentSquare('#ef4444'),
-          interactive: false,
+          interactive: true,
           zIndexOffset: 60
         }).addTo(segmentsLayer);
         const endSq = L.marker([end.lat, end.lng], {
           icon: makeSegmentSquare('#22c55e'),
-          interactive: false,
+          interactive: true,
           zIndexOffset: 60
         }).addTo(segmentsLayer);
 
         const startLabel = L.marker([start.lat, start.lng], {
-          icon: makeSegmentLabel(`S#${idx} · ${km.toFixed(2)} km`),
-          interactive: false,
+          icon: makeSegmentLabel(`S#${idx} · ${km.toFixed(2)} km`, 'start'),
+          interactive: true,
           zIndexOffset: 50
         }).addTo(segmentsLayer);
 
         const endLabel = L.marker([end.lat, end.lng], {
-          icon: makeSegmentLabel(`E#${idx} · ${km.toFixed(2)} km`),
-          interactive: false,
+          icon: makeSegmentLabel(`E#${idx} · ${km.toFixed(2)} km`, 'end'),
+          interactive: true,
           zIndexOffset: 50
         }).addTo(segmentsLayer);
 
         const segObj = { id: idx, poly: polyline, startSq, endSq, startLabel, endLabel };
         segments.push(segObj);
 
-        polyline.on('click', e => {
+        const focus = () => {
           isolateSegment(idx);
-          L.DomEvent.stopPropagation(e);
-        });
+          showToast(`Focused Segment #${idx}`);
+        };
+
+        // Click handlers to focus on this segment
+        startSq.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        endSq.on('click',   e => { focus(); L.DomEvent.stopPropagation(e); });
+        startLabel.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        endLabel.on('click',   e => { focus(); L.DomEvent.stopPropagation(e); });
+        polyline.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
 
         idx++;
       });
+      if(idx > 1) {
+        zoneHint.textContent += ` | Segments: 1–${idx-1}`;
+      }
     });
   }
 
@@ -501,6 +534,7 @@
     map.flyToBounds(poly.getBounds(), { padding:[28,28], duration:0.9, maxZoom:17 });
     showToast(`Zoomed to Zone ${num}`);
   }
+
   btnZoneGo.addEventListener('click', () => {
     const n = parseInt(zoneInput.value, 10);
     if (!n || n < 1) { showToast('Enter a valid zone number'); return; }
@@ -508,8 +542,21 @@
   });
   zoneInput.addEventListener('keyup', e => { if (e.key === 'Enter') btnZoneGo.click(); });
 
-  // Clicking on map background exits isolation
-  map.on('click', () => showAllSegments());
+  // New Segment Focus Logic
+  btnSegGo.addEventListener('click', () => {
+    const n = parseInt(segInput.value, 10);
+    if (!n || n < 1) { showToast('Enter valid segment #'); return; }
+    const found = isolateSegment(n);
+    if(found) showToast(`Focused Segment #${n}`);
+    else showToast(`Segment #${n} not found`);
+  });
+  segInput.addEventListener('keyup', e => { if(e.key === 'Enter') btnSegGo.click(); });
+
+  // Clicking on map background shows all segments
+  map.on('click', () => {
+    showAllSegments();
+    // Optional: showToast('Showing all segments');
+  });
 
   let currentLatLng  = null;
   let currentMarker  = null;
