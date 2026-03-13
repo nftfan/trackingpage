@@ -45,7 +45,6 @@
     .leaflet-container{background:#0f0f12;outline:none;}
     .leaflet-control-attribution{display:none!important;}
 
-    /* Modified zone nav to fit segment controls */
     .zone-nav{display:flex;align-items:center;gap:6px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;overflow-x:auto;}
     .zone-nav::-webkit-scrollbar{display:none;}
     .zone-nav-label{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;}
@@ -258,6 +257,8 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<!-- Added Leaflet Polyline Decorator for arrows -->
+<script src="https://unpkg.com/leaflet-polyline-decorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -326,6 +327,9 @@
   const postClicksLayer= L.layerGroup().addTo(map);   // persistent orange post markers
 
   const zoneLayers = {};
+  
+  // Track current arrow decorator for focused segment
+  let currentArrowDecorator = null;
 
   function makeFlagIcon(color) {
     return L.divIcon({ className:'', html:`
@@ -418,19 +422,44 @@
 
   function showAllSegments() {
     isolatedSegmentId = null;
+    
+    // Ensure zones are visible
+    if (!map.hasLayer(polygonLayer)) {
+      map.addLayer(polygonLayer);
+    }
+    
+    // Remove arrow decorator if exists
+    if (currentArrowDecorator) {
+      map.removeLayer(currentArrowDecorator);
+      currentArrowDecorator = null;
+    }
+
     segments.forEach(s => {
       if (!map.hasLayer(s.poly)) s.poly.addTo(segmentsLayer);
       if (!map.hasLayer(s.startSq)) s.startSq.addTo(segmentsLayer);
       if (!map.hasLayer(s.endSq)) s.endSq.addTo(segmentsLayer);
       if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
       if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
-      s.poly.setStyle({ opacity: 0.9, weight: 3 });
+      // Default dotted style
+      s.poly.setStyle({ color: '#a855f7', weight: 3, dashArray: '6 6', opacity: 0.9 });
     });
   }
 
   function isolateSegment(id) {
     isolatedSegmentId = id;
     let found = false;
+    
+    // Remove zones when focusing on a segment
+    if (map.hasLayer(polygonLayer)) {
+      map.removeLayer(polygonLayer);
+    }
+
+    // Remove old arrow decorator
+    if (currentArrowDecorator) {
+      map.removeLayer(currentArrowDecorator);
+      currentArrowDecorator = null;
+    }
+
     segments.forEach(s => {
       const on = s.id === id;
       if (on) {
@@ -440,7 +469,26 @@
         if (!map.hasLayer(s.endSq)) s.endSq.addTo(segmentsLayer);
         if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
         if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
-        s.poly.setStyle({ opacity: 1, weight: 5 });
+        
+        // Focused style: Thin, solid, purple
+        s.poly.setStyle({ color: '#a855f7', weight: 2, dashArray: null, opacity: 1.0 });
+
+        // Add arrows
+        if (typeof L.polylineDecorator === 'function') {
+           currentArrowDecorator = L.polylineDecorator(s.poly, {
+            patterns: [
+              {
+                offset: '5%',
+                repeat: '70px',
+                symbol: L.Symbol.arrowHead({
+                  pixelSize: 10,
+                  polygon: false,
+                  pathOptions: { stroke: true, color: '#a855f7', weight: 2 }
+                })
+              }
+            ]
+          }).addTo(map);
+        }
         
         // Focus view on this segment
         map.flyToBounds(s.poly.getBounds(), { padding: [50, 50], duration: 1.0 });
@@ -531,6 +579,10 @@
   function goToZone(num) {
     const poly = zoneLayers[String(num)];
     if (!poly) { showToast(`Zone ${num} not found`); return; }
+    // Ensure zones are visible if we are going to a zone
+    if (!map.hasLayer(polygonLayer)) {
+      showAllSegments(); // This resets everything to default state
+    }
     map.flyToBounds(poly.getBounds(), { padding:[28,28], duration:0.9, maxZoom:17 });
     showToast(`Zoomed to Zone ${num}`);
   }
