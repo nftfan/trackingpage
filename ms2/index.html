@@ -73,6 +73,26 @@
     .segment-label.start .segment-label-inner { background:#facc15; border:1px solid #eab308; }
     .segment-label.end   .segment-label-inner { background:#60a5fa; border:1px solid #3b82f6; color:#0f172a; }
 
+    /* Distance Marker Styles */
+    .dist-marker { background:transparent!important; border:none!important; }
+    .dist-marker-inner {
+      width: 18px; height: 18px;
+      background: #7a5cff;
+      border: 2px solid #fff;
+      border-radius: 50% 50% 50% 0; /* Teardrop/Triangle shape */
+      transform: rotate(-45deg);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .dist-marker-text {
+      transform: rotate(45deg); /* Counteract rotation for text */
+      font-family: Menlo, monospace;
+      font-size: 9px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+
     .segment-square {
       width: 9px; height: 9px;
       background: #ef4444;
@@ -257,8 +277,6 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<!-- Added Leaflet Polyline Decorator for arrows -->
-<script src="https://unpkg.com/leaflet-polyline-decorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -322,14 +340,12 @@
   L.control.zoom({ position:'topright' }).addTo(map);
 
   const polygonLayer   = L.layerGroup().addTo(map);
-  const segmentsLayer  = L.layerGroup().addTo(map);   // purple dotted segments layer
-  const postsLayer     = L.layerGroup().addTo(map);   // dots + lines + flags
-  const postClicksLayer= L.layerGroup().addTo(map);   // persistent orange post markers
+  const segmentsLayer  = L.layerGroup().addTo(map);
+  const postsLayer     = L.layerGroup().addTo(map);
+  const postClicksLayer= L.layerGroup().addTo(map);
+  const distMarkersLayer= L.layerGroup().addTo(map); // For 500m markers
 
   const zoneLayers = {};
-  
-  // Track current arrow decorator for focused segment
-  let currentArrowDecorator = null;
 
   function makeFlagIcon(color) {
     return L.divIcon({ className:'', html:`
@@ -352,6 +368,16 @@
     });
   }
 
+  // Distance Marker Icon Factory
+  function makeDistMarker(kmIndex) {
+    return L.divIcon({
+      className: 'dist-marker',
+      html: `<div class="dist-marker-inner"><span class="dist-marker-text">${kmIndex}</span></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 18] // Point of the teardrop at bottom center
+    });
+  }
+
   const polyApp = firebase.initializeApp({
     apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
     authDomain: "leuvenflyers-23584.firebaseapp.com",
@@ -363,7 +389,6 @@
   }, "polygonSaver");
   const polyDb = polyApp.database();
 
-  // Distance utilities
   function haversineKm(a, b) {
     const toRad = d => d * Math.PI / 180;
     const R = 6371;
@@ -378,6 +403,22 @@
     let d = 0;
     for (let i = 1; i < coords.length; i++) d += haversineKm(coords[i-1], coords[i]);
     return d;
+  }
+
+  // Calculate interpolated point along polyline
+  function getPointAtDistance(coords, targetKm) {
+    let dist = 0;
+    for (let i = 1; i < coords.length; i++) {
+      const segDist = haversineKm(coords[i-1], coords[i]);
+      if (dist + segDist >= targetKm) {
+        const ratio = (targetKm - dist) / segDist;
+        const lat = coords[i-1].lat + (coords[i].lat - coords[i-1].lat) * ratio;
+        const lng = coords[i-1].lng + (coords[i].lng - coords[i-1].lng) * ratio;
+        return { lat, lng };
+      }
+      dist += segDist;
+    }
+    return null;
   }
 
   function makeSegmentLabel(text, variant) {
@@ -428,11 +469,8 @@
       map.addLayer(polygonLayer);
     }
     
-    // Remove arrow decorator if exists
-    if (currentArrowDecorator) {
-      map.removeLayer(currentArrowDecorator);
-      currentArrowDecorator = null;
-    }
+    // Clear distance markers
+    distMarkersLayer.clearLayers();
 
     segments.forEach(s => {
       if (!map.hasLayer(s.poly)) s.poly.addTo(segmentsLayer);
@@ -454,11 +492,8 @@
       map.removeLayer(polygonLayer);
     }
 
-    // Remove old arrow decorator
-    if (currentArrowDecorator) {
-      map.removeLayer(currentArrowDecorator);
-      currentArrowDecorator = null;
-    }
+    // Clear previous distance markers
+    distMarkersLayer.clearLayers();
 
     segments.forEach(s => {
       const on = s.id === id;
@@ -470,26 +505,30 @@
         if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
         if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
         
-        // Focused style: Thin, solid, purple
-        s.poly.setStyle({ color: '#a855f7', weight: 2, dashArray: null, opacity: 1.0 });
+        // Focused style: Solid, slightly thicker purple line
+        s.poly.setStyle({ color: '#a855f7', weight: 3, dashArray: null, opacity: 1.0 });
 
-        // Add arrows
-        if (typeof L.polylineDecorator === 'function') {
-           currentArrowDecorator = L.polylineDecorator(s.poly, {
-            patterns: [
-              {
-                offset: '5%',
-                repeat: '70px',
-                symbol: L.Symbol.arrowHead({
-                  pixelSize: 10,
-                  polygon: false,
-                  pathOptions: { stroke: true, color: '#a855f7', weight: 2 }
-                })
-              }
-            ]
-          }).addTo(map);
-        }
+        // Add 500m Markers
+        const rawCoords = s.poly.getLatLngs(); // These are LatLng objects
+        // Convert to array of {lat,lng} objects consistent with our helper
+        const coords = rawCoords.map(c => ({ lat: c.lat, lng: c.lng }));
         
+        const totalLen = pathLengthKm(coords);
+        let distStep = 0.5; // Start at 500m
+        let idxCounter = 1;
+
+        while (distStep < totalLen) {
+          const pt = getPointAtDistance(coords, distStep);
+          if (pt) {
+            L.marker([pt.lat, pt.lng], {
+              icon: makeDistMarker(idxCounter),
+              zIndexOffset: 100 // High z-index to sit on top of line
+            }).addTo(distMarkersLayer);
+            idxCounter++;
+          }
+          distStep += 0.5;
+        }
+
         // Focus view on this segment
         map.flyToBounds(s.poly.getBounds(), { padding: [50, 50], duration: 1.0 });
       } else {
@@ -503,7 +542,6 @@
     return found;
   }
 
-  // Load purple dotted segments with start/end labels & distance + colored squares
   function loadSegments() {
     segmentsLayer.clearLayers();
     segments.length = 0;
@@ -558,7 +596,6 @@
           showToast(`Focused Segment #${idx}`);
         };
 
-        // Click handlers to focus on this segment
         startSq.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
         endSq.on('click',   e => { focus(); L.DomEvent.stopPropagation(e); });
         startLabel.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
@@ -581,7 +618,7 @@
     if (!poly) { showToast(`Zone ${num} not found`); return; }
     // Ensure zones are visible if we are going to a zone
     if (!map.hasLayer(polygonLayer)) {
-      showAllSegments(); // This resets everything to default state
+      showAllSegments(); 
     }
     map.flyToBounds(poly.getBounds(), { padding:[28,28], duration:0.9, maxZoom:17 });
     showToast(`Zoomed to Zone ${num}`);
@@ -594,7 +631,6 @@
   });
   zoneInput.addEventListener('keyup', e => { if (e.key === 'Enter') btnZoneGo.click(); });
 
-  // New Segment Focus Logic
   btnSegGo.addEventListener('click', () => {
     const n = parseInt(segInput.value, 10);
     if (!n || n < 1) { showToast('Enter valid segment #'); return; }
@@ -604,10 +640,8 @@
   });
   segInput.addEventListener('keyup', e => { if(e.key === 'Enter') btnSegGo.click(); });
 
-  // Clicking on map background shows all segments
   map.on('click', () => {
     showAllSegments();
-    // Optional: showToast('Showing all segments');
   });
 
   let currentLatLng  = null;
@@ -679,7 +713,6 @@
     postsLayer.clearLayers();
     if(!dotsArray||!dotsArray.length) return;
 
-    // group dots by worker
     const byWorker = {};
     dotsArray.forEach(d=>{
       const name = d.workerName || 'Unknown';
