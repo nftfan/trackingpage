@@ -1,0 +1,1371 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dot Poster</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <style>
+    :root { --bg:#0b0b0e; --panel:#141419; --muted:#8b8b95; --text:#f2f2f7; --accent:#4f8cff; --accent-2:#7a5cff; --shadow:0 4px 16px rgba(0,0,0,.35); --radius-lg:14px; --radius-md:12px; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:7px;padding:env(safe-area-inset-top,6px) 10px env(safe-area-inset-bottom,6px);}
+    
+    /* Loading Overlay */
+    .loader-overlay {
+      position: fixed; inset: 0; background: var(--bg); z-index: 10000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;
+      transition: opacity 0.3s ease;
+    }
+    .loader-overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1);
+      border-left-color: var(--accent); border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .loader-text { font-weight: 600; color: var(--muted); font-size: 13px; letter-spacing: 0.5px; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    header{display:flex;align-items:center;gap:8px;padding:7px 11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);flex-shrink:0;}
+    .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#4f8cff,#7a5cff);border-radius:7px;flex-shrink:0;}
+    .header-title{font-size:13px;font-weight:700;flex:1;}
+    .header-counts{display:flex;gap:5px;align-items:center;}
+    .count-pill{display:flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;}
+    .count-pill.green{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:#86efac;}
+    .count-pill.red{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#fca5a5;}
+    .count-pill.blue{background:rgba(31,132,247,.15);border:1px solid rgba(31,132,247,.4);color:#93c5fd;}
+    .count-dot{width:6px;height:6px;border-radius:50%;}
+    .count-pill.green .count-dot{background:#22c55e;}
+    .count-pill.red .count-dot{background:#ef4444;}
+    .count-pill.blue .count-dot{background:#1f84f7;}
+    .user-pill{font-size:11px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px;flex-shrink:0;}
+    .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600;font-size:11px;}
+    
+    /* Earnings Bar - Grid Layout */
+    .earnings-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 8px;
+      background: linear-gradient(135deg, rgba(122, 92, 255, 0.08), rgba(79, 140, 255, 0.08));
+      border: 1px solid rgba(122, 92, 255, 0.25);
+      border-radius: var(--radius-md);
+    }
+
+    .earnings-section {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 6px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(122, 92, 255, 0.2);
+      border-radius: 8px;
+    }
+
+    .earnings-section-title {
+      font-size: 7px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: #cbd5ff;
+      letter-spacing: 0.6px;
+    }
+
+    .earn-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8px;
+    }
+
+    .earn-label {
+      color: #a0aec0;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+
+    .earn-val {
+      font-weight: 800;
+      color: #fbbf24;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 0.3px;
+    }
+
+    .earn-time {
+      font-weight: 700;
+      color: #93c5fd;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 0.2px;
+    }
+
+    .worker-count-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:rgba(248,113,113,.18);border:1px solid rgba(248,113,113,.35);border-radius:999px;color:#fecaca;font-weight:800;font-size:11px;}
+
+    .worker-start-row{display:flex;align-items:center;gap:8px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;}
+    .btn-start-worker{appearance:none;border:0;cursor:pointer;padding:7px 14px;border-radius:9px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;font-size:12px;font-weight:700;transition:transform .1s ease,filter .1s ease;}
+    .btn-start-worker:active{transform:scale(.97);filter:brightness(.95);}
+    .btn-locate-red{appearance:none;border:0;cursor:pointer;padding:7px 14px;border-radius:9px;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:12px;font-weight:700;transition:transform .1s ease;}
+    .btn-locate-red:active{transform:scale(.97);}
+
+    .worker-name-pill{display:none;align-items:center;gap:6px;font-size:11px;color:#bfdbfe;background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.35);padding:4px 8px;border-radius:999px;}
+
+    .session-strip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;}
+    .session-timer{font-family:Menlo,Monaco,Consolas,monospace;font-size:15px;font-weight:700;color:#e5e7ff;letter-spacing:.5px;}
+    .session-timer.inactive{color:var(--muted);}
+    .session-meta{font-size:10px;color:var(--muted);display:flex;gap:10px;}
+    .session-meta span{display:flex;flex-direction:column;align-items:flex-end;gap:1px;}
+    .session-meta b{font-size:12px;font-weight:700;color:#e5e7ff;}
+    
+    .map-card{border-radius:var(--radius-lg);overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#0f0f12;box-shadow:var(--shadow);flex-shrink:0;}
+    #map{height:190px;width:100%;}
+    .leaflet-container{background:#0f0f12;outline:none;}
+    .leaflet-control-attribution{display:none!important;}
+
+    .zone-nav{display:flex;align-items:center;gap:6px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;overflow-x:auto;}
+    .zone-nav::-webkit-scrollbar{display:none;}
+    .zone-nav-label{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;}
+    .zone-nav-input{width:48px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:13px;text-align:center;padding:0 2px;}
+    .zone-nav-input:focus{outline:none;border-color:var(--accent);}
+    .btn-zone-go{height:32px;padding:0 10px;border-radius:8px;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:11px;font-weight:700;transition:transform .1s ease;white-space:nowrap;}
+    .btn-zone-go:active{transform:scale(.96);}
+    .divider-v{width:1px;height:20px;background:rgba(255,255,255,.1);margin:0 2px;}
+
+    .poly-label{background:transparent!important;border:none!important;box-shadow:none!important;}
+    .poly-label-inner{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:rgba(239,68,68,.85);border:1px solid rgba(239,68,68,1);font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.03em;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.5);pointer-events:none;}
+
+    .segment-label{background:transparent!important;border:none!important;box-shadow:none!important;}
+    .segment-label-inner{display:inline-flex;align-items:center;gap:4px;padding:3px 7px; border-radius:999px;font-size:8px; font-weight:800;color:#000;font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.02em; white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.6);pointer-events:auto;opacity: 1 !important;}
+    .segment-label.start .segment-label-inner { background:#facc15; border:1px solid #eab308; }
+    .segment-label.end   .segment-label-inner { background:#60a5fa; border:1px solid #3b82f6; color:#0f172a; }
+
+    .dist-marker { background:transparent!important; border:none!important; }
+    .dist-marker-inner {width: 18px; height: 18px;background: #7a5cff;border: 2px solid #fff;border-radius: 50% 50% 50% 0;transform: rotate(-45deg);box-shadow: 0 2px 6px rgba(0,0,0,0.5);display: flex; align-items: center; justify-content: center;}
+    .dist-marker-text {transform: rotate(45deg);font-family: Menlo, monospace;font-size: 9px;font-weight: 800;color: #fff;line-height: 1;}
+    .segment-square {width: 9px; height: 9px;background: #ef4444;border: 1.5px solid rgba(255,255,255,0.9);border-radius: 2px;box-shadow: 0 1px 4px rgba(0,0,0,.45);}
+
+    .flag-marker{width:22px;height:34px;position:relative;pointer-events:none;}
+    .flag-pole{position:absolute;left:3px;top:0;bottom:0;width:2px;background:rgba(255,255,255,.85);border-radius:1px;}
+    .flag-cloth{position:absolute;left:5px;top:2px;width:14px;height:10px;border-radius:2px;box-shadow:0 1px 4px rgba(0,0,0,.5);}
+    .flag-cloth.red{background:#ef4444;}
+    .flag-cloth.green{background:#22c55e;}
+    .flag-cloth.blue{background:#1f84f7;}
+    .flag-dot{position:absolute;left:-1px;bottom:0;width:6px;height:6px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);}
+    .flag-dot.red{background:#ef4444;}
+    .flag-dot.green{background:#22c55e;}
+    .flag-dot.blue{background:#1f84f7;}
+
+    /* Current Location Pin */
+    .pin-marker {width: 24px; height: 32px; position: relative; display: flex; justify-content: center;}
+    .pin-head {width: 24px; height: 24px; background: #a855f7; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.4);}
+    .pin-shadow {position: absolute; bottom: -2px; width: 10px; height: 4px; background: rgba(0,0,0,0.4); border-radius: 50%; filter: blur(1px);}
+    .pin-dot {position: absolute; top: 8px; width: 8px; height: 8px; background: #fff; border-radius: 50%;}
+
+    .flag-name-label{background:transparent!important;border:none!important;box-shadow:none!important;}
+    .flag-name-label .inner{font-size:8px;font-weight:700;color:#dbeafe;background:rgba(15,23,42,.7);border:1px solid rgba(148,163,184,.35);border-radius:999px;padding:1px 4px;white-space:nowrap;letter-spacing:.02em;}
+
+    .controls{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;flex-shrink:0;}
+    .btn-ja,.btn-nee,.btn-post,.btn-bonus{appearance:none;border:0;cursor:pointer;border-radius:11px;height:46px;color:white;font-weight:700;font-size:13px;letter-spacing:.3px;transition:transform .1s ease,filter .1s ease,box-shadow .1s ease;}
+    .btn-ja:active,.btn-nee:active,.btn-post:active,.btn-bonus:active{transform:translateY(1px);filter:brightness(.92);}
+    .btn-ja[disabled],.btn-nee[disabled],.btn-post[disabled],.btn-bonus[disabled]{opacity:.5;cursor:not-allowed;}
+    
+    .btn-ja{background:linear-gradient(135deg,#16a34a,#22c55e);box-shadow:0 5px 14px rgba(34,197,94,.3);}
+    .btn-nee{background:linear-gradient(135deg,#dc2626,#ef4444);box-shadow:0 5px 14px rgba(239,68,68,.3);}
+    .btn-bonus{background:linear-gradient(135deg,#1f84f7,#3b82f6);box-shadow:0 5px 14px rgba(59,130,246,.3);}
+    
+    .btn-post{background:linear-gradient(135deg,#fb923c,#f97316);box-shadow:0 5px 14px rgba(249,115,22,.35);position:relative;}
+    .btn-post::after{content:"";position:absolute;inset:-2px;border-radius:12px;border:2px solid rgba(249,115,22,.5);animation:pulse 1.4s ease-in-out infinite;pointer-events:none;}
+    @keyframes pulse{0%{opacity:.9;transform:scale(1);}50%{opacity:.25;transform:scale(1.05);}100%{opacity:.9;transform:scale(1);}}
+
+    /* Stats Section */
+    .stats-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 8px;
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.06), rgba(79, 140, 255, 0.06));
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      border-radius: var(--radius-md);
+      flex-shrink: 0;
+    }
+
+    .stat-box {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      border-radius: 8px;
+    }
+
+    .stat-title {
+      font-size: 7px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #cbd5ff;
+      letter-spacing: 0.4px;
+    }
+
+    .stat-value {
+      font-weight: 800;
+      color: #86efac;
+      font-family: 'Courier New', monospace;
+      font-size: 9px;
+      letter-spacing: 0.3px;
+    }
+
+    .stat-value.danger {
+      color: #fca5a5;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 3px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e, #fbbf24);
+      transition: width 0.3s ease;
+      border-radius: 3px;
+    }
+
+    .budget-box {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .budget-item {
+      padding: 5px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(122, 92, 255, 0.2);
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .budget-label {
+      font-size: 7px;
+      font-weight: 700;
+      color: #a0aec0;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .budget-val {
+      font-size: 9px;
+      font-weight: 800;
+      color: #fbbf24;
+      font-family: 'Courier New', monospace;
+      margin-top: 2px;
+    }
+
+    .budget-val.earned {
+      color: #86efac;
+    }
+
+    .budget-val.remaining {
+      color: #60a5fa;
+    }
+
+    .table-card{flex:1;background:rgba(255,255,255,.03);border-radius:var(--radius-md);border:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;min-height:0;}
+    .table-card-header{padding:10px 10px 6px;font-size:12px;font-weight:700;color:#e5e7ff;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;}
+    .table-scroll{overflow:auto;flex:1;}
+    .data-table{width:100%;border-collapse:collapse;font-size:7px;color:#d5d7ff;}
+    .data-table thead{position:sticky;top:0;z-index:1;background:linear-gradient(90deg,rgba(79,140,255,.16),rgba(122,92,255,.18));}
+    .data-table th,.data-table td{padding:4px 5px;text-align:left;white-space:nowrap; font-weight: 400;}
+    .data-table th{font-weight:700;font-size:8px;text-transform:uppercase;letter-spacing:.4px;color:#f3f4ff;border-bottom:1px solid rgba(255,255,255,.1);}
+    .data-table tbody tr:nth-child(even){background:rgba(255,255,255,.025);}
+    .data-table tbody tr:hover{background:rgba(79,140,255,.15);}
+    .col-work{color:#fde68a;}
+    .col-avg{color:#a5f3fc;}
+    .col-green{color:#86efac;}
+    .col-red{color:#fca5a5;}
+    .col-blue{color:#93c5fd;}
+    .empty-row td{color:var(--muted);text-align:center;padding:10px;font-size:9px;}
+
+    .toast{position:fixed;z-index:9999;left:50%;bottom:22px;transform:translateX(-50%);background:#1a1a22;border:1px solid rgba(255,255,255,.1);padding:8px 15px;border-radius:10px;color:var(--text);box-shadow:var(--shadow);font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+    .modal-backdrop,.worker-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9998;}
+    .modal-backdrop.show,.worker-backdrop.show{display:flex;}
+    .modal,.worker-modal{width:min(90vw,380px);background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:var(--shadow);padding:20px;}
+
+    .input-row{display:flex;gap:8px;}
+    .input{flex:1;height:44px;border-radius:10px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-weight:700;letter-spacing:.4px;font-size:14px;}
+    .btn-modal{height:44px;border-radius:10px;border:0;cursor:pointer;padding:0 16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));}
+    .error{color:#ff8a8a;font-size:11px;min-height:14px;padding-top:5px;}
+  </style>
+</head>
+<body>
+
+<div id="loaderOverlay" class="loader-overlay">
+  <div class="spinner"></div>
+  <div class="loader-text">Loading data...</div>
+</div>
+
+<div class="app">
+
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="white" stroke-opacity=".9" stroke-width="1.6"/>
+        <circle cx="12" cy="12" r="3.2" fill="white"/>
+      </svg>
+    </div>
+    <div class="header-title">Dot Poster</div>
+    <div class="header-counts">
+      <div class="count-pill green"><div class="count-dot"></div><span id="greenCount">0</span></div>
+      <div class="count-pill red"><div class="count-dot"></div><span id="redCount">0</span></div>
+      <div class="count-pill blue"><div class="count-dot"></div><span id="blueCount">0</span></div>
+    </div>
+    <div id="userPill" class="user-pill">
+      <span id="userPillText"></span>
+      <button id="changeUserBtn">Change</button>
+    </div>
+  </header>
+
+  <!-- Earnings Bar with Grand Totals -->
+  <div class="earnings-bar" id="earningsBar">
+    <div class="earnings-section">
+      <div class="earnings-section-title">📅 Today</div>
+      <div class="earn-row">
+        <span class="earn-label">Earned</span>
+        <span class="earn-val" id="earnTodayAmount">€0.00</span>
+      </div>
+      <div class="earn-row">
+        <span class="earn-label">Time</span>
+        <span class="earn-time" id="earnTodayTime">0h 00m</span>
+      </div>
+    </div>
+    <div class="earnings-section">
+      <div class="earnings-section-title">🏆 Grand Total</div>
+      <div class="earn-row">
+        <span class="earn-label">Earned</span>
+        <span class="earn-val" id="earnGrandAmount">€0.00</span>
+      </div>
+      <div class="earn-row">
+        <span class="earn-label">Time</span>
+        <span class="earn-time" id="earnGrandTime">0h 00m</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Worker Start Section -->
+  <div class="worker-start-row">
+    <button id="btnStartWorker" class="btn-start-worker">Start</button>
+    <button id="btnLocate" class="btn-locate-red" title="Locate me" aria-label="Locate me">Locate</button>
+    
+    <div id="workerNamePill" class="worker-name-pill">
+      Worker: <b id="workerNameText"></b>
+      <span class="worker-count-chip">Post <span id="workerPostCount">0</span></span>
+    </div>
+  </div>
+
+  <div class="session-strip">
+    <div id="sessionTimer" class="session-timer inactive">00:00:00</div>
+    <div class="session-meta">
+      <span><b id="sessionAvg">0.00</b>avg/min</span>
+      <span><b id="sessionTotal">0</b>today</span>
+    </div>
+  </div>
+
+  <div class="map-card">
+    <div id="map" role="application" aria-label="Map showing posted dots"></div>
+  </div>
+
+  <div class="zone-nav">
+    <span class="zone-nav-label">Zone</span>
+    <input id="zoneInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
+    <button id="btnZoneGo" class="btn-zone-go">Go</button>
+    
+    <div class="divider-v"></div>
+
+    <span class="zone-nav-label">Seg</span>
+    <input id="segInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
+    <button id="btnSegGo" class="btn-zone-go">Focus</button>
+  </div>
+  <div style="font-size:10px;color:#8b8b95;text-align:right;padding:0 11px;" id="zoneHint"></div>
+
+  <div class="controls">
+    <button id="btnPost" class="btn-post" title="Post action">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button id="btnJa"  class="btn-ja"  disabled>Right</button>
+    <button id="btnNee" class="btn-nee" disabled>Left</button>
+    <button id="btnBonus" class="btn-bonus" disabled>Bonus</button>
+  </div>
+
+  <!-- Stats Section -->
+  <div class="stats-section">
+    <div class="stat-box">
+      <div class="stat-title">📊 Total Posted</div>
+      <div class="stat-value" id="statTotalDots">0</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+      </div>
+      <div style="font-size:6px;color:#a0aec0;margin-top:1px;">Target: 15,000</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-title">📍 Remaining</div>
+      <div class="stat-value" id="statRemainingDots">15,000</div>
+      <div style="font-size:6px;color:#a0aec0;margin-top:1px;">to 15K</div>
+    </div>
+    <div class="budget-box">
+      <div class="budget-item">
+        <div class="budget-label">Total Budget</div>
+        <div class="budget-val">€500.00</div>
+      </div>
+      <div class="budget-item">
+        <div class="budget-label">Earned</div>
+        <div class="budget-val earned" id="budgetEarned">€0.00</div>
+      </div>
+      <div class="budget-item">
+        <div class="budget-label">Remaining</div>
+        <div class="budget-val remaining" id="budgetRemaining">€500.00</div>
+      </div>
+      <div class="budget-item">
+        <div class="budget-label">Progress</div>
+        <div class="budget-val" id="budgetPercent">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-card" id="teamCard">
+    <div class="table-card-header" id="tableHeader">All Workers — sorted by posts</div>
+    <div class="table-scroll">
+      <table class="data-table" id="workerTable">
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Dots</th>
+            <th class="col-avg">Avg/min</th>
+            <th>✓</th>
+            <th>✗</th>
+            <th>★</th>
+            <th>Posts</th>
+            <th class="col-work">Work Time</th>
+          </tr>
+        </thead>
+        <tbody id="workerBody"><tr class="empty-row"><td colspan="8">No data yet.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<div id="loginBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
+  <div class="modal">
+    <h2>Enter User ID</h2>
+    <p>3–10 letters/numbers, e.g. FF001. Registers instantly.</p>
+    <div class="input-row">
+      <input id="userIdInput" class="input" type="text" placeholder="e.g. FF993" autocomplete="off" autocapitalize="characters" maxlength="12" inputmode="text">
+      <button id="userJoinBtn" class="btn-modal">Join</button>
+    </div>
+    <div id="loginError" class="error"></div>
+  </div>
+</div>
+
+<div id="workerBackdrop" class="worker-backdrop" aria-modal="true" role="dialog">
+  <div class="worker-modal">
+    <h2>Start Worker</h2>
+    <p>Enter first name. And job number i.e one, two, ... example: Tomone, Tomtwo.</p>
+    <div class="input-row">
+      <input id="workerNameInput" class="input" type="text" placeholder="e.g. Tom" maxlength="24" autocomplete="off">
+      <button id="workerSaveBtn" class="btn-modal">Save</button>
+    </div>
+    <div id="workerError" class="error"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, push, query, orderByChild, onValue, set, update, get, runTransaction, off } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+    messagingSenderId: "205455490321",
+    appId: "1:205455490321:web:9919f5dde059316c9320b0"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  // DOM Elements
+  const loaderOverlay   = document.getElementById('loaderOverlay');
+  const btnLocate       = document.getElementById('btnLocate');
+  const btnJa           = document.getElementById('btnJa');
+  const btnNee          = document.getElementById('btnNee');
+  const btnBonus        = document.getElementById('btnBonus');
+  const btnPost         = document.getElementById('btnPost');
+  const greenCountEl    = document.getElementById('greenCount');
+  const redCountEl      = document.getElementById('redCount');
+  const blueCountEl     = document.getElementById('blueCount');
+  const toastEl         = document.getElementById('toast');
+  const loginBackdrop   = document.getElementById('loginBackdrop');
+  const userIdInput     = document.getElementById('userIdInput');
+  const userJoinBtn     = document.getElementById('userJoinBtn');
+  const loginError      = document.getElementById('loginError');
+  const userPill        = document.getElementById('userPill');
+  const userPillText    = document.getElementById('userPillText');
+  const changeUserBtn   = document.getElementById('changeUserBtn');
+  const sessionTimerEl  = document.getElementById('sessionTimer');
+  const sessionAvgEl    = document.getElementById('sessionAvg');
+  const sessionTotalEl  = document.getElementById('sessionTotal');
+
+  // Earnings elements
+  const earnTodayAmountEl = document.getElementById('earnTodayAmount');
+  const earnTodayTimeEl = document.getElementById('earnTodayTime');
+  const earnGrandAmountEl = document.getElementById('earnGrandAmount');
+  const earnGrandTimeEl = document.getElementById('earnGrandTime');
+
+  // Stats elements
+  const statTotalDotsEl = document.getElementById('statTotalDots');
+  const statRemainingDotsEl = document.getElementById('statRemainingDots');
+  const progressFillEl = document.getElementById('progressFill');
+  const budgetEarnedEl = document.getElementById('budgetEarned');
+  const budgetRemainingEl = document.getElementById('budgetRemaining');
+  const budgetPercentEl = document.getElementById('budgetPercent');
+
+  const zoneInput       = document.getElementById('zoneInput');
+  const btnZoneGo       = document.getElementById('btnZoneGo');
+  const zoneHint        = document.getElementById('zoneHint');
+
+  const segInput        = document.getElementById('segInput');
+  const btnSegGo        = document.getElementById('btnSegGo');
+
+  const btnStartWorker  = document.getElementById('btnStartWorker');
+  const workerNamePill  = document.getElementById('workerNamePill');
+  const workerNameText  = document.getElementById('workerNameText');
+  const workerBackdrop  = document.getElementById('workerBackdrop');
+  const workerNameInput = document.getElementById('workerNameInput');
+  const workerSaveBtn   = document.getElementById('workerSaveBtn');
+  const workerError     = document.getElementById('workerError');
+  const workerPostCountEl = document.getElementById('workerPostCount');
+
+  const workerBody = document.getElementById('workerBody');
+
+  // Map Setup
+  const map = L.map('map', { zoomControl:false, attributionControl:false, tap:true }).setView([20,0],2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+  L.control.zoom({ position:'topright' }).addTo(map);
+
+  const polygonLayer   = L.layerGroup().addTo(map);
+  const segmentsLayer  = L.layerGroup().addTo(map);
+  const postsLayer     = L.layerGroup().addTo(map);
+  const postClicksLayer= L.layerGroup().addTo(map);
+  const distMarkersLayer= L.layerGroup().addTo(map);
+
+  const zoneLayers = {};
+
+  const TOTAL_BUDGET = 500;
+  const TARGET_DOTS = 15000;
+  const EARNING_PER_DOT = 0.036;
+
+  function hideLoader() {
+    loaderOverlay.classList.add('hidden');
+  }
+
+  function makeFlagIcon(color) {
+    return L.divIcon({ className:'', html:`
+      <div class="flag-marker">
+        <div class="flag-pole"></div>
+        <div class="flag-cloth ${color}"></div>
+        <div class="flag-dot ${color}"></div>
+      </div>`, iconSize:[22,34], iconAnchor:[3,34] });
+  }
+  const redFlagIcon   = makeFlagIcon('red');
+  const greenFlagIcon = makeFlagIcon('green');
+  const blueFlagIcon  = makeFlagIcon('blue');
+
+  function makePurplePinIcon() {
+    return L.divIcon({
+      className: '',
+      html: `
+        <div class="pin-marker">
+          <div class="pin-head">
+            <div class="pin-dot"></div>
+          </div>
+          <div class="pin-shadow"></div>
+        </div>
+      `,
+      iconSize: [24, 32],
+      iconAnchor: [12, 32]
+    });
+  }
+
+  function makeTinyNameLabel(name, postCount) {
+    const suffix = typeof postCount === 'number' ? ` · P${postCount}` : '';
+    return L.divIcon({
+      className: 'flag-name-label',
+      html: `<div class="inner">${(name || 'Unknown')}${suffix}</div>`,
+      iconSize: [40, 12],
+      iconAnchor: [5, 12]
+    });
+  }
+
+  function makeDistMarker(kmIndex) {
+    return L.divIcon({
+      className: 'dist-marker',
+      html: `<div class="dist-marker-inner"><span class="dist-marker-text">${kmIndex}</span></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 18]
+    });
+  }
+
+  const polyApp = firebase.initializeApp({
+    apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+    authDomain: "leuvenflyers-23584.firebaseapp.com",
+    databaseURL: "https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+    projectId: "leuvenflyers-23584",
+    storageBucket: "leuvenflyers-23584.firebasestorage.app",
+    messagingSenderId: "1077790950414",
+    appId: "1:1077790950414:web:036fafe06df86f41ed285f"
+  }, "polygonSaver");
+  const polyDb = polyApp.database();
+
+  function haversineKm(a, b) {
+    const toRad = d => d * Math.PI / 180;
+    const R = 6371;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function pathLengthKm(coords) {
+    let d = 0;
+    for (let i = 1; i < coords.length; i++) d += haversineKm(coords[i-1], coords[i]);
+    return d;
+  }
+  function getPointAtDistance(coords, targetKm) {
+    let dist = 0;
+    for (let i = 1; i < coords.length; i++) {
+      const segDist = haversineKm(coords[i-1], coords[i]);
+      if (dist + segDist >= targetKm) {
+        const ratio = (targetKm - dist) / segDist;
+        const lat = coords[i-1].lat + (coords[i].lat - coords[i-1].lat) * ratio;
+        const lng = coords[i-1].lng + (coords[i].lng - coords[i-1].lng) * ratio;
+        return { lat, lng };
+      }
+      dist += segDist;
+    }
+    return null;
+  }
+
+  function makeSegmentLabel(text, variant) {
+    return L.divIcon({
+      className: `segment-label ${variant}`,
+      html: `<div class="segment-label-inner">${text}</div>`,
+      iconSize: [10,10],
+      iconAnchor: [0, 0]
+    });
+  }
+  function makeSegmentSquare(color) {
+    return L.divIcon({
+      className: '',
+      html: `<div class="segment-square" style="background:${color};"></div>`,
+      iconSize: [9,9],
+      iconAnchor: [4.5,4.5]
+    });
+  }
+
+  const segments = [];
+  let isolatedSegmentId = null;
+
+  function loadAndDrawPolygons() {
+    polygonLayer.clearLayers();
+    Object.keys(zoneLayers).forEach(k => delete zoneLayers[k]);
+    polyDb.ref('polygons').once('value', snapshot => {
+      let idx = 1;
+      snapshot.forEach(child => {
+        const raw = child.val();
+        const coordsArr = Object.keys(raw).filter(k => !isNaN(Number(k))).sort((a,b)=>Number(a)-Number(b)).map(k => [raw[k].lat, raw[k].lng]);
+        if (coordsArr.length < 3) return;
+        const poly = L.polygon(coordsArr, { color:'#ef4444', weight:1.2, opacity:0.85, fillColor:'#ef4444', fillOpacity:0.06, interactive:false }).addTo(polygonLayer);
+        zoneLayers[String(idx)] = poly;
+        const center = poly.getBounds().getCenter();
+        L.marker(center, { icon: L.divIcon({ className:'poly-label', html:`<div class="poly-label-inner">Z${idx}</div>`, iconAnchor:[16,8] }), interactive:false }).addTo(polygonLayer);
+        idx++;
+      });
+      const total = idx - 1;
+      if (total > 0) zoneHint.textContent = `Zones: 1–${total} available`;
+    });
+  }
+
+  function showAllSegments() {
+    isolatedSegmentId = null;
+    if (!map.hasLayer(polygonLayer)) { map.addLayer(polygonLayer); }
+    distMarkersLayer.clearLayers();
+
+    segments.forEach(s => {
+      if (!map.hasLayer(s.poly)) s.poly.addTo(segmentsLayer);
+      if (!map.hasLayer(s.startSq)) s.startSq.addTo(segmentsLayer);
+      if (!map.hasLayer(s.endSq)) s.endSq.addTo(segmentsLayer);
+      if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
+      if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
+      s.poly.setStyle({ color: '#a855f7', weight: 3, dashArray: '6 6', opacity: 0.9 });
+    });
+  }
+
+  function isolateSegment(id) {
+    isolatedSegmentId = id;
+    let found = false;
+    if (map.hasLayer(polygonLayer)) { map.removeLayer(polygonLayer); }
+    distMarkersLayer.clearLayers();
+
+    segments.forEach(s => {
+      const on = s.id === id;
+      if (on) {
+        found = true;
+        if (!map.hasLayer(s.poly)) s.poly.addTo(segmentsLayer);
+        if (!map.hasLayer(s.startSq)) s.startSq.addTo(segmentsLayer);
+        if (!map.hasLayer(s.endSq)) s.endSq.addTo(segmentsLayer);
+        if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
+        if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
+        s.poly.setStyle({ color: '#a855f7', weight: 3, dashArray: null, opacity: 1.0 });
+
+        const rawCoords = s.poly.getLatLngs();
+        const coords = rawCoords.map(c => ({ lat: c.lat, lng: c.lng }));
+        const totalLen = pathLengthKm(coords);
+        let distStep = 0.5; 
+        let idxCounter = 1;
+
+        while (distStep < totalLen) {
+          const pt = getPointAtDistance(coords, distStep);
+          if (pt) {
+            L.marker([pt.lat, pt.lng], { icon: makeDistMarker(idxCounter), zIndexOffset: 100 }).addTo(distMarkersLayer);
+            idxCounter++;
+          }
+          distStep += 0.5;
+        }
+        map.flyToBounds(s.poly.getBounds(), { padding: [50, 50], duration: 1.0 });
+      } else {
+        map.removeLayer(s.poly);
+        map.removeLayer(s.startSq);
+        map.removeLayer(s.endSq);
+        map.removeLayer(s.startLabel);
+        map.removeLayer(s.endLabel);
+      }
+    });
+    return found;
+  }
+
+  function loadSegments() {
+    segmentsLayer.clearLayers();
+    segments.length = 0;
+    isolatedSegmentId = null;
+
+    const styleBase = { color: '#a855f7', weight: 3, dashArray: '6 6', opacity: 0.9 };
+
+    polyDb.ref('segments').once('value', snapshot => {
+      let idx = 1;
+      snapshot.forEach(child => {
+        const raw = child.val();
+        const coords = Object.keys(raw)
+          .filter(k => !isNaN(Number(k)))
+          .sort((a,b)=>Number(a)-Number(b))
+          .map(k => ({ lat: raw[k].lat, lng: raw[k].lng }));
+        if (coords.length < 2) return;
+
+        const km = pathLengthKm(coords);
+        const polyline = L.polyline(coords, styleBase).addTo(segmentsLayer);
+
+        const start = coords[0];
+        const end   = coords[coords.length - 1];
+
+        const startSq = L.marker([start.lat, start.lng], { icon: makeSegmentSquare('#ef4444'), interactive: true, zIndexOffset: 60 }).addTo(segmentsLayer);
+        const endSq = L.marker([end.lat, end.lng], { icon: makeSegmentSquare('#22c55e'), interactive: true, zIndexOffset: 60 }).addTo(segmentsLayer);
+        const startLabel = L.marker([start.lat, start.lng], { icon: makeSegmentLabel(`S#${idx} · ${km.toFixed(2)} km`, 'start'), interactive: true, zIndexOffset: 50 }).addTo(segmentsLayer);
+        const endLabel = L.marker([end.lat, end.lng], { icon: makeSegmentLabel(`E#${idx} · ${km.toFixed(2)} km`, 'end'), interactive: true, zIndexOffset: 50 }).addTo(segmentsLayer);
+
+        const segObj = { id: idx, poly: polyline, startSq, endSq, startLabel, endLabel };
+        segments.push(segObj);
+
+        const focus = () => { isolateSegment(idx); showToast(`Focused Segment #${idx}`); };
+
+        startSq.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        endSq.on('click',   e => { focus(); L.DomEvent.stopPropagation(e); });
+        startLabel.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        endLabel.on('click',   e => { focus(); L.DomEvent.stopPropagation(e); });
+        polyline.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+
+        idx++;
+      });
+      if(idx > 1) { zoneHint.textContent += ` | Segments: 1–${idx-1}`; }
+    });
+  }
+
+  loadAndDrawPolygons();
+  loadSegments();
+
+  function goToZone(num) {
+    const poly = zoneLayers[String(num)];
+    if (!poly) { showToast(`Zone ${num} not found`); return; }
+    if (!map.hasLayer(polygonLayer)) { showAllSegments(); }
+    map.flyToBounds(poly.getBounds(), { padding:[28,28], duration:0.9, maxZoom:17 });
+    showToast(`Zoomed to Zone ${num}`);
+  }
+
+  btnZoneGo.addEventListener('click', () => {
+    const n = parseInt(zoneInput.value, 10);
+    if (!n || n < 1) { showToast('Enter a valid zone number'); return; }
+    goToZone(n);
+  });
+  zoneInput.addEventListener('keyup', e => { if (e.key === 'Enter') btnZoneGo.click(); });
+
+  btnSegGo.addEventListener('click', () => {
+    const n = parseInt(segInput.value, 10);
+    if (!n || n < 1) { showToast('Enter valid segment #'); return; }
+    const found = isolateSegment(n);
+    if(found) showToast(`Focused Segment #${n}`);
+    else showToast(`Segment #${n} not found`);
+  });
+  segInput.addEventListener('keyup', e => { if(e.key === 'Enter') btnSegGo.click(); });
+
+  map.on('click', () => { showAllSegments(); });
+
+  let currentLatLng  = null;
+  let currentMarker  = null;
+  let currentUserId  = null;
+  let myStatsUnsub   = null;
+  let myPostsUnsub   = null;
+  let workersUnsub   = null;
+
+  let currentWorkerName = null;
+  let currentWorkerPostClicks = 0;
+
+  // Colors
+  const greenStyle = { radius:2.5, color:'#16a34a', weight:1,   fillColor:'#22c55e', fillOpacity:.9 };
+  const redStyle   = { radius:2.5, color:'#991b1b', weight:1,   fillColor:'#ef4444', fillOpacity:.9 };
+  const blueStyle  = { radius:2.5, color:'#1e40af', weight:1,   fillColor:'#1f84f7', fillOpacity:.9 };
+  const orangeDotStyle = { radius:5, color:'#f97316', weight:1.5, fillColor:'#f97316', fillOpacity:0.75, opacity:0.9 };
+
+  function showToast(text) { toastEl.textContent = text; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),1800); }
+  function setPostEnabled(on) {
+    const ok = on && !!currentUserId && !!currentWorkerName;
+    btnJa.disabled = btnNee.disabled = btnBonus.disabled = btnPost.disabled = !ok;
+  }
+  function formatDate(ts){const d=new Date(ts);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;}
+  function formatWorkDuration(ms){if(!ms||ms<=0)return'0h 00m';const m=Math.floor(ms/60000);return`${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;}
+  function formatLocalTime(ts){const d=new Date(ts);return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+  function formatHMS(ms){if(ms<0)ms=0;const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;}
+
+  function normalizeWorkerName(v){return(v||'').trim().replace(/\s+/g,' ');}
+  function validateWorkerName(v){return /^[A-Za-z]{2,20}$/.test(v);}
+
+  // Get first 4 letters of worker name
+  function getWorkerPrefix(name) {
+    return (name || '').substring(0, 4).toLowerCase();
+  }
+
+  let workersMeta = {};
+  let allPostsCache = [];
+
+  function getPostCountForName(name){const key=(name||'').toLowerCase();return workersMeta[key]?.postClicks || 0;}
+
+  function updateWorkerUi(){
+    currentWorkerPostClicks = getPostCountForName(currentWorkerName);
+    workerPostCountEl.textContent = currentWorkerPostClicks;
+    if(currentWorkerName){workerNameText.textContent=currentWorkerName;workerNamePill.style.display='inline-flex';}
+    else {workerNameText.textContent='';workerNamePill.style.display='none';}
+  }
+
+  function openWorkerModal(){workerError.textContent='';workerNameInput.value=currentWorkerName||'';workerBackdrop.classList.add('show');setTimeout(()=>workerNameInput.focus(),50);}
+  function closeWorkerModal(){workerBackdrop.classList.remove('show');}
+  
+  async function saveWorkerName(name){
+    if(!currentUserId)return;
+    const now=Date.now();const safe=name.toLowerCase().replace(/[^a-z0-9]/g,'');
+    await set(ref(db,`users/${currentUserId}/workers/${safe}`),{firstName:name,createdAt:now,lastActiveAt:now,postClicks:workersMeta[safe]?.postClicks||0});
+  }
+
+  function rebuildMapLayer(dotsArray){
+    postsLayer.clearLayers();
+    if(!dotsArray||!dotsArray.length) return;
+
+    const byWorker = {};
+    dotsArray.forEach(d=>{
+      const name = d.workerName || 'Unknown';
+      if(!byWorker[name]) byWorker[name]=[];
+      byWorker[name].push(d);
+    });
+
+    Object.keys(byWorker).forEach(name=>{
+      const arr = byWorker[name].sort((a,b)=>a.timestamp-b.timestamp);
+      const latlngs = arr.map(d=>[d.lat,d.lng]);
+
+      if(latlngs.length>1){
+        L.polyline(latlngs,{color:'#4f8cff',weight:1.5,opacity:0.7,dashArray:'4,7'}).addTo(postsLayer);
+      }
+
+      arr.forEach(d=>{
+        let style = redStyle;
+        let typeLabel = '✗ Left';
+        if (d.color === 'green') { style = greenStyle; typeLabel = '✓ Right'; }
+        else if (d.color === 'blue') { style = blueStyle; typeLabel = '★ Bonus'; }
+
+        const postCount = getPostCountForName(d.workerName);
+        L.circleMarker([d.lat,d.lng], style)
+          .bindTooltip(`${typeLabel} — ${formatLocalTime(d.timestamp)} · ${d.workerName||'Unknown'} · P${postCount}`,{direction:'top',offset:[0,-4]})
+          .addTo(postsLayer);
+      });
+
+      const first = arr[0], last = arr[arr.length-1];
+      const firstPosts = getPostCountForName(first.workerName);
+      const lastPosts  = getPostCountForName(last.workerName);
+      
+      let firstIcon = redFlagIcon, lastIcon = redFlagIcon;
+      if (first.color === 'green') firstIcon = greenFlagIcon;
+      else if (first.color === 'blue') firstIcon = blueFlagIcon;
+
+      if (last.color === 'green') lastIcon = greenFlagIcon;
+      else if (last.color === 'blue') lastIcon = blueFlagIcon;
+
+      L.marker([first.lat, first.lng], {icon:firstIcon, zIndexOffset:200})
+        .bindTooltip(`🚩 First — ${formatLocalTime(first.timestamp)} · ${first.workerName||'Unknown'} · P${firstPosts}`,{direction:'top',offset:[6,-30]}).addTo(postsLayer);
+      L.marker([first.lat, first.lng], {icon:makeTinyNameLabel(first.workerName||'Unknown',firstPosts),zIndexOffset:202}).addTo(postsLayer);
+      
+      L.marker([last.lat, last.lng], {icon:lastIcon, zIndexOffset:201})
+        .bindTooltip(`🏁 Last — ${formatLocalTime(last.timestamp)} · ${last.workerName||'Unknown'} · P${lastPosts}`,{direction:'top',offset:[6,-30]}).addTo(postsLayer);
+      L.marker([last.lat, last.lng], {icon:makeTinyNameLabel(last.workerName||'Unknown',lastPosts),zIndexOffset:203}).addTo(postsLayer);
+    });
+  }
+
+  let workersCache = null;
+
+  // Calculate earnings and stats
+  function calculateStats() {
+    // Count total dots from all workers
+    const totalDots = Object.keys(workersCache || {}).reduce((sum, name) => {
+      return sum + (workersCache[name].count || 0);
+    }, 0);
+
+    const remainingDots = Math.max(0, TARGET_DOTS - totalDots);
+    const progress = Math.min(100, (totalDots / TARGET_DOTS) * 100);
+
+    // Budget calculations
+    const earnedAmount = totalDots * EARNING_PER_DOT;
+    const remainingBudget = Math.max(0, TOTAL_BUDGET - earnedAmount);
+    const budgetPercent = Math.min(100, (earnedAmount / TOTAL_BUDGET) * 100);
+
+    // Update stats section
+    statTotalDotsEl.textContent = totalDots.toLocaleString();
+    statRemainingDotsEl.textContent = remainingDots.toLocaleString();
+    progressFillEl.style.width = progress + '%';
+
+    budgetEarnedEl.textContent = '€' + earnedAmount.toFixed(2);
+    budgetRemainingEl.textContent = '€' + remainingBudget.toFixed(2);
+    budgetPercentEl.textContent = budgetPercent.toFixed(0) + '%';
+  }
+
+  // Calculate earnings for current worker (today and grand total)
+  function calculateEarnings() {
+    if (!currentWorkerName || !workersCache) {
+      earnTodayAmountEl.textContent = '€0.00';
+      earnTodayTimeEl.textContent = '0h 00m';
+      earnGrandAmountEl.textContent = '€0.00';
+      earnGrandTimeEl.textContent = '0h 00m';
+      return;
+    }
+
+    const prefix = getWorkerPrefix(currentWorkerName);
+    const today = formatDate(Date.now());
+
+    let todayEarnings = 0;
+    let todayMs = 0;
+    let grandEarnings = 0;
+    let grandMs = 0;
+
+    // Process today's posts for current worker prefix
+    const todayPosts = allPostsCache.filter(d => {
+      const p = getWorkerPrefix(d.workerName);
+      return p === prefix && formatDate(d.timestamp) === today;
+    });
+
+    if (todayPosts.length > 0) {
+      todayEarnings = todayPosts.length * EARNING_PER_DOT;
+      const earliest = Math.min(...todayPosts.map(p => p.timestamp));
+      const latest = Math.max(...todayPosts.map(p => p.timestamp));
+      todayMs = Math.max(0, latest - earliest);
+    }
+
+    // Process all posts for current worker prefix (Grand Total)
+    const allPrefixPosts = allPostsCache.filter(d => getWorkerPrefix(d.workerName) === prefix);
+    if (allPrefixPosts.length > 0) {
+      grandEarnings = allPrefixPosts.length * EARNING_PER_DOT;
+      const earliest = Math.min(...allPrefixPosts.map(p => p.timestamp));
+      const latest = Math.max(...allPrefixPosts.map(p => p.timestamp));
+      grandMs = Math.max(0, latest - earliest);
+    }
+
+    earnTodayAmountEl.textContent = '€' + todayEarnings.toFixed(2);
+    earnTodayTimeEl.textContent = formatWorkDuration(todayMs);
+    earnGrandAmountEl.textContent = '€' + grandEarnings.toFixed(2);
+    earnGrandTimeEl.textContent = formatWorkDuration(grandMs);
+  }
+
+  function renderWorkerTable(){
+    workerBody.innerHTML='';
+    if(!currentUserId || !workersCache){
+      workerBody.innerHTML='<tr class="empty-row"><td colspan="8">No data yet.</td></tr>';
+      return;
+    }
+    
+    // Show ALL workers, not filtered by prefix
+    const allWorkers = Object.keys(workersCache)
+      .map(name=>{
+        const w=workersCache[name];
+        const mins=w.workMs>0?w.workMs/60000:0;
+        const avg=mins>0?w.count/mins:0;
+        return {name,...w,avg};
+      })
+      .sort((a,b)=> (b.posts||0)-(a.posts||0) || b.avg-a.avg);
+
+    if(!allWorkers.length){
+      workerBody.innerHTML='<tr class="empty-row"><td colspan="8">No data yet.</td></tr>';
+      return;
+    }
+    
+    // Render individual worker rows
+    allWorkers.forEach(r=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+        <td>${r.name}</td>
+        <td>${r.count}</td>
+        <td class="col-avg">${r.avg.toFixed(2)}</td>
+        <td class="col-green">${r.green}</td>
+        <td class="col-red">${r.red}</td>
+        <td class="col-blue">${r.blue}</td>
+        <td>${r.posts}</td>
+        <td class="col-work">${formatWorkDuration(r.workMs)}</td>`;
+      workerBody.appendChild(tr);
+    });
+  }
+
+  function attachMyStatsListener(id){
+    if(typeof myStatsUnsub==='function'){myStatsUnsub();myStatsUnsub=null;}
+    myStatsUnsub=onValue(ref(db,`users/${id}/stats`),snap=>{
+      const s=snap.val()||{};
+      const total=s.totalDots||0;
+      sessionTotalEl.textContent=String(total);
+    });
+  }
+
+  function attachWorkersListener(id){
+    if(typeof workersUnsub==='function'){workersUnsub();workersUnsub=null;}
+    const workersRef=ref(db,`users/${id}/workers`);
+    const handler=snap=>{
+      workersMeta={};
+      snap.forEach(child=>{
+        const v=child.val();
+        workersMeta[child.key]={name:v.firstName||child.key,postClicks:v.postClicks||0,lastActiveAt:v.lastActiveAt||0};
+      });
+      updateWorkerUi();
+      calculateEarnings();
+      calculateStats();
+      renderWorkerTable();
+    };
+    onValue(workersRef,handler);
+    workersUnsub=()=>off(workersRef,'value',handler);
+  }
+
+  function attachMyPostsListener(id){
+    if(typeof myPostsUnsub==='function'){myPostsUnsub();myPostsUnsub=null;}
+    const postsRef=query(ref(db,`userPosts/${id}`),orderByChild('timestamp'));
+    const handler=snap=>{
+      const arr=[];
+      snap.forEach(child=>{
+        const v=child.val();
+        if(v && typeof v.lat==='number' && typeof v.lng==='number') arr.push(v);
+      });
+
+      hideLoader();
+      allPostsCache = arr;
+
+      let gc=0, rc=0, bc=0;
+      arr.forEach(d=>{
+        if(d.color==='green') gc++;
+        else if(d.color==='blue') bc++;
+        else rc++;
+      });
+      greenCountEl.textContent=gc; redCountEl.textContent=rc; blueCountEl.textContent=bc;
+
+      const workers={};
+      arr.forEach(d=>{
+        const name=d.workerName||'Unknown';
+        if(!workers[name]) workers[name]={count:0,green:0,red:0,blue:0,earliest:d.timestamp,latest:d.timestamp,posts:getPostCountForName(name)};
+        const w=workers[name];
+        w.count++; 
+        if(d.color==='green') w.green++; 
+        else if(d.color==='blue') w.blue++;
+        else w.red++;
+        
+        if(d.timestamp<w.earliest) w.earliest=d.timestamp;
+        if(d.timestamp>w.latest)   w.latest=d.timestamp;
+      });
+      
+      Object.keys(workersMeta).forEach(k=>{
+        const meta=workersMeta[k];
+        if(!workers[meta.name]) workers[meta.name]={count:0,green:0,red:0,blue:0,earliest:Date.now(),latest:Date.now(),posts:meta.postClicks||0};
+        else workers[meta.name].posts=meta.postClicks||0;
+      });
+      
+      Object.keys(workers).forEach(name=>{
+        const w=workers[name];
+        w.workMs = w.count>0 ? Math.max(w.latest - w.earliest,0) : 0;
+        if(typeof w.posts==='undefined') w.posts=0;
+      });
+      
+      workersCache = workers;
+
+      rebuildMapLayer(arr);
+      calculateEarnings();
+      calculateStats();
+      renderWorkerTable();
+
+      const todayKey=formatDate(Date.now());
+      const todayDots=arr.filter(d=>formatDate(d.timestamp)===todayKey).sort((a,b)=>a.timestamp-b.timestamp);
+      
+      let durationMs = 0;
+      let dotsCount = todayDots.length;
+      let avgMin = 0;
+
+      if(dotsCount > 0){
+        const firstTs = todayDots[0].timestamp;
+        const lastTs  = todayDots[dotsCount-1].timestamp;
+        durationMs = Math.max(0, lastTs - firstTs);
+        
+        const minutes = durationMs / 60000;
+        avgMin = minutes > 0 ? dotsCount / minutes : 0;
+      }
+
+      sessionTimerEl.classList.remove('inactive');
+      sessionTimerEl.textContent = formatHMS(durationMs);
+      sessionAvgEl.textContent = avgMin.toFixed(2);
+      sessionTotalEl.textContent = String(dotsCount);
+    };
+    onValue(postsRef,handler);
+    myPostsUnsub=()=>off(postsRef,'value',handler);
+  }
+
+  const LS_KEY='dotPoster:userId';
+  function normalizeUserId(id){return(id||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+  function validateUserId(id){return/^[A-Z0-9]{3,10}$/.test(id);}
+
+  function showLogin(){
+    hideLoader();
+    loginBackdrop.classList.add('show');
+    userIdInput.value=''; loginError.textContent='';
+    setPostEnabled(false);
+    if(typeof myStatsUnsub==='function'){myStatsUnsub();myStatsUnsub=null;}
+    if(typeof myPostsUnsub==='function'){myPostsUnsub();myPostsUnsub=null;}
+    if(typeof workersUnsub==='function'){workersUnsub();workersUnsub=null;}
+    currentUserId=null; currentWorkerName=null; currentWorkerPostClicks=0;
+    workersMeta={}; workersCache=null; allPostsCache=[];
+    updateWorkerUi();
+    postsLayer.clearLayers();
+    postClicksLayer.clearLayers();
+    greenCountEl.textContent='0'; redCountEl.textContent='0'; blueCountEl.textContent='0';
+    sessionTimerEl.textContent='00:00:00';
+    earnTodayAmountEl.textContent='€0.00';
+    earnTodayTimeEl.textContent='0h 00m';
+    earnGrandAmountEl.textContent='€0.00';
+    earnGrandTimeEl.textContent='0h 00m';
+    statTotalDotsEl.textContent='0';
+    statRemainingDotsEl.textContent='15,000';
+    progressFillEl.style.width='0%';
+    budgetEarnedEl.textContent='€0.00';
+    budgetRemainingEl.textContent='€500.00';
+    budgetPercentEl.textContent='0%';
+    renderWorkerTable();
+  }
+  function hideLogin(){loginBackdrop.classList.remove('show');}
+
+  async function registerUser(id){
+    const now=Date.now(), userRef=ref(db,`users/${id}`);
+    try{
+      const snap=await get(userRef);
+      if(snap.exists()) await update(userRef,{lastActiveAt:now});
+      else await set(userRef,{createdAt:now,lastActiveAt:now,ua:navigator.userAgent||'',stats:{totalDots:0,totalEarningsCents:0}});
+    }catch(e){console.error('Register error',e);}
+  }
+
+  function onUserReady(id){
+    currentUserId=id;
+    localStorage.setItem(LS_KEY,id);
+    userPillText.textContent=id;
+    userPill.style.display='flex';
+    attachMyStatsListener(id);
+    attachWorkersListener(id);
+    attachMyPostsListener(id);
+    setPostEnabled(!!currentLatLng);
+  }
+
+  const stored=normalizeUserId(localStorage.getItem(LS_KEY));
+  if(validateUserId(stored)) registerUser(stored).then(()=>onUserReady(stored));
+  else showLogin();
+
+  userJoinBtn.addEventListener('click',async()=>{
+    loginError.textContent='';
+    const id=normalizeUserId(userIdInput.value);
+    if(!validateUserId(id)){loginError.textContent='Use 3–10 letters/numbers, e.g. FF001';return;}
+    await registerUser(id);
+    onUserReady(id);
+    hideLogin();
+    showToast(`User ${id} ready`);
+  });
+  userIdInput.addEventListener('keyup',e=>{if(e.key==='Enter')userJoinBtn.click();});
+  changeUserBtn.addEventListener('click',showLogin);
+
+  btnStartWorker.addEventListener('click',()=>{
+    if(!currentUserId){showToast('Join with User ID first');return;}
+    openWorkerModal();
+  });
+  workerSaveBtn.addEventListener('click',async()=>{
+    workerError.textContent='';
+    const name=normalizeWorkerName(workerNameInput.value);
+    if(!validateWorkerName(name)){workerError.textContent='Use 2–20 letters (first name only).';return;}
+    try{
+      currentWorkerName=name;
+      await saveWorkerName(name);
+      updateWorkerUi();
+      setPostEnabled(!!currentLatLng);
+      closeWorkerModal();
+      showToast(`Worker ${name} started`);
+      calculateEarnings();
+      calculateStats();
+      renderWorkerTable();
+    }catch(e){console.error(e);workerError.textContent='Failed to save worker';}
+  });
+  workerNameInput.addEventListener('keyup',e=>{if(e.key==='Enter')workerSaveBtn.click();});
+
+  function ensureLocMarker(latlng){
+    const purplePinIcon = makePurplePinIcon();
+    if(!currentMarker) currentMarker=L.marker(latlng, { icon: purplePinIcon }).addTo(map);
+    else {
+      currentMarker.setLatLng(latlng);
+      currentMarker.setIcon(purplePinIcon);
+    }
+  }
+
+  async function goToCurrentLocation({focus=true}={}){
+    if(!('geolocation'in navigator)){showToast('Geolocation not supported');return;}
+    return new Promise(resolve=>{
+      navigator.geolocation.getCurrentPosition(
+        pos=>{
+          currentLatLng=[pos.coords.latitude,pos.coords.longitude];
+          ensureLocMarker(currentLatLng);
+          if(focus) map.setView(currentLatLng,Math.max(map.getZoom(),15),{animate:true});
+          setPostEnabled(true);
+          resolve(currentLatLng);
+        },
+        ()=>{showToast('Location permission needed');setPostEnabled(false);resolve(null);},
+        {enableHighAccuracy:true,timeout:10000,maximumAge:10000}
+      );
+    });
+  }
+  
+  if('geolocation'in navigator){
+    navigator.geolocation.watchPosition(
+      pos=>{currentLatLng=[pos.coords.latitude,pos.coords.longitude];ensureLocMarker(currentLatLng);setPostEnabled(true);},
+      ()=>{},
+      {enableHighAccuracy:true,maximumAge:15000,timeout:15000}
+    );
+  }
+
+  async function postDot(color){
+    if(!currentUserId){showLogin();return;}
+    if(!currentWorkerName){openWorkerModal();return;}
+    if(!currentLatLng){
+      await goToCurrentLocation({focus:true});
+      if(!currentLatLng) return;
+    }
+    const [lat,lng]=currentLatLng, now=Date.now();
+    const data={lat,lng,userId:currentUserId,color,timestamp:now,workerName:currentWorkerName,ua:navigator.userAgent||''};
+    try{
+      const newRef=push(ref(db,`userPosts/${currentUserId}`));
+      const newKey=newRef.key;
+      const updates={};
+      updates[`userPosts/${currentUserId}/${newKey}`]=data;
+      updates[`dotColors/${currentUserId}/${newKey}`]={color,timestamp:now,workerName:currentWorkerName};
+      updates[`users/${currentUserId}/lastPostAt`]=now;
+      updates[`users/${currentUserId}/workers/${currentWorkerName.toLowerCase()}/lastActiveAt`]=now;
+      await update(ref(db),updates);
+      await Promise.all([
+        runTransaction(ref(db,`users/${currentUserId}/stats/totalDots`),v=>(v||0)+1),
+        runTransaction(ref(db,`users/${currentUserId}/stats/totalEarningsCents`),v=>(v||0)+10)
+      ]);
+      
+      let msg = '';
+      if(color==='green') msg = '✓ Right posted';
+      else if(color==='blue') msg = '★ Bonus posted';
+      else msg = '✗ Left posted';
+      showToast(`${msg} (${currentWorkerName})`);
+
+      if(currentMarker){
+        let pulseColor = '#ef4444';
+        if(color==='green') pulseColor='#22c55e';
+        else if(color==='blue') pulseColor='#1f84f7';
+        
+        const pulse=L.circle(currentMarker.getLatLng(),{radius:8,color:pulseColor,weight:1,opacity:.7,fillOpacity:0});
+        pulse.addTo(map);
+        setTimeout(()=>map.removeLayer(pulse),500);
+      }
+    }catch(e){console.error(e);showToast('Failed to post');}
+  }
+
+  function showPostDot(){
+    if(!currentLatLng) return;
+    L.circleMarker(currentLatLng, orangeDotStyle).addTo(postClicksLayer);
+  }
+
+  async function recordPostClick(){
+    if(!currentUserId){showLogin();return;}
+    if(!currentWorkerName){openWorkerModal();return;}
+    const key=currentWorkerName.toLowerCase();
+    const newCount=(workersMeta[key]?.postClicks||0)+1;
+    workersMeta[key]={...(workersMeta[key]||{name:currentWorkerName}),postClicks:newCount};
+    currentWorkerPostClicks=newCount;
+    workerPostCountEl.textContent=newCount;
+    try{
+      await runTransaction(ref(db,`users/${currentUserId}/workers/${key}/postClicks`),v=>(v||0)+1);
+      await update(ref(db,`users/${currentUserId}/workers/${key}`),{firstName:currentWorkerName,lastActiveAt:Date.now()});
+    }catch(e){console.error(e);}
+    showToast(`Post recorded for ${currentWorkerName} (P${newCount})`);
+    calculateEarnings();
+    calculateStats();
+    renderWorkerTable();
+    showPostDot();
+  }
+
+  btnLocate.addEventListener('click',()=>goToCurrentLocation({focus:true}));
+  btnJa.addEventListener('click',()=>postDot('green'));
+  btnNee.addEventListener('click',()=>postDot('red'));
+  btnBonus.addEventListener('click',()=>postDot('blue'));
+  btnPost.addEventListener('click',recordPostClick);
+
+  goToCurrentLocation({focus:false});
+  updateWorkerUi();
+  renderWorkerTable();
+</script>
+</body>
+</html>
