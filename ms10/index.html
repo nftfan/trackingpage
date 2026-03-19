@@ -221,7 +221,7 @@
       Worker: <b id="workerNameText"></b>
       <span class="worker-count-chip">Post <span id="workerPostCount">0</span></span>
     </div>
-    <div id="speedEmoji" style="margin-left: auto; font-size: 18px;"></div>
+    <div id="speedEmoji" style="margin-left: auto; font-size: 18px;">🐌</div>
   </div>
 
   <div class="session-strip">
@@ -660,7 +660,7 @@
   const blueStyle  = { radius:2.5, color:'#1e40af', weight:1,   fillColor:'#1f84f7', fillOpacity:.9 };
   const orangeDotStyle = { radius:5, color:'#f97316', weight:1.5, fillColor:'#f97316', fillOpacity:0.75, opacity:0.9 };
 
-  function showToast(text) { toastEl.textContent = text; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),1800); }
+  function showToast(text) { toastEl.textContent = text; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),2500); }
   function setPostEnabled(on) {
     const ok = on && !!currentUserId && !!currentWorkerName;
     btnJa.disabled = btnNee.disabled = btnBonus.disabled = btnPost.disabled = !ok;
@@ -997,16 +997,25 @@
           setPostEnabled(true);
           resolve(currentLatLng);
         },
-        ()=>{showToast('Location permission needed');setPostEnabled(false);resolve(null);},
-        {enableHighAccuracy:true,timeout:10000,maximumAge:10000}
+        (err)=>{
+          let msg = 'Location error';
+          if (err.code === 1) msg = 'Location permission denied. Please enable it in browser settings.';
+          else if (err.code === 2) msg = 'Location unavailable right now.';
+          else if (err.code === 3) msg = 'Location request timed out. Trying again might help.';
+          showToast(msg);
+          setPostEnabled(false);
+          resolve(null);
+        },
+        {enableHighAccuracy:true,timeout:25000,maximumAge:10000} // Increased timeout to prevent false "denied" messages
       );
     });
   }
+  
   if('geolocation'in navigator){
     navigator.geolocation.watchPosition(
       pos=>{currentLatLng=[pos.coords.latitude,pos.coords.longitude];ensureLocMarker(currentLatLng);setPostEnabled(true);},
       ()=>{},
-      {enableHighAccuracy:true,maximumAge:15000,timeout:15000}
+      {enableHighAccuracy:true,maximumAge:15000,timeout:25000} // Increased timeout here as well
     );
   }
 
