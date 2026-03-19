@@ -56,6 +56,9 @@
     .earn-item { display: flex; flex-direction: column; line-height: 1.1; }
     .earn-label { font-size: 9px; color: var(--muted); text-transform: uppercase; font-weight: 700; }
     .earn-val { font-weight: 700; color: #fff; font-family: Menlo, monospace; }
+    .camera-btn { background: transparent; border: 0; color: #dbeafe; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s, transform 0.1s; }
+    .camera-btn:hover { color: #fff; transform: scale(1.05); }
+    .camera-btn:active { transform: scale(0.95); }
 
     .worker-count-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:rgba(248,113,113,.18);border:1px solid rgba(248,113,113,.35);border-radius:999px;color:#fecaca;font-weight:800;font-size:11px;}
 
@@ -169,6 +172,7 @@
     .input-row{display:flex;gap:8px;}
     .input{flex:1;height:44px;border-radius:10px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-weight:700;letter-spacing:.4px;font-size:14px;}
     .btn-modal{height:44px;border-radius:10px;border:0;cursor:pointer;padding:0 16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));}
+    .btn-modal:disabled{opacity:0.6; cursor:not-allowed;}
     .error{color:#ff8a8a;font-size:11px;min-height:14px;padding-top:5px;}
   </style>
 </head>
@@ -211,6 +215,13 @@
         <span class="earn-val" id="earnPerHour">€0.00</span>
       </div>
     </div>
+    <!-- Camera Icon Button -->
+    <button id="cameraBtn" class="camera-btn" title="Upload Proof">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+      </svg>
+    </button>
   </div>
 
   <div class="worker-start-row">
@@ -309,6 +320,19 @@
   </div>
 </div>
 
+<!-- Modal for Photo Proof -->
+<div id="proofBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
+  <div class="modal">
+    <h2>Submit Photo Proof</h2>
+    <p style="margin-bottom: 12px; font-size: 13px; color: var(--muted);">Paste the image URL below. It will appear on the map automatically.</p>
+    <div class="input-row">
+      <input id="proofUrlInput" class="input" type="url" placeholder="https://..." autocomplete="off">
+      <button id="proofSubmitBtn" class="btn-modal">Submit</button>
+    </div>
+    <div id="proofError" class="error"></div>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -328,6 +352,19 @@
   };
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
+
+  // Initialize trackingclients DB for saving Photo Proofs to the previous app
+  const proofFirebaseConfig = {
+    apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+    authDomain: "trackingclients.firebaseapp.com",
+    projectId: "trackingclients",
+    storageBucket: "trackingclients.appspot.com",
+    messagingSenderId: "27490943622",
+    appId: "1:27490943622:web:d6c87547aa5df440508707",
+    databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+  };
+  const proofApp = initializeApp(proofFirebaseConfig, "proofApp");
+  const proofDb = getDatabase(proofApp);
 
   const loaderOverlay   = document.getElementById('loaderOverlay');
   const btnLocate       = document.getElementById('btnLocate');
@@ -369,6 +406,13 @@
   const workerPostCountEl = document.getElementById('workerPostCount');
 
   const workerBody = document.getElementById('workerBody');
+
+  // Photo Proof elements
+  const cameraBtn = document.getElementById('cameraBtn');
+  const proofBackdrop = document.getElementById('proofBackdrop');
+  const proofUrlInput = document.getElementById('proofUrlInput');
+  const proofSubmitBtn = document.getElementById('proofSubmitBtn');
+  const proofError = document.getElementById('proofError');
 
   const map = L.map('map', { zoomControl:false, attributionControl:false, tap:true }).setView([20,0],2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
@@ -975,6 +1019,57 @@
     }catch(e){console.error(e);workerError.textContent='Failed to save worker';}
   });
   workerNameInput.addEventListener('keyup',e=>{if(e.key==='Enter')workerSaveBtn.click();});
+
+  // Photo Proof Event Listeners
+  cameraBtn.addEventListener('click', () => {
+    if(!currentUserId) { showToast('Join with User ID first'); return; }
+    proofError.textContent = '';
+    proofUrlInput.value = '';
+    proofBackdrop.classList.add('show');
+    setTimeout(() => proofUrlInput.focus(), 50);
+  });
+
+  proofBackdrop.addEventListener('click', e => {
+    if(e.target === proofBackdrop) proofBackdrop.classList.remove('show');
+  });
+
+  proofSubmitBtn.addEventListener('click', async () => {
+    const url = proofUrlInput.value.trim();
+    if(!url) { proofError.textContent = 'Please enter a valid image URL.'; return; }
+    if(!currentLatLng) { proofError.textContent = 'Location not available yet.'; return; }
+
+    // Map the User ID (e.g. FF2626) to the Campaign ID (e.g. XX2626)
+    let campaignId = currentUserId;
+    if (campaignId && campaignId.startsWith('FF')) {
+      campaignId = 'XX' + campaignId.substring(2);
+    }
+
+    const nodePath = `campaigns/${campaignId}/proofs`;
+    const [lat, lng] = currentLatLng;
+    
+    const payload = {
+      url: url,
+      lat: lat,
+      lng: lng,
+      timestamp: Date.now()
+    };
+
+    try {
+      proofSubmitBtn.disabled = true;
+      proofSubmitBtn.textContent = 'Submitting...';
+      
+      await push(ref(proofDb, nodePath), payload);
+      
+      showToast('Photo Proof submitted!');
+      proofBackdrop.classList.remove('show');
+    } catch(e) {
+      console.error(e);
+      proofError.textContent = 'Failed to submit proof. Try again.';
+    } finally {
+      proofSubmitBtn.disabled = false;
+      proofSubmitBtn.textContent = 'Submit';
+    }
+  });
 
   // Replaced circle marker with purple pin icon
   function ensureLocMarker(latlng){
