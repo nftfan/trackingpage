@@ -1,749 +1,339 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>Dot Poster</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0f0f12" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Icons+Outlined&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#2563eb">
-  <link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
-  <link rel="apple-touch-icon" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
-  <link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
-  />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <style>
-    :root{
-      --bg: #0b0b0e;
-      --panel: #141419;
-      --muted: #8b8b95;
-      --text: #f2f2f7;
-      --accent: #4f8cff;
-      --accent-2: #7a5cff;
-      --success: #00d37f;
-      --shadow: 0 8px 24px rgba(0,0,0,.35);
-      --radius-lg: 18px;
-      --radius-md: 14px;
-      --radius-sm: 12px;
+    :root { --bg:#0b0b0e; --panel:#141419; --muted:#8b8b95; --text:#f2f2f7; --accent:#4f8cff; --accent-2:#7a5cff; --shadow:0 4px 16px rgba(0,0,0,.35); --radius-lg:14px; --radius-md:12px; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:7px;padding:env(safe-area-inset-top,6px) 10px env(safe-area-inset-bottom,6px);}
+   
+    /* Loading Overlay */
+    .loader-overlay {
+      position: fixed; inset: 0; background: var(--bg); z-index: 10000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;
+      transition: opacity 0.3s ease;
     }
-    *{box-sizing:border-box}
-    html,body{
-      margin:0;
-      padding:0;
-      height:100%;
-      background: radial-gradient(1200px 800px at 70% -10%, rgba(79,140,255,.12), transparent 60%),
-                  radial-gradient(900px 600px at -10% -10%, rgba(122,92,255,.10), transparent 55%),
-                  var(--bg);
-      color: var(--text);
-      font: 15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";
+    .loader-overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1);
+      border-left-color: var(--accent); border-radius: 50%;
+      animation: spin 1s linear infinite;
     }
-    .app{
-      max-width: 620px;
-      margin: 0 auto;
-      padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
-      display: grid;
-      grid-template-rows: auto auto auto auto auto 1fr_auto;
-      gap: 14px;
-      min-height: 100vh;
-    }
-    header{
-      display:flex;
-      align-items:flex-start;
-      gap:12px;
-      padding: 14px 14px 12px;
-      background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.02) 100%);
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: var(--radius-lg);
-      backdrop-filter: blur(8px);
-      box-shadow: var(--shadow);
-      justify-content: space-between;
-    }
-    .logo{
-      width:34px;height:34px; display:grid; place-items:center;
-      background: radial-gradient(120% 120% at 20% 20%, #4f8cff, #7a5cff);
-      border-radius: 10px;
-      box-shadow: 0 6px 16px rgba(79,140,255,.35), inset 0 0 20px rgba(255,255,255,.15);
-    }
-    .title-wrap{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-    h1{
-      margin:0; font-size:16px; letter-spacing:.2px;
-      font-weight:700;
-    }
-    .subtitle{color:var(--muted); font-size:12px;}
-
-    .user-pill{
-      font-size:12px;
-      color:#cbd5ff;
-      background: rgba(122,92,255,.12);
-      border:1px solid rgba(122,92,255,.3);
-      padding:6px 10px;
-      border-radius:999px;
-      display:flex; align-items:center; gap:8px;
-    }
-    .user-pill button{
-      appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600
-    }
-
-    /* Speed bar under title */
-    .speed-wrap{
-      margin-top:4px;
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-    .speed-label-row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      font-size:10px;
-      color:var(--muted);
-    }
-    .speed-label-main{
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .speed-label-dot{
-      width:6px;
-      height:6px;
-      border-radius:999px;
-      background:conic-gradient(from 180deg, #f97316,#eab308,#22c55e,#22d3ee,#3b82f6,#a855f7,#ec4899,#f97316);
-      box-shadow:0 0 10px rgba(236,72,153,.65);
-    }
-    .speed-current{
-      font-weight:600;
-      color:#e5e7ff;
-    }
-    .speed-unit{
-      opacity:.75;
-    }
-
-    .speed-bar-container{
-      position:relative;
-      width:100%;
-      height:10px;
-      border-radius:999px;
-      background: radial-gradient(circle at 0% 50%, rgba(239,68,68,.4), transparent 55%),
-                  radial-gradient(circle at 50% 50%, rgba(59,130,246,.25), transparent 60%),
-                  radial-gradient(circle at 100% 50%, rgba(34,197,94,.3), transparent 55%),
-                  rgba(15,15,18,0.95);
-      overflow:hidden;
-      box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 8px 15px rgba(0,0,0,.5);
-    }
-    .speed-bar-gradient{
-      position:absolute;
-      inset:0;
-      background:linear-gradient(90deg,
-        #f97316 0%,
-        #facc15 16%,
-        #22c55e 32%,
-        #2dd4bf 48%,
-        #3b82f6 64%,
-        #a855f7 80%,
-        #ec4899 100%
-      );
-      opacity:0.95;
-      filter:saturate(1.2);
-    }
-    .speed-bar-fill{
-      position:absolute;
-      inset:0;
-      background:linear-gradient(90deg, rgba(15,15,18,0.02), rgba(15,15,18,0.18));
-      transform-origin:left center;
-      transform:scaleX(0);
-      transition:transform .45s cubic-bezier(.16,.84,.44,1);
-      mix-blend-mode:multiply;
-    }
-    .speed-bar-glow{
-      position:absolute;
-      inset:-20px 0 0 0;
-      background:radial-gradient(circle at var(--glow-pos,0%) 40%,
-        rgba(255,255,255,.35),
-        transparent 55%
-      );
-      mix-blend-mode:screen;
-      pointer-events:none;
-      opacity:.4;
-      transition:opacity .3s ease;
-    }
-    .speed-bar-overlay{
-      position:absolute;
-      inset:0;
-      background:linear-gradient(180deg, rgba(255,255,255,.35), transparent 55%);
-      mix-blend-mode:soft-light;
-      pointer-events:none;
-    }
-    .speed-scale-row{
-      margin-top:3px;
-      display:flex;
-      justify-content:space-between;
-      font-size:9px;
-      color:var(--muted);
-      opacity:.9;
-    }
-
-    .map-card{
-      position: relative;
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,.08);
-      background: #0f0f12;
-      box-shadow: var(--shadow);
-    }
-    #map{ height: 200px; width: 100%; }
-    .leaflet-container{ background: #0f0f12; outline: none; }
-    .leaflet-control-container .leaflet-top .leaflet-control,
-    .leaflet-control-container .leaflet-bottom .leaflet-control{
-      border-radius: 12px; overflow: hidden;
-    }
-
-    .controls{
-      display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: stretch;
-    }
-    .btn-icon{
-      appearance:none; border:0; cursor:pointer;
-      height:56px; width:56px; border-radius: 16px;
-      background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.02) 100%);
-      border: 1px solid rgba(255,255,255,.08);
-      color: var(--text);
-      display:grid; place-items:center;
-      box-shadow: var(--shadow);
-      transition: transform .12s ease, filter .12s ease, background .2s ease;
-    }
-    .btn-icon:active{ transform: scale(.98); filter: brightness(1.05); }
-    .btn-primary{
-      appearance:none; border:0; cursor:pointer;
-      border-radius: 16px; height:56px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      color:white; font-weight: 700; letter-spacing:.2px;
-      box-shadow: 0 10px 24px rgba(79,140,255,.35);
-      transition: transform .12s ease, box-shadow .2s ease, filter .12s ease;
-    }
-    .btn-primary:active{ transform: translateY(1px); filter: brightness(.98); }
-    .btn-primary[disabled]{ opacity:.6; cursor:not-allowed; box-shadow:none; }
-
-    .stats{ display:flex; gap:10px; align-items:stretch; flex-wrap: wrap; }
-    .stat{
-      flex:1;
-      padding:14px;
-      background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.02) 100%);
-      border: 1px solid rgba(255,255,255,.08);
+    .loader-text { font-weight: 600; color: var(--muted); font-size: 13px; letter-spacing: 0.5px; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    header{display:flex;align-items:center;gap:8px;padding:7px 11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);flex-shrink:0;}
+    .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#4f8cff,#7a5cff);border-radius:7px;flex-shrink:0;}
+    .header-title{font-size:13px;font-weight:700;flex:1;}
+    .header-counts{display:flex;gap:5px;align-items:center;}
+    .count-pill{display:flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;}
+    .count-pill.green{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:#86efac;}
+    .count-pill.red{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#fca5a5;}
+    .count-pill.blue{background:rgba(31,132,247,.15);border:1px solid rgba(31,132,247,.4);color:#93c5fd;}
+    .count-dot{width:6px;height:6px;border-radius:50%;}
+    .count-pill.green .count-dot{background:#22c55e;}
+    .count-pill.red .count-dot{background:#ef4444;}
+    .count-pill.blue .count-dot{background:#1f84f7;}
+    .user-pill{font-size:11px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px;flex-shrink:0;}
+    .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600;font-size:11px;}
+   
+    .earnings-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px;
+      background: linear-gradient(90deg, rgba(79, 140, 255, 0.1), rgba(122, 92, 255, 0.1));
+      border: 1px solid rgba(122, 92, 255, 0.2);
       border-radius: var(--radius-md);
-      box-shadow: var(--shadow);
-      display:flex; align-items:center; justify-content:space-between;
-      min-width: 48%;
+      font-size: 11px; color: #dbeafe; font-weight: 500;
     }
-    .stat .label{ color: var(--muted); font-size:12px; }
-    .stat .value{ font-size:18px; font-weight:800; letter-spacing:.3px; }
-    .footnote{ color: var(--muted); font-size:12px; text-align:center; padding: 8px 6px 16px; }
-    .toast{
-      position: fixed; z-index: 9999; left: 50%; bottom: 20px; transform: translateX(-50%);
-      background: #0f0f12; border: 1px solid rgba(255,255,255,.08);
-      padding: 10px 14px; border-radius: 12px; color: var(--text); box-shadow: var(--shadow);
-      font-weight:600; opacity: 0; pointer-events:none; transition: opacity .25s ease, transform .25s ease;
-    }
-    .toast.show{ opacity:1; transform: translateX(-50%) translateY(-4px); pointer-events:auto; }
-    .hint{ font size:12px; color: var(--muted); padding: 0 4px; }
-    a.inline{ color:#aab7ff; text-decoration: none; }
+    .earnings-group { display: flex; gap: 12px; }
+    .earn-item { display: flex; flex-direction: column; line-height: 1.1; }
+    .earn-label { font-size: 9px; color: var(--muted); text-transform: uppercase; font-weight: 700; }
+    .earn-val { font-weight: 700; color: #fff; font-family: Menlo, monospace; }
+    .camera-btn { background: transparent; border: 0; color: #dbeafe; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s, transform 0.1s; }
+    .camera-btn:hover { color: #fff; transform: scale(1.05); }
+    .camera-btn:active { transform: scale(0.95); }
+    .worker-count-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:rgba(248,113,113,.18);border:1px solid rgba(248,113,113,.35);border-radius:999px;color:#fecaca;font-weight:800;font-size:11px;}
+    .worker-start-row{display:flex;align-items:center;gap:8px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;}
+    .btn-start-worker{appearance:none;border:0;cursor:pointer;padding:7px 14px;border-radius:9px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;font-size:12px;font-weight:700;transition:transform .1s ease,filter .1s ease;}
+    .btn-start-worker:active{transform:scale(.97);filter:brightness(.95);}
+    .btn-locate-red{appearance:none;border:0;cursor:pointer;padding:7px 14px;border-radius:9px;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:12px;font-weight:700;transition:transform .1s ease;}
+    .btn-locate-red:active{transform:scale(.97);}
+    .worker-name-pill{display:none;align-items:center;gap:6px;font-size:11px;color:#bfdbfe;background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.35);padding:4px 8px;border-radius:999px;}
+    .session-strip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;}
+    .session-timer{font-family:Menlo,Monaco,Consolas,monospace;font-size:15px;font-weight:700;color:#e5e7ff;letter-spacing:.5px;}
+    .session-timer.inactive{color:var(--muted);}
+    .session-meta{font-size:10px;color:var(--muted);display:flex;gap:10px;}
+    .session-meta span{display:flex;flex-direction:column;align-items:flex-end;gap:1px;}
+    .session-meta b{font-size:12px;font-weight:700;color:#e5e7ff;}
+   
+    .map-card{border-radius:var(--radius-lg);overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#0f0f12;box-shadow:var(--shadow);flex-shrink:0;}
+    #map{height:190px;width:100%;}
+    .leaflet-container{background:#0f0f12;outline:none;}
+    .leaflet-control-attribution{display:none!important;}
+    .zone-nav{display:flex;align-items:center;gap:6px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;overflow-x:auto;}
+    .zone-nav::-webkit-scrollbar{display:none;}
+    .zone-nav-label{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;}
+    .zone-nav-input{width:48px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:13px;text-align:center;padding:0 2px;}
+    .zone-nav-input:focus{outline:none;border-color:var(--accent);}
+    .btn-zone-go{height:32px;padding:0 10px;border-radius:8px;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:11px;font-weight:700;transition:transform .1s ease;white-space:nowrap;}
+    .btn-zone-go:active{transform:scale(.96);}
+    .divider-v{width:1px;height:20px;background:rgba(255,255,255,.1);margin:0 2px;}
+    .poly-label{background:transparent!important;border:none!important;box-shadow:none!important;}
+    .poly-label-inner{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:rgba(239,68,68,.85);border:1px solid rgba(239,68,68,1);font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.03em;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.5);pointer-events:none;}
+    .segment-label{background:transparent!important;border:none!important;box-shadow:none!important;}
+    .segment-label-inner{display:inline-flex;align-items:center;gap:4px;padding:3px 7px; border-radius:999px;font-size:8px; font-weight:800;color:#000;font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.02em; white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.6);pointer-events:auto;opacity: 1 !important;}
+    .segment-label.start .segment-label-inner { background:#facc15; border:1px solid #eab308; }
+    .segment-label.end .segment-label-inner { background:#60a5fa; border:1px solid #3b82f6; color:#0f172a; }
+    .dist-marker { background:transparent!important; border:none!important; }
+    .dist-marker-inner {width: 18px; height: 18px;background: #7a5cff;border: 2px solid #fff;border-radius: 50% 50% 50% 0;transform: rotate(-45deg);box-shadow: 0 2px 6px rgba(0,0,0,0.5);display: flex; align-items: center; justify-content: center;}
+    .dist-marker-text {transform: rotate(45deg);font-family: Menlo, monospace;font-size: 9px;font-weight: 800;color: #fff;line-height: 1;}
+    .segment-square {width: 9px; height: 9px;background: #ef4444;border: 1.5px solid rgba(255,255,255,0.9);border-radius: 2px;box-shadow: 0 1px 4px rgba(0,0,0,.45);}
+    .flag-marker{width:22px;height:34px;position:relative;pointer-events:none;}
+    .flag-pole{position:absolute;left:3px;top:0;bottom:0;width:2px;background:rgba(255,255,255,.85);border-radius:1px;}
+    .flag-cloth{position:absolute;left:5px;top:2px;width:14px;height:10px;border-radius:2px;box-shadow:0 1px 4px rgba(0,0,0,.5);}
+    .flag-cloth.red{background:#ef4444;}
+    .flag-cloth.green{background:#22c55e;}
+    .flag-cloth.blue{background:#1f84f7;}
+    .flag-dot{position:absolute;left:-1px;bottom:0;width:6px;height:6px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);}
+    .flag-dot.red{background:#ef4444;}
+    .flag-dot.green{background:#22c55e;}
+    .flag-dot.blue{background:#1f84f7;}
+    .pin-marker {width: 24px; height: 32px; position: relative; display: flex; justify-content: center;}
+    .pin-head {width: 24px; height: 24px; background: #a855f7; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.4);}
+    .pin-shadow {position: absolute; bottom: -2px; width: 10px; height: 4px; background: rgba(0,0,0,0.4); border-radius: 50%; filter: blur(1px);}
+    .pin-dot {position: absolute; top: 8px; width: 8px; height: 8px; background: #fff; border-radius: 50%;}
+    .flag-name-label{background:transparent!important;border:none!important;box-shadow:none!important;}
+    .flag-name-label .inner{font-size:8px;font-weight:700;color:#dbeafe;background:rgba(15,23,42,.7);border:1px solid rgba(148,163,184,.35);border-radius:999px;padding:1px 4px;white-space:nowrap;letter-spacing:.02em;}
+    .controls{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;flex-shrink:0;}
+    .btn-ja,.btn-nee,.btn-post,.btn-bonus{appearance:none;border:0;cursor:pointer;border-radius:11px;height:46px;color:white;font-weight:700;font-size:13px;letter-spacing:.3px;transition:transform .1s ease,filter .1s ease,box-shadow .1s ease;}
+    .btn-ja:active,.btn-nee:active,.btn-post:active,.btn-bonus:active{transform:translateY(1px);filter:brightness(.92);}
+    .btn-ja[disabled],.btn-nee[disabled],.btn-post[disabled],.btn-bonus[disabled]{opacity:.5;cursor:not-allowed;}
+   
+    .btn-ja{background:linear-gradient(135deg,#16a34a,#22c55e);box-shadow:0 5px 14px rgba(34,197,94,.3);}
+    .btn-nee{background:linear-gradient(135deg,#dc2626,#ef4444);box-shadow:0 5px 14px rgba(239,68,68,.3);}
+    .btn-bonus{background:linear-gradient(135deg,#1f84f7,#3b82f6);box-shadow:0 5px 14px rgba(59,130,246,.3);}
+   
+    .btn-post{background:linear-gradient(135deg,#fb923c,#f97316);box-shadow:0 5px 14px rgba(249,115,22,.35);position:relative;}
+    .btn-post::after{content:"";position:absolute;inset:-2px;border-radius:12px;border:2px solid rgba(249,115,22,.5);animation:pulse 1.4s ease-in-out infinite;pointer-events:none;}
+    @keyframes pulse{0%{opacity:.9;transform:scale(1);}50%{opacity:.25;transform:scale(1.05);}100%{opacity:.9;transform:scale(1);}}
+    .campaign-progress { display: flex; flex-direction: column; gap: 8px; padding: 8px 11px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius-md); flex-shrink: 0; }
+    .prog-row { display: flex; flex-direction: column; gap: 4px; font-size: 10px; color: var(--muted); }
+    .prog-label { font-family: Menlo, monospace; font-weight: 600; display: block; }
+    .prog-bar-container { width: 100%; height: 6px; background: rgba(255,255,255,.1); border-radius: 3px; overflow: hidden; position: relative; }
+    .prog-bar { height: 100%; background: linear-gradient(90deg, #4f8cff, #7a5cff); transition: width 0.3s ease; width: 0%; }
+    .prog-bar.budget { background: linear-gradient(90deg, #10b981, #34d399); }
+    .col-earned { color: #fcd34d; font-family: Menlo, monospace; font-weight: 600; }
+    .table-card{flex:1;background:rgba(255,255,255,.03);border-radius:var(--radius-md);border:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;min-height:0;}
+    .table-card-header{padding:10px 10px 6px;font-size:12px;font-weight:700;color:#e5e7ff;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;}
+    .table-scroll{overflow:auto;flex:1;}
+    .data-table{width:100%;border-collapse:collapse;font-size:7px;color:#d5d7ff;}
+    .data-table thead{position:sticky;top:0;z-index:1;background:linear-gradient(90deg,rgba(79,140,255,.16),rgba(122,92,255,.18));}
+    .data-table th,.data-table td{padding:4px 5px;text-align:left;white-space:nowrap; font-weight: 400;}
+    .data-table th{font-weight:700;font-size:8px;text-transform:uppercase;letter-spacing:.4px;color:#f3f4ff;border-bottom:1px solid rgba(255,255,255,.1);}
+    .data-table tbody tr:nth-child(even){background:rgba(255,255,255,.025);}
+    .data-table tbody tr:hover{background:rgba(79,140,255,.15);}
+    .data-table tr.current-worker-row { background: rgba(79,140,255,0.22) !important; font-weight: 600; }
+    .col-work{color:#fde68a;}
+    .col-avg{color:#a5f3fc;}
+    .col-green{color:#86efac;}
+    .col-red{color:#fca5a5;}
+    .col-blue{color:#93c5fd;}
+    .empty-row td{color:var(--muted);text-align:center;padding:10px;font-size:9px;}
+    .toast{position:fixed;z-index:9999;left:50%;bottom:22px;transform:translateX(-50%);background:#1a1a22;border:1px solid rgba(255,255,255,.1);padding:8px 15px;border-radius:10px;color:var(--text);box-shadow:var(--shadow);font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+    .modal-backdrop,.worker-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9998;}
+    .modal-backdrop.show,.worker-backdrop.show{display:flex;}
+    .modal,.worker-modal{width:min(90vw,380px);background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:var(--shadow);padding:20px;}
+    .input-row{display:flex;gap:8px;}
+    .input{flex:1;height:44px;border-radius:10px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-weight:700;letter-spacing:.4px;font-size:14px;}
+    .btn-modal{height:44px;border-radius:10px;border:0;cursor:pointer;padding:0 16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));}
+    .btn-modal:disabled{opacity:0.6; cursor:not-allowed;}
+    .error{color:#ff8a8a;font-size:11px;min-height:14px;padding-top:5px;}
 
-    /* Modal */
-    .modal-backdrop{
-      position: fixed; inset: 0; background: rgba(0,0,0,.6);
-      backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 9998;
+    /* Startup Popup Security Gates */
+    #startup-popup-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.88); backdrop-filter: blur(5px);
+      display: none; align-items: center; justify-content: center; z-index: 10001;
     }
-    .modal{
-      width: min(92vw, 420px); background: var(--panel);
-      border:1px solid rgba(255,255,255,.1); border-radius: 16px; box-shadow: var(--shadow); padding: 18px;
-    }
-    .modal h2{ margin: 0 0 8px; font-size: 18px; }
-    .modal p{ margin: 0 0 14px; color: var(--muted); font-size: 13px; }
-    .input-row{ display:flex; gap:10px; align-items:stretch; margin-top: 8px; }
-    .input{
-      flex:1; height:48px; border-radius: 12px; padding: 0 12px;
-      border:1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
-      color: var(--text); font-weight:700; letter-spacing:.4px;
-    }
-    .btn{ height:48px; border-radius:12px; border:0; cursor:pointer; padding: 0 16px;
-      font-weight:700; color:#fff; background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      box-shadow: 0 8px 18px rgba(79,140,255,.35);
-    }
-    .error{ color:#ff8a8a; font-size:12px; min-height: 16px; padding-top:6px;}
-    .show{ display:flex !important; }
-
-    /* Tabs for stats area */
-    .stats-tabs{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      margin-top:4px;
-      margin-bottom:2px;
-      padding:0 2px;
-    }
-    .stats-tab-btn{
-      flex:0 0 auto;
-      padding:4px 10px;
-      font-size:10px;
-      border-radius:999px;
-      border:1px solid transparent;
-      background:transparent;
-      color:var(--muted);
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-    }
-    .stats-tab-btn.active{
-      background:rgba(79,140,255,.18);
-      color:#e5e7ff;
-      border-color:rgba(79,140,255,.5);
-    }
-
-    /* Daily stats table */
-    .daily-stats-card{
-      background: linear-gradient(180deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.015) 100%);
-      border-radius: var(--radius-md);
-      border:1px solid rgba(255,255,255,.08);
-      box-shadow: var(--shadow);
-      padding: 10px 10px 8px;
-    }
-    .daily-stats-header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom:6px;
-    }
-    .daily-stats-title{
-      font-size:11px;
-      font-weight:600;
-      letter-spacing:.2px;
-      color:#e5e7ff;
-    }
-    .daily-stats-subtitle{
-      font-size:10px;
-      color:var(--muted);
-    }
-    .daily-stats-table-wrap{
-      max-height:160px;
-      overflow:auto;
-      border-radius:10px;
-      border:1px solid rgba(255,255,255,.06);
-      background:rgba(10,10,14,.85);
-    }
-    .daily-stats-table{
-      width:100%;
-      border-collapse:collapse;
-      font-size:10px;
-      color:#d5d7ff;
-    }
-    .daily-stats-table thead{
-      background:linear-gradient(90deg, rgba(79,140,255,.16), rgba(122,92,255,.18));
-      position:sticky;
-      top:0;
-      z-index:1;
-    }
-    .daily-stats-table th,
-    .daily-stats-table td{
-      padding:4px 6px;
-      text-align:left;
-      white-space:nowrap;
-    }
-    .daily-stats-table th{
-      font-weight:600;
-      text-transform:uppercase;
-      letter-spacing:.4px;
-      font-size:9px;
-      color:#f3f4ff;
-      border-bottom:1px solid rgba(255,255,255,.12);
-    }
-    .daily-stats-table tbody tr:nth-child(odd){
-      background:rgba(255,255,255,.01);
-    }
-    .daily-stats-table tbody tr:nth-child(even){
-      background:rgba(255,255,255,.03);
-    }
-    .daily-stats-table tbody tr:hover{
-      background:rgba(79,140,255,.16);
-    }
-    .daily-stats-date{
-      font-family:Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
-      color:#e5e7ff;
-    }
-    .daily-stats-dots{
-      font-weight:600;
-      color:#a5f3fc;
-    }
-    .daily-stats-earn{
-      font-weight:600;
-      color:#bbf7d0;
-    }
-    .daily-stats-worktime{
-      font-weight:500;
-      color:#fde68a;
-    }
-    .daily-stats-empty{
-      padding:6px;
-      font-size:10px;
-      color:var(--muted);
-      text-align:center;
-    }
-
-    /* Performance card */
-    .performance-card{
-      background: linear-gradient(180deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.015) 100%);
-      border-radius: var(--radius-md);
-      border:1px solid rgba(255,255,255,.08);
-      box-shadow: var(--shadow);
-      padding: 10px 10px 10px;
-      display:none;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-    .performance-header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom:4px;
-    }
-    .performance-title{
-      font-size:11px;
-      font-weight:600;
-      letter-spacing:.2px;
-      color:#e5e7ff;
-    }
-    .performance-subtitle{
-      font-size:10px;
-      color:var(--muted);
-    }
-    .performance-main{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-top:4px;
-    }
-    .perf-metric{
-      flex:1;
-    }
-    .perf-label{
-      font-size:10px;
-      color:var(--muted);
-      margin-bottom:3px;
-    }
-    .perf-value{
-      font-size:20px;
-      font-weight:800;
-      letter-spacing:.3px;
-    }
-    .perf-unit{
-      font-size:11px;
-      color:var(--muted);
-      margin-left:4px;
-    }
-    .perf-badge{
-      flex:0 0 auto;
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:10px;
-      font-weight:700;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      background:rgba(37, 99, 235, .18);
-      border:1px solid rgba(37,99,235,.5);
-      color:#bfdbfe;
-    }
-    .perf-badge-rank{
-      font-size:11px;
-    }
-    .perf-badge-label{
-      opacity:.85;
-    }
-    .perf-note{
-      font-size:9px;
-      color:var(--muted);
-      margin-top:4px;
-    }
-    .perf-empty{
-      font-size:10px;
-      color:var(--muted);
-      text-align:center;
-      padding:6px 4px 2px;
-    }
-
-    .perf-daily-wrap{
-      margin-top:4px;
-      border-radius:10px;
-      border:1px solid rgba(255,255,255,.06);
-      background:rgba(10,10,14,.9);
-      max-height:150px;
-      overflow:auto;
-    }
-    .perf-daily-table{
-      width:100%;
-      border-collapse:collapse;
-      font-size:9px;
-      color:#d5d7ff;
-    }
-    .perf-daily-table thead{
-      position:sticky;
-      top:0;
-      background:linear-gradient(90deg, rgba(79,140,255,.18), rgba(122,92,255,.18));
-      z-index:1;
-    }
-    .perf-daily-table th,
-    .perf-daily-table td{
-      padding:3px 5px;
-      white-space:nowrap;
-      text-align:left;
-    }
-    .perf-daily-table th{
-      font-weight:600;
-      text-transform:uppercase;
-      letter-spacing:.35px;
-      border-bottom:1px solid rgba(255,255,255,.12);
-    }
-    .perf-daily-table tbody tr:nth-child(odd){
-      background:rgba(255,255,255,.01);
-    }
-    .perf-daily-table tbody tr:nth-child(even){
-      background:rgba(255,255,255,.03);
-    }
-    .perf-daily-table tbody tr:hover{
-      background:rgba(79,140,255,.18);
-    }
-    .perf-daily-date{
-      font-family:Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
-      color:#e5e7ff;
-    }
-    .perf-daily-dots{
-      color:#a5f3fc;
-      font-weight:600;
-    }
-    .perf-daily-work{
-      color:#fde68a;
-    }
-    .perf-daily-avg{
-      color:#bbf7d0;
-      font-weight:600;
-    }
-    .perf-daily-time{
-      color:#cbd5ff;
-      font-family:Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
-      font-size:9px;
-    }
+    #startup-popup-bg.show { display: flex; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <header>
-      <div style="display:flex; align-items:flex-start; gap:12px; flex:1">
-        <div class="logo" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="white" stroke-opacity=".9" stroke-width="1.4"/>
-            <circle cx="12" cy="12" r="3.2" fill="white" />
-          </svg>
-        </div>
-        <div class="title-wrap" style="flex:1">
-          <h1>Dot Poster</h1>
-          <div class="subtitle">Tap locate, then post tiny dots and earn</div>
 
-          <!-- Live speed bar (today only) -->
-          <div class="speed-wrap" aria-label="Live posting speed for today">
-            <div class="speed-label-row">
-              <div class="speed-label-main">
-                <span class="speed-label-dot"></span>
-                <span>Today's speed</span>
-              </div>
-              <div>
-                <span id="speedCurrent" class="speed-current">0.0</span>
-                <span class="speed-unit">flyers/hr</span>
-              </div>
-            </div>
-            <div class="speed-bar-container">
-              <div class="speed-bar-gradient"></div>
-              <div class="speed-bar-fill" id="speedBarFill"></div>
-              <div class="speed-bar-glow" id="speedBarGlow"></div>
-              <div class="speed-bar-overlay"></div>
-            </div>
-            <div class="speed-scale-row" aria-hidden="true">
-              <span>0</span>
-              <span>125</span>
-              <span>250+</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="userPill" class="user-pill" style="display:none">
-        <span id="userPillText"></span>
-        <button id="changeUserBtn" title="Change user">Change</button>
-      </div>
-    </header>
-
-    <div class="map-card">
-      <div id="map" role="application" aria-label="Map showing your current location and posted dots"></div>
+<div id="startup-popup-bg" class="show">
+  <div class="modal" style="text-align: center;">
+    <h2>Enter App PIN</h2>
+    <p style="margin-bottom: 15px; font-size: 13px; color: var(--muted);">Secured Firebase Access</p>
+    <div class="input-row" style="justify-content: center;">
+      <input id="startup-pin-input" class="input" type="password" maxlength="6" autocomplete="off" placeholder="PIN" style="max-width: 160px; text-align:center; letter-spacing:0.2em; font-size:18px;">
+      <button id="startup-confirm" class="btn-modal">Unlock</button>
     </div>
+    <div id="startup-err-msg" class="error" style="display:none; margin-top:10px;">Incorrect PIN or Access Denied!</div>
+  </div>
+</div>
 
-    <div class="controls">
-      <button id="btnLocate" class="btn-icon" title="Go to current location" aria-label="Go to current location">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="1.6"></circle>
-          <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
-        </svg>
-      </button>
-      <button id="btnPost" class="btn-primary" disabled>
-        Post dot at my location
-      </button>
+<div id="loaderOverlay" class="loader-overlay hidden">
+  <div class="spinner"></div>
+  <div class="loader-text">Loading data...</div>
+</div>
+<div class="app">
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="white" stroke-opacity=".9" stroke-width="1.6"/>
+        <circle cx="12" cy="12" r="3.2" fill="white"/>
+      </svg>
     </div>
+    <div class="header-title"></div>
+    <div class="header-counts">
+      <div class="count-pill green"><div class="count-dot"></div><span id="greenCount">0</span></div>
+      <div class="count-pill red"><div class="count-dot"></div><span id="redCount">0</span></div>
+      <div class="count-pill blue"><div class="count-dot"></div><span id="blueCount">0</span></div>
+    </div>
+    <div id="userPill" class="user-pill">
+      <span id="userPillText"></span>
+      <button id="changeUserBtn">Change</button>
+    </div>
+  </header>
 
-    <div class="hint">Tip: Allow location permission for precise posting. Works best over HTTPS or localhost.</div>
-
-    <!-- Per-user stats only -->
-    <div class="stats">
-      <div class="stat" aria-live="polite">
-        <span class="label">My dots</span>
-        <span id="myDots" class="value">0</span>
+  <div class="earnings-bar" id="earningsBar">
+    <div class="earnings-group">
+      <div class="earn-item">
+        <span class="earn-label">Projected/Min</span>
+        <span class="earn-val" id="earnPerMin">€0.00</span>
       </div>
-      <div class="stat" aria-live="polite">
-        <span class="label">My earnings (€0.10/dot)</span>
-        <span id="myEarnings" class="value">€0.00</span>
+      <div class="earn-item">
+        <span class="earn-label">Projected/Hour</span>
+        <span class="earn-val" id="earnPerHour">€0.00</span>
       </div>
     </div>
-
-    <!-- Tabs for Daily / Performance -->
-    <div class="stats-tabs" aria-label="Stats view switches">
-      <button id="tabDaily" class="stats-tab-btn active" type="button">Daily breakdown</button>
-      <button id="tabPerformance" class="stats-tab-btn" type="button">Performance</button>
-    </div>
-
-    <!-- Daily stats table (TAB 1) -->
-    <div id="dailyStatsCard" class="daily-stats-card" aria-live="polite">
-      <div class="daily-stats-header">
-        <div class="daily-stats-title">Daily breakdown</div>
-        <div class="daily-stats-subtitle">Dots, earnings &amp; time of work per day</div>
-      </div>
-      <div class="daily-stats-table-wrap">
-        <table class="daily-stats-table" aria-label="Daily dot posting stats">
-          <thead>
-            <tr>
-              <th scope="col">Date</th>
-              <th scope="col">Dots</th>
-              <th scope="col">Earnings</th>
-              <th scope="col">Work time</th>
-            </tr>
-          </thead>
-          <tbody id="dailyStatsBody">
-            <tr><td colspan="4" class="daily-stats-empty">No dots yet. Post your first dot to see stats.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Performance card (TAB 2) -->
-    <div id="performanceCard" class="performance-card" aria-live="polite">
-      <div>
-        <div class="performance-header">
-          <div>
-            <div class="performance-title">Performance</div>
-            <div class="performance-subtitle">Lifetime avg flyers/hour &amp; badge</div>
-          </div>
-        </div>
-        <div id="performanceContent">
-          <div class="performance-main">
-            <div class="perf-metric">
-              <div class="perf-label">Avg flyers/hour (lifetime)</div>
-              <div>
-                <span id="perfAvgValue" class="perf-value">0.0</span>
-                <span class="perf-unit">flyers/hr</span>
-              </div>
-            </div>
-            <div class="perf-badge" id="perfBadge">
-              <span class="perf-badge-rank" id="perfBadgeRank">–</span>
-              <span class="perf-badge-label" id="perfBadgeLabel">No badge yet</span>
-            </div>
-          </div>
-          <div class="perf-note">
-            Badges: 50+ Beginner, 100+ Intermediate, 150+ Pro, 200+ Elite, 250+ Top.
-          </div>
-        </div>
-        <div id="performanceEmpty" class="perf-empty" style="display:none;">
-          No dots yet. Start posting to unlock your performance stats and badge.
-        </div>
-      </div>
-
-      <!-- Per-day performance table -->
-      <div>
-        <div class="performance-header" style="margin-top:6px;">
-          <div class="performance-title">Daily performance</div>
-          <div class="performance-subtitle">Speed &amp; time window per day</div>
-        </div>
-        <div class="perf-daily-wrap">
-          <table class="perf-daily-table" aria-label="Per-day performance stats">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Dots</th>
-                <th>Work time</th>
-                <th>Avg flyers/hr</th>
-                <th>First</th>
-                <th>Last</th>
-              </tr>
-            </thead>
-            <tbody id="perfDailyBody">
-              <tr><td colspan="6" class="perf-empty">No dots yet. Post to see daily performance.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="footnote">Your location is used only to place dots and is stored with each post.</div>
+    <button id="cameraBtn" class="camera-btn" title="Upload Proof">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+      </svg>
+    </button>
   </div>
 
-  <div id="toast" class="toast" role="status" aria-live="polite">Posted!</div>
+  <div class="worker-start-row">
+    <button id="btnStartWorker" class="btn-start-worker">Start</button>
+    <button id="btnLocate" class="btn-locate-red" title="Locate me" aria-label="Locate me">Locate</button>
+   
+    <div id="workerNamePill" class="worker-name-pill">
+      Worker: <b id="workerNameText"></b>
+      <span class="worker-count-chip">Post <span id="workerPostCount">0</span></span>
+    </div>
+    <div id="speedEmoji" style="margin-left: auto; font-size: 18px;">🐌</div>
+  </div>
 
-  <!-- Simple login modal -->
-  <div id="loginBackdrop" class="modal-backdrop" aria-modal="true" role="dialog" aria-labelledby="loginTitle">
-    <div class="modal">
-      <h2 id="loginTitle">Enter User ID</h2>
-      <p>Example: FF001, FF993, etc. Use 3–10 letters/numbers. This will register the user instantly.</p>
-      <div class="input-row">
-        <input id="userIdInput" class="input" type="text" placeholder="e.g. FF993" autocomplete="off" autocapitalize="characters" maxlength="12">
-        <button id="userJoinBtn" class="btn">Join</button>
-      </div>
-      <div id="loginError" class="error"></div>
+  <div class="session-strip">
+    <div id="sessionTimer" class="session-timer inactive">00:00:00</div>
+    <div class="session-meta">
+      <span><b id="sessionAvg">—</b>avg/min</span>
+      <span><b id="sessionTotal">0</b>today</span>
     </div>
   </div>
 
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-  ></script>
+  <div class="map-card">
+    <div id="map" role="application" aria-label="Map showing posted dots"></div>
+  </div>
 
- <script type="module">
+  <div class="zone-nav">
+    <span class="zone-nav-label">Zone</span>
+    <input id="zoneInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
+    <button id="btnZoneGo" class="btn-zone-go">Go</button>
+   
+    <div class="divider-v"></div>
+    <span class="zone-nav-label">Seg</span>
+    <input id="segInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
+    <button id="btnSegGo" class="btn-zone-go">Focus</button>
+  </div>
+
+  <div style="font-size:10px;color:#8b8b95;text-align:right;padding:0 11px;" id="zoneHint"></div>
+
+  <div class="controls">
+    <button id="btnPost" class="btn-post" title="Post action">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button id="btnJa" class="btn-ja" disabled>Right</button>
+    <button id="btnNee" class="btn-nee" disabled>Left</button>
+    <button id="btnBonus" class="btn-bonus" disabled>Bonus</button>
+  </div>
+
+  <div class="campaign-progress">
+    <div class="prog-row">
+      <span class="prog-label">Dots: <span id="totalDotsProgress">0</span> / 15000</span>
+      <div class="prog-bar-container"><div class="prog-bar" id="dotsBar"></div></div>
+    </div>
+    <div class="prog-row">
+      <span class="prog-label">Earned: €<span id="totalEarnedProgress">0.00</span> / €540 (<span id="remBudgetProgress">€540.00</span> left)</span>
+      <div class="prog-bar-container"><div class="prog-bar budget" id="budgetBar"></div></div>
+    </div>
+  </div>
+
+  <div class="table-card" id="teamCard">
+    <div class="table-card-header" id="tableHeader">Team performance — sorted by posts</div>
+    <div class="table-scroll">
+      <table class="data-table" id="workerTable">
+        <thead><tr><th>Worker</th><th>Dots</th><th>Earned</th><th class="col-avg">Avg/min</th><th>Right</th><th>Left</th><th>Bonus</th><th>Posts</th><th>Work time</th></tr></thead>
+        <tbody id="workerBody"><tr class="empty-row"><td colspan="9">No data yet.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<div id="loginBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
+  <div class="modal">
+    <h2>Enter User ID</h2>
+    <p>3–10 letters/numbers, e.g. FF001. Registers instantly.</p>
+    <div class="input-row">
+      <input id="userIdInput" class="input" type="text" placeholder="e.g. FF993" autocomplete="off" autocapitalize="characters" maxlength="12" inputmode="text">
+      <button id="userJoinBtn" class="btn-modal">Join</button>
+    </div>
+    <div id="loginError" class="error"></div>
+  </div>
+</div>
+
+<div id="workerBackdrop" class="worker-backdrop" aria-modal="true" role="dialog">
+  <div class="worker-modal">
+    <h2>Start Worker</h2>
+    <p>Enter first name. And job number i.e one, two, ... example: Tomone, Tomtwo.</p>
+    <div class="input-row">
+      <input id="workerNameInput" class="input" type="text" placeholder="e.g. Tom" maxlength="24" autocomplete="off">
+      <button id="workerSaveBtn" class="btn-modal">Save</button>
+    </div>
+    <div id="workerError" class="error"></div>
+  </div>
+</div>
+
+<div id="proofBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
+  <div class="modal">
+    <h2>Submit Photo Proof</h2>
+    <p style="margin-bottom: 12px; font-size: 13px; color: var(--muted);">Paste the image URL below. It will appear on the map automatically.</p>
+    <div class="input-row">
+      <input id="proofUrlInput" class="input" type="url" placeholder="https://..." autocomplete="off">
+      <button id="proofSubmitBtn" class="btn-modal">Submit</button>
+    </div>
+    <div id="proofError" class="error"></div>
+  </div>
+</div>
+
+<!-- Removed old v8 scripts, using strict v9 modules -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import {
-    getDatabase, ref, push, query, orderByChild, onValue,
-    set, update, get, runTransaction, off
-  } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, push, query, orderByChild, onValue, set, update, get, runTransaction, off } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-  // Replaced old config with the single new Firebase project
+  // Single unified Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyBWPCkYNw7gT_T7kcwbp5laZgIHac18bvE",
     authDomain: "expandlf.firebaseapp.com",
@@ -758,508 +348,775 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // UI elements
-  const btnLocate = document.getElementById('btnLocate');
-  const btnPost = document.getElementById('btnPost');
-  const myDotsEl = document.getElementById('myDots');
-  const myEarningsEl = document.getElementById('myEarnings');
-  const toastEl = document.getElementById('toast');
+  // ────────────────────────────────────────────────
+  // DOM elements
+  // ────────────────────────────────────────────────
+  const loaderOverlay      = document.getElementById('loaderOverlay');
+  const btnLocate          = document.getElementById('btnLocate');
+  const btnJa              = document.getElementById('btnJa');
+  const btnNee             = document.getElementById('btnNee');
+  const btnBonus           = document.getElementById('btnBonus');
+  const btnPost            = document.getElementById('btnPost');
+  const greenCountEl       = document.getElementById('greenCount');
+  const redCountEl         = document.getElementById('redCount');
+  const blueCountEl        = document.getElementById('blueCount');
+  const toastEl            = document.getElementById('toast');
+  const loginBackdrop      = document.getElementById('loginBackdrop');
+  const userIdInput        = document.getElementById('userIdInput');
+  const userJoinBtn        = document.getElementById('userJoinBtn');
+  const loginError         = document.getElementById('loginError');
+  const userPill           = document.getElementById('userPill');
+  const userPillText       = document.getElementById('userPillText');
+  const changeUserBtn      = document.getElementById('changeUserBtn');
+  const sessionTimerEl     = document.getElementById('sessionTimer');
+  const sessionAvgEl       = document.getElementById('sessionAvg');
+  const sessionTotalEl     = document.getElementById('sessionTotal');
+  const earnPerMinEl       = document.getElementById('earnPerMin');
+  const earnPerHourEl      = document.getElementById('earnPerHour');
+  const zoneInput          = document.getElementById('zoneInput');
+  const btnZoneGo          = document.getElementById('btnZoneGo');
+  const zoneHint           = document.getElementById('zoneHint');
+  const segInput           = document.getElementById('segInput');
+  const btnSegGo           = document.getElementById('btnSegGo');
+  const btnStartWorker     = document.getElementById('btnStartWorker');
+  const workerNamePill     = document.getElementById('workerNamePill');
+  const workerNameText     = document.getElementById('workerNameText');
+  const workerBackdrop     = document.getElementById('workerBackdrop');
+  const workerNameInput    = document.getElementById('workerNameInput');
+  const workerSaveBtn      = document.getElementById('workerSaveBtn');
+  const workerError        = document.getElementById('workerError');
+  const workerPostCountEl  = document.getElementById('workerPostCount');
+  const workerBody         = document.getElementById('workerBody');
 
-  const loginBackdrop = document.getElementById('loginBackdrop');
-  const userIdInput = document.getElementById('userIdInput');
-  const userJoinBtn = document.getElementById('userJoinBtn');
-  const loginError = document.getElementById('loginError');
-  const userPill = document.getElementById('userPill');
-  const userPillText = document.getElementById('userPillText');
-  const changeUserBtn = document.getElementById('changeUserBtn');
+  // Photo proof
+  const cameraBtn          = document.getElementById('cameraBtn');
+  const proofBackdrop      = document.getElementById('proofBackdrop');
+  const proofUrlInput      = document.getElementById('proofUrlInput');
+  const proofSubmitBtn     = document.getElementById('proofSubmitBtn');
+  const proofError         = document.getElementById('proofError');
 
-  const dailyStatsBody = document.getElementById('dailyStatsBody');
+  // Startup Security
+  const startupPopupBg     = document.getElementById('startup-popup-bg');
+  const startupPinInput    = document.getElementById('startup-pin-input');
+  const startupConfirm     = document.getElementById('startup-confirm');
+  const startupErrMsg      = document.getElementById('startup-err-msg');
+  
+  let currentPin = "";
 
-  // Tabs and performance elements
-  const tabDaily = document.getElementById('tabDaily');
-  const tabPerformance = document.getElementById('tabPerformance');
-  const dailyStatsCard = document.getElementById('dailyStatsCard');
-  const performanceCard = document.getElementById('performanceCard');
-  const perfAvgValue = document.getElementById('perfAvgValue');
-  const perfBadgeRank = document.getElementById('perfBadgeRank');
-  const perfBadgeLabel = document.getElementById('perfBadgeLabel');
-  const performanceContent = document.getElementById('performanceContent');
-  const performanceEmpty = document.getElementById('performanceEmpty');
-  const perfDailyBody = document.getElementById('perfDailyBody');
+  // ────────────────────────────────────────────────
+  // Security Startup Gate
+  // ────────────────────────────────────────────────
+  startupConfirm.addEventListener('click', async () => {
+    const pin = startupPinInput.value;
+    if (!pin) return;
+    
+    // Explicitly enforce the requested PIN locally as a safety measure
+    if (pin !== "000123") {
+      startupErrMsg.style.display = 'block';
+      startupErrMsg.textContent = 'Incorrect PIN!';
+      return;
+    }
 
-  // Speed bar elements
-  const speedCurrent = document.getElementById('speedCurrent');
-  const speedBarFill = document.getElementById('speedBarFill');
-  const speedBarGlow = document.getElementById('speedBarGlow');
+    try {
+      startupConfirm.textContent = '...';
+      // Test read to ensure Firebase rules allow it
+      await get(ref(db, pin)); 
+      currentPin = pin;
+      startupPopupBg.classList.remove('show');
+      initializeAppAfterPin();
+    } catch (e) {
+      startupErrMsg.style.display = 'block';
+      startupErrMsg.textContent = 'Firebase Access Denied! Check rules.';
+      startupConfirm.textContent = 'Unlock';
+      console.error("Access Denied:", e);
+    }
+  });
 
-  // Map init
-  const map = L.map('map', { zoomControl: false, tap: true }).setView([20, 0], 2);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
-  L.control.zoom({ position: 'topright' }).addTo(map);
-  const postsLayer = L.layerGroup().addTo(map);
+  startupPinInput.addEventListener('keyup', e => { if (e.key === 'Enter') startupConfirm.click(); });
 
-  // State
+  function initializeAppAfterPin() {
+    loaderOverlay.classList.remove('hidden');
+    loadAndDrawPolygons();
+    loadSegments();
+
+    const stored = normalizeUserId(localStorage.getItem(LS_KEY));
+    if (validateUserId(stored)) {
+      registerUser(stored).then(() => onUserReady(stored));
+    } else {
+      showLogin();
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // Leaflet map setup
+  // ────────────────────────────────────────────────
+  const map = L.map('map', { zoomControl:false, attributionControl:false, tap:true }).setView([20,0],2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+  L.control.zoom({ position:'topright' }).addTo(map);
+
+  const polygonLayer    = L.layerGroup().addTo(map);
+  const segmentsLayer   = L.layerGroup().addTo(map);
+  const postsLayer      = L.layerGroup().addTo(map);
+  const postClicksLayer = L.layerGroup().addTo(map);
+  const distMarkersLayer= L.layerGroup().addTo(map);
+  const zoneLayers = {};
+
+  function hideLoader() { loaderOverlay.classList.add('hidden'); }
+
+  // ────────────────────────────────────────────────
+  // Marker / Icon helpers
+  // ────────────────────────────────────────────────
+  function makeFlagIcon(color) {
+    return L.divIcon({
+      className: '',
+      html: `<div class="flag-marker"><div class="flag-pole"></div><div class="flag-cloth ${color}"></div><div class="flag-dot ${color}"></div></div>`,
+      iconSize: [22,34],
+      iconAnchor: [3,34]
+    });
+  }
+  const redFlagIcon   = makeFlagIcon('red');
+  const greenFlagIcon = makeFlagIcon('green');
+  const blueFlagIcon  = makeFlagIcon('blue');
+
+  function makePurplePinIcon() {
+    return L.divIcon({
+      className: '',
+      html: `<div class="pin-marker"><div class="pin-head"><div class="pin-dot"></div></div><div class="pin-shadow"></div></div>`,
+      iconSize: [24,32],
+      iconAnchor: [12,32]
+    });
+  }
+
+  function makeTinyNameLabel(name, postCount) {
+    const suffix = typeof postCount === 'number' ? ` · P${postCount}` : '';
+    return L.divIcon({
+      className: 'flag-name-label',
+      html: `<div class="inner">${(name || 'Unknown')}${suffix}</div>`,
+      iconSize: [40,12],
+      iconAnchor: [5,12]
+    });
+  }
+
+  function makeDistMarker(kmIndex) {
+    return L.divIcon({
+      className: 'dist-marker',
+      html: `<div class="dist-marker-inner"><span class="dist-marker-text">${kmIndex}</span></div>`,
+      iconSize: [18,18],
+      iconAnchor: [9,18]
+    });
+  }
+
+  function makeSegmentLabel(text, variant) {
+    return L.divIcon({
+      className: `segment-label ${variant}`,
+      html: `<div class="segment-label-inner">${text}</div>`,
+      iconSize: [10,10],
+      iconAnchor: [0,0]
+    });
+  }
+
+  function makeSegmentSquare(color) {
+    return L.divIcon({
+      className: '',
+      html: `<div class="segment-square" style="background:${color};"></div>`,
+      iconSize: [9,9],
+      iconAnchor: [4.5,4.5]
+    });
+  }
+
+  // ────────────────────────────────────────────────
+  // Polygon / Segment loading
+  // ────────────────────────────────────────────────
+  function haversineKm(a, b) {
+    const toRad = d => d * Math.PI / 180;
+    const R = 6371;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+    const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function pathLengthKm(coords) {
+    let d = 0;
+    for (let i = 1; i < coords.length; i++) d += haversineKm(coords[i-1], coords[i]);
+    return d;
+  }
+
+  function getPointAtDistance(coords, targetKm) {
+    let dist = 0;
+    for (let i = 1; i < coords.length; i++) {
+      const segDist = haversineKm(coords[i-1], coords[i]);
+      if (dist + segDist >= targetKm) {
+        const ratio = (targetKm - dist) / segDist;
+        const lat = coords[i-1].lat + (coords[i].lat - coords[i-1].lat) * ratio;
+        const lng = coords[i-1].lng + (coords[i].lng - coords[i-1].lng) * ratio;
+        return { lat, lng };
+      }
+      dist += segDist;
+    }
+    return null;
+  }
+
+  const segments = [];
+  let isolatedSegmentId = null;
+
+  async function loadAndDrawPolygons() {
+    polygonLayer.clearLayers();
+    Object.keys(zoneLayers).forEach(k => delete zoneLayers[k]);
+    try {
+      const snapshot = await get(ref(db, `${currentPin}/polygons`));
+      let idx = 1;
+      snapshot.forEach(child => {
+        const raw = child.val();
+        const coordsArr = Object.keys(raw).filter(k => !isNaN(Number(k))).sort((a,b)=>Number(a)-Number(b)).map(k => [raw[k].lat, raw[k].lng]);
+        if (coordsArr.length < 3) return;
+        const poly = L.polygon(coordsArr, { color:'#ef4444', weight:1.2, opacity:0.85, fillColor:'#ef4444', fillOpacity:0.06, interactive:false }).addTo(polygonLayer);
+        zoneLayers[String(idx)] = poly;
+        const center = poly.getBounds().getCenter();
+        L.marker(center, { icon: L.divIcon({ className:'poly-label', html:`<div class="poly-label-inner">Z${idx}</div>`, iconAnchor:[16,8] }), interactive:false }).addTo(polygonLayer);
+        idx++;
+      });
+      const total = idx - 1;
+      if (total > 0) zoneHint.textContent = `Zones: 1–${total} available`;
+    } catch(e) { console.error("Error loading polygons:", e); }
+  }
+
+  function showAllSegments() {
+    isolatedSegmentId = null;
+    if (!map.hasLayer(polygonLayer)) map.addLayer(polygonLayer);
+    distMarkersLayer.clearLayers();
+    segments.forEach(s => {
+      if (!map.hasLayer(s.poly)) s.poly.addTo(segmentsLayer);
+      if (!map.hasLayer(s.startSq)) s.startSq.addTo(segmentsLayer);
+      if (!map.hasLayer(s.endSq)) s.endSq.addTo(segmentsLayer);
+      if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
+      if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
+      s.poly.setStyle({ color: '#a855f7', weight: 3, dashArray: '6 6', opacity: 0.9 });
+    });
+  }
+
+  function isolateSegment(id) {
+    isolatedSegmentId = id;
+    let found = false;
+    if (map.hasLayer(polygonLayer)) map.removeLayer(polygonLayer);
+    distMarkersLayer.clearLayers();
+    segments.forEach(s => {
+      const on = s.id === id;
+      if (on) {
+        found = true;
+        if (!map.hasLayer(s.poly)) s.poly.addTo(segmentsLayer);
+        if (!map.hasLayer(s.startSq)) s.startSq.addTo(segmentsLayer);
+        if (!map.hasLayer(s.endSq)) s.endSq.addTo(segmentsLayer);
+        if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
+        if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
+        s.poly.setStyle({ color: '#a855f7', weight: 3, dashArray: null, opacity: 1.0 });
+        const rawCoords = s.poly.getLatLngs();
+        const coords = rawCoords.map(c => ({ lat: c.lat, lng: c.lng }));
+        const totalLen = pathLengthKm(coords);
+        let distStep = 0.5;
+        let idxCounter = 1;
+        while (distStep < totalLen) {
+          const pt = getPointAtDistance(coords, distStep);
+          if (pt) {
+            L.marker([pt.lat, pt.lng], { icon: makeDistMarker(idxCounter), zIndexOffset: 100 }).addTo(distMarkersLayer);
+            idxCounter++;
+          }
+          distStep += 0.5;
+        }
+        map.flyToBounds(s.poly.getBounds(), { padding: [50, 50], duration: 1.0 });
+      } else {
+        map.removeLayer(s.poly);
+        map.removeLayer(s.startSq);
+        map.removeLayer(s.endSq);
+        map.removeLayer(s.startLabel);
+        map.removeLayer(s.endLabel);
+      }
+    });
+    return found;
+  }
+
+  async function loadSegments() {
+    segmentsLayer.clearLayers();
+    segments.length = 0;
+    isolatedSegmentId = null;
+    const styleBase = { color: '#a855f7', weight: 3, dashArray: '6 6', opacity: 0.9 };
+    try {
+      const snapshot = await get(ref(db, `${currentPin}/segments`));
+      let idx = 1;
+      snapshot.forEach(child => {
+        const raw = child.val();
+        const coords = Object.keys(raw)
+          .filter(k => !isNaN(Number(k)))
+          .sort((a,b)=>Number(a)-Number(b))
+          .map(k => ({ lat: raw[k].lat, lng: raw[k].lng }));
+        if (coords.length < 2) return;
+        const km = pathLengthKm(coords);
+        const polyline = L.polyline(coords, styleBase).addTo(segmentsLayer);
+        const start = coords[0];
+        const end = coords[coords.length - 1];
+        const startSq = L.marker([start.lat, start.lng], { icon: makeSegmentSquare('#ef4444'), interactive: true, zIndexOffset: 60 }).addTo(segmentsLayer);
+        const endSq = L.marker([end.lat, end.lng], { icon: makeSegmentSquare('#22c55e'), interactive: true, zIndexOffset: 60 }).addTo(segmentsLayer);
+        const startLabel = L.marker([start.lat, start.lng], { icon: makeSegmentLabel(`S#${idx} · ${km.toFixed(2)} km`, 'start'), interactive: true, zIndexOffset: 50 }).addTo(segmentsLayer);
+        const endLabel = L.marker([end.lat, end.lng], { icon: makeSegmentLabel(`E#${idx} · ${km.toFixed(2)} km`, 'end'), interactive: true, zIndexOffset: 50 }).addTo(segmentsLayer);
+        const segObj = { id: idx, poly: polyline, startSq, endSq, startLabel, endLabel };
+        segments.push(segObj);
+        const focus = () => { isolateSegment(idx); showToast(`Focused Segment #${idx}`); };
+        startSq.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        endSq.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        startLabel.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        endLabel.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        polyline.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        idx++;
+      });
+      if(idx > 1) zoneHint.textContent += ` | Segments: 1–${idx-1}`;
+    } catch (e) { console.error("Error loading segments:", e); }
+  }
+
+  function goToZone(num) {
+    const poly = zoneLayers[String(num)];
+    if (!poly) { showToast(`Zone ${num} not found`); return; }
+    if (!map.hasLayer(polygonLayer)) showAllSegments();
+    map.flyToBounds(poly.getBounds(), { padding:[28,28], duration:0.9, maxZoom:17 });
+    showToast(`Zoomed to Zone ${num}`);
+  }
+
+  btnZoneGo.addEventListener('click', () => {
+    const n = parseInt(zoneInput.value, 10);
+    if (!n || n < 1) { showToast('Enter a valid zone number'); return; }
+    goToZone(n);
+  });
+  zoneInput.addEventListener('keyup', e => { if (e.key === 'Enter') btnZoneGo.click(); });
+
+  btnSegGo.addEventListener('click', () => {
+    const n = parseInt(segInput.value, 10);
+    if (!n || n < 1) { showToast('Enter valid segment #'); return; }
+    const found = isolateSegment(n);
+    if (found) showToast(`Focused Segment #${n}`);
+    else showToast(`Segment #${n} not found`);
+  });
+  segInput.addEventListener('keyup', e => { if(e.key === 'Enter') btnSegGo.click(); });
+
+  map.on('click', () => showAllSegments());
+
+  // ────────────────────────────────────────────────
+  // Core state
+  // ────────────────────────────────────────────────
   let currentLatLng = null;
   let currentMarker = null;
-  const postMarkers = new Map();
   let currentUserId = null;
   let myStatsUnsub = null;
   let myPostsUnsub = null;
+  let workersUnsub = null;
+  let currentWorkerName = null;
+  let currentWorkerPostClicks = 0;
 
-  // Styles
-  const redStyle = { radius: 6, color: '#ff3344', weight: 2, fillColor: '#ff3344', fillOpacity: 0.9 };
-  const blackStyle = { radius: 1.6, color: '#000', weight: 1, fillColor: '#000', fillOpacity: 1 };
+  const greenStyle = { radius:2.5, color:'#16a34a', weight:1, fillColor:'#22c55e', fillOpacity:.9 };
+  const redStyle   = { radius:2.5, color:'#991b1b', weight:1, fillColor:'#ef4444', fillOpacity:.9 };
+  const blueStyle  = { radius:2.5, color:'#1e40af', weight:1, fillColor:'#1f84f7', fillOpacity:.9 };
+  const orangeDotStyle = { radius:5, color:'#f97316', weight:1.5, fillColor:'#f97316', fillOpacity:0.75, opacity:0.9 };
 
-  function showToast(text = 'Posted!') {
+  let workersMeta = {};
+  let workersCache = null;
+
+  function showToast(text) {
     toastEl.textContent = text;
     toastEl.classList.add('show');
-    setTimeout(() => toastEl.classList.remove('show'), 1500);
+    setTimeout(()=>toastEl.classList.remove('show'), 2500);
   }
 
-  function setPostEnabled(enabled) {
-    btnPost.disabled = !enabled || !currentUserId;
+  function setPostEnabled(on) {
+    const ok = on && !!currentUserId && !!currentWorkerName;
+    btnJa.disabled = btnNee.disabled = btnBonus.disabled = btnPost.disabled = !ok;
   }
 
-  function ensureCurrentMarker(latlng) {
-    if (!currentMarker) {
-      currentMarker = L.circleMarker(latlng, redStyle).addTo(map);
+  function formatDate(ts) {
+    const d = new Date(ts);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+  }
+
+  function formatWorkDuration(ms) {
+    if (!ms || ms <= 0) return '0h 00m';
+    const m = Math.floor(ms / 60000);
+    return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;
+  }
+
+  function formatLocalTime(ts) {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function formatHMS(ms) {
+    if (ms < 0) ms = 0;
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sc = s % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
+  }
+
+  function normalizeWorkerName(v) {
+    return (v || '').trim().replace(/\s+/g, ' ');
+  }
+
+  function validateWorkerName(v) {
+    return /^[A-Za-z]{2,20}$/.test(v);
+  }
+
+  function getPostCountForName(name) {
+    const key = (name || '').toLowerCase();
+    return workersMeta[key]?.postClicks || 0;
+  }
+
+  function updateWorkerUi() {
+    currentWorkerPostClicks = getPostCountForName(currentWorkerName);
+    workerPostCountEl.textContent = currentWorkerPostClicks;
+    if (currentWorkerName) {
+      workerNameText.textContent = currentWorkerName;
+      workerNamePill.style.display = 'inline-flex';
+      btnStartWorker.textContent = 'Start';
     } else {
-      currentMarker.setLatLng(latlng);
+      workerNameText.textContent = '';
+      workerNamePill.style.display = 'none';
+      btnStartWorker.textContent = 'Start';
     }
   }
 
-  function fitIfNeeded() {
-    if (!currentLatLng && postsLayer.getLayers().length > 0) {
-      try { map.fitBounds(postsLayer.getBounds().pad(0.2), { animate: true }); } catch { }
-    }
+  function openWorkerModal() {
+    workerError.textContent = '';
+    workerNameInput.value = currentWorkerName || '';
+    workerBackdrop.classList.add('show');
+    setTimeout(() => workerNameInput.focus(), 50);
   }
 
-  async function goToCurrentLocation({ focus = true } = {}) {
-    if (!('geolocation' in navigator)) { showToast('Geolocation not supported'); return; }
-    return new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const { latitude, longitude } = pos.coords;
-          currentLatLng = [latitude, longitude];
-          ensureCurrentMarker(currentLatLng);
-          if (focus) map.setView(currentLatLng, Math.max(map.getZoom(), 16), { animate: true });
-          setPostEnabled(true);
-          resolve(currentLatLng);
-        },
-        (err) => {
-          console.warn('Geolocation error:', err);
-          showToast('Location permission needed');
-          setPostEnabled(false);
-          resolve(null);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
-      );
+  function closeWorkerModal() {
+    workerBackdrop.classList.remove('show');
+  }
+
+  async function saveWorkerName(name) {
+    if (!currentUserId) return;
+    const now = Date.now();
+    const safe = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    await set(ref(db, `${currentPin}/users/${currentUserId}/workers/${safe}`), {
+      firstName: name,
+      createdAt: now,
+      lastActiveAt: now,
+      postClicks: workersMeta[safe]?.postClicks || 0
     });
   }
 
-  if ('geolocation' in navigator) {
-    navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        currentLatLng = [latitude, longitude];
-        ensureCurrentMarker(currentLatLng);
-        setPostEnabled(true);
-      },
-      () => { },
-      { enableHighAccuracy: true, maximumAge: 15000, timeout: 15000 }
-    );
-  }
-
-  // ========= User handling =========
-  const LS_KEY = 'dotPoster:userId';
-
-  function showLogin() {
-    loginBackdrop.classList.add('show');
-    userIdInput.value = '';
-    userIdInput.focus();
-    setPostEnabled(false);
-    // Detach per-user listeners when changing user
-    if (typeof myStatsUnsub === 'function') { myStatsUnsub(); myStatsUnsub = null; }
-    if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
-    currentUserId = null;
-    // Clear user markers & daily stats & performance & speed
+  function rebuildMapLayer(dotsArray) {
     postsLayer.clearLayers();
-    postMarkers.clear();
-    renderDailyStats(null);
-    updatePerformance(null);
-    updateSpeedBar(0, false);
-    renderDailyPerformance(null);
+    if (!dotsArray || !dotsArray.length) return;
+
+    const byWorker = {};
+    dotsArray.forEach(d => {
+      const name = d.workerName || 'Unknown';
+      if (!byWorker[name]) byWorker[name] = [];
+      byWorker[name].push(d);
+    });
+
+    Object.keys(byWorker).forEach(name => {
+      const arr = byWorker[name].sort((a,b) => a.timestamp - b.timestamp);
+      const latlngs = arr.map(d => [d.lat, d.lng]);
+      if (latlngs.length > 1) {
+        L.polyline(latlngs, {color:'#4f8cff', weight:1.5, opacity:0.7, dashArray:'4,7'}).addTo(postsLayer);
+      }
+
+      arr.forEach(d => {
+        let style = redStyle;
+        let typeLabel = '✗ Left';
+        if (d.color === 'green') { style = greenStyle; typeLabel = '✓ Right'; }
+        else if (d.color === 'blue') { style = blueStyle; typeLabel = '★ Bonus'; }
+        const postCount = getPostCountForName(d.workerName);
+        L.circleMarker([d.lat, d.lng], style)
+          .bindTooltip(`${typeLabel} — ${formatLocalTime(d.timestamp)} · ${d.workerName||'Unknown'} · P${postCount}`, {direction:'top', offset:[0,-4]})
+          .addTo(postsLayer);
+      });
+
+      const first = arr[0], last = arr[arr.length-1];
+      const firstPosts = getPostCountForName(first.workerName);
+      const lastPosts  = getPostCountForName(last.workerName);
+
+      let firstIcon = redFlagIcon, lastIcon = redFlagIcon;
+      if (first.color === 'green') firstIcon = greenFlagIcon;
+      else if (first.color === 'blue') firstIcon = blueFlagIcon;
+      if (last.color === 'green') lastIcon = greenFlagIcon;
+      else if (last.color === 'blue') lastIcon = blueFlagIcon;
+
+      L.marker([first.lat, first.lng], {icon:firstIcon, zIndexOffset:200})
+        .bindTooltip(`🚩 First — ${formatLocalTime(first.timestamp)} · ${first.workerName||'Unknown'} · P${firstPosts}`, {direction:'top', offset:[6,-30]})
+        .addTo(postsLayer);
+      L.marker([first.lat, first.lng], {icon:makeTinyNameLabel(first.workerName||'Unknown', firstPosts), zIndexOffset:202}).addTo(postsLayer);
+
+      L.marker([last.lat, last.lng], {icon:lastIcon, zIndexOffset:201})
+        .bindTooltip(`🏁 Last — ${formatLocalTime(last.timestamp)} · ${last.workerName||'Unknown'} · P${lastPosts}`, {direction:'top', offset:[6,-30]})
+        .addTo(postsLayer);
+      L.marker([last.lat, last.lng], {icon:makeTinyNameLabel(last.workerName||'Unknown', lastPosts), zIndexOffset:203}).addTo(postsLayer);
+    });
   }
-  function hideLogin() { loginBackdrop.classList.remove('show'); }
-  function normalizeUserId(id) { return (id || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
-  function validateUserId(id) { return /^[A-Z0-9]{3,10}$/.test(id); }
+
+  function renderWorkerTable() {
+    workerBody.innerHTML = '';
+    if (!currentUserId || !workersCache) {
+      workerBody.innerHTML = '<tr class="empty-row"><td colspan="9">No data yet.</td></tr>';
+      return;
+    }
+
+    const rows = Object.keys(workersCache).map(name => {
+      const w = workersCache[name];
+      const mins = w.workMs > 0 ? w.workMs / 60000 : 0;
+      const avg = mins > 0 ? w.count / mins : 0;
+      return { name, ...w, avg };
+    }).sort((a,b) => (b.posts||0) - (a.posts||0) || b.avg - a.avg);
+
+    if (!rows.length) {
+      workerBody.innerHTML = '<tr class="empty-row"><td colspan="9">No data yet.</td></tr>';
+      return;
+    }
+
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      if (currentWorkerName && r.name.toLowerCase() === currentWorkerName.toLowerCase()) {
+        tr.classList.add('current-worker-row');
+      }
+      const earnedAmount = (r.count * 0.036).toFixed(2);
+      tr.innerHTML = `
+        <td>${r.name}</td>
+        <td>${r.count}</td>
+        <td class="col-earned">€${earnedAmount}</td>
+        <td class="col-avg">${r.avg.toFixed(2)}</td>
+        <td class="col-green">${r.green}</td>
+        <td class="col-red">${r.red}</td>
+        <td class="col-blue">${r.blue}</td>
+        <td>${r.posts}</td>
+        <td class="col-work">${formatWorkDuration(r.workMs)}</td>`;
+      workerBody.appendChild(tr);
+    });
+  }
+
+  function updateSessionDisplayForCurrentWorker(postsArray) {
+    let sessionDurationMs = 0;
+    let sessionDots = 0;
+    let sessionAvg = 0;
+    let isActive = false;
+
+    if (currentWorkerName && postsArray?.length) {
+      const workerKey = currentWorkerName.toLowerCase();
+      const workerPosts = postsArray.filter(p => (p.workerName || '').toLowerCase() === workerKey);
+
+      if (workerPosts.length > 0) {
+        isActive = true;
+        sessionDots = workerPosts.length;
+
+        const timestamps = workerPosts.map(p => p.timestamp).sort((a,b) => a - b);
+        const firstTs = timestamps[0];
+        const lastTs  = timestamps[timestamps.length - 1];
+        sessionDurationMs = Math.max(0, lastTs - firstTs);
+
+        const minutes = sessionDurationMs / 60000;
+        sessionAvg = minutes > 0 ? sessionDots / minutes : 0;
+      }
+    }
+
+    sessionTimerEl.classList.toggle('inactive', !isActive);
+    sessionTimerEl.textContent = isActive ? formatHMS(sessionDurationMs) : "00:00:00";
+
+    sessionAvgEl.textContent   = isActive ? sessionAvg.toFixed(2) : "—";
+    sessionTotalEl.textContent = isActive ? String(sessionDots) : "0";
+
+    const emojiEl = document.getElementById('speedEmoji');
+    if (emojiEl) {
+      if (isActive && sessionAvg >= 5) {
+        emojiEl.textContent = '🔥';
+      } else if (isActive) {
+        emojiEl.textContent = '🐌';
+      } else {
+        emojiEl.textContent = '–';
+      }
+    }
+
+    const earnPerMin  = sessionAvg * 0.036;
+    const earnPerHour = earnPerMin * 60;
+    earnPerMinEl.textContent  = '€' + earnPerMin.toFixed(2);
+    earnPerHourEl.textContent = '€' + earnPerHour.toFixed(2);
+  }
 
   function attachMyStatsListener(id) {
     if (typeof myStatsUnsub === 'function') { myStatsUnsub(); myStatsUnsub = null; }
-    myStatsUnsub = onValue(ref(db, `users/${id}/stats`), (snap) => {
-      const stats = snap.val() || {};
-      const totalDots = stats.totalDots || 0;
-      const cents = stats.totalEarningsCents ?? (totalDots * 10);
-      myDotsEl.textContent = String(totalDots);
-      myEarningsEl.textContent = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(cents / 100);
+    myStatsUnsub = onValue(ref(db, `${currentPin}/users/${id}/stats`), snap => {
+      const s = snap.val() || {};
+      // Stats usage can go here
     });
   }
 
-  // Helper: format timestamp to YYYY-MM-DD for grouping (UTC)
-  function formatDate(ts) {
-    const d = new Date(ts);
-    const year = d.getUTCFullYear();
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  // Today's date key (UTC) for speed bar activation
-  function getTodayKeyUtc() {
-    const d = new Date();
-    const year = d.getUTCFullYear();
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  // Helper: local time HH:MM
-  function formatLocalTime(ts) {
-    const d = new Date(ts);
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  }
-
-  // Helper: format duration in ms to "Hh MMm"
-  function formatWorkDuration(ms) {
-    if (!ms || ms <= 0) return '0h 00m';
-    const totalMinutes = Math.floor(ms / (1000 * 60));
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    const hStr = `${hours}h`;
-    const mStr = `${String(minutes).padStart(2, '0')}m`;
-    return `${hStr} ${mStr}`;
-  }
-
-  // Render daily stats from posts snapshot (dots, earnings, work time)
-  function renderDailyStats(snapshot) {
-    dailyStatsBody.innerHTML = '';
-    if (!snapshot || !snapshot.exists()) {
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 4;
-      td.className = 'daily-stats-empty';
-      td.textContent = 'No dots yet. Post your first dot to see stats.';
-      tr.appendChild(td);
-      dailyStatsBody.appendChild(tr);
-      return;
-    }
-
-    const dataByDate = {};
-    snapshot.forEach((child) => {
-      const val = child.val();
-      if (!val || typeof val.timestamp !== 'number') return;
-      const dateKey = formatDate(val.timestamp);
-      if (!dataByDate[dateKey]) {
-        dataByDate[dateKey] = {
-          count: 0,
-          earliest: val.timestamp,
-          latest: val.timestamp
+  function attachWorkersListener(id) {
+    if (typeof workersUnsub === 'function') { workersUnsub(); workersUnsub = null; }
+    const workersRef = ref(db, `${currentPin}/users/${id}/workers`);
+    const handler = snap => {
+      workersMeta = {};
+      snap.forEach(child => {
+        const v = child.val();
+        workersMeta[child.key] = {
+          name: v.firstName || child.key,
+          postClicks: v.postClicks || 0,
+          lastActiveAt: v.lastActiveAt || 0
         };
-      }
-      const d = dataByDate[dateKey];
-      d.count += 1;
-      if (val.timestamp < d.earliest) d.earliest = val.timestamp;
-      if (val.timestamp > d.latest) d.latest = val.timestamp;
-    });
-
-    const dates = Object.keys(dataByDate).sort((a, b) => b.localeCompare(a)); // latest first
-
-    if (dates.length === 0) {
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 4;
-      td.className = 'daily-stats-empty';
-      td.textContent = 'No dots yet. Post your first dot to see stats.';
-      tr.appendChild(td);
-      dailyStatsBody.appendChild(tr);
-      return;
-    }
-
-    dates.forEach((dateStr) => {
-      const { count, earliest, latest } = dataByDate[dateStr];
-      const earnings = count * 0.10;
-      const workMs = Math.max(latest - earliest, 0);
-      const workStr = formatWorkDuration(workMs);
-
-      const tr = document.createElement('tr');
-
-      const tdDate = document.createElement('td');
-      tdDate.className = 'daily-stats-date';
-      tdDate.textContent = dateStr;
-
-      const tdDots = document.createElement('td');
-      tdDots.className = 'daily-stats-dots';
-      tdDots.textContent = count.toString();
-
-      const tdEarn = document.createElement('td');
-      tdEarn.className = 'daily-stats-earn';
-      tdEarn.textContent = `€${earnings.toFixed(2)}`;
-
-      const tdWork = document.createElement('td');
-      tdWork.className = 'daily-stats-worktime';
-      tdWork.textContent = workStr;
-
-      tr.appendChild(tdDate);
-      tr.appendChild(tdDots);
-      tr.appendChild(tdEarn);
-      tr.appendChild(tdWork);
-      dailyStatsBody.appendChild(tr);
-    });
-  }
-
-  // Render per-day performance table: adds avg flyers/hr and first/last times
-  function renderDailyPerformance(snapshot) {
-    perfDailyBody.innerHTML = '';
-    if (!snapshot || !snapshot.exists()) {
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 6;
-      td.className = 'perf-empty';
-      td.textContent = 'No dots yet. Post to see daily performance.';
-      tr.appendChild(td);
-      perfDailyBody.appendChild(tr);
-      return;
-    }
-
-    const dataByDate = {};
-    snapshot.forEach((child) => {
-      const val = child.val();
-      if (!val || typeof val.timestamp !== 'number') return;
-      const dateKey = formatDate(val.timestamp);
-      if (!dataByDate[dateKey]) {
-        dataByDate[dateKey] = {
-          count: 0,
-          earliest: val.timestamp,
-          latest: val.timestamp
-        };
-      }
-      const d = dataByDate[dateKey];
-      d.count += 1;
-      if (val.timestamp < d.earliest) d.earliest = val.timestamp;
-      if (val.timestamp > d.latest) d.latest = val.timestamp;
-    });
-
-    const dates = Object.keys(dataByDate).sort((a, b) => b.localeCompare(a)); // latest first
-
-    if (dates.length === 0) {
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 6;
-      td.className = 'perf-empty';
-      td.textContent = 'No dots yet. Post to see daily performance.';
-      tr.appendChild(td);
-      perfDailyBody.appendChild(tr);
-      return;
-    }
-
-    dates.forEach((dateStr) => {
-      const { count, earliest, latest } = dataByDate[dateStr];
-      const workMs = Math.max(latest - earliest, 0);
-      const workStr = formatWorkDuration(workMs);
-
-      let hours = workMs / (1000 * 60 * 60);
-      if (hours <= 0) hours = 1; // if single dot, consider 1h window
-      const avg = count / hours;
-
-      const tr = document.createElement('tr');
-
-      const tdDate = document.createElement('td');
-      tdDate.className = 'perf-daily-date';
-      tdDate.textContent = dateStr;
-
-      const tdDots = document.createElement('td');
-      tdDots.className = 'perf-daily-dots';
-      tdDots.textContent = count.toString();
-
-      const tdWork = document.createElement('td');
-      tdWork.className = 'perf-daily-work';
-      tdWork.textContent = workStr;
-
-      const tdAvg = document.createElement('td');
-      tdAvg.className = 'perf-daily-avg';
-      tdAvg.textContent = avg.toFixed(1);
-
-      const tdFirst = document.createElement('td');
-      tdFirst.className = 'perf-daily-time';
-      tdFirst.textContent = formatLocalTime(earliest);
-
-      const tdLast = document.createElement('td');
-      tdLast.className = 'perf-daily-time';
-      tdLast.textContent = formatLocalTime(latest);
-
-      tr.appendChild(tdDate);
-      tr.appendChild(tdDots);
-      tr.appendChild(tdWork);
-      tr.appendChild(tdAvg);
-      tr.appendChild(tdFirst);
-      tr.appendChild(tdLast);
-      perfDailyBody.appendChild(tr);
-    });
-  }
-
-  // Compute badges based on flyers per hour (lifetime)
-  function getPerformanceBadge(flyersPerHour) {
-    if (flyersPerHour >= 250) return { rank: 'TOP', label: 'Top badge (250+ flyers/hr)' };
-    if (flyersPerHour >= 200) return { rank: 'ELITE', label: 'Elite (200–249 flyers/hr)' };
-    if (flyersPerHour >= 150) return { rank: 'PRO', label: 'Pro (150–199 flyers/hr)' };
-    if (flyersPerHour >= 100) return { rank: 'INTER', label: 'Intermediate (100–149 flyers/hr)' };
-    if (flyersPerHour >= 50) return { rank: 'BEGIN', label: 'Beginner (50–99 flyers/hr)' };
-    return { rank: '–', label: 'No badge yet' };
-  }
-
-  // Map flyers/hour to 0–1 (0 -> 0, 250+ -> 1)
-  function speedToRatio(flyersPerHour) {
-    const capped = Math.max(0, Math.min(flyersPerHour, 250));
-    return capped / 250;
-  }
-
-  // Update header live speed bar
-  // active=false keeps it visually low-glow when no flyers today yet
-  function updateSpeedBar(flyersPerHour, active) {
-    const value = active ? flyersPerHour : 0;
-    const ratio = speedToRatio(value);
-    speedCurrent.textContent = value.toFixed(1);
-
-    speedBarFill.style.transform = `scaleX(${ratio})`;
-    const glowPos = 5 + ratio * 90;
-    speedBarGlow.style.setProperty('--glow-pos', `${glowPos}%`);
-    speedBarGlow.style.opacity = active && ratio > 0 ? 0.45 : 0.15;
-  }
-
-  // Update lifetime performance + header speed bar (today only)
-  function updatePerformance(snapshot) {
-    // Lifetime stats
-    if (!snapshot || !snapshot.exists()) {
-      perfAvgValue.textContent = '0.0';
-      const badge0 = getPerformanceBadge(0);
-      perfBadgeRank.textContent = badge0.rank;
-      perfBadgeLabel.textContent = badge0.label;
-      performanceContent.style.display = 'none';
-      performanceEmpty.style.display = 'block';
-      // No flyers at all -> no daily performance, no speed today
-      updateSpeedBar(0, false);
-      return;
-    }
-
-    let totalDots = 0;
-    let earliestTs = Infinity;
-    let latestTs = 0;
-
-    const todayKey = getTodayKeyUtc();
-    let todayCount = 0;
-    let todayEarliest = Infinity;
-    let todayLatest = 0;
-
-    snapshot.forEach((child) => {
-      const val = child.val();
-      if (!val || typeof val.timestamp !== 'number') return;
-      const ts = val.timestamp;
-      totalDots += 1;
-      if (ts < earliestTs) earliestTs = ts;
-      if (ts > latestTs) latestTs = ts;
-
-      const dateKey = formatDate(ts);
-      if (dateKey === todayKey) {
-        todayCount += 1;
-        if (ts < todayEarliest) todayEarliest = ts;
-        if (ts > todayLatest) todayLatest = ts;
-      }
-    });
-
-    if (totalDots === 0 || earliestTs === Infinity) {
-      perfAvgValue.textContent = '0.0';
-      const badge0 = getPerformanceBadge(0);
-      perfBadgeRank.textContent = badge0.rank;
-      perfBadgeLabel.textContent = badge0.label;
-      performanceContent.style.display = 'none';
-      performanceEmpty.style.display = 'block';
-      updateSpeedBar(0, false);
-      return;
-    }
-
-    // Lifetime avg
-    const diffMsLifetime = Math.max(latestTs - earliestTs, 0);
-    let hoursLifetime = diffMsLifetime / (1000 * 60 * 60);
-    if (hoursLifetime < 1) hoursLifetime = 1;
-    const flyersPerHourLifetime = totalDots / hoursLifetime;
-
-    perfAvgValue.textContent = flyersPerHourLifetime.toFixed(1);
-    const badge = getPerformanceBadge(flyersPerHourLifetime);
-    perfBadgeRank.textContent = badge.rank;
-    perfBadgeLabel.textContent = badge.label;
-    performanceContent.style.display = 'block';
-    performanceEmpty.style.display = 'none';
-
-    // Today's speed bar: only if at least one flyer today
-    if (todayCount > 0 && todayEarliest !== Infinity) {
-      const diffMsToday = Math.max(todayLatest - todayEarliest, 0);
-      let hoursToday = diffMsToday / (1000 * 60 * 60);
-      if (hoursToday < 1) hoursToday = 1;
-      const flyersPerHourToday = todayCount / hoursToday;
-      updateSpeedBar(flyersPerHourToday, true);
-    } else {
-      updateSpeedBar(0, false);
-    }
+      });
+      updateWorkerUi();
+      renderWorkerTable();
+    };
+    onValue(workersRef, handler);
+    workersUnsub = () => off(workersRef, 'value', handler);
   }
 
   function attachMyPostsListener(id) {
     if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
-    const myPostsRef = query(ref(db, `userPosts/${id}`), orderByChild('timestamp'));
-    const handler = (snapshot) => {
-      // Map markers
-      postsLayer.clearLayers();
-      postMarkers.clear();
 
-      snapshot.forEach((child) => {
-        const key = child.key;
-        const val = child.val();
-        if (!val || typeof val.lat !== 'number' || typeof val.lng !== 'number') return;
+    const postsRef = query(ref(db, `${currentPin}/userPosts/${id}`), orderByChild('timestamp'));
 
-        const label = val.userId ? `My dot (${val.userId})` : 'My dot';
-        const marker = L.circleMarker([val.lat, val.lng], blackStyle).bindTooltip(label, { direction: 'top', offset: [0, -8] });
-        marker.addTo(postsLayer);
-        postMarkers.set(key, marker);
+    const handler = snap => {
+      const arr = [];
+      snap.forEach(child => {
+        const v = child.val();
+        if (v && typeof v.lat === 'number' && typeof v.lng === 'number') {
+          arr.push(v);
+        }
       });
 
-      fitIfNeeded();
+      hideLoader();
 
-      // Daily totals
-      renderDailyStats(snapshot);
-      // Per-day performance
-      renderDailyPerformance(snapshot);
-      // Lifetime performance + today's live speed
-      updatePerformance(snapshot);
+      // Global color counts 
+      let gc = 0, rc = 0, bc = 0;
+      arr.forEach(d => {
+        if (d.color === 'green') gc++;
+        else if (d.color === 'blue') bc++;
+        else rc++;
+      });
+      greenCountEl.textContent = gc;
+      redCountEl.textContent = rc;
+      blueCountEl.textContent = bc;
+
+      // Build per-worker stats for table
+      const workers = {};
+      arr.forEach(d => {
+        const name = d.workerName || 'Unknown';
+        const key = name.toLowerCase();
+        if (!workers[key]) {
+          workers[key] = {
+            name,
+            count: 0,
+            green: 0,
+            red: 0,
+            blue: 0,
+            earliest: d.timestamp,
+            latest: d.timestamp,
+            posts: getPostCountForName(name)
+          };
+        }
+        const w = workers[key];
+        w.count++;
+        if (d.color === 'green') w.green++;
+        else if (d.color === 'blue') w.blue++;
+        else w.red++;
+
+        if (d.timestamp < w.earliest) w.earliest = d.timestamp;
+        if (d.timestamp > w.latest)   w.latest   = d.timestamp;
+      });
+
+      // Merge missing workers from meta
+      Object.keys(workersMeta).forEach(k => {
+        if (!workers[k]) {
+          workers[k] = {
+            name: workersMeta[k].name,
+            count: 0,
+            green: 0,
+            red: 0,
+            blue: 0,
+            earliest: Date.now(),
+            latest: Date.now(),
+            posts: workersMeta[k].postClicks || 0
+          };
+        } else {
+          workers[k].posts = workersMeta[k].postClicks || 0;
+        }
+      });
+
+      Object.values(workers).forEach(w => {
+        w.workMs = w.count > 0 ? Math.max(w.latest - w.earliest, 0) : 0;
+      });
+
+      workersCache = workers;
+
+      rebuildMapLayer(arr);
+      renderWorkerTable();
+
+      // Update session display for CURRENT worker only
+      updateSessionDisplayForCurrentWorker(arr);
+
+      // Campaign progress (team total)
+      const totalTeamDots = arr.length;
+      const TARGET_DOTS = 15000;
+      const TOTAL_BUDGET = 540;
+      const teamEarned = totalTeamDots * 0.036;
+      const remBudget = Math.max(0, TOTAL_BUDGET - teamEarned);
+
+      document.getElementById('totalDotsProgress').textContent = totalTeamDots;
+      document.getElementById('dotsBar').style.width = Math.min(100, (totalTeamDots / TARGET_DOTS) * 100) + '%';
+
+      document.getElementById('totalEarnedProgress').textContent = teamEarned.toFixed(2);
+      document.getElementById('remBudgetProgress').textContent = '€' + remBudget.toFixed(2);
+      document.getElementById('budgetBar').style.width = Math.min(100, (teamEarned / TOTAL_BUDGET) * 100) + '%';
     };
-    onValue(myPostsRef, handler);
-    // Create an unsubscribe wrapper
-    myPostsUnsub = () => off(myPostsRef, 'value', handler);
+
+    onValue(postsRef, handler);
+    myPostsUnsub = () => off(postsRef, 'value', handler);
   }
 
-  function onUserReady(id) {
-    currentUserId = id;
-    localStorage.setItem(LS_KEY, id);
-    userPillText.textContent = `Logged in as ${id}`;
-    userPill.style.display = 'flex';
-    attachMyStatsListener(id);
-    attachMyPostsListener(id);
-    setPostEnabled(true);
+  const LS_KEY = 'dotPoster:userId';
+  function normalizeUserId(id) {
+    return (id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   }
+  function validateUserId(id) {
+    return /^[A-Z0-9]{3,10}$/.test(id);
+  }
+
+  function showLogin() {
+    hideLoader();
+    loginBackdrop.classList.add('show');
+    userIdInput.value = '';
+    loginError.textContent = '';
+    setPostEnabled(false);
+
+    if (typeof myStatsUnsub === 'function') { myStatsUnsub(); myStatsUnsub = null; }
+    if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
+    if (typeof workersUnsub === 'function') { workersUnsub(); workersUnsub = null; }
+
+    currentUserId = null;
+    currentWorkerName = null;
+    currentWorkerPostClicks = 0;
+    workersMeta = {};
+    workersCache = null;
+
+    updateWorkerUi();
+    postsLayer.clearLayers();
+    postClicksLayer.clearLayers();
+    greenCountEl.textContent = '0';
+    redCountEl.textContent = '0';
+    blueCountEl.textContent = '0';
+    sessionTimerEl.textContent = '00:00:00';
+    sessionAvgEl.textContent = '—';
+    sessionTotalEl.textContent = '0';
+    earnPerMinEl.textContent = '€0.00';
+    earnPerHourEl.textContent = '€0.00';
+    renderWorkerTable();
+  }
+
+  function hideLogin() { loginBackdrop.classList.remove('show'); }
 
   async function registerUser(id) {
     const now = Date.now();
-    const userRef = ref(db, `users/${id}`);
+    const userRef = ref(db, `${currentPin}/users/${id}`);
     try {
       const snap = await get(userRef);
       if (snap.exists()) {
@@ -1273,22 +1130,25 @@
         });
       }
     } catch (e) {
-      console.error('User register error', e);
-      showToast('Failed to register user');
+      console.error('Register error', e);
     }
   }
 
-  const stored = normalizeUserId(localStorage.getItem(LS_KEY));
-  if (validateUserId(stored)) {
-    registerUser(stored).then(() => onUserReady(stored));
-  } else {
-    showLogin();
+  function onUserReady(id) {
+    currentUserId = id;
+    localStorage.setItem(LS_KEY, id);
+    userPillText.textContent = id;
+    userPill.style.display = 'flex';
+    attachMyStatsListener(id);
+    attachWorkersListener(id);
+    attachMyPostsListener(id);
+    setPostEnabled(!!currentLatLng);
+    goToCurrentLocation({ focus: true });
   }
 
   userJoinBtn.addEventListener('click', async () => {
     loginError.textContent = '';
-    const raw = userIdInput.value;
-    const id = normalizeUserId(raw);
+    const id = normalizeUserId(userIdInput.value);
     if (!validateUserId(id)) {
       loginError.textContent = 'Use 3–10 letters/numbers, e.g. FF001';
       return;
@@ -1298,90 +1158,233 @@
     hideLogin();
     showToast(`User ${id} ready`);
   });
-  userIdInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') userJoinBtn.click(); });
-  changeUserBtn.addEventListener('click', () => { showLogin(); });
 
-  // ========= Posting (ONLY to userPosts, not to /posts) =========
-  btnLocate.addEventListener('click', () => { goToCurrentLocation({ focus: true }); });
+  userIdInput.addEventListener('keyup', e => { if (e.key === 'Enter') userJoinBtn.click(); });
+  changeUserBtn.addEventListener('click', showLogin);
 
-  btnPost.addEventListener('click', async () => {
-    if (!currentUserId) { showToast('Enter User ID to post'); showLogin(); return; }
+  btnStartWorker.addEventListener('click', () => {
+    if (!currentUserId) { showToast('Join with User ID first'); return; }
+    openWorkerModal();
+  });
+
+  workerSaveBtn.addEventListener('click', async () => {
+    workerError.textContent = '';
+    const name = normalizeWorkerName(workerNameInput.value);
+    if (!validateWorkerName(name)) {
+      workerError.textContent = 'Use 2–20 letters (first name only).';
+      return;
+    }
+    try {
+      currentWorkerName = name;
+      await saveWorkerName(name);
+      updateWorkerUi();
+      setPostEnabled(!!currentLatLng);
+      closeWorkerModal();
+      showToast(`Worker ${name} started`);
+      // Re-render session & table with new active worker
+      if (myPostsUnsub) myPostsUnsub(); // force refresh
+      attachMyPostsListener(currentUserId);
+      renderWorkerTable();
+    } catch (e) {
+      console.error(e);
+      workerError.textContent = 'Failed to save worker';
+    }
+  });
+
+  workerNameInput.addEventListener('keyup', e => { if (e.key === 'Enter') workerSaveBtn.click(); });
+
+  // ────────────────────────────────────────────────
+  // Photo Proof
+  // ────────────────────────────────────────────────
+  cameraBtn.addEventListener('click', () => {
+    if (!currentUserId) { showToast('Join with User ID first'); return; }
+    proofError.textContent = '';
+    proofUrlInput.value = '';
+    proofBackdrop.classList.add('show');
+    setTimeout(() => proofUrlInput.focus(), 50);
+  });
+
+  proofBackdrop.addEventListener('click', e => {
+    if (e.target === proofBackdrop) proofBackdrop.classList.remove('show');
+  });
+
+  proofSubmitBtn.addEventListener('click', async () => {
+    const url = proofUrlInput.value.trim();
+    if (!url) { proofError.textContent = 'Please enter a valid image URL.'; return; }
+    if (!currentLatLng) { proofError.textContent = 'Location not available yet.'; return; }
+
+    let campaignId = currentUserId;
+    if (campaignId && campaignId.startsWith('FF')) {
+      campaignId = 'XX' + campaignId.substring(2);
+    }
+    
+    const nodePath = `${currentPin}/campaigns/${campaignId}/proofs`;
+    const [lat, lng] = currentLatLng;
+
+    const payload = {
+      url,
+      lat,
+      lng,
+      timestamp: Date.now()
+    };
+
+    try {
+      proofSubmitBtn.disabled = true;
+      proofSubmitBtn.textContent = 'Submitting...';
+      await push(ref(db, nodePath), payload);
+      showToast('Photo Proof submitted!');
+      proofBackdrop.classList.remove('show');
+    } catch (e) {
+      console.error(e);
+      proofError.textContent = 'Failed to submit proof. Try again.';
+    } finally {
+      proofSubmitBtn.disabled = false;
+      proofSubmitBtn.textContent = 'Submit';
+    }
+  });
+
+  function ensureLocMarker(latlng) {
+    const purplePinIcon = makePurplePinIcon();
+    if (!currentMarker) {
+      currentMarker = L.marker(latlng, { icon: purplePinIcon }).addTo(map);
+    } else {
+      currentMarker.setLatLng(latlng);
+      currentMarker.setIcon(purplePinIcon);
+    }
+  }
+
+  async function goToCurrentLocation({ focus = true } = {}) {
+    if (!('geolocation' in navigator)) {
+      showToast('Geolocation not supported');
+      return;
+    }
+    return new Promise(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          currentLatLng = [pos.coords.latitude, pos.coords.longitude];
+          ensureLocMarker(currentLatLng);
+          if (focus) map.setView(currentLatLng, Math.max(map.getZoom(), 15), { animate: true });
+          setPostEnabled(true);
+          resolve(currentLatLng);
+        },
+        err => {
+          let msg = 'Location error';
+          if (err.code === 1) msg = 'Location permission denied. Please enable it.';
+          else if (err.code === 2) msg = 'Location unavailable.';
+          else if (err.code === 3) msg = 'Location timed out.';
+          showToast(msg);
+          setPostEnabled(false);
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 25000, maximumAge: 10000 }
+      );
+    });
+  }
+
+  if ('geolocation' in navigator) {
+    navigator.geolocation.watchPosition(
+      pos => {
+        currentLatLng = [pos.coords.latitude, pos.coords.longitude];
+        ensureLocMarker(currentLatLng);
+        setPostEnabled(true);
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 25000 }
+    );
+  }
+
+  async function postDot(color) {
+    if (!currentUserId) { showLogin(); return; }
+    if (!currentWorkerName) { openWorkerModal(); return; }
     if (!currentLatLng) {
       await goToCurrentLocation({ focus: true });
       if (!currentLatLng) return;
     }
+
     const [lat, lng] = currentLatLng;
     const now = Date.now();
     const data = {
-      lat, lng,
+      lat,
+      lng,
       userId: currentUserId,
+      color,
       timestamp: now,
+      workerName: currentWorkerName,
       ua: navigator.userAgent || ''
     };
 
     try {
-      // Create a new key under userPosts/<userId> only
-      const newPostRef = push(ref(db, `userPosts/${currentUserId}`));
-      const newKey = newPostRef.key;
-
-      // Multi-location update WITHOUT /posts
-      const rootRef = ref(db);
+      const newRef = push(ref(db, `${currentPin}/userPosts/${currentUserId}`));
+      const newKey = newRef.key;
       const updates = {};
-      updates[`userPosts/${currentUserId}/${newKey}`] = data;
-      updates[`users/${currentUserId}/lastPostAt`] = now;
+      
+      updates[`${currentPin}/userPosts/${currentUserId}/${newKey}`] = data;
+      updates[`${currentPin}/dotColors/${currentUserId}/${newKey}`] = { color, timestamp: now, workerName: currentWorkerName };
+      updates[`${currentPin}/users/${currentUserId}/lastPostAt`] = now;
+      updates[`${currentPin}/users/${currentUserId}/workers/${currentWorkerName.toLowerCase()}/lastActiveAt`] = now;
 
-      await update(rootRef, updates);
+      await update(ref(db), updates);
 
-      // Atomically bump per-user stats only
       await Promise.all([
-        runTransaction(ref(db, `users/${currentUserId}/stats/totalDots`), (v) => (v || 0) + 1),
-        runTransaction(ref(db, `users/${currentUserId}/stats/totalEarningsCents`), (v) => (v || 0) + 10)
+        runTransaction(ref(db, `${currentPin}/users/${currentUserId}/stats/totalDots`), v => (v || 0) + 1),
+        runTransaction(ref(db, `${currentPin}/users/${currentUserId}/stats/totalEarningsCents`), v => (v || 0) + 10)
       ]);
 
-      showToast('Dot posted');
+      let msg = color === 'green' ? '✓ Right posted' :
+                color === 'blue'  ? '★ Bonus posted' : '✗ Left posted';
+      showToast(`${msg} (${currentWorkerName})`);
+
       if (currentMarker) {
-        const ping = L.circle(currentMarker.getLatLng(), { radius: 10, color: '#7a5cff', weight: 1, opacity: 0.7, fillOpacity: 0 });
-        ping.addTo(map);
-        setTimeout(() => map.removeLayer(ping), 500);
+        let pulseColor = '#ef4444';
+        if (color === 'green') pulseColor = '#22c55e';
+        else if (color === 'blue') pulseColor = '#1f84f7';
+
+        const pulse = L.circle(currentMarker.getLatLng(), { radius:8, color:pulseColor, weight:1, opacity:.7, fillOpacity:0 });
+        pulse.addTo(map);
+        setTimeout(() => map.removeLayer(pulse), 500);
       }
     } catch (e) {
       console.error(e);
       showToast('Failed to post');
     }
-  });
-
-  // Tabs behaviour
-  function setActiveTab(tab) {
-    if (tab === 'daily') {
-      tabDaily.classList.add('active');
-      tabPerformance.classList.remove('active');
-      dailyStatsCard.style.display = 'block';
-      performanceCard.style.display = 'none';
-    } else {
-      tabDaily.classList.remove('active');
-      tabPerformance.classList.add('active');
-      dailyStatsCard.style.display = 'none';
-      performanceCard.style.display = 'flex';
-    }
   }
 
-  // Small fix: ensure only one is visible based on tab
-  tabDaily.addEventListener('click', () => setActiveTab('daily'));
-  tabPerformance.addEventListener('click', () => setActiveTab('performance'));
+  function showPostDot() {
+    if (!currentLatLng) return;
+    L.circleMarker(currentLatLng, orangeDotStyle).addTo(postClicksLayer);
+  }
 
-  // Default tab
-  setActiveTab('daily');
+  async function recordPostClick() {
+    if (!currentUserId) { showLogin(); return; }
+    if (!currentWorkerName) { openWorkerModal(); return; }
 
-  // Initialize speed bar
-  updateSpeedBar(0, false);
+    const key = currentWorkerName.toLowerCase();
+    const newCount = (workersMeta[key]?.postClicks || 0) + 1;
+    workersMeta[key] = { ...(workersMeta[key] || { name: currentWorkerName }), postClicks: newCount };
+    currentWorkerPostClicks = newCount;
+    workerPostCountEl.textContent = newCount;
 
-  // Auto prompt for location on load
-  goToCurrentLocation({ focus: false });
+    try {
+      await runTransaction(ref(db, `${currentPin}/users/${currentUserId}/workers/${key}/postClicks`), v => (v || 0) + 1);
+      await update(ref(db, `${currentPin}/users/${currentUserId}/workers/${key}`), {
+        firstName: currentWorkerName,
+        lastActiveAt: Date.now()
+      });
+    } catch (e) {
+      console.error(e);
+    }
 
-  // Accessibility
-  [btnLocate, btnPost].forEach(btn => {
-    btn.addEventListener('keyup', (e) => { if (e.key === 'Enter' || e.key === ' ') btn.click(); });
-  });
+    showToast(`Post recorded for ${currentWorkerName} (P${newCount})`);
+    renderWorkerTable();
+    showPostDot();
+  }
+
+  btnLocate.addEventListener('click', () => goToCurrentLocation({ focus: true }));
+  btnJa.addEventListener('click', () => postDot('green'));
+  btnNee.addEventListener('click', () => postDot('red'));
+  btnBonus.addEventListener('click', () => postDot('blue'));
+  btnPost.addEventListener('click', recordPostClick);
+
 </script>
 </body>
 </html>
