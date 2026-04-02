@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>Compact Flat Calendar & Tracker</title>
+    
+    <!-- PWA & Mobile App Meta Tags -->
+    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Tracker">
+
+    <!-- Performance hints -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
+    <link rel="apple-touch-icon" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+    <link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+
+    <!-- Google Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --border-color: #2d2d2d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-color: #bb86fc;
+            --red-line: #ff3b30;
+            --blue-text: #0a84ff;
+            
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-size: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            box-shadow: none !important;
+            text-shadow: none !important;
+        }
+
+        body, html {
+            height: 100dvh; /* Fixes mobile container collapse */
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            overscroll-behavior-y: none;
+        }
+
+        .material-icons {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--surface-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: calc(6px + var(--safe-top)) 6px 6px 6px;
+        }
+
+        .header-left, .header-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .date-input {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px;
+            outline: none;
+            color-scheme: dark;
+            text-transform: uppercase;
+        }
+
+        #financial-summary {
+            display: flex;
+            gap: 6px;
+            margin-left: 6px;
+            font-weight: bold;
+        }
+
+        #total-income { color: var(--blue-text); }
+        #total-expense { color: var(--red-line); }
+
+        #current-date-text {
+            color: var(--text-secondary);
+            margin-right: 4px;
+            font-weight: 600;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 4px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .save-btn { color: var(--accent-color); }
+        .save-btn .material-icons { color: var(--accent-color); }
+
+        /* Vertical Hours Timeline */
+        #timeline {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            background-color: var(--bg-color);
+            position: relative;
+            padding-bottom: var(--safe-bottom);
+        }
+
+        #timeline-inner {
+            position: relative;
+            min-height: 100%;
+        }
+
+        .hour-row {
+            display: flex;
+            height: 40px; 
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .time-label {
+            width: 45px;
+            padding: 4px;
+            text-align: right;
+            color: var(--text-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            background-color: var(--bg-color);
+            z-index: 2; 
+        }
+
+        .content-area {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        .hour-input {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            padding: 0 8px;
+            outline: none;
+            border-radius: 0;
+            -webkit-appearance: none;
+        }
+
+        .hour-input::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.3;
+        }
+
+        #current-time-line {
+            position: absolute;
+            left: 45px;
+            right: 0;
+            height: 1px;
+            background-color: var(--red-line);
+            z-index: 10;
+            pointer-events: none;
+            display: none; /* hidden until positioned */
+        }
+
+        #current-time-line::before {
+            content: '';
+            position: absolute;
+            left: -3px;
+            top: -3px;
+            width: 7px;
+            height: 7px;
+            background-color: var(--red-line);
+            border-radius: 50%;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-left">
+            <input type="date" id="date-picker" class="date-input">
+            <div id="financial-summary">
+                <span id="total-income">0€</span>
+                <span id="total-expense">0€</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <span id="current-date-text"></span>
+            <button class="action-btn" id="btn-location"><span class="material-icons">my_location</span></button>
+            <button class="action-btn save-btn" id="btn-save"><span class="material-icons">save</span></button>
+        </div>
+    </header>
+
+    <div id="timeline">
+        <div id="timeline-inner">
+            <div id="current-time-line"></div>
+            <!-- Hours generated via JS -->
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getDatabase, ref, set, get, child, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWPCkYNw7gT_T7kcwbp5laZgIHac18bvE",
+            authDomain: "expandlf.firebaseapp.com",
+            databaseURL: "https://expandlf-default-rtdb.firebaseio.com",
+            projectId: "expandlf",
+            storageBucket: "expandlf.firebasestorage.app",
+            messagingSenderId: "890066961009",
+            appId: "1:890066961009:web:3a2ed1e7c2cf797f3751d0",
+            measurementId: "G-QPRSX7ZVZ5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const datePicker = document.getElementById('date-picker');
+        const currentDateText = document.getElementById('current-date-text');
+        const timelineInner = document.getElementById('timeline-inner');
+        const rowHeight = 40; 
+        
+        let selectedDateStr = "";
+
+        function formatDateForInput(d) {
+            return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+        }
+
+        function updateDateDisplay(dateStr) {
+            const [y, m, d] = dateStr.split('-');
+            const dateObj = new Date(y, m - 1, d);
+            const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+            currentDateText.innerText = dateObj.toLocaleDateString('en-US', options);
+        }
+
+        function calculateTotals() {
+            let totalIncome = 0;
+            let totalExpense = 0;
+            const regex = /(-?\d+(?:\.\d+)?)€/g;
+
+            for (let hour = 0; hour < 24; hour++) {
+                let inputEl = document.getElementById(`input-${hour}`);
+                if (!inputEl) continue;
+                
+                let val = inputEl.value;
+                let match;
+                
+                while ((match = regex.exec(val)) !== null) {
+                    let amount = parseFloat(match[1]);
+                    if (amount > 0) {
+                        totalIncome += amount;
+                    } else if (amount < 0) {
+                        totalExpense += amount;
+                    }
+                }
+            }
+
+            document.getElementById('total-income').innerText = totalIncome > 0 ? `+${totalIncome}€` : `0€`;
+            document.getElementById('total-expense').innerText = totalExpense < 0 ? `${totalExpense}€` : `0€`;
+        }
+
+        // --- 1. Generate Hours DOM ---
+        function renderHours() {
+            for (let hour = 0; hour < 24; hour++) {
+                let row = document.createElement('div');
+                row.className = 'hour-row';
+                
+                let timeLabel = document.createElement('div');
+                timeLabel.className = 'time-label';
+                timeLabel.innerText = `${hour.toString().padStart(2, '0')}:00`;
+                
+                let contentArea = document.createElement('div');
+                contentArea.className = 'content-area';
+
+                let input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'hour-input';
+                input.id = `input-${hour}`;
+                input.placeholder = '...';
+                
+                input.addEventListener('input', calculateTotals);
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        saveData();
+                        input.blur(); 
+                    }
+                });
+
+                contentArea.appendChild(input);
+                row.appendChild(timeLabel);
+                row.appendChild(contentArea);
+                timelineInner.appendChild(row);
+            }
+        }
+
+        // --- 2. Firebase Data Saving / Loading ---
+        function saveData() {
+            let dayData = {};
+            let hasData = false;
+
+            for (let hour = 0; hour < 24; hour++) {
+                let val = document.getElementById(`input-${hour}`).value;
+                if (val.trim() !== "") {
+                    dayData[hour] = val;
+                    hasData = true;
+                }
+            }
+            
+            const dbRef = ref(db, 'calendar/' + selectedDateStr);
+            const request = hasData ? set(dbRef, dayData) : remove(dbRef);
+
+            request.then(() => {
+                const saveIcon = document.querySelector('.save-btn .material-icons');
+                saveIcon.innerText = 'check';
+                setTimeout(() => { saveIcon.innerText = 'save'; }, 1000);
+            }).catch(console.error);
+        }
+
+        function loadData() {
+            for (let hour = 0; hour < 24; hour++) {
+                let el = document.getElementById(`input-${hour}`);
+                if (el) el.value = "";
+            }
+            calculateTotals();
+            
+            get(child(ref(db), `calendar/${selectedDateStr}`)).then((snapshot) => {
+                if (snapshot.exists()) {
+                    let dayData = snapshot.val();
+                    for (let hour in dayData) {
+                        let el = document.getElementById(`input-${hour}`);
+                        if (el) el.value = dayData[hour];
+                    }
+                    calculateTotals();
+                }
+            }).catch(console.error);
+        }
+
+        // --- 3. Date Picker Logic ---
+        datePicker.addEventListener('change', (e) => {
+            const newDateStr = e.target.value;
+            if (!newDateStr) {
+                datePicker.value = selectedDateStr;
+                return;
+            }
+            saveData();
+            selectedDateStr = newDateStr;
+            updateDateDisplay(selectedDateStr);
+            loadData();
+        });
+
+        // --- 4. Red Line Logic ---
+        const timeLineElement = document.getElementById('current-time-line');
+        const timelineScrollContainer = document.getElementById('timeline');
+
+        function updateCurrentTimeLine() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            
+            const topPosition = (hours * rowHeight) + ((minutes / 60) * rowHeight);
+            timeLineElement.style.top = topPosition + 'px';
+            timeLineElement.style.display = 'block'; // Make visible once positioned
+        }
+
+        function scrollToCurrentTime() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const topPosition = (hours * rowHeight) + ((minutes / 60) * rowHeight);
+            
+            const offset = timelineScrollContainer.clientHeight / 2;
+            timelineScrollContainer.scrollTo({
+                top: topPosition - offset,
+                behavior: 'smooth'
+            });
+        }
+
+        // Bind Buttons
+        document.getElementById('btn-save').addEventListener('click', saveData);
+        document.getElementById('btn-location').addEventListener('click', scrollToCurrentTime);
+
+        // --- Boot Sequence ---
+        renderHours(); // Explicitly render DOM first
+
+        let today = new Date();
+        selectedDateStr = formatDateForInput(today);
+        datePicker.value = selectedDateStr;
+        updateDateDisplay(selectedDateStr);
+
+        updateCurrentTimeLine();
+        loadData(); 
+        
+        setTimeout(scrollToCurrentTime, 150);
+        setInterval(updateCurrentTimeLine, 60000);
+    </script>
+</body>
+</html>
