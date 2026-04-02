@@ -60,7 +60,6 @@
         }
 
         .material-icons {
-            /* Increased icon size for better visibility and touch */
             font-size: 18px;
             color: var(--text-secondary);
         }
@@ -123,28 +122,36 @@
         .save-btn { color: var(--accent-color); }
         .save-btn .material-icons { color: var(--accent-color); }
 
-        /* Vertical Hours Timeline */
+        /* Two-Column Grid Timeline */
         #timeline {
-            flex: 1 1 auto;
-            overflow-y: auto;
+            flex: 1;
+            overflow: hidden; 
             background-color: var(--bg-color);
             position: relative;
             padding-bottom: var(--safe-bottom);
         }
 
         #timeline-inner {
-            position: relative;
-            min-height: 100%;
+            display: grid;
+            grid-template-rows: repeat(12, 1fr); 
+            grid-template-columns: 1fr 1fr; 
+            grid-auto-flow: column; 
+            height: 100%;
         }
 
         .hour-row {
             display: flex;
-            height: 40px; 
             border-bottom: 1px solid var(--border-color);
+            min-height: 0; 
+            background-color: var(--bg-color);
+        }
+
+        .hour-row:nth-child(n+13) {
+            border-left: 1px solid var(--border-color);
         }
 
         .time-label {
-            width: 45px;
+            width: 38px; 
             padding: 4px;
             text-align: right;
             color: var(--text-secondary);
@@ -152,6 +159,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-end;
+            justify-content: center; 
             background-color: var(--bg-color);
             z-index: 2; 
         }
@@ -184,9 +192,10 @@
             opacity: 0.3;
         }
 
+        /* Current Time Line injected via JS */
         #current-time-line {
             position: absolute;
-            left: 45px;
+            left: 0;
             right: 0;
             height: 1px;
             background-color: var(--red-line);
@@ -227,7 +236,6 @@
 
     <div id="timeline">
         <div id="timeline-inner">
-            <div id="current-time-line"></div>
             <!-- Hours generated via JS -->
         </div>
     </div>
@@ -253,9 +261,12 @@
         const datePicker = document.getElementById('date-picker');
         const currentDateText = document.getElementById('current-date-text');
         const timelineInner = document.getElementById('timeline-inner');
-        const rowHeight = 40; 
         
         let selectedDateStr = "";
+
+        // Create Red Line Element once
+        let timeLineElement = document.createElement('div');
+        timeLineElement.id = 'current-time-line';
 
         function formatDateForInput(d) {
             return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
@@ -305,6 +316,7 @@
                 
                 let contentArea = document.createElement('div');
                 contentArea.className = 'content-area';
+                contentArea.id = `content-${hour}`; 
 
                 let input = document.createElement('input');
                 input.type = 'text';
@@ -378,51 +390,40 @@
             selectedDateStr = newDateStr;
             updateDateDisplay(selectedDateStr);
             loadData();
+            updateCurrentTimeLine(); 
         });
 
-        const timeLineElement = document.getElementById('current-time-line');
-        const timelineScrollContainer = document.getElementById('timeline');
-
         function updateCurrentTimeLine() {
+            const todayStr = formatDateForInput(new Date());
+            
+            if (selectedDateStr !== todayStr) {
+                timeLineElement.style.display = 'none';
+                return;
+            }
+
             const now = new Date();
             const hours = now.getHours();
             const minutes = now.getMinutes();
             
-            const topPosition = (hours * rowHeight) + ((minutes / 60) * rowHeight);
-            timeLineElement.style.top = topPosition + 'px';
-            timeLineElement.style.display = 'block'; 
+            const contentArea = document.getElementById(`content-${hours}`);
+            if (contentArea) {
+                contentArea.appendChild(timeLineElement);
+                timeLineElement.style.top = `${(minutes / 60) * 100}%`;
+                timeLineElement.style.display = 'block'; 
+            }
         }
 
-        function scrollToCurrentTime() {
-            const now = new Date();
-            const hours = now.getHours();
-            const minutes = now.getMinutes();
-            const topPosition = (hours * rowHeight) + ((minutes / 60) * rowHeight);
-            
-            const offset = timelineScrollContainer.clientHeight / 2;
-            timelineScrollContainer.scrollTo({
-                top: topPosition - offset,
-                behavior: 'smooth'
-            });
-        }
-
-        // Jump to Today logic
         function goToToday() {
             const today = new Date();
             const todayStr = formatDateForInput(today);
 
             if (selectedDateStr !== todayStr) {
-                saveData(); // Save whatever date we are on
+                saveData(); 
                 selectedDateStr = todayStr;
                 datePicker.value = selectedDateStr;
                 updateDateDisplay(selectedDateStr);
                 loadData();
-                
-                // Allow a tiny delay for data to populate before scrolling
-                setTimeout(scrollToCurrentTime, 150);
-            } else {
-                // If we are already on today, just snap to the current time
-                scrollToCurrentTime();
+                updateCurrentTimeLine();
             }
         }
 
@@ -439,7 +440,6 @@
         updateCurrentTimeLine();
         loadData(); 
         
-        setTimeout(scrollToCurrentTime, 150);
         setInterval(updateCurrentTimeLine, 60000);
     </script>
 </body>
