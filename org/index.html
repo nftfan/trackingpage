@@ -20,7 +20,7 @@
     <!-- PWA Manifest & Icons -->
     <link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
     <link rel="apple-touch-icon" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
-    <link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-location-map-icon-2956-thumb.png">
+    <link rel="apple-touch-startup-image" href="https://www.iconpacks.net/icons/2/free-time-icon-3487-thumb.png">
 
     <!-- Google Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -50,7 +50,7 @@
         }
 
         body, html {
-            height: 100dvh; /* Fixes mobile container collapse */
+            height: 100dvh; 
             background-color: var(--bg-color);
             color: var(--text-primary);
             overflow: hidden;
@@ -60,7 +60,8 @@
         }
 
         .material-icons {
-            font-size: 12px;
+            /* Increased icon size for better visibility and touch */
+            font-size: 18px;
             color: var(--text-secondary);
         }
 
@@ -70,13 +71,13 @@
             justify-content: space-between;
             background-color: var(--surface-color);
             border-bottom: 1px solid var(--border-color);
-            padding: calc(6px + var(--safe-top)) 6px 6px 6px;
+            padding: calc(6px + var(--safe-top)) 8px 6px 8px;
         }
 
         .header-left, .header-right {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
         }
 
         .date-input {
@@ -158,15 +159,21 @@
         .content-area {
             flex-grow: 1;
             position: relative;
+            overflow: hidden; 
         }
 
+        /* iOS Anti-Zoom Trick */
         .hour-input {
-            width: 100%;
-            height: 100%;
+            width: 160%; 
+            height: 160%; 
+            transform: scale(0.625);
+            transform-origin: top left;
+            font-size: 16px !important; 
+            
             background: transparent;
             border: none;
             color: var(--text-primary);
-            padding: 0 8px;
+            padding: 0 12px; 
             outline: none;
             border-radius: 0;
             -webkit-appearance: none;
@@ -185,7 +192,7 @@
             background-color: var(--red-line);
             z-index: 10;
             pointer-events: none;
-            display: none; /* hidden until positioned */
+            display: none; 
         }
 
         #current-time-line::before {
@@ -213,7 +220,7 @@
         </div>
         <div class="header-right">
             <span id="current-date-text"></span>
-            <button class="action-btn" id="btn-location"><span class="material-icons">my_location</span></button>
+            <button class="action-btn" id="btn-today"><span class="material-icons">today</span></button>
             <button class="action-btn save-btn" id="btn-save"><span class="material-icons">save</span></button>
         </div>
     </header>
@@ -287,7 +294,6 @@
             document.getElementById('total-expense').innerText = totalExpense < 0 ? `${totalExpense}€` : `0€`;
         }
 
-        // --- 1. Generate Hours DOM ---
         function renderHours() {
             for (let hour = 0; hour < 24; hour++) {
                 let row = document.createElement('div');
@@ -321,7 +327,6 @@
             }
         }
 
-        // --- 2. Firebase Data Saving / Loading ---
         function saveData() {
             let dayData = {};
             let hasData = false;
@@ -363,7 +368,6 @@
             }).catch(console.error);
         }
 
-        // --- 3. Date Picker Logic ---
         datePicker.addEventListener('change', (e) => {
             const newDateStr = e.target.value;
             if (!newDateStr) {
@@ -376,7 +380,6 @@
             loadData();
         });
 
-        // --- 4. Red Line Logic ---
         const timeLineElement = document.getElementById('current-time-line');
         const timelineScrollContainer = document.getElementById('timeline');
 
@@ -387,7 +390,7 @@
             
             const topPosition = (hours * rowHeight) + ((minutes / 60) * rowHeight);
             timeLineElement.style.top = topPosition + 'px';
-            timeLineElement.style.display = 'block'; // Make visible once positioned
+            timeLineElement.style.display = 'block'; 
         }
 
         function scrollToCurrentTime() {
@@ -403,12 +406,30 @@
             });
         }
 
-        // Bind Buttons
-        document.getElementById('btn-save').addEventListener('click', saveData);
-        document.getElementById('btn-location').addEventListener('click', scrollToCurrentTime);
+        // Jump to Today logic
+        function goToToday() {
+            const today = new Date();
+            const todayStr = formatDateForInput(today);
 
-        // --- Boot Sequence ---
-        renderHours(); // Explicitly render DOM first
+            if (selectedDateStr !== todayStr) {
+                saveData(); // Save whatever date we are on
+                selectedDateStr = todayStr;
+                datePicker.value = selectedDateStr;
+                updateDateDisplay(selectedDateStr);
+                loadData();
+                
+                // Allow a tiny delay for data to populate before scrolling
+                setTimeout(scrollToCurrentTime, 150);
+            } else {
+                // If we are already on today, just snap to the current time
+                scrollToCurrentTime();
+            }
+        }
+
+        document.getElementById('btn-save').addEventListener('click', saveData);
+        document.getElementById('btn-today').addEventListener('click', goToToday);
+
+        renderHours(); 
 
         let today = new Date();
         selectedDateStr = formatDateForInput(today);
