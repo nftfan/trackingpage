@@ -93,16 +93,28 @@
         #financial-summary {
             display: flex;
             gap: 6px;
-            margin-left: 6px;
+            margin-left: 4px;
             font-weight: bold;
         }
 
         #total-income { color: var(--blue-text); }
         #total-expense { color: var(--red-line); }
 
+        .week-square {
+            background-color: var(--border-color);
+            color: var(--text-primary);
+            border-radius: 2px;
+            padding: 2px 4px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 16px;
+        }
+
         #current-date-text {
             color: var(--text-secondary);
-            margin-right: 4px;
+            margin-right: 2px;
             font-weight: 600;
         }
 
@@ -118,9 +130,6 @@
             border-radius: 4px;
             -webkit-tap-highlight-color: transparent;
         }
-
-        .save-btn { color: var(--accent-color); }
-        .save-btn .material-icons { color: var(--accent-color); }
 
         /* Two-Column Grid Timeline */
         #timeline {
@@ -151,14 +160,14 @@
         }
 
         .time-label {
-            width: 38px; 
+            width: 24px; /* Narrower since it's just a single digit now */
             padding: 4px;
-            text-align: right;
+            text-align: center; /* Center the single number */
             color: var(--text-secondary);
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
-            align-items: flex-end;
+            align-items: center;
             justify-content: center; 
             background-color: var(--bg-color);
             z-index: 2; 
@@ -181,7 +190,7 @@
             background: transparent;
             border: none;
             color: var(--text-primary);
-            padding: 0 12px; 
+            padding: 0 10px; 
             outline: none;
             border-radius: 0;
             -webkit-appearance: none;
@@ -228,9 +237,9 @@
             </div>
         </div>
         <div class="header-right">
+            <div id="week-number" class="week-square"></div>
             <span id="current-date-text"></span>
             <button class="action-btn" id="btn-today"><span class="material-icons">today</span></button>
-            <button class="action-btn save-btn" id="btn-save"><span class="material-icons">save</span></button>
         </div>
     </header>
 
@@ -260,9 +269,11 @@
 
         const datePicker = document.getElementById('date-picker');
         const currentDateText = document.getElementById('current-date-text');
+        const weekNumberText = document.getElementById('week-number');
         const timelineInner = document.getElementById('timeline-inner');
         
         let selectedDateStr = "";
+        let saveTimeout = null;
 
         // Create Red Line Element once
         let timeLineElement = document.createElement('div');
@@ -272,9 +283,21 @@
             return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
         }
 
+        function getWeekNumber(d) {
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
         function updateDateDisplay(dateStr) {
             const [y, m, d] = dateStr.split('-');
             const dateObj = new Date(y, m - 1, d);
+            
+            // Set Week Number
+            weekNumberText.innerText = getWeekNumber(dateObj);
+
+            // Set Date Text
             const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
             currentDateText.innerText = dateObj.toLocaleDateString('en-US', options);
         }
@@ -312,7 +335,7 @@
                 
                 let timeLabel = document.createElement('div');
                 timeLabel.className = 'time-label';
-                timeLabel.innerText = `${hour.toString().padStart(2, '0')}:00`;
+                timeLabel.innerText = `${hour}`; // Just the single number
                 
                 let contentArea = document.createElement('div');
                 contentArea.className = 'content-area';
@@ -324,10 +347,18 @@
                 input.id = `input-${hour}`;
                 input.placeholder = '...';
                 
-                input.addEventListener('input', calculateTotals);
+                input.addEventListener('input', () => {
+                    calculateTotals();
+                    
+                    // Auto-save logic (debounce 500ms after last keystroke)
+                    clearTimeout(saveTimeout);
+                    saveTimeout = setTimeout(() => {
+                        saveData();
+                    }, 500);
+                });
+
                 input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
-                        saveData();
                         input.blur(); 
                     }
                 });
@@ -354,11 +385,7 @@
             const dbRef = ref(db, 'calendar/' + selectedDateStr);
             const request = hasData ? set(dbRef, dayData) : remove(dbRef);
 
-            request.then(() => {
-                const saveIcon = document.querySelector('.save-btn .material-icons');
-                saveIcon.innerText = 'check';
-                setTimeout(() => { saveIcon.innerText = 'save'; }, 1000);
-            }).catch(console.error);
+            request.catch(console.error);
         }
 
         function loadData() {
@@ -386,7 +413,11 @@
                 datePicker.value = selectedDateStr;
                 return;
             }
+            
+            // Instantly save current view before switching
+            clearTimeout(saveTimeout);
             saveData();
+
             selectedDateStr = newDateStr;
             updateDateDisplay(selectedDateStr);
             loadData();
@@ -418,6 +449,7 @@
             const todayStr = formatDateForInput(today);
 
             if (selectedDateStr !== todayStr) {
+                clearTimeout(saveTimeout);
                 saveData(); 
                 selectedDateStr = todayStr;
                 datePicker.value = selectedDateStr;
@@ -427,7 +459,6 @@
             }
         }
 
-        document.getElementById('btn-save').addEventListener('click', saveData);
         document.getElementById('btn-today').addEventListener('click', goToToday);
 
         renderHours(); 
