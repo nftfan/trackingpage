@@ -235,9 +235,14 @@
           <option value="exclVat">inv excl vat (€)</option>
           <option value="inclVat">inv incl vat (€)</option>
         </select>
-        <input type="number" id="revenueInput" class="main-input" placeholder="amount/rate" min="0" step="0.01" style="flex: 1.5;">
-        <input type="number" id="multiplierInput" class="main-input" placeholder="hrs/days" value="1" min="0" step="0.5" title="Multiply amount by hours/days" style="flex: 1;">
-        <button class="primary-btn" id="addBtn" style="flex: 1.2;">add campaign</button>
+        <input type="number" id="revenueInput" class="main-input" placeholder="amount" min="0" step="0.01" style="flex: 1.5;">
+        <select id="rateType" class="main-input" style="flex: 1.1;">
+          <option value="flat">flat total</option>
+          <option value="hour">per hour</option>
+          <option value="day">per day</option>
+        </select>
+        <input type="number" id="multiplierInput" class="main-input" placeholder="qty" value="1" min="0" step="0.5" style="flex: 0.8; display: none;">
+        <button class="primary-btn" id="addBtn" style="flex: 1.2;">add</button>
       </div>
 
       <div class="saved-campaigns-wrapper" id="savedWrapper" style="display:none;">
@@ -310,6 +315,7 @@
     const statusSelect = document.getElementById('statusSelect');
     const amountTypeSelect = document.getElementById('amountType');
     const revenueInput = document.getElementById('revenueInput');
+    const rateTypeSelect = document.getElementById('rateType');
     const multiplierInput = document.getElementById('multiplierInput');
     const addBtn = document.getElementById('addBtn');
     
@@ -353,6 +359,16 @@
     function init() {
       updateGrandTotals();
       renderSavedCampaignsList();
+      
+      rateTypeSelect.addEventListener('change', () => {
+        if (rateTypeSelect.value === 'flat') {
+          multiplierInput.style.display = 'none';
+          multiplierInput.value = 1;
+        } else {
+          multiplierInput.style.display = 'block';
+          multiplierInput.placeholder = rateTypeSelect.value === 'hour' ? 'hours' : 'days';
+        }
+      });
     }
 
     function normalizeId(id) { return (id || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); }
@@ -383,7 +399,7 @@
 
     function getFinalRevenue() {
       const rawRate = parseFloat(revenueInput.value) || 0;
-      const multi = parseFloat(multiplierInput.value) || 1;
+      const multi = rateTypeSelect.value === 'flat' ? 1 : (parseFloat(multiplierInput.value) || 1);
       const raw = rawRate * multi;
 
       if (amountTypeSelect.value === 'exclVat') {
@@ -501,7 +517,12 @@
           statusSelect.value = c.status || 'active';
           amountTypeSelect.value = 'revenue';
           revenueInput.value = c.revenue.toFixed(2); 
-          multiplierInput.value = '1'; // reset multiplier so we don't multiply the already total revenue
+          
+          // Reset multiplier UI so we don't multiply the already total revenue again visually
+          rateTypeSelect.value = 'flat';
+          multiplierInput.style.display = 'none';
+          multiplierInput.value = '1';
+          
           fetchAndRenderCampaign(c.id, c.revenue, c.label, c.status); 
         };
         savedCampaignsContainer.appendChild(div);
