@@ -33,7 +33,6 @@
             --text-secondary: #a0a0a0;
             --accent-color: #bb86fc;
             --red-line: #ff3b30;
-            --blue-text: #0a84ff;
             
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -89,16 +88,6 @@
             color-scheme: dark;
             text-transform: uppercase;
         }
-
-        #financial-summary {
-            display: flex;
-            gap: 6px;
-            margin-left: 4px;
-            font-weight: bold;
-        }
-
-        #total-income { color: var(--blue-text); }
-        #total-expense { color: var(--red-line); }
 
         .week-square {
             background-color: var(--border-color);
@@ -264,10 +253,6 @@
     <header>
         <div class="header-left">
             <input type="date" id="date-picker" class="date-input">
-            <div id="financial-summary">
-                <span id="total-income">0€</span>
-                <span id="total-expense">0€</span>
-            </div>
         </div>
         <div class="header-right">
             <div id="week-number" class="week-square"></div>
@@ -297,7 +282,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, set, get, child, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { getDatabase, ref, set, get, child, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBWPCkYNw7gT_T7kcwbp5laZgIHac18bvE",
@@ -320,7 +305,6 @@
         
         let selectedDateStr = "";
         let saveTimeout = null;
-        let allDaysData = {}; // Cache of entire database
 
         let timeLineElement = document.createElement('div');
         timeLineElement.id = 'current-time-line';
@@ -352,56 +336,6 @@
             if (activeSpan) activeSpan.classList.add('active');
         }
 
-        // Listens to entire database for accurate Grand Sum
-        onValue(ref(db, 'calendar'), (snapshot) => {
-            if (snapshot.exists()) {
-                allDaysData = snapshot.val();
-            } else {
-                allDaysData = {};
-            }
-            calculateGrandTotals();
-        });
-
-        // Combines live DOM inputs (current day) with Database (all other days) for instant feedback
-        function calculateGrandTotals() {
-            let gIncome = 0;
-            let gExpense = 0;
-            const regex = /(-?\d+(?:\.\d+)?)€/g;
-
-            // 1. Add all days from Firebase (skipping the currently selected day on screen)
-            for (let date in allDaysData) {
-                if (date === selectedDateStr) continue; 
-
-                let dayObj = allDaysData[date];
-                for (let hour in dayObj) {
-                    let val = dayObj[hour];
-                    let match;
-                    while ((match = regex.exec(val)) !== null) {
-                        let amount = parseFloat(match[1]);
-                        if (amount > 0) gIncome += amount;
-                        else if (amount < 0) gExpense += amount;
-                    }
-                }
-            }
-
-            // 2. Add the live, active day currently on the screen
-            for (let hour = 0; hour < 24; hour++) {
-                let inputEl = document.getElementById(`input-${hour}`);
-                if (!inputEl) continue;
-                
-                let val = inputEl.value;
-                let match;
-                while ((match = regex.exec(val)) !== null) {
-                    let amount = parseFloat(match[1]);
-                    if (amount > 0) gIncome += amount;
-                    else if (amount < 0) gExpense += amount;
-                }
-            }
-
-            document.getElementById('total-income').innerText = gIncome > 0 ? `+${gIncome}€` : `0€`;
-            document.getElementById('total-expense').innerText = gExpense < 0 ? `${gExpense}€` : `0€`;
-        }
-
         function renderHours() {
             for (let hour = 0; hour < 24; hour++) {
                 let row = document.createElement('div');
@@ -422,8 +356,6 @@
                 input.placeholder = '...';
                 
                 input.addEventListener('input', () => {
-                    calculateGrandTotals(); // Updates grand total instantly while typing
-                    
                     clearTimeout(saveTimeout);
                     saveTimeout = setTimeout(() => {
                         saveData();
@@ -463,7 +395,6 @@
                 let el = document.getElementById(`input-${hour}`);
                 if (el) el.value = "";
             }
-            calculateGrandTotals();
             
             get(child(ref(db), `calendar/${selectedDateStr}`)).then((snapshot) => {
                 if (snapshot.exists()) {
@@ -472,7 +403,6 @@
                         let el = document.getElementById(`input-${hour}`);
                         if (el) el.value = dayData[hour];
                     }
-                    calculateGrandTotals();
                 }
             }).catch(console.error);
         }
