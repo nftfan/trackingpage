@@ -48,7 +48,7 @@
     .gt-profit { color: var(--green); }
 
     /* Inputs */
-    .input-row { display: flex; max-width: 600px; margin-bottom: 8px; gap: 8px; }
+    .input-row { display: flex; max-width: 650px; margin-bottom: 8px; gap: 8px; }
     .main-input { flex: 1; padding: 8px 10px; font-size: 11px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; color: white; outline: none; font-family: inherit; }
     input#campaignInput { text-transform: uppercase; }
     .main-input:focus { border-color: var(--accent); }
@@ -63,9 +63,16 @@
     .saved-campaigns-wrapper { margin-bottom: 16px; margin-top: 16px; }
     .saved-title { font-size: 10px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; }
     .saved-campaigns { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
-    .mini-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 10px; min-width: 180px; cursor: pointer; flex-shrink: 0; position: relative; }
+    .mini-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 10px; min-width: 180px; cursor: pointer; flex-shrink: 0; position: relative; transition: all 0.2s ease; }
     .mini-card:hover { border-color: var(--accent); }
     .mini-card.active { border-color: var(--accent); }
+    
+    /* Completed Campaign Styling */
+    .mini-card.completed { background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.1); }
+    .mini-card.completed .mc-header { color: var(--muted); }
+    .mini-card.completed:hover { border-color: var(--muted); }
+    .mini-card.completed.active { border-color: var(--muted); background: rgba(255,255,255,0.02); }
+
     .mc-header { display: flex; align-items: center; font-size: 11px; margin-bottom: 6px; padding-right: 20px; color: var(--accent); }
     .mc-label { border: 1px solid var(--border); padding: 1px 4px; border-radius: 3px; font-size: 9px; color: var(--text); margin-left: 6px; background: rgba(255,255,255,0.05); }
     .mc-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 2px; }
@@ -165,7 +172,7 @@
     </div>
     <div class="gt-card" style="border-color: rgba(252, 211, 77, 0.2); background: rgba(252, 211, 77, 0.02);">
       <div class="gt-label" style="color:var(--gold);">Master Total Inv (Excl VAT)</div>
-      <div class="gt-value" id="gtMasterExcl" style="color:var(--text);">��0.00</div>
+      <div class="gt-value" id="gtMasterExcl" style="color:var(--text);">€0.00</div>
     </div>
     <div class="gt-card" style="border-color: rgba(252, 211, 77, 0.2); background: rgba(252, 211, 77, 0.02);">
       <div class="gt-label" style="color:var(--gold);">Master Total Inv (Incl VAT)</div>
@@ -217,14 +224,20 @@
       <div class="input-row">
         <input type="text" id="campaignInput" class="main-input" placeholder="campaign id" maxlength="10" autocomplete="off" style="flex: 2;">
         <input type="text" id="labelInput" class="main-input" placeholder="label (optional)" style="flex: 2;">
+        <select id="statusSelect" class="main-input" style="flex: 1.2;">
+          <option value="active">active</option>
+          <option value="completed">completed</option>
+        </select>
       </div>
       <div class="input-row">
-        <select id="amountType" class="main-input" style="flex: 1.5;">
+        <select id="amountType" class="main-input" style="flex: 1.3;">
           <option value="revenue">revenue (€)</option>
           <option value="exclVat">inv excl vat (€)</option>
+          <option value="inclVat">inv incl vat (€)</option>
         </select>
-        <input type="number" id="revenueInput" class="main-input" placeholder="amount" min="0" step="0.01" style="flex: 2;">
-        <button class="primary-btn" id="addBtn" style="flex: 1;">add campaign</button>
+        <input type="number" id="revenueInput" class="main-input" placeholder="amount/rate" min="0" step="0.01" style="flex: 1.5;">
+        <input type="number" id="multiplierInput" class="main-input" placeholder="hrs/days" value="1" min="0" step="0.5" title="Multiply amount by hours/days" style="flex: 1;">
+        <button class="primary-btn" id="addBtn" style="flex: 1.2;">add campaign</button>
       </div>
 
       <div class="saved-campaigns-wrapper" id="savedWrapper" style="display:none;">
@@ -294,8 +307,10 @@
     // DOM Elements
     const campaignInput = document.getElementById('campaignInput');
     const labelInput = document.getElementById('labelInput');
+    const statusSelect = document.getElementById('statusSelect');
     const amountTypeSelect = document.getElementById('amountType');
     const revenueInput = document.getElementById('revenueInput');
+    const multiplierInput = document.getElementById('multiplierInput');
     const addBtn = document.getElementById('addBtn');
     
     const psSection = document.getElementById('psSection');
@@ -367,8 +382,16 @@
     }
 
     function getFinalRevenue() {
-      const raw = parseFloat(revenueInput.value) || 0;
-      return amountTypeSelect.value === 'exclVat' ? (raw / EXCL_TO_NET_RATIO) : raw;
+      const rawRate = parseFloat(revenueInput.value) || 0;
+      const multi = parseFloat(multiplierInput.value) || 1;
+      const raw = rawRate * multi;
+
+      if (amountTypeSelect.value === 'exclVat') {
+        return raw / EXCL_TO_NET_RATIO;
+      } else if (amountTypeSelect.value === 'inclVat') {
+        return raw / (EXCL_TO_NET_RATIO * (1 + VAT_RATE));
+      }
+      return raw;
     }
 
     function updateGrandTotals() {
@@ -448,7 +471,7 @@
       let camp = savedCampaigns[currentActiveId];
       camp.potentialShifts = (camp.potentialShifts || []).filter(p => p.id !== psId);
       localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
-      fetchAndRenderCampaign(currentActiveId, camp.revenue, camp.label);
+      fetchAndRenderCampaign(currentActiveId, camp.revenue, camp.label, camp.status);
     }
 
     function renderSavedCampaignsList() {
@@ -457,8 +480,9 @@
       savedWrapper.style.display = 'block'; savedCampaignsContainer.innerHTML = '';
       
       campaignsArr.forEach(c => {
+        const isCompleted = c.status === 'completed';
         const div = document.createElement('div');
-        div.className = `mini-card ${c.id === currentActiveId ? 'active' : ''}`;
+        div.className = `mini-card ${c.id === currentActiveId ? 'active' : ''} ${isCompleted ? 'completed' : ''}`;
         
         const labelHtml = c.label ? `<span class="mc-label">${c.label}</span>` : '';
         const exclVat = c.revenue * EXCL_TO_NET_RATIO;
@@ -474,15 +498,17 @@
         div.onclick = () => { 
           campaignInput.value = c.id; 
           labelInput.value = c.label || '';
+          statusSelect.value = c.status || 'active';
           amountTypeSelect.value = 'revenue';
           revenueInput.value = c.revenue.toFixed(2); 
-          fetchAndRenderCampaign(c.id, c.revenue, c.label); 
+          multiplierInput.value = '1'; // reset multiplier so we don't multiply the already total revenue
+          fetchAndRenderCampaign(c.id, c.revenue, c.label, c.status); 
         };
         savedCampaignsContainer.appendChild(div);
       });
     }
 
-    async function fetchAndRenderCampaign(campaignId, inputRevenue, inputLabel) {
+    async function fetchAndRenderCampaign(campaignId, inputRevenue, inputLabel, inputStatus) {
       const normalized = normalizeId(campaignId);
       if (!normalized) return;
 
@@ -490,6 +516,7 @@
       
       let savedData = savedCampaigns[normalized] || {};
       const finalLabel = inputLabel !== undefined ? inputLabel : (savedData.label || '');
+      const finalStatus = inputStatus !== undefined ? inputStatus : (savedData.status || 'active');
 
       addBtn.disabled = true; addBtn.textContent = "loading...";
       statusEl.textContent = `fetching data for ${normalized}...`;
@@ -646,6 +673,7 @@
         savedCampaigns[normalized] = {
           id: normalized, 
           label: finalLabel,
+          status: finalStatus,
           revenue: rev, 
           salaries: totalSalaries, 
           psSalaries: totalPsSalary, 
@@ -655,7 +683,7 @@
         };
         localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
 
-        currentCampaignTitle.innerHTML = `<span>${normalized} ${finalLabel ? ` - ${finalLabel}` : ''}</span>`;
+        currentCampaignTitle.innerHTML = `<span>${normalized} ${finalLabel ? ` - ${finalLabel}` : ''} <span style="color:var(--muted); font-size:10px;">(${finalStatus})</span></span>`;
         titleDotsBadge.textContent = `dots: ${overallTotalDots}`;
         
         summaryGrid.innerHTML = `
@@ -701,21 +729,17 @@
       
       localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
       psQuantityInput.value = 1;
-      fetchAndRenderCampaign(currentActiveId, camp.revenue, camp.label);
+      fetchAndRenderCampaign(currentActiveId, camp.revenue, camp.label, camp.status);
     });
 
     addBtn.addEventListener('click', () => {
-      fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value);
+      fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value, statusSelect.value);
     });
     
-    revenueInput.addEventListener('keypress', e => {
-      if(e.key === 'Enter') fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value);
-    });
-    campaignInput.addEventListener('keypress', e => {
-      if(e.key === 'Enter') fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value);
-    });
-    labelInput.addEventListener('keypress', e => {
-      if(e.key === 'Enter') fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value);
+    [revenueInput, campaignInput, labelInput, multiplierInput].forEach(el => {
+      el.addEventListener('keypress', e => {
+        if(e.key === 'Enter') fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value, statusSelect.value);
+      });
     });
 
     window.onload = () => { init(); campaignInput.focus(); };
