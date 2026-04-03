@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dot Poster - Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --panel: #121216;
+      --panel-hover: #1a1a20;
+      --text: #d1d1d6;
+      --muted: #73737a;
+      --accent: #4f8cff;
+      --orange: #fb923c;
+      --green: #86efac;
+      --red: #fca5a5;
+      --gold: #fcd34d;
+      --border: #2a2a30;
+    }
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-weight: normal !important; 
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font: 11px/1.4 Menlo, Monaco, Consolas, "Courier New", monospace;
+      padding: 16px;
+    }
+    
+    .layout-wrapper { display: flex; gap: 16px; align-items: flex-start; max-width: 100%; margin: 0 auto; }
+    .main-content { flex: 1; min-width: 0; }
+
+    header { margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;}
+    h1 { font-size: 12px; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* Grand Totals */
+    .grand-totals { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .gt-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 10px 16px; flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+    .gt-label { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+    .gt-value { font-size: 12px; }
+    .gt-revenue { color: #93c5fd; }
+    .gt-salaries { color: var(--red); }
+    .gt-ps-salaries { color: var(--gold); }
+    .gt-profit { color: var(--green); }
+
+    /* Inputs */
+    .input-row { display: flex; max-width: 600px; margin-bottom: 8px; gap: 8px; }
+    .main-input { flex: 1; padding: 8px 10px; font-size: 11px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; color: white; outline: none; font-family: inherit; }
+    input#campaignInput { text-transform: uppercase; }
+    .main-input:focus { border-color: var(--accent); }
+    select.main-input { appearance: none; -webkit-appearance: none; background-image: url('data:image/svg+xml;utf8,<svg fill="%2373737a" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>'); background-repeat: no-repeat; background-position: right 4px center; padding-right: 20px; cursor: pointer; }
+    
+    button { font-family: inherit; font-size: 11px; padding: 8px 16px; background: var(--panel); border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer; transition: background 0.2s; }
+    button:hover { background: var(--panel-hover); }
+    button.primary-btn { background: rgba(79,140,255,0.1); border-color: var(--accent); color: var(--accent); }
+    button.primary-btn:hover { background: rgba(79,140,255,0.2); }
+
+    /* Saved Campaigns */
+    .saved-campaigns-wrapper { margin-bottom: 16px; margin-top: 16px; }
+    .saved-title { font-size: 10px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; }
+    .saved-campaigns { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
+    .mini-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 10px; min-width: 180px; cursor: pointer; flex-shrink: 0; position: relative; }
+    .mini-card:hover { border-color: var(--accent); }
+    .mini-card.active { border-color: var(--accent); }
+    .mc-header { display: flex; align-items: center; font-size: 11px; margin-bottom: 6px; padding-right: 20px; color: var(--accent); }
+    .mc-label { border: 1px solid var(--border); padding: 1px 4px; border-radius: 3px; font-size: 9px; color: var(--text); margin-left: 6px; background: rgba(255,255,255,0.05); }
+    .mc-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+    .mc-val { color: var(--text); }
+    .delete-btn { position: absolute; top: 8px; right: 8px; background: none; color: var(--muted); border: none; font-size: 12px; cursor: pointer; padding: 0 4px; }
+    .delete-btn:hover { color: var(--red); }
+
+    /* Single Campaign Summary */
+    .summary { background: var(--panel); border-radius: 4px; padding: 12px; margin-bottom: 16px; border: 1px solid var(--border); transition: background-color 0.3s ease; }
+    .summary-title { font-size: 12px; color: white; margin-bottom: 12px; display: flex; gap: 10px; align-items: center; }
+    .summary-title .badge { color: var(--gold); font-size: 10px; border: 1px solid var(--gold); padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.3); }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+    .sum-item { display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); }
+    .sum-item span { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+    .sum-value { font-size: 12px; }
+
+    /* Potential Shifts Section */
+    .ps-section { background: transparent; border: 1px dashed var(--border); border-radius: 4px; padding: 12px; margin-bottom: 16px; display: flex; align-items: center; gap: 16px;}
+    .ps-header { font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 4px;}
+    .ps-inputs { display: flex; gap: 8px; align-items: center; }
+    .ps-inputs .main-input { width: 80px; }
+
+    /* Worker Cards */
+    .workers-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+    .worker-card { background: var(--panel); border-radius: 4px; border: 1px solid var(--border); padding: 12px; cursor: pointer; }
+    .worker-card:hover { border-color: rgba(255,255,255,0.2); }
+    .worker-name { font-size: 12px; color: #fff; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px;}
+    .worker-name span { font-size: 10px; color: var(--muted); }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-item { display: flex; justify-content: space-between; font-size: 11px; }
+    .stat-label { color: var(--muted); }
+    .stat-value { color: var(--text); }
+    
+    .orange { color: var(--orange); }
+    .profit-text { color: var(--green); }
+    .salaries-text { color: var(--red); }
+    .ps-badge { color: var(--gold); font-size: 9px; margin-left: 4px; border: 1px solid var(--gold); padding: 1px 3px; border-radius: 2px;}
+
+    /* Sidebars */
+    .sidebar { width: 320px; flex-shrink: 0; background: var(--panel); border-radius: 4px; border: 1px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 16px; max-height: calc(100vh - 32px); }
+    .sidebar-header { padding: 12px; border-bottom: 1px solid var(--border); font-size: 11px; color: #fff; display: flex; justify-content: space-between; }
+    .sidebar-content { overflow-y: auto; padding: 0; }
+    .sidebar-content::-webkit-scrollbar { width: 6px; }
+    .sidebar-content::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-content::-webkit-scrollbar-thumb { background: var(--border); }
+
+    /* Left Sidebar (Salary Slip) */
+    .left-sidebar .sidebar-content { padding: 16px; }
+    .ss-section { border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px; }
+    .ss-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .ss-title { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+    .ss-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; color: var(--muted); }
+    .ss-row span:last-child { color: var(--text); text-align: right; }
+    .ss-row.highlight span:last-child { color: var(--gold); }
+    .ss-row.red span:last-child { color: var(--red); }
+    .ss-row.green span:last-child { color: var(--green); }
+    .ss-row.main { padding-top: 8px; margin-top: 8px; border-top: 1px dashed var(--border); }
+
+    /* Shifts Table */
+    .shifts-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    .shifts-table th { color: var(--muted); padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; background: var(--panel); position: sticky; top: 0; }
+    .shifts-table td { padding: 6px 12px; border-bottom: 1px solid var(--border); vertical-align: top;}
+    .worker-group td { background: var(--bg); color: var(--text); padding-top: 10px; padding-bottom: 4px; font-size: 11px;}
+    .shift-name-td { color: #fff; display:flex; align-items:center; }
+    .shift-date { color: var(--muted); margin-top: 2px; }
+    .stat-cluster { display: flex; flex-direction: column; gap: 2px; }
+    .delete-ps-btn { background: transparent; color: var(--red); border: 1px solid var(--red); border-radius: 2px; cursor: pointer; padding: 2px 6px; margin-top: 4px; font-size: 9px;}
+    .delete-ps-btn:hover { color: #fff; background: var(--red); }
+
+    .status { text-align: center; margin: 16px 0; color: var(--muted); font-size: 11px; }
+
+    @media (max-width: 1200px) {
+      .layout-wrapper { flex-wrap: wrap; }
+      .sidebar { width: 100%; position: static; max-height: 500px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Dashboard Metrics -->
+  <div class="grand-totals" id="grandTotals">
+    <div class="gt-card">
+      <div class="gt-label">Total Revenue</div>
+      <div class="gt-value gt-revenue" id="gtRevenue">€0.00</div>
+    </div>
+    <div class="gt-card">
+      <div class="gt-label">Total Salaries (All)</div>
+      <div class="gt-value gt-salaries" id="gtSalaries">€0.00</div>
+    </div>
+    <div class="gt-card">
+      <div class="gt-label">Total PS Salaries (All)</div>
+      <div class="gt-value gt-ps-salaries" id="gtPsSalaries">€0.00</div>
+    </div>
+    <div class="gt-card">
+      <div class="gt-label">Total Profit</div>
+      <div class="gt-value gt-profit" id="gtProfit">€0.00</div>
+    </div>
+    <div class="gt-card" style="border-color: rgba(252, 211, 77, 0.2); background: rgba(252, 211, 77, 0.02);">
+      <div class="gt-label" style="color:var(--gold);">Master Total Inv (Excl VAT)</div>
+      <div class="gt-value" id="gtMasterExcl" style="color:var(--text);">��0.00</div>
+    </div>
+    <div class="gt-card" style="border-color: rgba(252, 211, 77, 0.2); background: rgba(252, 211, 77, 0.02);">
+      <div class="gt-label" style="color:var(--gold);">Master Total Inv (Incl VAT)</div>
+      <div class="gt-value" id="gtMasterIncl" style="color:var(--text);">€0.00</div>
+    </div>
+  </div>
+
+  <div class="layout-wrapper">
+    
+    <!-- LEFT SIDEBAR: Salary Slip Calculation -->
+    <aside class="sidebar left-sidebar" id="leftSidebar" style="display:none;">
+      <div class="sidebar-header">
+        <span id="ssName">salary slip</span>
+        <span id="ssHours" style="color:var(--muted);">0h 00m</span>
+      </div>
+      <div class="sidebar-content">
+        <div class="ss-section">
+          <div class="ss-title">invoice details w/o amplo</div>
+          <div class="ss-row"><span>inv amount (vat incl)</span><span id="ssInvIncl">€0.00</span></div>
+          <div class="ss-row"><span>hourly rate (vat incl)</span><span id="ssInvHr">€0.00/hr</span></div>
+          <div class="ss-row"><span>vat amount (21%)</span><span id="ssVat">€0.00</span></div>
+          <div class="ss-row main highlight"><span>inv amount (vat excl)</span><span id="ssInvExcl">€0.00</span></div>
+          <div class="ss-row red"><span>employer contrib</span><span id="ssEmployer">-€0.00</span></div>
+        </div>
+        <div class="ss-section">
+          <div class="ss-title">salary breakdown</div>
+          <div class="ss-row main"><span>gross salary</span><span id="ssGross">€0.00</span></div>
+          <div class="ss-row"><span>hourly gross</span><span id="ssHourly">€0.00/hr</span></div>
+          <div class="ss-row red"><span>nsso (13.07%)</span><span id="ssNsso">-€0.00</span></div>
+          <div class="ss-row main"><span>taxable salary</span><span id="ssTaxable">€0.00</span></div>
+          <div class="ss-row red"><span>prepaid tax</span><span id="ssTax">-€0.00</span></div>
+        </div>
+        <div class="ss-section">
+          <div class="ss-title">net payout</div>
+          <div class="ss-row"><span>net salary</span><span id="ssNet">€0.00</span></div>
+          <div class="ss-row"><span>holiday pay</span><span id="ssHoliday">€0.00</span></div>
+          <div class="ss-row main green" style="font-size:13px; color:#fff;"><span>net total</span><span id="ssNetTotal">€0.00</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT: Dashboard & Cards -->
+    <div class="main-content">
+      <header>
+        <h1>Dot Poster Dashboard</h1>
+      </header>
+
+      <!-- Input Rows -->
+      <div class="input-row">
+        <input type="text" id="campaignInput" class="main-input" placeholder="campaign id" maxlength="10" autocomplete="off" style="flex: 2;">
+        <input type="text" id="labelInput" class="main-input" placeholder="label (optional)" style="flex: 2;">
+      </div>
+      <div class="input-row">
+        <select id="amountType" class="main-input" style="flex: 1.5;">
+          <option value="revenue">revenue (€)</option>
+          <option value="exclVat">inv excl vat (€)</option>
+        </select>
+        <input type="number" id="revenueInput" class="main-input" placeholder="amount" min="0" step="0.01" style="flex: 2;">
+        <button class="primary-btn" id="addBtn" style="flex: 1;">add campaign</button>
+      </div>
+
+      <div class="saved-campaigns-wrapper" id="savedWrapper" style="display:none;">
+        <div class="saved-title">saved campaigns</div>
+        <div class="saved-campaigns" id="savedCampaignsContainer"></div>
+      </div>
+
+      <div class="summary" id="summaryCard" style="display:none;">
+        <div class="summary-title" id="currentCampaignTitle">
+          <span>campaign summary</span>
+          <span class="badge" id="titleDotsBadge">dots: 0</span>
+        </div>
+        <div class="summary-grid" id="summaryGrid"></div>
+      </div>
+
+      <div class="ps-section" id="psSection" style="display:none;">
+        <div class="ps-header">
+          <span style="color:var(--text);">add potential shifts (ps)</span>
+          <span style="color:var(--gold);">fixed pay: €36.00 / ps</span>
+        </div>
+        <div class="ps-inputs">
+          <input type="number" id="psQuantity" class="main-input" placeholder="qty" min="1" value="1">
+          <button class="primary-btn" id="addPsBtn">add ps</button>
+        </div>
+      </div>
+
+      <div class="workers-grid" id="workersGrid"></div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <!-- RIGHT SIDEBAR: All Shifts Table -->
+    <aside class="sidebar" id="sidebar" style="display:none;">
+      <div class="sidebar-header">
+        <span id="sidebarTitle">shifts</span>
+        <span id="totalShiftsBadge" style="color:var(--muted);">0</span>
+      </div>
+      <div class="sidebar-content">
+        <table class="shifts-table">
+          <thead>
+            <tr>
+              <th>shift / date</th>
+              <th>stats</th>
+              <th style="text-align: right;">time/pay</th>
+            </tr>
+          </thead>
+          <tbody id="shiftsTableBody"></tbody>
+        </table>
+      </div>
+    </aside>
+
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // DOM Elements
+    const campaignInput = document.getElementById('campaignInput');
+    const labelInput = document.getElementById('labelInput');
+    const amountTypeSelect = document.getElementById('amountType');
+    const revenueInput = document.getElementById('revenueInput');
+    const addBtn = document.getElementById('addBtn');
+    
+    const psSection = document.getElementById('psSection');
+    const psQuantityInput = document.getElementById('psQuantity');
+    const addPsBtn = document.getElementById('addPsBtn');
+
+    const gtRevenueEl = document.getElementById('gtRevenue');
+    const gtSalariesEl = document.getElementById('gtSalaries');
+    const gtPsSalariesEl = document.getElementById('gtPsSalaries');
+    const gtProfitEl = document.getElementById('gtProfit');
+    const gtMasterExcl = document.getElementById('gtMasterExcl');
+    const gtMasterIncl = document.getElementById('gtMasterIncl');
+    
+    const savedWrapper = document.getElementById('savedWrapper');
+    const savedCampaignsContainer = document.getElementById('savedCampaignsContainer');
+    const workersGrid = document.getElementById('workersGrid');
+    const summaryCard = document.getElementById('summaryCard');
+    const summaryGrid = document.getElementById('summaryGrid');
+    const currentCampaignTitle = document.querySelector('#currentCampaignTitle span:first-child');
+    const titleDotsBadge = document.getElementById('titleDotsBadge');
+    
+    const sidebar = document.getElementById('sidebar');
+    const sidebarTitle = document.getElementById('sidebarTitle');
+    const shiftsTableBody = document.getElementById('shiftsTableBody');
+    const statusEl = document.getElementById('status');
+    const totalShiftsBadge = document.getElementById('totalShiftsBadge');
+    
+    const leftSidebar = document.getElementById('leftSidebar');
+
+    let savedCampaigns = JSON.parse(localStorage.getItem('dotPoster_campaigns')) || {};
+    let currentActiveId = null;
+
+    // Financial Calculation Constants (from Amplo)
+    const EXCL_TO_NET_RATIO = 57.65 / 36.00;
+    const GROSS_TO_NET_RATIO = 43.31 / 36.00;
+    const HOLIDAY_RATIO = 5.13 / 36.00;
+    const NSSO_RATE = 0.1307;
+    const VAT_RATE = 0.21;
+
+    function init() {
+      updateGrandTotals();
+      renderSavedCampaignsList();
+    }
+
+    function normalizeId(id) { return (id || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+    
+    function formatWorkDuration(ms) {
+      if (!ms || ms <= 0) return '0h 00m';
+      const m = Math.floor(ms / 60000);
+      return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;
+    }
+    
+    function getBaseName(name) {
+      name = name.trim().toLowerCase();
+      return name.replace(/(one|two|three|four|five|six|seven|eight|nine|ten|\d+)$/i, '').trim() || name;
+    }
+    
+    function calculateActiveTime(timestamps) {
+      if (!timestamps || timestamps.length === 0) return 0;
+      if (timestamps.length === 1) return 10000;
+      timestamps.sort((a, b) => a - b);
+      let totalMs = 0;
+      const MAX_GAP = 15 * 60 * 1000;
+      for (let i = 1; i < timestamps.length; i++) {
+        const diff = timestamps[i] - timestamps[i-1];
+        if (diff < MAX_GAP && diff > 0) totalMs += diff; else totalMs += 10000;
+      }
+      return totalMs;
+    }
+
+    function getFinalRevenue() {
+      const raw = parseFloat(revenueInput.value) || 0;
+      return amountTypeSelect.value === 'exclVat' ? (raw / EXCL_TO_NET_RATIO) : raw;
+    }
+
+    function updateGrandTotals() {
+      let tr = 0, ts = 0, tps = 0, tp = 0;
+      Object.values(savedCampaigns).forEach(c => {
+        tr += (c.revenue || 0); 
+        ts += (c.salaries || 0); 
+        tps += (c.psSalaries || 0);
+        tp += (c.profit || 0);
+      });
+      
+      const masterExcl = tr * EXCL_TO_NET_RATIO;
+      const masterIncl = masterExcl * (1 + VAT_RATE);
+
+      gtRevenueEl.textContent = `€${tr.toFixed(2)}`;
+      gtSalariesEl.textContent = `€${ts.toFixed(2)}`;
+      gtPsSalariesEl.textContent = `€${tps.toFixed(2)}`;
+      gtProfitEl.textContent = `€${tp.toFixed(2)}`;
+      
+      gtMasterExcl.textContent = `€${masterExcl.toFixed(2)}`;
+      gtMasterIncl.textContent = `€${masterIncl.toFixed(2)}`;
+    }
+
+    function showSalarySlip(name, netTotal, workMs) {
+      const hours = workMs / (1000 * 60 * 60);
+      
+      const invoiceExcl = netTotal * EXCL_TO_NET_RATIO;
+      const invoiceIncl = invoiceExcl * (1 + VAT_RATE);
+      const vat = invoiceIncl - invoiceExcl;
+      
+      const gross = netTotal * GROSS_TO_NET_RATIO;
+      const employer = invoiceExcl - gross;
+      
+      const nsso = gross * NSSO_RATE;
+      const taxable = gross - nsso;
+      const holiday = netTotal * HOLIDAY_RATIO;
+      const netSalary = netTotal - holiday;
+      const tax = taxable - netSalary;
+      
+      const hourlyGross = hours > 0 ? gross / hours : 0;
+      const hourlyIncl = hours > 0 ? invoiceIncl / hours : 0;
+
+      document.getElementById('ssName').textContent = `${name}'s slip`;
+      document.getElementById('ssHours').textContent = `${formatWorkDuration(workMs)}`;
+      
+      document.getElementById('ssInvIncl').textContent = `€${invoiceIncl.toFixed(2)}`;
+      document.getElementById('ssInvHr').textContent = hourlyIncl > 0 ? `€${hourlyIncl.toFixed(2)}/hr` : '-';
+      document.getElementById('ssVat').textContent = `€${vat.toFixed(2)}`;
+      document.getElementById('ssInvExcl').textContent = `€${invoiceExcl.toFixed(2)}`;
+      document.getElementById('ssEmployer').textContent = `-€${employer.toFixed(2)}`;
+      
+      document.getElementById('ssGross').textContent = `€${gross.toFixed(2)}`;
+      document.getElementById('ssHourly').textContent = hourlyGross > 0 ? `€${hourlyGross.toFixed(2)}/hr` : '-';
+      document.getElementById('ssNsso').textContent = `-€${nsso.toFixed(2)}`;
+      document.getElementById('ssTaxable').textContent = `€${taxable.toFixed(2)}`;
+      document.getElementById('ssTax').textContent = `-€${tax.toFixed(2)}`;
+      
+      document.getElementById('ssNet').textContent = `€${netSalary.toFixed(2)}`;
+      document.getElementById('ssHoliday').textContent = `€${holiday.toFixed(2)}`;
+      document.getElementById('ssNetTotal').textContent = `€${netTotal.toFixed(2)}`;
+
+      leftSidebar.style.display = 'flex';
+    }
+
+    window.deleteCampaign = function(id) {
+      delete savedCampaigns[id];
+      localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
+      if (currentActiveId === id) {
+        currentActiveId = null; workersGrid.innerHTML = ''; summaryCard.style.display = 'none';
+        sidebar.style.display = 'none'; leftSidebar.style.display = 'none'; psSection.style.display = 'none'; statusEl.textContent = '';
+      }
+      updateGrandTotals(); renderSavedCampaignsList();
+    }
+
+    window.deletePS = function(psId) {
+      if(!currentActiveId || !savedCampaigns[currentActiveId]) return;
+      let camp = savedCampaigns[currentActiveId];
+      camp.potentialShifts = (camp.potentialShifts || []).filter(p => p.id !== psId);
+      localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
+      fetchAndRenderCampaign(currentActiveId, camp.revenue, camp.label);
+    }
+
+    function renderSavedCampaignsList() {
+      const campaignsArr = Object.values(savedCampaigns).sort((a, b) => b.timestamp - a.timestamp);
+      if (campaignsArr.length === 0) { savedWrapper.style.display = 'none'; return; }
+      savedWrapper.style.display = 'block'; savedCampaignsContainer.innerHTML = '';
+      
+      campaignsArr.forEach(c => {
+        const div = document.createElement('div');
+        div.className = `mini-card ${c.id === currentActiveId ? 'active' : ''}`;
+        
+        const labelHtml = c.label ? `<span class="mc-label">${c.label}</span>` : '';
+        const exclVat = c.revenue * EXCL_TO_NET_RATIO;
+        
+        div.innerHTML = `
+          <button class="delete-btn" onclick="event.stopPropagation(); deleteCampaign('${c.id}')">x</button>
+          <div class="mc-header">${c.id} ${labelHtml}</div>
+          <div class="mc-row"><span>rev:</span> <span class="mc-val">€${c.revenue.toFixed(2)}</span></div>
+          <div class="mc-row"><span>ex vat:</span> <span class="mc-val" style="color:var(--gold);">€${exclVat.toFixed(2)}</span></div>
+          <div class="mc-row"><span>sal:</span> <span class="mc-val salaries-text">€${c.salaries.toFixed(2)}</span></div>
+          <div class="mc-row"><span>prof:</span> <span class="mc-val profit-text">€${c.profit.toFixed(2)}</span></div>
+        `;
+        div.onclick = () => { 
+          campaignInput.value = c.id; 
+          labelInput.value = c.label || '';
+          amountTypeSelect.value = 'revenue';
+          revenueInput.value = c.revenue.toFixed(2); 
+          fetchAndRenderCampaign(c.id, c.revenue, c.label); 
+        };
+        savedCampaignsContainer.appendChild(div);
+      });
+    }
+
+    async function fetchAndRenderCampaign(campaignId, inputRevenue, inputLabel) {
+      const normalized = normalizeId(campaignId);
+      if (!normalized) return;
+
+      currentActiveId = normalized;
+      
+      let savedData = savedCampaigns[normalized] || {};
+      const finalLabel = inputLabel !== undefined ? inputLabel : (savedData.label || '');
+
+      addBtn.disabled = true; addBtn.textContent = "loading...";
+      statusEl.textContent = `fetching data for ${normalized}...`;
+      
+      workersGrid.innerHTML = ''; shiftsTableBody.innerHTML = '';
+      summaryCard.style.display = 'none'; sidebar.style.display = 'none'; leftSidebar.style.display = 'none'; psSection.style.display = 'none';
+      renderSavedCampaignsList();
+
+      try {
+        const postsSnap = await db.ref(`userPosts/${normalized}`).once('value');
+        const postsData = postsSnap.val() || {};
+        const postsArray = Object.values(postsData).filter(p => p && typeof p.lat === 'number');
+
+        const workersSnap = await db.ref(`users/${normalized}/workers`).once('value');
+        const workersMeta = workersSnap.val() || {};
+
+        const shifts = {};
+
+        // Live Dots
+        postsArray.forEach(p => {
+          const fullName = (p.workerName || 'unknown').trim(); const key = fullName.toLowerCase();
+          if (!shifts[key]) shifts[key] = { rawName: fullName, baseName: getBaseName(fullName), dots: 0, green: 0, red: 0, blue: 0, orangePosts: 0, timestamps: [] };
+          shifts[key].dots++;
+          if (p.color === 'green') shifts[key].green++; else if (p.color === 'blue') shifts[key].blue++; else shifts[key].red++;
+          if (p.timestamp) shifts[key].timestamps.push(p.timestamp);
+        });
+
+        // Live Flyers
+        Object.keys(workersMeta).forEach(key => {
+          const meta = workersMeta[key]; const fullName = (meta.firstName || key).trim(); const sKey = fullName.toLowerCase();
+          const orangeCount = meta.postClicks || 0;
+          if (!shifts[sKey]) shifts[sKey] = { rawName: fullName, baseName: getBaseName(fullName), dots: 0, green: 0, red: 0, blue: 0, orangePosts: orangeCount, timestamps: [] };
+          else shifts[sKey].orangePosts += orangeCount;
+          if (meta.lastActiveAt) shifts[sKey].timestamps.push(meta.lastActiveAt);
+        });
+
+        const grouped = {};
+        let totalShiftCount = 0;
+
+        // Group Live
+        Object.values(shifts).forEach(shift => {
+          shift.workMs = calculateActiveTime(shift.timestamps);
+          shift.earliest = shift.timestamps.length > 0 ? Math.min(...shift.timestamps) : Date.now();
+          const bKey = shift.baseName.toLowerCase();
+          
+          if (!grouped[bKey]) grouped[bKey] = { baseName: shift.baseName.toLowerCase(), dots: 0, green: 0, red: 0, blue: 0, orangePosts: 0, totalWorkMs: 0, psCount: 0, shifts: [] };
+          const g = grouped[bKey];
+          g.dots += shift.dots; g.green += shift.green; g.red += shift.red; g.blue += shift.blue; g.orangePosts += shift.orangePosts;
+          if (shift.workMs === 0 && (shift.dots > 0 || shift.orangePosts > 0)) shift.workMs = (shift.dots * 8000) + (shift.orangePosts * 5000);
+          g.totalWorkMs += shift.workMs;
+          shift.isPS = false;
+          g.shifts.push(shift);
+          totalShiftCount++;
+        });
+
+        // Merge PS Shifts
+        const psList = savedData.potentialShifts || [];
+        psList.forEach((ps, index) => {
+          const bKey = 'potential_shifts';
+          if (!grouped[bKey]) grouped[bKey] = { baseName: "potential shifts", dots: 0, green: 0, red: 0, blue: 0, orangePosts: 0, totalWorkMs: 0, psCount: 0, shifts: [] };
+          grouped[bKey].psCount++;
+          grouped[bKey].shifts.push({ id: ps.id, rawName: `ps #${index + 1}`, earliest: null, workMs: 0, dots: 0, orangePosts: 0, isPS: true });
+          totalShiftCount++;
+        });
+
+        let totalDots = 0, totalOrange = 0, totalSalaries = 0, totalPsSalary = 0, reimbursedSalaries = 0;
+        let totalMailboxes = 0, totalBlue = 0;
+        let tableHtml = '';
+
+        const sortedWorkers = Object.values(grouped).sort((a, b) => {
+           if (a.baseName === "potential shifts") return 1;
+           if (b.baseName === "potential shifts") return -1;
+           return b.orangePosts - a.orangePosts;
+        });
+
+        sortedWorkers.forEach(w => {
+          const minutes = w.totalWorkMs / 60000;
+          const avg = minutes > 0 ? (w.dots / minutes).toFixed(2) : "0.00";
+          
+          const liveSalary = (w.dots * 0.036);
+          const psSalary = (w.psCount * 36);
+          const workerTotalSalary = liveSalary + psSalary;
+          const mailboxesFound = w.green + w.red;
+
+          totalDots += w.dots; totalOrange += w.orangePosts;
+          totalSalaries += workerTotalSalary; totalPsSalary += psSalary;
+          totalMailboxes += mailboxesFound; totalBlue += w.blue;
+
+          // Check if worker gets "reimbursed" to profit
+          if (["unknown", "sid", "unon"].includes(w.baseName.toLowerCase())) {
+              reimbursedSalaries += workerTotalSalary;
+          }
+
+          const card = document.createElement('div');
+          card.className = 'worker-card';
+          card.onclick = () => showSalarySlip(w.baseName, workerTotalSalary, w.totalWorkMs);
+          
+          if (w.baseName === "potential shifts") {
+             card.innerHTML = `
+              <div class="worker-name" style="color:var(--gold); border-color:var(--border);">${w.baseName} <span>${w.shifts.length} ps</span></div>
+              <div class="stats-grid">
+                <div class="stat-item"><span class="stat-label">ps salary</span><span class="stat-value salaries-text">€${workerTotalSalary.toFixed(2)}</span></div>
+              </div>
+            `;
+          } else {
+             card.innerHTML = `
+              <div class="worker-name">${w.baseName} <span>${w.shifts.length} shift${w.shifts.length > 1 ? 's' : ''}</span></div>
+              <div class="stats-grid">
+                <div class="stat-item"><span class="stat-label">flyers</span><span class="stat-value orange">${w.orangePosts}</span></div>
+                <div class="stat-item"><span class="stat-label">boxes</span><span class="stat-value profit-text">${mailboxesFound}</span></div>
+                <div class="stat-item"><span class="stat-label">bonus</span><span class="stat-value" style="color:#93c5fd">${w.blue}</span></div>
+                <div class="stat-item"><span class="stat-label">time</span><span class="stat-value">${formatWorkDuration(w.totalWorkMs)}</span></div>
+                <div class="stat-item"><span class="stat-label">avg/m</span><span class="stat-value">${avg}</span></div>
+                <div class="stat-item" style="grid-column: 1 / -1; padding-top: 6px; border-top: 1px solid var(--border); margin-top: 2px;">
+                  <span class="stat-label">total salary</span><span class="stat-value salaries-text">€${workerTotalSalary.toFixed(2)}</span>
+                </div>
+              </div>
+            `;
+          }
+          workersGrid.appendChild(card);
+
+          w.shifts.sort((a, b) => a.earliest - b.earliest);
+          tableHtml += `<tr class="worker-group"><td colspan="3" ${w.baseName === "potential shifts" ? 'style="color:var(--gold)"' : ''}>${w.baseName} <span>(${w.shifts.length})</span></td></tr>`;
+          
+          w.shifts.forEach(s => {
+            const dateStr = s.earliest ? new Date(s.earliest).toLocaleDateString('en-GB') : '-';
+            if(s.isPS) {
+              tableHtml += `
+                <tr>
+                  <td><div class="shift-name-td">${s.rawName} <span class="ps-badge">ps</span></div><div class="shift-date">${dateStr}</div></td>
+                  <td><div class="stat-cluster"><span class="muted">-</span></div></td>
+                  <td style="text-align:right;">
+                    <div style="color:var(--red);">€36.00</div>
+                    <button class="delete-ps-btn" onclick="deletePS('${s.id}')">del</button>
+                  </td>
+                </tr>`;
+            } else {
+              tableHtml += `
+                <tr>
+                  <td><div class="shift-name-td">${s.rawName}</div><div class="shift-date">${dateStr}</div></td>
+                  <td><div class="stat-cluster"><span>${s.dots} d</span><span class="orange">${s.orangePosts} f</span></div></td>
+                  <td style="text-align:right;">${formatWorkDuration(s.workMs)}</td>
+                </tr>`;
+            }
+          });
+        });
+
+        const rev = parseFloat(inputRevenue) || 0;
+        const exclVat = rev * EXCL_TO_NET_RATIO;
+        const profit = rev - totalSalaries + reimbursedSalaries;
+        const overallTotalDots = totalMailboxes + totalBlue;
+
+        // Save State
+        savedCampaigns[normalized] = {
+          id: normalized, 
+          label: finalLabel,
+          revenue: rev, 
+          salaries: totalSalaries, 
+          psSalaries: totalPsSalary, 
+          profit: profit,
+          timestamp: Date.now(),
+          potentialShifts: psList
+        };
+        localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
+
+        currentCampaignTitle.innerHTML = `<span>${normalized} ${finalLabel ? ` - ${finalLabel}` : ''}</span>`;
+        titleDotsBadge.textContent = `dots: ${overallTotalDots}`;
+        
+        summaryGrid.innerHTML = `
+          <div class="sum-item"><span>revenue</span><div class="sum-value gt-revenue">€${rev.toFixed(2)}</div></div>
+          <div class="sum-item"><span>ex vat</span><div class="sum-value" style="color:var(--gold);">€${exclVat.toFixed(2)}</div></div>
+          <div class="sum-item"><span>salaries</span><div class="sum-value salaries-text">€${totalSalaries.toFixed(2)}</div></div>
+          <div class="sum-item"><span>ps salaries</span><div class="sum-value gt-ps-salaries">€${totalPsSalary.toFixed(2)}</div></div>
+          <div class="sum-item"><span>profit</span><div class="sum-value profit-text">€${profit.toFixed(2)}</div></div>
+          <div class="sum-item"><span>flyers</span><div class="sum-value orange">${totalOrange}</div></div>
+          <div class="sum-item"><span>boxes</span><div class="sum-value profit-text">${totalMailboxes}</div></div>
+          <div class="sum-item"><span>bonus</span><div class="sum-value" style="color:#93c5fd">${totalBlue}</div></div>
+        `;
+        
+        summaryCard.style.display = 'block';
+        psSection.style.display = 'flex';
+        sidebarTitle.textContent = `${normalized} shifts`;
+        shiftsTableBody.innerHTML = tableHtml;
+        totalShiftsBadge.textContent = totalShiftCount;
+        sidebar.style.display = 'flex';
+
+        updateGrandTotals(); renderSavedCampaignsList();
+        statusEl.textContent = `loaded data for ${normalized}. click any worker card to view salary slip.`;
+
+      } catch (err) {
+        workersGrid.innerHTML = `<div class="empty">error loading data.</div>`;
+        statusEl.textContent = "load failed";
+      } finally {
+        addBtn.disabled = false; addBtn.textContent = "add campaign";
+      }
+    }
+
+    addPsBtn.addEventListener('click', () => {
+      if(!currentActiveId) return;
+      const qty = parseInt(psQuantityInput.value) || 1;
+      
+      const camp = savedCampaigns[currentActiveId];
+      if(!camp.potentialShifts) camp.potentialShifts = [];
+      
+      for(let i=0; i<qty; i++) {
+        const psId = 'ps_' + Date.now() + '_' + i;
+        camp.potentialShifts.push({ id: psId });
+      }
+      
+      localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
+      psQuantityInput.value = 1;
+      fetchAndRenderCampaign(currentActiveId, camp.revenue, camp.label);
+    });
+
+    addBtn.addEventListener('click', () => {
+      fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value);
+    });
+    
+    revenueInput.addEventListener('keypress', e => {
+      if(e.key === 'Enter') fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value);
+    });
+    campaignInput.addEventListener('keypress', e => {
+      if(e.key === 'Enter') fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value);
+    });
+    labelInput.addEventListener('keypress', e => {
+      if(e.key === 'Enter') fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value);
+    });
+
+    window.onload = () => { init(); campaignInput.focus(); };
+  </script>
+</body>
+</html>
