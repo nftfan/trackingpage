@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Team Location Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  
+  <style>
+    /* Light Theme Variables */
+    :root { 
+      --bg: #f8f9fa; 
+      --panel: #ffffff; 
+      --text: #1f2937; 
+      --muted: #6b7280; 
+      --border: #e5e7eb;
+      --accent: #2563eb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { height: 100vh; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; overflow: hidden; }
+    
+    header { padding: 15px 20px; background: var(--panel); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .status { font-size: 12px; color: #16a34a; display: flex; align-items: center; gap: 6px; font-weight: 600;}
+    .status-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } 100% { opacity: 1; transform: scale(1); } }
+
+    #map { height: 50vh; width: 100%; border-bottom: 2px solid var(--border); background: #e5e7eb; z-index: 1; flex-shrink: 0; }
+    
+    .table-container { flex: 1; overflow-y: auto; background: var(--panel); padding: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 12px 10px; color: var(--muted); border-bottom: 2px solid var(--border); position: sticky; top: 0; background: var(--panel); font-size: 11px; text-transform: uppercase; z-index: 2; font-weight: 700;}
+    td { padding: 12px 10px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s; }
+    tr:hover td { background: #f3f4f6; }
+    
+    /* Square Markers */
+    .square-marker { display: flex; align-items: center; justify-content: center; }
+    .square-marker-inner { width: 16px; height: 16px; border: 2px solid #ffffff; border-radius: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+    .square-red { background: #ef4444; }
+    .square-green { background: #22c55e; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>📍 Today's Worker Paths</div>
+    <div class="status"><div class="status-dot"></div> Live</div>
+  </header>
+
+  <div id="map"></div>
+
+  <div class="table-container">
+    <table id="visitorsTable">
+      <thead>
+        <tr>
+          <th>Worker Name</th>
+          <th>Latest Post Time</th>
+          <th>Posts Today</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="3" style="text-align: center; color: #6b7280; padding: 20px;">Loading data from your app...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    // Firebase configuration from your original app
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Setup Map (using CartoDB Light Matter for light theme and no warnings)
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([20, 0], 2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    const markersLayer = L.layerGroup().addTo(map);
+
+    // Define custom Square Icons
+    const redSquareIcon = L.divIcon({
+      className: 'square-marker',
+      html: `<div class="square-marker-inner square-red"></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+      popupAnchor: [0, -12]
+    });
+
+    const greenSquareIcon = L.divIcon({
+      className: 'square-marker',
+      html: `<div class="square-marker-inner square-green"></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+      popupAnchor: [0, -12]
+    });
+
+    const tableBody = document.getElementById('tableBody');
+
+    function getStartOfDay() {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+
+    function formatTime(ts) {
+      const d = new Date(ts);
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    onValue(ref(db, 'userPosts'), (snapshot) => {
+      const startOfDay = getStartOfDay();
+      const workerPaths = {}; 
+
+      // 1. Collect all points for today
+      snapshot.forEach((userNode) => {
+        userNode.forEach((postNode) => {
+          const data = postNode.val();
+          if (data && data.timestamp >= startOfDay && data.lat && data.lng) {
+            const workerName = data.workerName || "Unknown Worker";
+            if (!workerPaths[workerName]) workerPaths[workerName] = [];
+            workerPaths[workerName].push({
+              lat: data.lat,
+              lng: data.lng,
+              timestamp: data.timestamp
+            });
+          }
+        });
+      });
+
+      const workersArray = [];
+      // 2. Sort points chronologically
+      for (const workerName in workerPaths) {
+        const pathData = workerPaths[workerName].sort((a, b) => a.timestamp - b.timestamp);
+        workersArray.push({
+          name: workerName,
+          path: pathData,
+          first: pathData[0],
+          latest: pathData[pathData.length - 1]
+        });
+      }
+
+      // Sort table by latest active worker
+      workersArray.sort((a, b) => b.latest.timestamp - a.latest.timestamp);
+
+      markersLayer.clearLayers();
+      tableBody.innerHTML = '';
+
+      if (workersArray.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #6b7280; padding: 20px;">No workers have posted data today.</td></tr>';
+        return;
+      }
+
+      const bounds = [];
+
+      workersArray.forEach(worker => {
+        const timeStr = formatTime(worker.latest.timestamp);
+        const latlngs = worker.path.map(point => [point.lat, point.lng]);
+
+        // Draw the Red Dotted Line
+        if (latlngs.length > 1) {
+          L.polyline(latlngs, {
+            color: '#ef4444', 
+            weight: 3,
+            opacity: 0.8,
+            dashArray: '5, 8' 
+          }).addTo(markersLayer);
+        }
+
+        // Add RED SQUARE for FIRST location
+        if (latlngs.length > 1) {
+          const firstLatLng = [worker.first.lat, worker.first.lng];
+          L.marker(firstLatLng, { icon: redSquareIcon })
+            .bindPopup(`<b>${worker.name} (Start)</b><br>Started at: ${formatTime(worker.first.timestamp)}`)
+            .addTo(markersLayer);
+          bounds.push(firstLatLng);
+        }
+
+        // Add GREEN SQUARE for LATEST/LAST location
+        const latestLatLng = [worker.latest.lat, worker.latest.lng];
+        const latestMarker = L.marker(latestLatLng, { icon: greenSquareIcon })
+          .bindPopup(`<b>${worker.name} (Current)</b><br>Last seen: ${timeStr}<br>Total posts: ${latlngs.length}`)
+          .addTo(markersLayer);
+        bounds.push(latestLatLng);
+
+        // Add Row to Table
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight: 600; color: var(--text);">${worker.name}</td>
+          <td style="font-family: monospace; color: var(--muted);">${timeStr}</td>
+          <td style="color: var(--text); font-size: 13px; font-weight: 600;">${latlngs.length}</td>
+        `;
+
+        tr.addEventListener('click', () => {
+          map.flyTo(latestLatLng, 17, { duration: 1.2 });
+          setTimeout(() => latestMarker.openPopup(), 1200);
+        });
+
+        tableBody.appendChild(tr);
+      });
+
+      if (bounds.length > 0 && !window.mapFitted) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+        window.mapFitted = true;
+      }
+    });
+
+  </script>
+</body>
+</html>
