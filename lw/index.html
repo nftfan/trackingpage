@@ -8,32 +8,27 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   
   <style>
-    /* Light Theme Variables */
-    :root { 
-      --bg: #f8f9fa; 
-      --panel: #ffffff; 
-      --text: #1f2937; 
-      --muted: #6b7280; 
-      --border: #e5e7eb;
-      --accent: #2563eb;
-    }
+    :root { --bg: #f8f9fa; --panel: #ffffff; --text: #1f2937; --muted: #6b7280; --border: #e5e7eb; --accent: #2563eb; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body, html { height: 100vh; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; overflow: hidden; }
     
-    header { padding: 15px 20px; background: var(--panel); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .status { font-size: 12px; color: #16a34a; display: flex; align-items: center; gap: 6px; font-weight: 600;}
+    header { padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .status { font-size: 11px; color: #16a34a; display: flex; align-items: center; gap: 6px; font-weight: 600;}
     .status-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse 2s infinite; }
     @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } 100% { opacity: 1; transform: scale(1); } }
 
     #map { height: 50vh; width: 100%; border-bottom: 2px solid var(--border); background: #e5e7eb; z-index: 1; flex-shrink: 0; }
     
-    .table-container { flex: 1; overflow-y: auto; background: var(--panel); padding: 10px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { text-align: left; padding: 12px 10px; color: var(--muted); border-bottom: 2px solid var(--border); position: sticky; top: 0; background: var(--panel); font-size: 11px; text-transform: uppercase; z-index: 2; font-weight: 700;}
-    td { padding: 12px 10px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s; }
+    .table-container { flex: 1; overflow-y: auto; background: var(--panel); padding: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    th { text-align: left; padding: 8px 6px; color: var(--muted); border-bottom: 2px solid var(--border); position: sticky; top: 0; background: var(--panel); font-size: 10px; text-transform: uppercase; z-index: 2; font-weight: 700;}
+    td { padding: 8px 6px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s; font-size: 10px; }
     tr:hover td { background: #f3f4f6; }
+    tr.selected td { background: #eff6ff; } /* Highlight selected row */
     
-    /* Square Markers */
+    .col-orange { color: #f97316; font-weight: 700; }
+    .col-dots { color: #2563eb; font-weight: 700; }
+
     .square-marker { display: flex; align-items: center; justify-content: center; }
     .square-marker-inner { width: 16px; height: 16px; border: 2px solid #ffffff; border-radius: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
     .square-red { background: #ef4444; }
@@ -43,7 +38,7 @@
 <body>
 
   <header>
-    <div>📍 Today's Worker Paths</div>
+    <div>📍 Team Tracker</div>
     <div class="status"><div class="status-dot"></div> Live</div>
   </header>
 
@@ -54,12 +49,13 @@
       <thead>
         <tr>
           <th>Worker Name</th>
-          <th>Latest Post Time</th>
-          <th>Posts Today</th>
+          <th>Latest Time</th>
+          <th>Action Dots</th>
+          <th>Total Posts</th>
         </tr>
       </thead>
       <tbody id="tableBody">
-        <tr><td colspan="3" style="text-align: center; color: #6b7280; padding: 20px;">Loading data from your app...</td></tr>
+        <tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 20px;">Loading data...</td></tr>
       </tbody>
     </table>
   </div>
@@ -69,7 +65,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-    // Firebase configuration from your original app
     const firebaseConfig = {
       apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
       authDomain: "tokentransfer-4a9b3.firebaseapp.com",
@@ -83,140 +78,175 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // Setup Map (using CartoDB Light Matter for light theme and no warnings)
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([20, 0], 2);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    const markersLayer = L.layerGroup().addTo(map);
+    // Two separate layers: one for the current locations, one for the isolated path
+    const mainMarkersLayer = L.layerGroup().addTo(map);
+    const isolatedPathLayer = L.layerGroup().addTo(map);
 
-    // Define custom Square Icons
-    const redSquareIcon = L.divIcon({
-      className: 'square-marker',
-      html: `<div class="square-marker-inner square-red"></div>`,
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-      popupAnchor: [0, -12]
-    });
-
-    const greenSquareIcon = L.divIcon({
-      className: 'square-marker',
-      html: `<div class="square-marker-inner square-green"></div>`,
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-      popupAnchor: [0, -12]
-    });
+    const redSquareIcon = L.divIcon({ className: 'square-marker', html: `<div class="square-marker-inner square-red"></div>`, iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -12] });
+    const greenSquareIcon = L.divIcon({ className: 'square-marker', html: `<div class="square-marker-inner square-green"></div>`, iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -12] });
 
     const tableBody = document.getElementById('tableBody');
 
+    let rawUsersData = {};
+    let rawPostsData = {};
+    let selectedWorkerName = null; // Track who is currently clicked
+
     function getStartOfDay() {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      return d.getTime();
+      const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime();
     }
-
     function formatTime(ts) {
-      const d = new Date(ts);
-      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const d = new Date(ts); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+    function formatDuration(ms) {
+      if (ms <= 0) return "0m";
+      const tm = Math.floor(ms / 60000);
+      const h = Math.floor(tm / 60);
+      return h > 0 ? `${h}h ${tm % 60}m` : `${tm % 60}m`;
     }
 
-    onValue(ref(db, 'userPosts'), (snapshot) => {
+    onValue(ref(db, 'users'), (snapshot) => { rawUsersData = snapshot.val() || {}; renderDashboard(); });
+    onValue(ref(db, 'userPosts'), (snapshot) => { rawPostsData = snapshot.val() || {}; renderDashboard(); });
+
+    // Map click clears selection
+    map.on('click', () => {
+      selectedWorkerName = null;
+      renderDashboard();
+      fitAllMarkers();
+    });
+
+    function renderDashboard() {
+      if (!rawPostsData || Object.keys(rawPostsData).length === 0) return;
+
       const startOfDay = getStartOfDay();
       const workerPaths = {}; 
 
-      // 1. Collect all points for today
-      snapshot.forEach((userNode) => {
-        userNode.forEach((postNode) => {
-          const data = postNode.val();
+      for (const userId in rawPostsData) {
+        const posts = rawPostsData[userId];
+        for (const postKey in posts) {
+          const data = posts[postKey];
           if (data && data.timestamp >= startOfDay && data.lat && data.lng) {
             const workerName = data.workerName || "Unknown Worker";
-            if (!workerPaths[workerName]) workerPaths[workerName] = [];
-            workerPaths[workerName].push({
-              lat: data.lat,
-              lng: data.lng,
-              timestamp: data.timestamp
-            });
+            if (!workerPaths[workerName]) workerPaths[workerName] = { userId: userId, path: [] };
+            workerPaths[workerName].path.push({ lat: data.lat, lng: data.lng, timestamp: data.timestamp });
           }
-        });
-      });
+        }
+      }
 
       const workersArray = [];
-      // 2. Sort points chronologically
       for (const workerName in workerPaths) {
-        const pathData = workerPaths[workerName].sort((a, b) => a.timestamp - b.timestamp);
+        const pathData = workerPaths[workerName].path.sort((a, b) => a.timestamp - b.timestamp);
+        const userId = workerPaths[workerName].userId;
+        
+        let orangeDots = 0;
+        if (rawUsersData[userId] && rawUsersData[userId].workers) {
+          const workerKey = workerName.toLowerCase();
+          if (rawUsersData[userId].workers[workerKey]) {
+            orangeDots = rawUsersData[userId].workers[workerKey].postClicks || 0;
+          }
+        }
+
         workersArray.push({
           name: workerName,
           path: pathData,
           first: pathData[0],
-          latest: pathData[pathData.length - 1]
+          latest: pathData[pathData.length - 1],
+          orangeDots: orangeDots
         });
       }
 
-      // Sort table by latest active worker
       workersArray.sort((a, b) => b.latest.timestamp - a.latest.timestamp);
 
-      markersLayer.clearLayers();
+      mainMarkersLayer.clearLayers();
+      isolatedPathLayer.clearLayers();
       tableBody.innerHTML = '';
 
       if (workersArray.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #6b7280; padding: 20px;">No workers have posted data today.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 20px;">No workers active today.</td></tr>';
         return;
       }
 
-      const bounds = [];
+      // 1. Draw everyone's current location (Green Squares)
+      workersArray.forEach(worker => {
+        const latestLatLng = [worker.latest.lat, worker.latest.lng];
+        // Only dim other markers if someone is selected
+        const opacity = (selectedWorkerName && selectedWorkerName !== worker.name) ? 0.3 : 1;
+        
+        L.marker(latestLatLng, { icon: greenSquareIcon, opacity: opacity })
+          .bindPopup(`<b>${worker.name}</b><br>Last seen: ${formatTime(worker.latest.timestamp)}`)
+          .addTo(mainMarkersLayer);
+      });
 
+      // 2. Build the table and handle clicks
       workersArray.forEach(worker => {
         const timeStr = formatTime(worker.latest.timestamp);
-        const latlngs = worker.path.map(point => [point.lat, point.lng]);
-
-        // Draw the Red Dotted Line
-        if (latlngs.length > 1) {
-          L.polyline(latlngs, {
-            color: '#ef4444', 
-            weight: 3,
-            opacity: 0.8,
-            dashArray: '5, 8' 
-          }).addTo(markersLayer);
-        }
-
-        // Add RED SQUARE for FIRST location
-        if (latlngs.length > 1) {
-          const firstLatLng = [worker.first.lat, worker.first.lng];
-          L.marker(firstLatLng, { icon: redSquareIcon })
-            .bindPopup(`<b>${worker.name} (Start)</b><br>Started at: ${formatTime(worker.first.timestamp)}`)
-            .addTo(markersLayer);
-          bounds.push(firstLatLng);
-        }
-
-        // Add GREEN SQUARE for LATEST/LAST location
-        const latestLatLng = [worker.latest.lat, worker.latest.lng];
-        const latestMarker = L.marker(latestLatLng, { icon: greenSquareIcon })
-          .bindPopup(`<b>${worker.name} (Current)</b><br>Last seen: ${timeStr}<br>Total posts: ${latlngs.length}`)
-          .addTo(markersLayer);
-        bounds.push(latestLatLng);
-
-        // Add Row to Table
+        const durationStr = formatDuration(worker.latest.timestamp - worker.first.timestamp);
+        const isSelected = selectedWorkerName === worker.name;
+        
         const tr = document.createElement('tr');
+        if (isSelected) tr.classList.add('selected');
+        
         tr.innerHTML = `
           <td style="font-weight: 600; color: var(--text);">${worker.name}</td>
-          <td style="font-family: monospace; color: var(--muted);">${timeStr}</td>
-          <td style="color: var(--text); font-size: 13px; font-weight: 600;">${latlngs.length}</td>
+          <td style="font-family: monospace; color: var(--muted);">${timeStr} <span style="color: var(--accent);">(${durationStr})</span></td>
+          <td class="col-dots">${worker.path.length}</td>
+          <td class="col-orange">${worker.orangeDots}</td>
         `;
 
-        tr.addEventListener('click', () => {
-          map.flyTo(latestLatLng, 17, { duration: 1.2 });
-          setTimeout(() => latestMarker.openPopup(), 1200);
+        tr.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (selectedWorkerName === worker.name) {
+            selectedWorkerName = null; // Toggle off if clicked again
+            fitAllMarkers();
+          } else {
+            selectedWorkerName = worker.name; // Select
+            drawIsolatedPath(worker);
+          }
+          renderDashboard(); 
         });
 
         tableBody.appendChild(tr);
+
+        // 3. If this worker is selected, draw their path immediately
+        if (isSelected) {
+          drawIsolatedPath(worker);
+        }
       });
 
-      if (bounds.length > 0 && !window.mapFitted) {
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+      if (!window.mapFitted && !selectedWorkerName) {
+        fitAllMarkers();
         window.mapFitted = true;
       }
-    });
+    }
 
+    function drawIsolatedPath(worker) {
+      isolatedPathLayer.clearLayers();
+      const latlngs = worker.path.map(point => [point.lat, point.lng]);
+
+      // Draw Red Dotted Line (No orange dots)
+      if (latlngs.length > 1) {
+        L.polyline(latlngs, { color: '#ef4444', weight: 3, opacity: 0.8, dashArray: '5, 8' }).addTo(isolatedPathLayer);
+      }
+
+      // Red Square for Start
+      if (latlngs.length > 1) {
+        L.marker([worker.first.lat, worker.first.lng], { icon: redSquareIcon }).bindPopup(`<b>${worker.name} (Start)</b>`).addTo(isolatedPathLayer);
+      }
+      
+      // Zoom to just this worker
+      map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: 17 });
+    }
+
+    function fitAllMarkers() {
+      const bounds = [];
+      mainMarkersLayer.eachLayer(layer => {
+        if (layer.getLatLng) bounds.push(layer.getLatLng());
+      });
+      if (bounds.length > 0) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+    }
   </script>
 </body>
 </html>
