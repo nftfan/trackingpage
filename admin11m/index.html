@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>Dot Poster Mobile</title>
+    
+    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DotPoster">
+
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --border-color: #2d2d2d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-color: #bb86fc;
+            
+            --profit-green: #03dac6;
+            --expense-red: #cf6679;
+            --ps-gold: #fcd34d;
+            --revenue-blue: #82b1ff;
+
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-size: 12px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; box-shadow: none !important; text-shadow: none !important; }
+        body, html { height: 100dvh; background-color: var(--bg-color); color: var(--text-primary); overflow: hidden; display: flex; flex-direction: column; overscroll-behavior-y: none; }
+        .material-icons { font-size: 18px; color: var(--text-secondary); }
+
+        header { display: flex; align-items: center; justify-content: space-between; background-color: var(--surface-color); padding: calc(10px + var(--safe-top)) 12px 10px 12px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+        .header-title { font-size: 14px; font-weight: 600; color: var(--text-primary); text-transform: uppercase; letter-spacing: 1px; }
+
+        main { flex: 1; overflow-y: auto; padding: 12px; padding-bottom: calc(24px + var(--safe-bottom)); display: flex; flex-direction: column; gap: 16px; }
+
+        .h-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+        .h-scroll::-webkit-scrollbar { display: none; }
+
+        .metric-card { background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; min-width: 120px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; }
+        .metric-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; }
+        .metric-val { font-size: 14px; font-weight: 600; }
+
+        .input-group { display: flex; flex-direction: column; gap: 8px; background-color: var(--surface-color); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .input-row { display: flex; gap: 8px; }
+        .sleek-input { flex: 1; background-color: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px; border-radius: 6px; outline: none; min-width: 0; }
+        .sleek-input:focus { border-color: var(--accent-color); }
+        .sleek-btn { background-color: rgba(187, 134, 252, 0.1); color: var(--accent-color); border: 1px solid var(--accent-color); padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; text-transform: uppercase; text-align: center; }
+
+        .section-title { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;}
+
+        .saved-card { background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; min-width: 160px; flex-shrink: 0; position: relative; cursor: pointer; }
+        .saved-card.active { border-color: var(--accent-color); }
+        .saved-card.completed { opacity: 0.6; border-style: dashed; }
+        .sc-title { font-size: 12px; font-weight: bold; color: var(--accent-color); margin-bottom: 6px; padding-right: 20px;}
+        .sc-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); margin-bottom: 2px;}
+        .del-btn { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--expense-red); font-size: 12px; cursor: pointer; padding: 4px; }
+
+        .worker-card { background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; }
+        .worker-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 8px; }
+        .worker-name { font-weight: 600; color: var(--text-primary); font-size: 13px; }
+        .worker-badge { font-size: 10px; color: var(--text-secondary); background: var(--bg-color); padding: 2px 6px; border-radius: 4px;}
+        .worker-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .stat-box { display: flex; flex-direction: column; }
+        .stat-box span:first-child { font-size: 9px; color: var(--text-secondary); }
+        .stat-box span:last-child { font-size: 12px; }
+        
+        .worker-shifts { margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px; }
+        .shift-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); margin-bottom: 4px; align-items: center; }
+        .del-ps { color: var(--expense-red); border: 1px solid var(--expense-red); border-radius: 3px; padding: 2px 4px; font-size: 9px; margin-left: 6px; }
+
+        #salary-modal { position: fixed; bottom: 0; left: 0; right: 0; background-color: var(--surface-color); border-top: 1px solid var(--border-color); border-radius: 16px 16px 0 0; padding: 20px 16px calc(20px + var(--safe-bottom)); transform: translateY(100%); transition: transform 0.3s ease-in-out; z-index: 100; box-shadow: 0 -10px 40px rgba(0,0,0,0.5) !important; max-height: 85vh; overflow-y: auto;}
+        #salary-modal.active { transform: translateY(0); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 99; display: none; }
+        .modal-overlay.active { display: block; }
+
+        .ss-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border-color); font-size: 11px; }
+        .ss-row:last-child { border-bottom: none; }
+        .ss-row span:first-child { color: var(--text-secondary); }
+
+        .t-profit { color: var(--profit-green); }
+        .t-expense { color: var(--expense-red); }
+        .t-revenue { color: var(--revenue-blue); }
+        .t-gold { color: var(--ps-gold); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">Dot Poster</div>
+        <div id="status" style="font-size: 10px; color: var(--text-secondary);">Ready</div>
+    </header>
+
+    <main>
+        <!-- Grand Totals -->
+        <div>
+            <div class="section-title">Grand Totals</div>
+            <div class="h-scroll" id="grandTotals">
+                <div class="metric-card"><span class="metric-label">Total Profit</span><span class="metric-val t-profit" id="gtProfit">€0.00</span></div>
+                <div class="metric-card"><span class="metric-label">Total Revenue</span><span class="metric-val t-revenue" id="gtRevenue">€0.00</span></div>
+                <div class="metric-card"><span class="metric-label">Total Salaries</span><span class="metric-val t-expense" id="gtSalaries">€0.00</span></div>
+                <div class="metric-card"><span class="metric-label">PS Salaries</span><span class="metric-val t-gold" id="gtPsSalaries">€0.00</span></div>
+                <div class="metric-card"><span class="metric-label">Master (Excl)</span><span class="metric-val" id="gtMasterExcl">€0.00</span></div>
+                <div class="metric-card"><span class="metric-label">Master (Incl)</span><span class="metric-val" id="gtMasterIncl">€0.00</span></div>
+            </div>
+        </div>
+
+        <!-- Saved Campaigns -->
+        <div id="savedSection" style="display: none;">
+            <div class="section-title">Saved Campaigns</div>
+            <div class="h-scroll" id="savedCampaignsContainer"></div>
+        </div>
+
+        <!-- Inputs Group -->
+        <div class="input-group">
+            <div class="input-row">
+                <input type="text" id="campaignInput" class="sleek-input" placeholder="Campaign ID" style="text-transform: uppercase;">
+                <input type="text" id="labelInput" class="sleek-input" placeholder="Label (opt)">
+            </div>
+            <div class="input-row">
+                <select id="statusSelect" class="sleek-input"><option value="active">Active</option><option value="completed">Completed</option></select>
+                <select id="amountType" class="sleek-input"><option value="revenue">Rev (€)</option><option value="exclVat">Excl (€)</option><option value="inclVat">Incl (€)</option></select>
+            </div>
+            <div class="input-row">
+                <input type="number" id="revenueInput" class="sleek-input" placeholder="Amount" min="0" step="0.01">
+                <select id="rateType" class="sleek-input" style="flex: 0.6;"><option value="flat">Flat</option><option value="hour">/Hr</option><option value="day">/Day</option></select>
+                <input type="number" id="multiplierInput" class="sleek-input" placeholder="Qty" value="1" min="0" step="0.5" style="display: none; flex: 0.5;">
+            </div>
+            <button class="sleek-btn" id="addBtn" style="width: 100%; margin-top: 4px;">Load Campaign</button>
+        </div>
+
+        <!-- PS Section -->
+        <div id="psSection" style="display:none; background: var(--surface-color); padding: 12px; border-radius: 8px; border: 1px dashed var(--border-color);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:11px; color:var(--text-secondary);">Add Potential Shifts</span>
+                <span class="t-gold" style="font-size:11px;">€36.00 / PS</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <input type="number" id="psQuantity" class="sleek-input" placeholder="Qty" min="1" value="1">
+                <button class="sleek-btn" id="addPsBtn">Add PS</button>
+            </div>
+        </div>
+
+        <!-- Workers List -->
+        <div>
+            <div class="section-title" id="workersTitle">Workers <span id="campaignSummaryBadge" style="color:var(--accent-color);"></span></div>
+            <div id="workersGrid"></div>
+        </div>
+    </main>
+
+    <!-- Salary Slip Modal -->
+    <div class="modal-overlay" id="modalOverlay"></div>
+    <div id="salary-modal">
+        <div class="modal-header">
+            <div>
+                <h3 class="worker-name" id="ssName">Worker Slip</h3>
+                <span style="font-size:10px; color:var(--text-secondary);" id="ssHours">0h 00m</span>
+            </div>
+            <button style="background:none; border:none; color:var(--text-primary); padding:4px;" id="closeModal"><span class="material-icons">close</span></button>
+        </div>
+        <div style="margin-bottom: 16px;">
+            <div class="section-title">Invoice w/o Amplo</div>
+            <div class="ss-row"><span>Inv Amount (Vat Incl)</span><span id="ssInvIncl">€0.00</span></div>
+            <div class="ss-row"><span>Hourly Rate (Vat Incl)</span><span id="ssInvHr">€0.00/hr</span></div>
+            <div class="ss-row"><span>Vat (21%)</span><span id="ssVat">€0.00</span></div>
+            <div class="ss-row"><span style="color:var(--text-primary);">Inv Amount (Vat Excl)</span><span class="t-gold" id="ssInvExcl">€0.00</span></div>
+            <div class="ss-row"><span>Employer Contrib</span><span class="t-expense" id="ssEmployer">-€0.00</span></div>
+        </div>
+        <div>
+            <div class="section-title">Salary Breakdown</div>
+            <div class="ss-row"><span style="color:var(--text-primary);">Gross Salary</span><span id="ssGross">€0.00</span></div>
+            <div class="ss-row"><span>Hourly Gross</span><span id="ssHourly">€0.00/hr</span></div>
+            <div class="ss-row"><span>NSSO (13.07%)</span><span class="t-expense" id="ssNsso">-€0.00</span></div>
+            <div class="ss-row"><span style="color:var(--text-primary);">Taxable</span><span id="ssTaxable">€0.00</span></div>
+            <div class="ss-row"><span>Prepaid Tax</span><span class="t-expense" id="ssTax">-€0.00</span></div>
+            <div class="ss-row"><span>Net Salary</span><span id="ssNet">€0.00</span></div>
+            <div class="ss-row"><span>Holiday Pay</span><span id="ssHoliday">€0.00</span></div>
+            <div class="ss-row" style="border-top: 1px solid var(--border-color); margin-top: 8px; padding-top: 8px;">
+                <span style="color: var(--text-primary); font-weight: bold; font-size:14px;">Net Total</span>
+                <span class="t-profit" style="font-weight: bold; font-size: 16px;" id="ssNetTotal">€0.00</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+            authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+            databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+            projectId: "tokentransfer-4a9b3",
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // DOM Elements
+        const campaignInput = document.getElementById('campaignInput');
+        const labelInput = document.getElementById('labelInput');
+        const statusSelect = document.getElementById('statusSelect');
+        const amountTypeSelect = document.getElementById('amountType');
+        const revenueInput = document.getElementById('revenueInput');
+        const rateTypeSelect = document.getElementById('rateType');
+        const multiplierInput = document.getElementById('multiplierInput');
+        const addBtn = document.getElementById('addBtn');
+        
+        const psSection = document.getElementById('psSection');
+        const psQuantityInput = document.getElementById('psQuantity');
+        const addPsBtn = document.getElementById('addPsBtn');
+
+        const gtRevenueEl = document.getElementById('gtRevenue');
+        const gtSalariesEl = document.getElementById('gtSalaries');
+        const gtPsSalariesEl = document.getElementById('gtPsSalaries');
+        const gtProfitEl = document.getElementById('gtProfit');
+        const gtMasterExcl = document.getElementById('gtMasterExcl');
+        const gtMasterIncl = document.getElementById('gtMasterIncl');
+        
+        const savedSection = document.getElementById('savedSection');
+        const savedCampaignsContainer = document.getElementById('savedCampaignsContainer');
+        const workersGrid = document.getElementById('workersGrid');
+        const statusEl = document.getElementById('status');
+        const campaignSummaryBadge = document.getElementById('campaignSummaryBadge');
+        
+        const modal = document.getElementById('salary-modal');
+        const overlay = document.getElementById('modalOverlay');
+        const closeModalBtn = document.getElementById('closeModal');
+
+        let savedCampaigns = JSON.parse(localStorage.getItem('dotPoster_campaigns')) || {};
+        let currentActiveId = null;
+
+        const EXCL_TO_NET_RATIO = 57.65 / 36.00;
+        const GROSS_TO_NET_RATIO = 43.31 / 36.00;
+        const HOLIDAY_RATIO = 5.13 / 36.00;
+        const NSSO_RATE = 0.1307;
+        const VAT_RATE = 0.21;
+
+        function init() {
+            updateGrandTotals();
+            renderSavedCampaignsList();
+            
+            rateTypeSelect.addEventListener('change', () => {
+                if (rateTypeSelect.value === 'flat') {
+                    multiplierInput.style.display = 'none';
+                    multiplierInput.value = 1;
+                } else {
+                    multiplierInput.style.display = 'block';
+                    multiplierInput.placeholder = rateTypeSelect.value === 'hour' ? 'Hrs' : 'Days';
+                }
+            });
+
+            closeModalBtn.addEventListener('click', closeModal);
+            overlay.addEventListener('click', closeModal);
+        }
+
+        function openModal() { modal.classList.add('active'); overlay.classList.add('active'); }
+        function closeModal() { modal.classList.remove('active'); overlay.classList.remove('active'); }
+
+        function normalizeId(id) { return (id || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+        
+        function formatWorkDuration(ms) {
+            if (!ms || ms <= 0) return '0h 00m';
+            const m = Math.floor(ms / 60000);
+            return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;
+        }
+        
+        function getBaseName(name) {
+            name = name.trim().toLowerCase();
+            return name.replace(/(one|two|three|four|five|six|seven|eight|nine|ten|\d+)$/i, '').trim() || name;
+        }
+        
+        function calculateActiveTime(timestamps) {
+            if (!timestamps || timestamps.length === 0) return 0;
+            if (timestamps.length === 1) return 10000;
+            timestamps.sort((a, b) => a - b);
+            let totalMs = 0;
+            const MAX_GAP = 15 * 60 * 1000;
+            for (let i = 1; i < timestamps.length; i++) {
+                const diff = timestamps[i] - timestamps[i-1];
+                if (diff < MAX_GAP && diff > 0) totalMs += diff; else totalMs += 10000;
+            }
+            return totalMs;
+        }
+
+        function getFinalRevenue() {
+            const rawRate = parseFloat(revenueInput.value) || 0;
+            const multi = rateTypeSelect.value === 'flat' ? 1 : (parseFloat(multiplierInput.value) || 1);
+            const raw = rawRate * multi;
+
+            if (amountTypeSelect.value === 'exclVat') return raw / EXCL_TO_NET_RATIO;
+            if (amountTypeSelect.value === 'inclVat') return raw / (EXCL_TO_NET_RATIO * (1 + VAT_RATE));
+            return raw;
+        }
+
+        function updateGrandTotals() {
+            let tr = 0, ts = 0, tps = 0, tp = 0;
+            Object.values(savedCampaigns).forEach(c => {
+                tr += (c.revenue || 0); ts += (c.salaries || 0); tps += (c.psSalaries || 0); tp += (c.profit || 0);
+            });
+            
+            const masterExcl = tr * EXCL_TO_NET_RATIO;
+            const masterIncl = masterExcl * (1 + VAT_RATE);
+
+            gtRevenueEl.textContent = `€${tr.toFixed(2)}`;
+            gtSalariesEl.textContent = `€${ts.toFixed(2)}`;
+            gtPsSalariesEl.textContent = `€${tps.toFixed(2)}`;
+            gtProfitEl.textContent = `€${tp.toFixed(2)}`;
+            gtMasterExcl.textContent = `€${masterExcl.toFixed(2)}`;
+            gtMasterIncl.textContent = `€${masterIncl.toFixed(2)}`;
+        }
+
+        window.showSalarySlip = function(name, netTotal, workMs) {
+            const hours = workMs / (1000 * 60 * 60);
+            const invoiceExcl = netTotal * EXCL_TO_NET_RATIO;
+            const invoiceIncl = invoiceExcl * (1 + VAT_RATE);
+            const vat = invoiceIncl - invoiceExcl;
+            const gross = netTotal * GROSS_TO_NET_RATIO;
+            const employer = invoiceExcl - gross;
+            const nsso = gross * NSSO_RATE;
+            const taxable = gross - nsso;
+            const holiday = netTotal * HOLIDAY_RATIO;
+            const netSalary = netTotal - holiday;
+            const tax = taxable - netSalary;
+            const hourlyGross = hours > 0 ? gross / hours : 0;
+            const hourlyIncl = hours > 0 ? invoiceIncl / hours : 0;
+
+            document.getElementById('ssName').textContent = `${name}'s slip`;
+            document.getElementById('ssHours').textContent = `${formatWorkDuration(workMs)}`;
+            
+            document.getElementById('ssInvIncl').textContent = `€${invoiceIncl.toFixed(2)}`;
+            document.getElementById('ssInvHr').textContent = hourlyIncl > 0 ? `€${hourlyIncl.toFixed(2)}/hr` : '-';
+            document.getElementById('ssVat').textContent = `€${vat.toFixed(2)}`;
+            document.getElementById('ssInvExcl').textContent = `€${invoiceExcl.toFixed(2)}`;
+            document.getElementById('ssEmployer').textContent = `-€${employer.toFixed(2)}`;
+            
+            document.getElementById('ssGross').textContent = `€${gross.toFixed(2)}`;
+            document.getElementById('ssHourly').textContent = hourlyGross > 0 ? `€${hourlyGross.toFixed(2)}/hr` : '-';
+            document.getElementById('ssNsso').textContent = `-€${nsso.toFixed(2)}`;
+            document.getElementById('ssTaxable').textContent = `€${taxable.toFixed(2)}`;
+            document.getElementById('ssTax').textContent = `-€${tax.toFixed(2)}`;
+            
+            document.getElementById('ssNet').textContent = `€${netSalary.toFixed(2)}`;
+            document.getElementById('ssHoliday').textContent = `€${holiday.toFixed(2)}`;
+            document.getElementById('ssNetTotal').textContent = `€${netTotal.toFixed(2)}`;
+
+            openModal();
+        }
+
+        window.deleteCampaign = function(id) {
+            delete savedCampaigns[id];
+            localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
+            if (currentActiveId === id) {
+                currentActiveId = null; workersGrid.innerHTML = ''; 
+                psSection.style.display = 'none'; statusEl.textContent = 'Deleted';
+                campaignSummaryBadge.textContent = '';
+            }
+            updateGrandTotals(); renderSavedCampaignsList();
+        }
+
+        window.deletePS = function(psId) {
+            if(!currentActiveId || !savedCampaigns[currentActiveId]) return;
+            let camp = savedCampaigns[currentActiveId];
+            camp.potentialShifts = (camp.potentialShifts || []).filter(p => p.id !== psId);
+            localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
+            fetchAndRenderCampaign(currentActiveId, camp.revenue, camp.label, camp.status);
+        }
+
+        function renderSavedCampaignsList() {
+            const campaignsArr = Object.values(savedCampaigns).sort((a, b) => b.timestamp - a.timestamp);
+            if (campaignsArr.length === 0) { savedSection.style.display = 'none'; return; }
+            savedSection.style.display = 'block'; savedCampaignsContainer.innerHTML = '';
+            
+            campaignsArr.forEach(c => {
+                const isCompleted = c.status === 'completed';
+                const div = document.createElement('div');
+                div.className = `saved-card ${c.id === currentActiveId ? 'active' : ''} ${isCompleted ? 'completed' : ''}`;
+                const exclVat = c.revenue * EXCL_TO_NET_RATIO;
+                
+                div.innerHTML = `
+                    <button class="del-btn" onclick="event.stopPropagation(); deleteCampaign('${c.id}')"><span class="material-icons">delete</span></button>
+                    <div class="sc-title">${c.id} ${c.label ? `<span style="color:var(--text-secondary);font-size:10px;">(${c.label})</span>` : ''}</div>
+                    <div class="sc-row"><span>Rev:</span> <span class="t-revenue">€${c.revenue.toFixed(2)}</span></div>
+                    <div class="sc-row"><span>Excl:</span> <span class="t-gold">€${exclVat.toFixed(2)}</span></div>
+                    <div class="sc-row"><span>Sal:</span> <span class="t-expense">€${c.salaries.toFixed(2)}</span></div>
+                    <div class="sc-row"><span>Prof:</span> <span class="t-profit">€${c.profit.toFixed(2)}</span></div>
+                `;
+                div.onclick = () => { 
+                    campaignInput.value = c.id; labelInput.value = c.label || '';
+                    statusSelect.value = c.status || 'active'; amountTypeSelect.value = 'revenue';
+                    revenueInput.value = c.revenue.toFixed(2); 
+                    rateTypeSelect.value = 'flat'; multiplierInput.style.display = 'none'; multiplierInput.value = '1';
+                    fetchAndRenderCampaign(c.id, c.revenue, c.label, c.status); 
+                };
+                savedCampaignsContainer.appendChild(div);
+            });
+        }
+
+        async function fetchAndRenderCampaign(campaignId, inputRevenue, inputLabel, inputStatus) {
+            const normalized = normalizeId(campaignId);
+            if (!normalized) return;
+
+            currentActiveId = normalized;
+            let savedData = savedCampaigns[normalized] || {};
+            const finalLabel = inputLabel !== undefined ? inputLabel : (savedData.label || '');
+            const finalStatus = inputStatus !== undefined ? inputStatus : (savedData.status || 'active');
+
+            addBtn.disabled = true; addBtn.textContent = "Loading...";
+            statusEl.textContent = `Fetching ${normalized}...`;
+            workersGrid.innerHTML = ''; psSection.style.display = 'none';
+            renderSavedCampaignsList();
+
+            try {
+                const postsSnap = await db.ref(`userPosts/${normalized}`).once('value');
+                const postsData = postsSnap.val() || {};
+                const postsArray = Object.values(postsData).filter(p => p && typeof p.lat === 'number');
+
+                const workersSnap = await db.ref(`users/${normalized}/workers`).once('value');
+                const workersMeta = workersSnap.val() || {};
+
+                const shifts = {};
+
+                postsArray.forEach(p => {
+                    const fullName = (p.workerName || 'unknown').trim(); const key = fullName.toLowerCase();
+                    if (!shifts[key]) shifts[key] = { rawName: fullName, baseName: getBaseName(fullName), dots: 0, green: 0, red: 0, blue: 0, orangePosts: 0, timestamps: [] };
+                    shifts[key].dots++;
+                    if (p.color === 'green') shifts[key].green++; else if (p.color === 'blue') shifts[key].blue++; else shifts[key].red++;
+                    if (p.timestamp) shifts[key].timestamps.push(p.timestamp);
+                });
+
+                Object.keys(workersMeta).forEach(key => {
+                    const meta = workersMeta[key]; const fullName = (meta.firstName || key).trim(); const sKey = fullName.toLowerCase();
+                    const orangeCount = meta.postClicks || 0;
+                    if (!shifts[sKey]) shifts[sKey] = { rawName: fullName, baseName: getBaseName(fullName), dots: 0, green: 0, red: 0, blue: 0, orangePosts: orangeCount, timestamps: [] };
+                    else shifts[sKey].orangePosts += orangeCount;
+                    if (meta.lastActiveAt) shifts[sKey].timestamps.push(meta.lastActiveAt);
+                });
+
+                const grouped = {};
+
+                Object.values(shifts).forEach(shift => {
+                    shift.workMs = calculateActiveTime(shift.timestamps);
+                    shift.earliest = shift.timestamps.length > 0 ? Math.min(...shift.timestamps) : Date.now();
+                    const bKey = shift.baseName.toLowerCase();
+                    if (!grouped[bKey]) grouped[bKey] = { baseName: shift.baseName.toLowerCase(), dots: 0, green: 0, red: 0, blue: 0, orangePosts: 0, totalWorkMs: 0, psCount: 0, shifts: [] };
+                    const g = grouped[bKey];
+                    g.dots += shift.dots; g.green += shift.green; g.red += shift.red; g.blue += shift.blue; g.orangePosts += shift.orangePosts;
+                    if (shift.workMs === 0 && (shift.dots > 0 || shift.orangePosts > 0)) shift.workMs = (shift.dots * 8000) + (shift.orangePosts * 5000);
+                    g.totalWorkMs += shift.workMs;
+                    shift.isPS = false;
+                    g.shifts.push(shift);
+                });
+
+                const psList = savedData.potentialShifts || [];
+                psList.forEach((ps, index) => {
+                    const bKey = 'potential_shifts';
+                    if (!grouped[bKey]) grouped[bKey] = { baseName: "potential shifts", dots: 0, green: 0, red: 0, blue: 0, orangePosts: 0, totalWorkMs: 0, psCount: 0, shifts: [] };
+                    grouped[bKey].psCount++;
+                    grouped[bKey].shifts.push({ id: ps.id, rawName: `ps #${index + 1}`, earliest: null, workMs: 0, dots: 0, orangePosts: 0, isPS: true });
+                });
+
+                let totalDots = 0, totalOrange = 0, totalSalaries = 0, totalPsSalary = 0, reimbursedSalaries = 0;
+                let totalMailboxes = 0, totalBlue = 0;
+
+                const sortedWorkers = Object.values(grouped).sort((a, b) => {
+                   if (a.baseName === "potential shifts") return 1;
+                   if (b.baseName === "potential shifts") return -1;
+                   return b.orangePosts - a.orangePosts;
+                });
+
+                sortedWorkers.forEach(w => {
+                    const liveSalary = (w.dots * 0.036);
+                    const psSalary = (w.psCount * 36);
+                    const workerTotalSalary = liveSalary + psSalary;
+                    const mailboxesFound = w.green + w.red;
+
+                    totalDots += w.dots; totalOrange += w.orangePosts;
+                    totalSalaries += workerTotalSalary; totalPsSalary += psSalary;
+                    totalMailboxes += mailboxesFound; totalBlue += w.blue;
+
+                    if (["unknown", "sid", "unon"].includes(w.baseName.toLowerCase())) reimbursedSalaries += workerTotalSalary;
+
+                    const card = document.createElement('div');
+                    card.className = 'worker-card';
+                    card.onclick = () => showSalarySlip(w.baseName, workerTotalSalary, w.totalWorkMs);
+                    
+                    w.shifts.sort((a, b) => a.earliest - b.earliest);
+                    
+                    const shiftsHtml = w.shifts.map(s => {
+                        const dateStr = s.earliest ? new Date(s.earliest).toLocaleDateString('en-GB') : '-';
+                        if (s.isPS) {
+                            return `<div class="shift-row"><span>${s.rawName} <button class="del-ps" onclick="event.stopPropagation(); deletePS('${s.id}')">DEL</button></span><span class="t-expense">€36.00</span></div>`;
+                        }
+                        return `<div class="shift-row"><span>${s.rawName} <span style="color:var(--ps-gold); margin-left:4px;">${s.orangePosts}f</span> <span class="t-profit">${s.dots}d</span></span><span>${dateStr} • ${formatWorkDuration(s.workMs)}</span></div>`;
+                    }).join('');
+
+                    if (w.baseName === "potential shifts") {
+                        card.innerHTML = `
+                            <div class="worker-header"><span class="worker-name t-gold">${w.baseName}</span><span class="worker-badge">${w.shifts.length} PS</span></div>
+                            <div class="worker-stats"><div class="stat-box"><span>Salary</span><span class="t-expense">€${workerTotalSalary.toFixed(2)}</span></div></div>
+                            <div class="worker-shifts">${shiftsHtml}</div>`;
+                    } else {
+                        card.innerHTML = `
+                            <div class="worker-header"><span class="worker-name">${w.baseName}</span><span class="worker-badge">${w.shifts.length} shift(s)</span></div>
+                            <div class="worker-stats">
+                                <div class="stat-box"><span>Flyers</span><span class="t-gold">${w.orangePosts}</span></div>
+                                <div class="stat-box"><span>Boxes</span><span class="t-profit">${mailboxesFound}</span></div>
+                                <div class="stat-box"><span>Salary</span><span class="t-expense">€${workerTotalSalary.toFixed(2)}</span></div>
+                            </div>
+                            <div class="worker-shifts">${shiftsHtml}</div>`;
+                    }
+                    workersGrid.appendChild(card);
+                });
+
+                const rev = parseFloat(inputRevenue) || 0;
+                const profit = rev - totalSalaries + reimbursedSalaries;
+
+                savedCampaigns[normalized] = {
+                    id: normalized, label: finalLabel, status: finalStatus, revenue: rev, 
+                    salaries: totalSalaries, psSalaries: totalPsSalary, profit: profit,
+                    timestamp: Date.now(), potentialShifts: psList
+                };
+                localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
+
+                psSection.style.display = 'block';
+                campaignSummaryBadge.textContent = `| Dots: ${totalMailboxes + totalBlue} | Rev: €${rev.toFixed(2)}`;
+                statusEl.textContent = `${normalized} Loaded`;
+
+                updateGrandTotals(); renderSavedCampaignsList();
+            } catch (err) {
+                workersGrid.innerHTML = `<div style="color:var(--expense-red); text-align:center; padding: 20px;">Error loading data.</div>`;
+                statusEl.textContent = "Load failed";
+                console.error(err);
+            } finally {
+                addBtn.disabled = false; addBtn.textContent = "Load Campaign";
+            }
+        }
+
+        addPsBtn.addEventListener('click', () => {
+            if(!currentActiveId) return;
+            const qty = parseInt(psQuantityInput.value) || 1;
+            const camp = savedCampaigns[currentActiveId];
+            if(!camp.potentialShifts) camp.potentialShifts = [];
+            for(let i=0; i<qty; i++) camp.potentialShifts.push({ id: 'ps_' + Date.now() + '_' + i });
+            localStorage.setItem('dotPoster_campaigns', JSON.stringify(savedCampaigns));
+            psQuantityInput.value = 1;
+            fetchAndRenderCampaign(currentActiveId, camp.revenue, camp.label, camp.status);
+        });
+
+        addBtn.addEventListener('click', () => {
+            fetchAndRenderCampaign(campaignInput.value, getFinalRevenue(), labelInput.value, statusSelect.value);
+        });
+
+        window.onload = () => { init(); };
+    </script>
+</body>
+</html>
