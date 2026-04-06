@@ -123,7 +123,7 @@
     .timelines-wrapper { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
     .worker-timeline { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius-md); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
     .timeline-title { font-size: 11px; font-weight: 700; color: #aab7ff; letter-spacing: 0.3px; }
-    .timeline-scroll { display: flex; align-items: center; gap: 14px; overflow-x: auto; padding-bottom: 2px; }
+    .timeline-scroll { display: flex; align-items: center; overflow-x: auto; padding-bottom: 2px; }
     .timeline-scroll::-webkit-scrollbar { display: none; }
     .t-dot-wrapper { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; transition: transform 0.1s; }
     .t-dot-wrapper:active { transform: scale(0.9); }
@@ -132,7 +132,7 @@
     .t-dot.green { background: #22c55e; }
     .t-dot.blue { background: #1f84f7; }
     .t-dot.orange { background: #f97316; border-radius: 3px; } /* Square for orange dots */
-    .t-time { font-size: 8px; color: var(--muted); font-family: Menlo, monospace; font-weight: 600; }
+    .t-time { font-size: 8px; color: var(--muted); font-family: Menlo, monospace; font-weight: 600; white-space: nowrap; }
     
     .campaign-progress { display: flex; flex-direction: column; gap: 8px; padding: 8px 11px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius-md); flex-shrink: 0; }
     .prog-row { display: flex; flex-direction: column; gap: 4px; font-size: 10px; color: var(--muted); }
@@ -456,7 +456,7 @@
 
   function hideLoader() { loaderOverlay.classList.add('hidden'); }
 
-  // ────────────────────────────────────────────────
+  // ──────────────���─────────────────────────────────
   // Marker / Icon helpers
   // ────────────────────────────────────────────────
   function makeFlagIcon(color) {
@@ -851,9 +851,23 @@
       const scroll = document.createElement('div');
       scroll.className = 'timeline-scroll';
       
+      let prevTimestamp = null;
+      
       arr.forEach(d => {
         const el = document.createElement('div');
         el.className = 't-dot-wrapper';
+        
+        let marginLeft = 6; // base minimal margin
+        if (prevTimestamp) {
+          const diffSec = (d.timestamp - prevTimestamp) / 1000;
+          // Add extra space based on time elapsed, maxed out at 100px
+          const extra = Math.min(100, Math.max(0, diffSec * 0.5));
+          marginLeft += extra;
+        }
+        prevTimestamp = d.timestamp;
+        
+        el.style.marginLeft = marginLeft + 'px';
+        
         const timeStr = formatLocalTime(d.timestamp);
         el.innerHTML = `
           <div class="t-dot ${d.color}"></div>
@@ -889,7 +903,10 @@
 
     Object.keys(byWorker).forEach(name => {
       const arr = byWorker[name].sort((a,b) => a.timestamp - b.timestamp);
-      const latlngs = arr.map(d => [d.lat, d.lng]);
+      
+      // Filter out orange dots for the polyline connection
+      const connectionDots = arr.filter(d => d.color !== 'orange');
+      const latlngs = connectionDots.map(d => [d.lat, d.lng]);
       if (latlngs.length > 1) {
         L.polyline(latlngs, {color:'#4f8cff', weight:1.5, opacity:0.7, dashArray:'4,7'}).addTo(postsLayer);
       }
@@ -901,7 +918,6 @@
         else if (d.color === 'blue') { style = blueStyle; typeLabel = '★ Bonus'; }
         else if (d.color === 'orange') { style = orangeDotStyle; typeLabel = '✉ Post'; }
         
-        const postCount = getPostCountForName(d.workerName);
         L.circleMarker([d.lat, d.lng], style)
           .bindTooltip(`${typeLabel} — ${formatLocalTime(d.timestamp)} · ${d.workerName||'Unknown'}`, {direction:'top', offset:[0,-4]})
           .addTo(postsLayer);
