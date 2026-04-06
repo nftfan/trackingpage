@@ -30,15 +30,6 @@
     header{display:flex;align-items:center;gap:8px;padding:7px 11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);flex-shrink:0;}
     .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#4f8cff,#7a5cff);border-radius:7px;flex-shrink:0;}
     .header-title{font-size:13px;font-weight:700;flex:1;}
-    .header-counts{display:flex;gap:5px;align-items:center;}
-    .count-pill{display:flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;}
-    .count-pill.green{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:#86efac;}
-    .count-pill.red{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#fca5a5;}
-    .count-pill.blue{background:rgba(31,132,247,.15);border:1px solid rgba(31,132,247,.4);color:#93c5fd;}
-    .count-dot{width:6px;height:6px;border-radius:50%;}
-    .count-pill.green .count-dot{background:#22c55e;}
-    .count-pill.red .count-dot{background:#ef4444;}
-    .count-pill.blue .count-dot{background:#1f84f7;}
     .user-pill{font-size:11px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px;flex-shrink:0;}
     .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600;font-size:11px;}
    
@@ -129,16 +120,18 @@
     .btn-post::after{content:"";position:absolute;inset:-2px;border-radius:12px;border:2px solid rgba(249,115,22,.5);animation:pulse 1.4s ease-in-out infinite;pointer-events:none;}
     @keyframes pulse{0%{opacity:.9;transform:scale(1);}50%{opacity:.25;transform:scale(1.05);}100%{opacity:.9;transform:scale(1);}}
     
-    .timeline-container { height: 38px; display: flex; align-items: center; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius-md); overflow-x: auto; padding: 0 12px; position: relative; flex-shrink: 0; }
-    .timeline-container::-webkit-scrollbar { display: none; }
-    .timeline-line { position: absolute; left: 12px; right: 12px; top: 50%; height: 2px; background: rgba(255,255,255,.1); transform: translateY(-50%); z-index: 1; pointer-events: none; }
-    .timeline-dots { display: flex; align-items: center; gap: 20px; position: relative; z-index: 2; padding-right: 20px; }
-    .t-dot-wrapper { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-    .t-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid #141419; box-shadow: 0 0 0 1px rgba(255,255,255,.2); flex-shrink: 0; }
+    .timelines-wrapper { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+    .worker-timeline { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius-md); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+    .timeline-title { font-size: 11px; font-weight: 700; color: #aab7ff; letter-spacing: 0.3px; }
+    .timeline-scroll { display: flex; align-items: center; gap: 14px; overflow-x: auto; padding-bottom: 2px; }
+    .timeline-scroll::-webkit-scrollbar { display: none; }
+    .t-dot-wrapper { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; transition: transform 0.1s; }
+    .t-dot-wrapper:active { transform: scale(0.9); }
+    .t-dot { width: 11px; height: 11px; border-radius: 50%; border: 2px solid #141419; box-shadow: 0 0 0 1px rgba(255,255,255,.2); flex-shrink: 0; }
     .t-dot.red { background: #ef4444; }
     .t-dot.green { background: #22c55e; }
     .t-dot.blue { background: #1f84f7; }
-    .t-dot.orange { background: #f97316; }
+    .t-dot.orange { background: #f97316; border-radius: 3px; } /* Square for orange dots */
     .t-time { font-size: 8px; color: var(--muted); font-family: Menlo, monospace; font-weight: 600; }
     
     .campaign-progress { display: flex; flex-direction: column; gap: 8px; padding: 8px 11px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius-md); flex-shrink: 0; }
@@ -203,11 +196,6 @@
       </svg>
     </div>
     <div class="header-title"></div>
-    <div class="header-counts">
-      <div class="count-pill green"><div class="count-dot"></div><span id="greenCount">0</span></div>
-      <div class="count-pill red"><div class="count-dot"></div><span id="redCount">0</span></div>
-      <div class="count-pill blue"><div class="count-dot"></div><span id="blueCount">0</span></div>
-    </div>
     <div id="userPill" class="user-pill">
       <span id="userPillText"></span>
       <button id="changeUserBtn">Change</button>
@@ -299,10 +287,7 @@
     </div>
   </div>
   
-  <div class="timeline-container">
-    <div class="timeline-line"></div>
-    <div class="timeline-dots" id="timelineDots"></div>
-  </div>
+  <div id="timelinesWrapper" class="timelines-wrapper"></div>
 
   <div class="table-card" id="teamCard">
     <div class="table-card-header" id="tableHeader">Team performance — sorted by posts</div>
@@ -410,9 +395,6 @@
   const btnNee             = document.getElementById('btnNee');
   const btnBonus           = document.getElementById('btnBonus');
   const btnPost            = document.getElementById('btnPost');
-  const greenCountEl       = document.getElementById('greenCount');
-  const redCountEl         = document.getElementById('redCount');
-  const blueCountEl        = document.getElementById('blueCount');
   const toastEl            = document.getElementById('toast');
   const loginBackdrop      = document.getElementById('loginBackdrop');
   const userIdInput        = document.getElementById('userIdInput');
@@ -440,7 +422,7 @@
   const workerError        = document.getElementById('workerError');
   const workerPostCountEl  = document.getElementById('workerPostCount');
   const workerBody         = document.getElementById('workerBody');
-  const timelineDotsEl     = document.getElementById('timelineDots');
+  const timelinesWrapper   = document.getElementById('timelinesWrapper');
 
   // Photo proof
   const cameraBtn          = document.getElementById('cameraBtn');
@@ -761,6 +743,14 @@
     const d = new Date(ts);
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
   }
+  
+  function isToday(ts) {
+    const d = new Date(ts);
+    const today = new Date();
+    return d.getDate() === today.getDate() &&
+           d.getMonth() === today.getMonth() &&
+           d.getFullYear() === today.getFullYear();
+  }
 
   function formatWorkDuration(ms) {
     if (!ms || ms <= 0) return '0h 00m';
@@ -832,30 +822,58 @@
     });
   }
 
-  function renderTimeline(dotsArray) {
-    timelineDotsEl.innerHTML = '';
+  function renderTimelines(dotsArray) {
+    timelinesWrapper.innerHTML = '';
     if (!dotsArray || !dotsArray.length) return;
     
-    // Sort oldest to newest
-    const sorted = [...dotsArray].sort((a,b) => a.timestamp - b.timestamp);
+    const todayDots = dotsArray.filter(d => isToday(d.timestamp));
+    if (!todayDots.length) return;
     
-    // Create elements
-    sorted.forEach(d => {
-      const el = document.createElement('div');
-      el.className = 't-dot-wrapper';
-      const timeStr = formatLocalTime(d.timestamp);
-      el.innerHTML = `
-        <div class="t-dot ${d.color}"></div>
-        <div class="t-time">${timeStr}</div>
-      `;
-      timelineDotsEl.appendChild(el);
+    // Group dots by worker name
+    const byWorker = {};
+    todayDots.forEach(d => {
+      const name = d.workerName || 'Unknown';
+      if (!byWorker[name]) byWorker[name] = [];
+      byWorker[name].push(d);
     });
     
-    // Auto scroll to right (newest)
-    const container = timelineDotsEl.parentElement;
-    setTimeout(() => {
-      container.scrollLeft = container.scrollWidth;
-    }, 50);
+    Object.keys(byWorker).sort().forEach(workerName => {
+      const arr = byWorker[workerName].sort((a,b) => a.timestamp - b.timestamp);
+      
+      const block = document.createElement('div');
+      block.className = 'worker-timeline';
+      
+      const title = document.createElement('div');
+      title.className = 'timeline-title';
+      title.textContent = `Worker: ${workerName}`;
+      block.appendChild(title);
+      
+      const scroll = document.createElement('div');
+      scroll.className = 'timeline-scroll';
+      
+      arr.forEach(d => {
+        const el = document.createElement('div');
+        el.className = 't-dot-wrapper';
+        const timeStr = formatLocalTime(d.timestamp);
+        el.innerHTML = `
+          <div class="t-dot ${d.color}"></div>
+          <div class="t-time">${timeStr}</div>
+        `;
+        el.addEventListener('click', () => {
+          map.flyTo([d.lat, d.lng], 18, { animate: true, duration: 0.6 });
+          const pulseColor = d.color === 'green' ? '#22c55e' : d.color === 'blue' ? '#1f84f7' : d.color === 'orange' ? '#f97316' : '#ef4444';
+          const pulse = L.circle([d.lat, d.lng], { radius:12, color:pulseColor, weight:2, opacity:1, fillOpacity:0.2 }).addTo(map);
+          setTimeout(() => map.removeLayer(pulse), 1500);
+        });
+        scroll.appendChild(el);
+      });
+      
+      block.appendChild(scroll);
+      timelinesWrapper.appendChild(block);
+      
+      // auto scroll to end
+      setTimeout(() => scroll.scrollLeft = scroll.scrollWidth, 50);
+    });
   }
 
   function rebuildMapLayer(dotsArray) {
@@ -1089,18 +1107,12 @@
 
       hideLoader();
 
-      // Global color counts (excluding orange)
-      let gc = 0, rc = 0, bc = 0, totalTeamDots = 0;
+      // Overall totals
+      let totalTeamDots = 0;
       arr.forEach(d => {
         if (d.color === 'orange') return; // Don't count in top stats
         totalTeamDots++;
-        if (d.color === 'green') gc++;
-        else if (d.color === 'blue') bc++;
-        else rc++;
       });
-      greenCountEl.textContent = gc;
-      redCountEl.textContent = rc;
-      blueCountEl.textContent = bc;
 
       // Build per-worker stats for table
       const workers = {};
@@ -1157,7 +1169,7 @@
       workersCache = workers;
 
       rebuildMapLayer(arr);
-      renderTimeline(arr);
+      renderTimelines(arr);
       renderWorkerTable();
 
       // Update session display for CURRENT worker only
@@ -1210,10 +1222,7 @@
     updateWorkerUi();
     postsLayer.clearLayers();
     postClicksLayer.clearLayers();
-    timelineDotsEl.innerHTML = '';
-    greenCountEl.textContent = '0';
-    redCountEl.textContent = '0';
-    blueCountEl.textContent = '0';
+    timelinesWrapper.innerHTML = '';
     sessionTimerEl.textContent = '00:00:00';
     sessionAvgEl.textContent = '—';
     sessionTotalEl.textContent = '0';
