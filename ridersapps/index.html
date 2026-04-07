@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Rider App - Order Dispatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <style>
+    :root { --bg:#0b0b0e; --panel:#141419; --muted:#8b8b95; --text:#f2f2f7; --accent:#4f8cff; --accent-2:#7a5cff; --radius-lg:12px; --radius-md:10px; }
+    
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    html,body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;overflow-y:auto;}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:7px;padding:env(safe-area-inset-top,6px) 10px env(safe-area-inset-bottom,6px);}
+   
+    /* Loaders & Headers */
+    .loader-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; transition: opacity 0.3s ease; }
+    .loader-overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-left-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+    .loader-text { font-weight: 600; color: var(--muted); font-size: 13px; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    
+    header{display:flex;align-items:center;gap:8px;padding:7px 11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);flex-shrink:0;}
+    .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#4f8cff,#7a5cff);border-radius:7px;flex-shrink:0;}
+    .header-title{font-size:13px;font-weight:700;flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+    .user-pill{font-size:11px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px;flex-shrink:0;}
+    .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600;font-size:11px;outline:none;}
+   
+    /* Stats Strip */
+    .session-strip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;}
+    .session-timer{font-family:Menlo,monospace;font-size:14px;font-weight:700;color:#e5e7ff;}
+    .session-timer.inactive{color:var(--muted);}
+    .session-meta{font-size:11px;color:var(--muted);display:flex;gap:12px;}
+    .session-meta b{font-size:11px;font-weight:700;color:#e5e7ff;font-family:Menlo,monospace;}
+
+    /* Map */
+    .map-card{border-radius:var(--radius-lg);overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#0f0f12;flex-shrink:0; position:relative;}
+    #map{height:200px;width:100%;}
+    .leaflet-container{background:#0f0f12;outline:none;}
+    .leaflet-control-attribution{display:none!important;}
+
+    .status-banner { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:400; background:rgba(15,23,42,0.85); backdrop-filter:blur(4px); border:1px solid rgba(255,255,255,0.15); padding:4px 12px; border-radius:999px; font-size:10px; font-weight:700; color:#fff; text-transform:uppercase; letter-spacing:0.5px; display:none; }
+    .status-banner.show { display:block; }
+
+    /* Dot Markers on Map */
+    .dot-icon-container { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .dot-circle { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 6px rgba(0,0,0,0.8); }
+    .dot-red { background-color: #ef4444; }
+    .dot-green { background-color: #10b981; }
+    .dot-blue { background-color: #3b82f6; width: 16px; height: 16px; }
+    
+    .compact-label { font-size: 9px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 2px 5px; border-radius: 4px; margin-top: 3px; white-space: nowrap; letter-spacing: 0.5px; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.2); }
+
+    /* Action Buttons */
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex-shrink: 0; }
+    .btn-action { 
+      position: relative; /* Important for absolute badge positioning */
+      appearance: none; cursor: pointer; border-radius: 10px; padding: 12px 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap:6px;
+      color: #ffffff; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none;
+    }
+    .btn-action:active:not([disabled]) { transform: scale(0.95); filter: brightness(1.2); }
+    .btn-action[disabled] { opacity: 0.3; cursor: not-allowed; transform: none; background: rgba(255,255,255,0.02); }
+    
+    .btn-arrive.active { background: linear-gradient(135deg,#f59e0b,#d97706); border-color:#fbbf24; }
+    .btn-pickup.active { background: linear-gradient(135deg,#3b82f6,#2563eb); border-color:#60a5fa; }
+    .btn-deliver.active { background: linear-gradient(135deg,#10b981,#059669); border-color:#34d399; }
+    .btn-chat { background: linear-gradient(135deg,#8b5cf6,#6d28d9); border-color:#a78bfa; }
+
+    /* Chat Badge */
+    .chat-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: #ef4444;
+      color: #fff;
+      border-radius: 50%;
+      min-width: 20px;
+      height: 20px;
+      font-size: 10px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      transform: scale(0.8);
+    }
+    .chat-badge.show { opacity: 1; transform: scale(1); }
+
+    /* Tabs & Data Tables */
+    .tabs-nav { display: flex; gap: 6px; flex-shrink: 0; }
+    .tab-btn { flex: 1; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: var(--muted); font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; outline: none; display: flex; align-items: center; justify-content: center; gap: 6px;}
+    .tab-btn.active { background: rgba(79,140,255,0.15); border-color: rgba(79,140,255,0.4); color: #fff; }
+    
+    .tab-badge { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; font-size: 9px; font-weight: 800; color: #fff; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+    .badge-red { background: #ef4444; }
+    .badge-blue { background: #3b82f6; }
+
+    .tab-content { display: none !important; flex: 1; flex-direction: column; min-height: 220px; }
+    .tab-content.active { display: flex !important; }
+
+    .table-card{background:rgba(255,255,255,.03);border-radius:var(--radius-md);border:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column; height: 100%;}
+    .table-scroll{overflow-y:auto; flex:1;}
+    .data-table{width:100%;border-collapse:collapse;font-size:10px;color:#d5d7ff;}
+    .data-table thead{position:sticky;top:0;z-index:1;background:rgba(255,255,255,0.05); backdrop-filter:blur(4px);}
+    .data-table th,.data-table td{padding:8px;text-align:left;white-space:nowrap;vertical-align:middle;}
+    .data-table th{font-weight:700;text-transform:uppercase;color:#f3f4ff;}
+    .data-table tbody tr{border-bottom:1px solid rgba(255,255,255,.03);}
+    
+    .status-badge { padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; text-transform:uppercase; }
+    .st-started { background:rgba(255,255,255,0.1); color:#fff; }
+    .st-arrived { background:rgba(245,158,11,0.2); color:#fcd34d; }
+    .st-picked_up { background:rgba(59,130,246,0.2); color:#93c5fd; }
+    .st-delivered { background:rgba(16,185,129,0.2); color:#6ee7b7; }
+    .st-cancelled, .st-issue { background:rgba(239,68,68,0.2); color:#fca5a5; }
+
+    /* Action Cell Buttons */
+    .btn-accept, .btn-reject, .btn-view { padding: 6px 8px; border-radius: 4px; font-weight: 700; font-size: 9px; cursor: pointer; text-transform: uppercase; border: 1px solid transparent; outline:none; transition:transform 0.1s;}
+    .btn-accept:active, .btn-reject:active, .btn-view:active { transform: scale(0.95); }
+    .btn-accept { background: rgba(16,185,129,0.2); color: #6ee7b7; border-color: rgba(16,185,129,0.3); }
+    .btn-reject { background: rgba(239,68,68,0.15); color: #fca5a5; border-color: rgba(239,68,68,0.3); }
+    .btn-view { background: rgba(59,130,246,0.15); color: #93c5fd; border-color: rgba(59,130,246,0.3); width: 100%; margin-top: 4px; display: flex; align-items:center; justify-content:center; gap:4px;}
+    .btn-accept:disabled, .btn-reject:disabled, .btn-view:disabled { opacity: 0.3; cursor: not-allowed; border-color:transparent;}
+
+    /* Modals & Inputs */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9998;}
+    .modal-backdrop.show{display:flex;}
+    .modal{width:min(90vw,340px);background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px; display: flex; flex-direction: column;}
+    .input-row{display:flex;gap:8px;}
+    .input{flex:1;height:44px;border-radius:10px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-weight:700;font-size:14px;outline:none;}
+    .input:focus{border-color:var(--accent);}
+    .btn-modal{height:44px;border-radius:10px;border:0;cursor:pointer;padding:0 16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));outline:none;}
+    .btn-modal:active { transform: scale(0.95); }
+    .error{color:#ff8a8a;font-size:11px;min-height:14px;padding-top:5px;}
+    
+    .toast{position:fixed;z-index:9999;left:50%;bottom:22px;transform:translateX(-50%);background:#1a1a22;border:1px solid rgba(255,255,255,.1);padding:8px 15px;border-radius:10px;color:var(--text);font-weight:600;font-size:13px;opacity:0;transition:opacity .2s;}
+    .toast.show{opacity:1;}
+
+    /* Chat Modal */
+    .chat-modal { height: 60vh; max-height: 450px; padding: 15px; }
+    .chat-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 10px; margin-bottom: 10px; font-weight:700; font-size:14px;}
+    .chat-close { background:transparent; border:none; color:var(--muted); font-size:22px; cursor:pointer; outline:none; line-height:1;}
+    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
+    .chat-msg { background: rgba(255,255,255,.05); padding: 8px 12px; border-radius: 12px; font-size: 12px; color: #e5e7ff; max-width: 85%; align-self: flex-start; line-height:1.4;}
+    .chat-msg.mine { background: rgba(79,140,255,.2); align-self: flex-end; border-bottom-right-radius: 2px; }
+    .chat-msg-meta { font-size: 9px; color: var(--muted); margin-bottom: 3px; font-weight: 600; }
+    .chat-input-area { display: flex; gap: 8px; margin-top: 12px; }
+    .chat-input { flex: 1; border-radius: 8px; padding: 0 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: var(--text); outline: none; font-size: 13px; text-transform: none;}
+    .btn-chat-send { background: linear-gradient(135deg,var(--accent),var(--accent-2)); color: #fff; border: none; padding: 0 16px; border-radius: 8px; font-weight: 700; cursor: pointer; outline:none;}
+    .btn-chat-send:active { transform: scale(0.95); }
+  </style>
+</head>
+<body>
+
+<div id="loaderOverlay" class="loader-overlay">
+  <div class="spinner"></div>
+  <div class="loader-text">Connecting to Dispatch...</div>
+</div>
+
+<div class="app">
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </div>
+    <div class="header-title" id="headerTitle">Offline</div>
+    <div id="userPill" class="user-pill">
+      <span id="userPillText"></span>
+      <button id="changeUserBtn">Switch</button>
+    </div>
+  </header>
+
+  <!-- Stats Strip -->
+  <div class="session-strip">
+    <div id="sessionTimer" class="session-timer inactive">00:00</div>
+    <div class="session-meta">
+      <span>Completed: <b id="statCount">0</b></span>
+      <span>Earned: <b id="statEarned">€0.00</b></span>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div class="map-card">
+    <div id="statusBanner" class="status-banner">Waiting</div>
+    <div id="map"></div>
+  </div>
+
+  <!-- Action Controls -->
+  <div class="controls">
+    <button id="btnArrive" class="btn-action btn-arrive" disabled>
+      Arrived at Rest.
+    </button>
+    <button id="btnPickup" class="btn-action btn-pickup" disabled>
+      Food Picked Up
+    </button>
+    <button id="btnDeliver" class="btn-action btn-deliver" disabled>
+      Mark Delivered
+    </button>
+    <button id="btnChat" class="btn-action btn-chat" disabled>
+      Chat Customer
+      <span id="chatBadge" class="chat-badge">0</span>
+    </button>
+  </div>
+
+  <!-- Tabs Navigation -->
+  <div class="tabs-nav">
+    <button id="tabAvailable" class="tab-btn active">
+      Available Orders
+      <span id="badgeAvailable" class="tab-badge badge-red" style="display: none;">0</span>
+    </button>
+    <button id="tabShift" class="tab-btn">
+      My Shift
+      <span id="badgeShift" class="tab-badge badge-blue" style="display: none;">0</span>
+    </button>
+  </div>
+
+  <!-- Available Orders Tab -->
+  <div id="viewAvailable" class="tab-content active table-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Order Details</th><th>Dist.</th><th>Action</th></tr></thead>
+        <tbody id="availableBody">
+          <tr><td colspan="3" style="text-align:center; padding:15px; color:var(--muted);">No pending orders.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- My Shift Tab -->
+  <div id="viewShift" class="tab-content table-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Order</th><th>Status</th><th>Time</th><th>Earned</th></tr></thead>
+        <tbody id="shiftBody">
+          <tr><td colspan="4" style="text-align:center; padding:15px; color:var(--muted);">No deliveries yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Login Modal -->
+<div id="loginBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h2>Rider Login</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Enter your Rider ID (e.g., RR1234).</p>
+    <div class="input-row">
+      <input id="userIdInput" class="input" type="text" placeholder="RR1234" autocomplete="off" autocapitalize="characters">
+      <button id="userJoinBtn" class="btn-modal">Login</button>
+    </div>
+    <div id="loginError" class="error"></div>
+  </div>
+</div>
+
+<!-- PIN Verification Modal -->
+<div id="pinBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h2>Verify Delivery PIN</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Ask the customer for their 4-digit receiving PIN to complete the delivery.</p>
+    <div class="input-row">
+      <input id="pinInput" class="input" type="number" placeholder="1234" autocomplete="off">
+      <button id="pinVerifyBtn" class="btn-modal">Verify</button>
+    </div>
+    <div id="pinError" class="error"></div>
+    <button id="pinCancelBtn" style="margin-top:12px; background:transparent; border:none; color:var(--muted); cursor:pointer; font-weight:600;">Cancel</button>
+  </div>
+</div>
+
+<!-- Chat Modal -->
+<div id="chatBackdrop" class="chat-backdrop modal-backdrop">
+  <div class="modal chat-modal">
+    <div class="chat-header">
+      <span>Chat with Customer</span>
+      <button id="chatCloseBtn" class="chat-close">&times;</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div style="text-align:center; color:var(--muted); font-size:11px; margin-top:10px;">Say hello to the customer!</div>
+    </div>
+    <div class="chat-input-area">
+      <input id="chatInput" class="chat-input" type="text" placeholder="Type a message..." autocomplete="off">
+      <button id="chatSendBtn" class="btn-chat-send">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase & Leaflet -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, update, onValue, push, off } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Core State
+  let currentUserId = null;
+  let currentLatLng = null;
+  let riderMarker = null;
+  let allOrders = [];
+  let activeOrder = null;
+  let previewOrder = null; // Used to preview an available order on map
+  let timerInterval = null;
+  let activeStartTime = 0;
+  
+  // Transient Set for rejected orders. Resets on refresh.
+  let rejectedOrders = new Set();
+  
+  let chatUnsub = null;
+  let currentChatPath = null;
+  let lastReadTimestamps = JSON.parse(localStorage.getItem('riderChatLastRead') || '{}');
+
+  const EARNINGS_PER_DELIVERY = 5.00;
+
+  // DOM Elements
+  const loaderOverlay = document.getElementById('loaderOverlay');
+  const headerTitle = document.getElementById('headerTitle');
+  const statusBanner = document.getElementById('statusBanner');
+  
+  const btnArrive = document.getElementById('btnArrive');
+  const btnPickup = document.getElementById('btnPickup');
+  const btnDeliver = document.getElementById('btnDeliver');
+  const btnChat = document.getElementById('btnChat');
+  const chatBadge = document.getElementById('chatBadge');
+  
+  const badgeAvailable = document.getElementById('badgeAvailable');
+  const badgeShift = document.getElementById('badgeShift');
+
+  const availableBody = document.getElementById('availableBody');
+  const shiftBody = document.getElementById('shiftBody');
+  const statCount = document.getElementById('statCount');
+  const statEarned = document.getElementById('statEarned');
+  const sessionTimer = document.getElementById('sessionTimer');
+
+  const tabAvailable = document.getElementById('tabAvailable');
+  const tabShift = document.getElementById('tabShift');
+  const viewAvailable = document.getElementById('viewAvailable');
+  const viewShift = document.getElementById('viewShift');
+
+  // PIN Modal Elements
+  const pinBackdrop = document.getElementById('pinBackdrop');
+  const pinInput = document.getElementById('pinInput');
+  const pinVerifyBtn = document.getElementById('pinVerifyBtn');
+  const pinCancelBtn = document.getElementById('pinCancelBtn');
+  const pinError = document.getElementById('pinError');
+  
+  // Chat Modal Elements
+  const chatBackdrop = document.getElementById('chatBackdrop');
+  const chatCloseBtn = document.getElementById('chatCloseBtn');
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+  const chatSendBtn = document.getElementById('chatSendBtn');
+
+  // Tabs Logic
+  tabAvailable.onclick = () => {
+    tabAvailable.classList.add('active'); tabShift.classList.remove('active');
+    viewAvailable.classList.add('active'); viewShift.classList.remove('active');
+  };
+  tabShift.onclick = () => {
+    tabShift.classList.add('active'); tabAvailable.classList.remove('active');
+    viewShift.classList.add('active'); viewAvailable.classList.remove('active');
+  };
+
+  // Map Setup - CartoDB Dark Matter tiles
+  const map = L.map('map', { zoomControl:false, attributionControl:false }).setView([50.8, 4.7], 12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+  const routeLayer = L.layerGroup().addTo(map);
+
+  function makeDotIcon(colorClass, labelText) {
+    let labelHtml = labelText ? `<div class="compact-label">${labelText}</div>` : '';
+    return L.divIcon({
+      className: '',
+      html: `<div class="dot-icon-container"><div class="dot-circle ${colorClass}"></div>${labelHtml}</div>`,
+      iconSize: [60, 40],
+      iconAnchor: [30, 8] 
+    });
+  }
+
+  const iconRider = makeDotIcon('dot-blue', '');
+  const iconPickup = makeDotIcon('dot-red', 'PICK UP');
+  const iconDropoff = makeDotIcon('dot-green', 'DROP OFF');
+
+  function showToast(text) {
+    const toast = document.getElementById('toast');
+    toast.textContent = text;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  function formatTime(ms) {
+    if(!ms || ms < 0) return "00:00";
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+  
+  function getDistanceKm(lat1, lon1, lat2, lon2) {
+    if(!lat1 || !lon1 || !lat2 || !lon2) return 0;
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function startActiveTimer(startTime) {
+    clearInterval(timerInterval);
+    activeStartTime = startTime;
+    sessionTimer.classList.remove('inactive');
+    timerInterval = setInterval(() => {
+      sessionTimer.textContent = formatTime(Date.now() - activeStartTime);
+    }, 1000);
+  }
+
+  function stopActiveTimer() {
+    clearInterval(timerInterval);
+    sessionTimer.classList.add('inactive');
+    sessionTimer.textContent = "00:00";
+  }
+
+  function markChatAsRead(dbKey) {
+    lastReadTimestamps[dbKey] = Date.now();
+    localStorage.setItem('riderChatLastRead', JSON.stringify(lastReadTimestamps));
+  }
+
+  function updateMapRoute() {
+    routeLayer.clearLayers();
+    if (riderMarker) routeLayer.addLayer(riderMarker);
+
+    let orderToDraw = activeOrder || previewOrder;
+
+    if (orderToDraw) {
+      const pMarker = L.marker([orderToDraw.pickup.lat, orderToDraw.pickup.lng], {icon: iconPickup}).addTo(routeLayer);
+      const dMarker = L.marker([orderToDraw.dropoff.lat, orderToDraw.dropoff.lng], {icon: iconDropoff}).addTo(routeLayer);
+
+      const lineColor = activeOrder ? '#3b82f6' : '#a855f7'; // Purple for preview, Blue for active
+
+      const line = L.polyline([
+        [orderToDraw.pickup.lat, orderToDraw.pickup.lng],
+        [orderToDraw.dropoff.lat, orderToDraw.dropoff.lng]
+      ], {color: lineColor, weight: 4, dashArray: '8 8', opacity:0.8}).addTo(routeLayer);
+      
+      map.fitBounds(line.getBounds(), {padding: [40,40]});
+
+      if (previewOrder && !activeOrder) {
+        statusBanner.textContent = "Previewing Route";
+        statusBanner.classList.add('show');
+      }
+
+    } else if (currentLatLng) {
+      map.setView(currentLatLng, 15);
+      if (!activeOrder) statusBanner.classList.remove('show');
+    }
+  }
+
+  function updateUI() {
+    [btnArrive, btnPickup, btnDeliver, btnChat].forEach(b => {
+      b.disabled = true; b.classList.remove('active');
+    });
+
+    // Filter and update Available Orders (ignore locally rejected)
+    const pendingOrders = allOrders.filter(o => o.status === 'pending' && !rejectedOrders.has(o.dbKey));
+    
+    // Clear preview if order was taken by someone else or rejected
+    if (previewOrder && !pendingOrders.find(o => o.dbKey === previewOrder.dbKey)) {
+        previewOrder = null;
+    }
+
+    // Update Available Badge
+    badgeAvailable.textContent = pendingOrders.length;
+    badgeAvailable.style.display = pendingOrders.length > 0 ? 'inline-flex' : 'none';
+
+    availableBody.innerHTML = '';
+    if(pendingOrders.length === 0) {
+      availableBody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:15px; color:var(--muted);">No pending orders.</td></tr>';
+    } else {
+      pendingOrders.forEach(o => {
+        let distStr = '—';
+        if (currentLatLng) {
+          const d = getDistanceKm(currentLatLng[0], currentLatLng[1], o.pickup.lat, o.pickup.lng);
+          distStr = d.toFixed(1) + ' km';
+        }
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <strong style="color:#a5b4fc;">${o.orderId}</strong><br>
+            <span style="color:var(--muted); font-size:9px;">Cust: ${o.customerId}</span>
+          </td>
+          <td>${distStr}</td>
+          <td>
+            <div style="display:flex; gap:4px;">
+              <button class="btn-accept" ${activeOrder ? 'disabled' : ''} onclick="window.acceptOrder('${o.customerId}', '${o.dbKey}')">Accept</button>
+              <button class="btn-reject" ${activeOrder ? 'disabled' : ''} onclick="window.rejectOrder('${o.dbKey}')">Reject</button>
+            </div>
+            <button class="btn-view" ${activeOrder ? 'disabled' : ''} onclick="window.viewOrderOnMap('${o.dbKey}')">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              View Map
+            </button>
+          </td>
+        `;
+        availableBody.appendChild(tr);
+      });
+    }
+
+    // Filter and update My Shift (Completed)
+    const myOrders = allOrders.filter(o => o.riderId === currentUserId).sort((a,b) => b.createdAt - a.createdAt);
+    shiftBody.innerHTML = '';
+    let totalCompleted = 0;
+    
+    if(myOrders.length === 0) {
+      shiftBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:15px; color:var(--muted);">No deliveries yet.</td></tr>';
+    } else {
+      myOrders.forEach(o => {
+        if(o.status === 'delivered') totalCompleted++;
+        const durationMs = o.endTime ? (o.endTime - o.createdAt) : (Date.now() - o.createdAt);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong style="color:#a5b4fc;">${o.orderId}</strong></td>
+          <td><span class="status-badge st-${o.status}">${o.status.replace('_',' ')}</span></td>
+          <td>${formatTime(durationMs)}</td>
+          <td style="${o.status==='delivered' ? 'color:#fcd34d;font-weight:700;' : ''}">${o.status==='delivered'?'€5.00':'—'}</td>
+        `;
+        shiftBody.appendChild(tr);
+      });
+    }
+    
+    // Update Shift Badge
+    badgeShift.textContent = totalCompleted;
+    badgeShift.style.display = totalCompleted > 0 ? 'inline-flex' : 'none';
+
+    statCount.textContent = totalCompleted;
+    statEarned.textContent = '€' + (totalCompleted * EARNINGS_PER_DELIVERY).toFixed(2);
+
+    if (!activeOrder) {
+      headerTitle.textContent = "Ready for Orders";
+      chatBadge.classList.remove('show');
+      stopActiveTimer();
+    } else {
+      headerTitle.textContent = `${activeOrder.orderId} Active`;
+      btnChat.disabled = false;
+      statusBanner.classList.add('show');
+      
+      // Calculate Unread Messages from Customer
+      let unreadCount = 0;
+      if (activeOrder.chat) {
+        const lastRead = lastReadTimestamps[activeOrder.dbKey] || 0;
+        Object.values(activeOrder.chat).forEach(msg => {
+          if (msg.sender === 'customer' && msg.timestamp > lastRead) {
+            unreadCount++;
+          }
+        });
+      }
+
+      // Update the badge UI
+      if (unreadCount > 0) {
+        chatBadge.textContent = unreadCount;
+        chatBadge.classList.add('show');
+      } else {
+        chatBadge.classList.remove('show');
+      }
+      
+      if (activeOrder.status === 'started') {
+        statusBanner.textContent = "To Restaurant";
+        btnArrive.disabled = false; btnArrive.classList.add('active');
+      } else if (activeOrder.status === 'arrived') {
+        statusBanner.textContent = "Waiting for Food";
+        btnPickup.disabled = false; btnPickup.classList.add('active');
+      } else if (activeOrder.status === 'picked_up') {
+        statusBanner.textContent = "Out for Delivery";
+        btnDeliver.disabled = false; btnDeliver.classList.add('active');
+      }
+    }
+
+    updateMapRoute();
+  }
+
+  // --- Actions ---
+  window.viewOrderOnMap = function(dbKey) {
+    if (activeOrder) return;
+    previewOrder = allOrders.find(o => o.dbKey === dbKey);
+    updateMapRoute();
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  };
+
+  window.acceptOrder = async function(customerId, dbKey) {
+    if (activeOrder) return;
+    try {
+      await update(ref(db, `customerOrders/${customerId}/${dbKey}`), { 
+        status: 'started', 
+        riderId: currentUserId 
+      });
+      previewOrder = null;
+      showToast('Order Accepted!');
+      startActiveTimer(Date.now());
+      tabShift.click();
+    } catch(e) {
+      console.error(e);
+      showToast('Error accepting order.');
+    }
+  };
+
+  window.rejectOrder = function(dbKey) {
+    rejectedOrders.add(dbKey); // Only locally stored in Set (resets on refresh)
+    if (previewOrder && previewOrder.dbKey === dbKey) {
+        previewOrder = null;
+    }
+    showToast('Order hidden for this session');
+    updateUI();
+  };
+
+  async function updateActiveStatus(newStatus) {
+    if (!activeOrder) return;
+    try {
+      const updates = { status: newStatus };
+      if (['delivered', 'issue', 'cancelled'].includes(newStatus)) {
+        updates.endTime = Date.now();
+      }
+      await update(ref(db, `customerOrders/${activeOrder.customerId}/${activeOrder.dbKey}`), updates);
+      showToast(`Updated to: ${newStatus.replace('_',' ')}`);
+    } catch(e) {
+      console.error(e);
+      showToast('Network error, try again.');
+    }
+  }
+
+  btnArrive.onclick = () => updateActiveStatus('arrived');
+  btnPickup.onclick = () => updateActiveStatus('picked_up');
+  
+  btnDeliver.onclick = () => {
+    if (activeOrder && activeOrder.receivingPin) {
+      pinInput.value = '';
+      pinError.textContent = '';
+      pinBackdrop.classList.add('show');
+      setTimeout(() => pinInput.focus(), 50);
+    } else {
+      updateActiveStatus('delivered');
+    }
+  };
+
+  pinVerifyBtn.onclick = () => {
+    if (pinInput.value.trim() === String(activeOrder.receivingPin)) {
+      pinBackdrop.classList.remove('show');
+      updateActiveStatus('delivered');
+    } else {
+      pinError.textContent = "Incorrect PIN. Please check and try again.";
+    }
+  };
+
+  pinCancelBtn.onclick = () => {
+    pinBackdrop.classList.remove('show');
+  };
+
+  // Chat Logic
+  btnChat.onclick = () => {
+    if (!activeOrder) return;
+    chatBackdrop.classList.add('show');
+    
+    // Clear badge immediately upon opening
+    markChatAsRead(activeOrder.dbKey);
+    chatBadge.classList.remove('show');
+
+    const path = `customerOrders/${activeOrder.customerId}/${activeOrder.dbKey}/chat`;
+    
+    if (currentChatPath !== path) {
+      if (chatUnsub) { off(ref(db, currentChatPath)); }
+      currentChatPath = path;
+      chatUnsub = onValue(ref(db, path), snap => {
+        renderChat(snap.val() || {});
+      });
+    }
+    setTimeout(() => chatInput.focus(), 100);
+  };
+
+  chatCloseBtn.onclick = () => chatBackdrop.classList.remove('show');
+
+  chatSendBtn.onclick = async () => {
+    const text = chatInput.value.trim();
+    if (!text || !activeOrder) return;
+    chatInput.value = '';
+    await push(ref(db, currentChatPath), {
+      sender: 'rider',
+      text: text,
+      timestamp: Date.now()
+    });
+  };
+  chatInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') chatSendBtn.click(); });
+
+  function renderChat(messagesObj) {
+    if (activeOrder && chatBackdrop.classList.contains('show')) {
+      markChatAsRead(activeOrder.dbKey);
+      chatBadge.classList.remove('show');
+    }
+
+    chatMessages.innerHTML = '';
+    const msgs = Object.values(messagesObj).sort((a,b) => a.timestamp - b.timestamp);
+    if(msgs.length === 0) {
+      chatMessages.innerHTML = '<div style="text-align:center; color:var(--muted); font-size:11px; margin-top:10px;">Say hello to the customer!</div>';
+      return;
+    }
+    msgs.forEach(m => {
+      const isMine = m.sender === 'rider';
+      const el = document.createElement('div');
+      el.className = `chat-msg ${isMine ? 'mine' : ''}`;
+      
+      const time = new Date(m.timestamp);
+      const timeStr = `${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
+      
+      el.innerHTML = `
+        <div class="chat-msg-meta">${isMine ? 'You' : 'Customer'} · ${timeStr}</div>
+        <div>${m.text}</div>
+      `;
+      chatMessages.appendChild(el);
+    });
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // Firebase Listener
+  function listenToAllOrders() {
+    onValue(ref(db, 'customerOrders'), snap => {
+      allOrders = [];
+      activeOrder = null;
+      
+      snap.forEach(custSnap => {
+        const custId = custSnap.key;
+        custSnap.forEach(oSnap => {
+          const o = oSnap.val();
+          o.dbKey = oSnap.key;
+          o.customerId = custId;
+          allOrders.push(o);
+          
+          if (o.riderId === currentUserId && ['started', 'arrived', 'picked_up'].includes(o.status)) {
+            activeOrder = o;
+            previewOrder = null; // Clear any map previews once active
+            if(!timerInterval) startActiveTimer(o.createdAt);
+          }
+        });
+      });
+      
+      updateUI();
+      hideLoader();
+    });
+  }
+
+  // Location Tracking & Saving to Firebase
+  function locateRider() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.watchPosition(async pos => {
+      currentLatLng = [pos.coords.latitude, pos.coords.longitude];
+      
+      if(!riderMarker) {
+        riderMarker = L.marker(currentLatLng, { icon: iconRider, zIndexOffset: 1000 });
+        updateMapRoute();
+      } else {
+        riderMarker.setLatLng(currentLatLng);
+        if(!activeOrder && !previewOrder) map.setView(currentLatLng); 
+      }
+
+      if (activeOrder && currentUserId) {
+        try {
+          await update(ref(db, `customerOrders/${activeOrder.customerId}/${activeOrder.dbKey}`), {
+            riderLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: Date.now() }
+          });
+        } catch (e) {
+          console.warn("Failed to push live location", e);
+        }
+      }
+
+    }, err => console.warn(err), { enableHighAccuracy: true });
+  }
+
+  // Auth Initialization
+  function hideLoader() { loaderOverlay.classList.add('hidden'); }
+
+  async function loginRider(id) {
+    id = id.toUpperCase().trim();
+    if (!/^[A-Z0-9]{4,8}$/.test(id)) {
+      document.getElementById('loginError').textContent = 'Invalid ID. Use 4-8 chars (e.g. RR1234)';
+      return;
+    }
+    currentUserId = id;
+    localStorage.setItem('riderId', id);
+    
+    // Reset rejected orders for new session
+    rejectedOrders = new Set();
+
+    document.getElementById('userPillText').textContent = id;
+    document.getElementById('userPill').style.display = 'flex';
+    document.getElementById('loginBackdrop').classList.remove('show');
+    
+    listenToAllOrders();
+    locateRider();
+  }
+
+  const savedId = localStorage.getItem('riderId');
+  if (savedId) { loginRider(savedId); } 
+  else { document.getElementById('loginBackdrop').classList.add('show'); hideLoader(); }
+
+  document.getElementById('userJoinBtn').onclick = () => loginRider(document.getElementById('userIdInput').value);
+  document.getElementById('changeUserBtn').onclick = () => {
+    localStorage.removeItem('riderId');
+    window.location.reload();
+  };
+
+</script>
+</body>
+</html>
