@@ -11,7 +11,7 @@
     :root { --bg:#0b0b0e; --panel:#141419; --muted:#8b8b95; --text:#f2f2f7; --accent:#10b981; --accent-2:#059669; --radius-lg:12px; --radius-md:10px; }
     
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-    html,body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;font-weight:400;overflow-y:auto;}
+    html,body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;font-weight:400;overflow-y:auto;scroll-behavior:smooth;}
     .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:7px;padding:env(safe-area-inset-top,6px) 10px env(safe-area-inset-bottom,6px);}
    
     /* Loaders & Headers */
@@ -98,6 +98,26 @@
     .order-card:hover { background: rgba(255,255,255,0.05); }
     .order-card.active-card { border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.05); }
 
+    /* Completed Card Styles - Everything Grey */
+    .completed-card {
+      background: rgba(20, 20, 25, 0.4); 
+      border-color: rgba(255, 255, 255, 0.02);
+    }
+    .completed-card .order-id, 
+    .completed-card .pin-badge, 
+    .completed-card .tl-done, 
+    .completed-card .tl-issue, 
+    .completed-card .tl-time,
+    .completed-card .card-note-label, 
+    .completed-card span {
+      color: #71717a !important; 
+    }
+    .completed-card .pin-badge {
+      background: rgba(255,255,255,0.03) !important;
+      border-color: transparent !important;
+      padding: 3px 8px; border-radius: 6px; font-size: 11px;
+    }
+
     .order-card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; }
     .order-id { font-size: 16px; color: #a5b4fc; letter-spacing: 1px; font-family: monospace; }
     .status-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; }
@@ -172,7 +192,7 @@
   </header>
 
   <!-- Map -->
-  <div class="map-card">
+  <div class="map-card" id="mapCardTop">
     <div id="map"></div>
   </div>
 
@@ -182,7 +202,7 @@
       <span style="color:#6ee7b7;">Active Delivery</span>
     </div>
     <div class="orders-list" id="activeOrderList">
-      <!-- Active card injected here -->
+      <!-- Active card injected here dynamically -->
     </div>
   </div>
 
@@ -196,6 +216,18 @@
       <div style="text-align:center; padding:30px; color:var(--muted); font-size:13px;">No available orders nearby.</div>
     </div>
   </div>
+
+  <!-- Completed Orders & Earnings Section -->
+  <div class="orders-section" id="completedOrdersSection">
+    <div class="orders-header">
+      <span>Completed Deliveries</span>
+      <span id="earningsTotal" style="color:#10b981; font-weight:bold;">€0.00</span>
+    </div>
+    <div class="orders-list" id="completedOrdersList">
+      <div style="text-align:center; padding:30px; color:var(--muted); font-size:13px;">No completed deliveries yet.</div>
+    </div>
+  </div>
+
 </div>
 
 <div id="toast" class="toast"></div>
@@ -261,8 +293,16 @@
   let riderLocationWatch = null;
   
   let availableOrders = [];
+  let completedOrders = [];
   let activeOrder = null;
   
+  // Preview State
+  let previewOrderId = null;
+
+  // Render Check Caches (Prevents input focus stealing and map jumps)
+  let currentMapStateStr = null; 
+  let lastRenderedActiveStateStr = null;
+
   // Chat State
   let activeChatPath = null;
   let chatUnsub = null;
@@ -276,6 +316,9 @@
   
   const activeDeliverySection = document.getElementById('activeDeliverySection');
   const activeOrderList = document.getElementById('activeOrderList');
+
+  const completedOrdersList = document.getElementById('completedOrdersList');
+  const earningsTotal = document.getElementById('earningsTotal');
 
   // Auth Elements
   const loginBackdrop = document.getElementById('loginBackdrop');
@@ -296,7 +339,6 @@
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
   const mapLayerGroup = L.layerGroup().addTo(map);
 
-  let mapMarkers = [];
   let mapPolyline = null;
   let liveRiderMarker = null;
 
@@ -340,9 +382,20 @@
   ];
 
   function renderMap() {
+    // Generate a unique string representing the map's required state.
+    // If it hasn't changed, DO NOT re-render. This prevents annoying zooming/jumping!
+    let targetStateStr = activeOrder ? `active_${activeOrder.dbKey}` : `avail_${availableOrders.map(o=>o.dbKey).join(',')}_prev_${previewOrderId}`;
+    
+    if (currentMapStateStr === targetStateStr) return; // Prevent jumping/auto-correct loops
+    currentMapStateStr = targetStateStr;
+
     mapLayerGroup.clearLayers();
-    mapMarkers = [];
     mapPolyline = null;
+    
+    // Preserve Rider Marker so it doesn't get destroyed on mode switch if it exists
+    if (liveRiderMarker) {
+        liveRiderMarker.addTo(mapLayerGroup);
+    }
 
     if (activeOrder) {
       // Show Route for Active Order
@@ -362,6 +415,29 @@
       
       map.fitBounds(mapPolyline.getBounds(), { padding: [40, 40] });
 
+    } else if (previewOrderId) {
+      // Show Specific Order Preview Route
+      const po = availableOrders.find(o => o.dbKey === previewOrderId);
+      if (po) {
+          const pIcon = makeDotIcon('dot-red', 'PICK UP', true); 
+          const dIcon = makeDotIcon('dot-green', 'DROP OFF');
+
+          let pm = L.marker([po.pickup.lat, po.pickup.lng], { icon: pIcon }).addTo(mapLayerGroup);
+          if(po.pickup.note) pm.bindTooltip(po.pickup.note, { permanent: true, direction: 'top', offset: [0, -25], className: 'map-note-tooltip pickup-tooltip' }).openTooltip();
+
+          let dm = L.marker([po.dropoff.lat, po.dropoff.lng], { icon: dIcon }).addTo(mapLayerGroup);
+          if(po.dropoff.note) dm.bindTooltip(po.dropoff.note, { permanent: true, direction: 'top', offset: [0, -25], className: 'map-note-tooltip dropoff-tooltip' }).openTooltip();
+
+          mapPolyline = L.polyline([
+              [po.pickup.lat, po.pickup.lng],
+              [po.dropoff.lat, po.dropoff.lng]
+          ], { color: '#3b82f6', weight: 4, dashArray: '8 8', opacity: 0.8 }).addTo(mapLayerGroup);
+          
+          map.fitBounds(mapPolyline.getBounds(), { padding: [40, 40] });
+      } else {
+          previewOrderId = null;
+          renderMap(); // fallback
+      }
     } else {
       // Show all pending pickups on map
       let bounds = [];
@@ -399,6 +475,22 @@
       return notesHtml;
   }
 
+  window.previewOrder = function(dbKey) {
+      if (previewOrderId === dbKey) {
+          previewOrderId = null; // Toggle off if already previewing
+      } else {
+          previewOrderId = dbKey;
+      }
+      currentMapStateStr = null; // Force map to rerender with new state
+      renderMap();
+      renderAvailableOrders(); // Update button styling
+      
+      if (previewOrderId) {
+         // Scroll gently back to map
+         document.getElementById('mapCardTop').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+  };
+
   function renderAvailableOrders() {
     availableCount.textContent = `${availableOrders.length} Pending`;
     availableOrdersList.innerHTML = '';
@@ -409,6 +501,7 @@
     }
 
     availableOrders.forEach(o => {
+      const isPreviewing = previewOrderId === o.dbKey;
       const card = document.createElement('div');
       card.className = 'order-card';
       
@@ -418,26 +511,90 @@
           <span class="status-badge status-pending">New Request</span>
         </div>
         ${createNotesHtml(o)}
-        <div style="margin-top:8px;">
-          <button class="btn-action btn-primary" onclick="window.acceptOrder('${o.customerId}', '${o.dbKey}')">Accept Order</button>
+        <div style="margin-top:8px; display:flex; gap:8px;">
+          <button class="btn-action" 
+                  style="flex:1; background: ${isPreviewing ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)'}; 
+                         border: 1px solid ${isPreviewing ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.1)'}; 
+                         color: ${isPreviewing ? '#93c5fd' : '#fff'}; font-size:12px;" 
+                  onclick="window.previewOrder('${o.dbKey}')">
+             ${isPreviewing ? 'Hide Map' : 'View on Map'}
+          </button>
+          <button class="btn-action btn-primary" style="flex:1; font-size:12px;" onclick="window.acceptOrder('${o.customerId}', '${o.dbKey}')">Accept</button>
         </div>
       `;
       availableOrdersList.appendChild(card);
     });
   }
 
-  function renderActiveOrder() {
-    activeOrderList.innerHTML = '';
-    if (!activeOrder) {
-      activeDeliverySection.style.display = 'none';
-      availableOrdersSection.style.display = 'flex';
+  function renderCompletedOrders() {
+    completedOrdersList.innerHTML = '';
+    
+    // Flat Rate €4.50 per delivery for example
+    const total = completedOrders.length * 4.50;
+    earningsTotal.textContent = `€${total.toFixed(2)}`;
+
+    if(completedOrders.length === 0) {
+      completedOrdersList.innerHTML = '<div style="text-align:center; padding:30px; color:var(--muted); font-size:13px;">No completed deliveries yet.</div>';
       return;
     }
 
+    completedOrders.forEach(o => {
+      const card = document.createElement('div');
+      card.className = 'order-card completed-card';
+      
+      card.innerHTML = `
+        <div class="order-card-header">
+          <span class="order-id">${o.orderId}</span>
+          <span class="pin-badge">Earned: €4.50</span>
+        </div>
+        <div class="timeline">
+           <div class="tl-step tl-done">✓ Delivered <span class="tl-time">${formatTime(o.createdAt)}</span></div>
+        </div>
+      `;
+      completedOrdersList.appendChild(card);
+    });
+  }
+
+  function renderActiveOrder() {
+    if (!activeOrder) {
+      activeDeliverySection.style.display = 'none';
+      availableOrdersSection.style.display = 'flex';
+      lastRenderedActiveStateStr = null;
+      activeOrderList.innerHTML = '';
+      return;
+    }
+
+    const o = activeOrder;
     activeDeliverySection.style.display = 'flex';
     availableOrdersSection.style.display = 'none'; // Hide available to focus on active delivery
 
-    const o = activeOrder;
+    // Chat Badge Logic
+    let unreadCount = 0;
+    const chatPath = `customerOrders/${o.customerId}/${o.dbKey}/chat`;
+    if (o.chat) {
+        const lastRead = lastReadTimestamps[chatPath] || 0;
+        Object.values(o.chat).forEach(msg => {
+            if (msg.sender === 'customer' && msg.timestamp > lastRead) unreadCount++;
+        });
+    }
+
+    // CREATE A CACHE STRING: Only recreate the DOM if the order status or notes change.
+    // This perfectly fixes the issue of the PIN input losing focus while typing!
+    const targetStateStr = `${o.dbKey}_${o.status}_${o.pickup.note}_${o.dropoff.note}`;
+    
+    if (lastRenderedActiveStateStr === targetStateStr) {
+        // Only update the chat badge if the DOM is already correctly rendered!
+        const badgeEl = document.getElementById('chatBadgeCounter');
+        if (badgeEl) {
+            badgeEl.style.display = unreadCount > 0 ? 'inline-flex' : 'none';
+            badgeEl.textContent = unreadCount;
+        }
+        return; 
+    }
+    lastRenderedActiveStateStr = targetStateStr;
+    
+    // Hard Re-render Card
+    activeOrderList.innerHTML = '';
     const card = document.createElement('div');
     card.className = 'order-card active-card';
     
@@ -470,16 +627,7 @@
        `;
     }
 
-    // Chat Badge Logic
-    let unreadCount = 0;
-    const chatPath = `customerOrders/${o.customerId}/${o.dbKey}/chat`;
-    if (o.chat) {
-        const lastRead = lastReadTimestamps[chatPath] || 0;
-        Object.values(o.chat).forEach(msg => {
-            if (msg.sender === 'customer' && msg.timestamp > lastRead) unreadCount++;
-        });
-    }
-    const badgeHtml = unreadCount > 0 ? `<span class="chat-badge" style="position:absolute; right:16px;">${unreadCount}</span>` : '';
+    const badgeHtml = `<span id="chatBadgeCounter" class="chat-badge" style="position:absolute; right:16px; display:${unreadCount > 0 ? 'inline-flex' : 'none'};">${unreadCount}</span>`;
 
     card.innerHTML = `
       <div class="order-card-header">
@@ -504,6 +652,7 @@
     allOrdersUnsub = onValue(ref(db, `customerOrders`), snap => {
       const data = snap.val() || {};
       availableOrders = [];
+      completedOrders = [];
       activeOrder = null;
 
       Object.keys(data).forEach(custId => {
@@ -517,14 +666,18 @@
                availableOrders.push(o);
             } else if (['started', 'arrived', 'picked_up'].includes(o.status) && o.riderId === currentUserId) {
                activeOrder = o; // Rider only handles 1 active order
+            } else if (o.status === 'delivered' && o.riderId === currentUserId) {
+               completedOrders.push(o);
             }
          });
       });
 
-      // Sort pending by newest first
+      // Sort lists
       availableOrders.sort((a,b) => b.createdAt - a.createdAt);
+      completedOrders.sort((a,b) => b.createdAt - a.createdAt);
 
       renderAvailableOrders();
+      renderCompletedOrders();
       renderActiveOrder();
       renderMap();
       hideLoader();
@@ -534,6 +687,7 @@
   window.acceptOrder = async function(custId, dbKey) {
     if (activeOrder) { showToast("You already have an active order."); return; }
     try {
+       previewOrderId = null; // Clear preview mode
        await update(ref(db, `customerOrders/${custId}/${dbKey}`), { 
            status: 'started', 
            riderId: currentUserId 
@@ -573,7 +727,7 @@
         const payload = { riderLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude } };
         update(ref(db, `customerOrders/${custId}/${dbKey}`), payload);
         
-        // Update local map marker
+        // Update local map marker dynamically without breaking bounds
         if (liveRiderMarker) liveRiderMarker.setLatLng([pos.coords.latitude, pos.coords.longitude]);
         else liveRiderMarker = L.marker([pos.coords.latitude, pos.coords.longitude], { icon: makeDotIcon('dot-blue', 'YOU'), zIndexOffset: 1000 }).addTo(mapLayerGroup);
 
@@ -594,7 +748,7 @@
   window.openChat = function(custId, dbKey) {
     activeChatPath = `customerOrders/${custId}/${dbKey}/chat`;
     markChatAsRead(activeChatPath);
-    renderActiveOrder(); // refresh unread badge
+    renderActiveOrder(); // force update badge
     
     chatBackdrop.classList.add('show');
     
@@ -628,7 +782,9 @@
   function renderChat(messagesObj) {
     if (activeChatPath && chatBackdrop.classList.contains('show')) {
         markChatAsRead(activeChatPath);
-        renderActiveOrder(); // Refresh badge instantly
+        // Force refresh badge instantly while looking at chat
+        const badgeEl = document.getElementById('chatBadgeCounter');
+        if (badgeEl) badgeEl.style.display = 'none';
     }
 
     chatMessages.innerHTML = '';
