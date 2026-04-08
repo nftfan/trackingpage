@@ -133,23 +133,23 @@
             justify-content: space-around;
             align-items: center;
             background-color: var(--surface-color);
-            padding: 6px 0;
+            padding: 8px 0;
             border-bottom: 1px solid var(--border-color);
         }
 
         .tab-item {
             display: flex;
-            flex-direction: column;
+            flex-direction: row; 
             align-items: center;
+            justify-content: center;
             color: var(--text-secondary);
             cursor: pointer;
-            gap: 2px;
-            width: 50px;
+            gap: 3px; 
             -webkit-tap-highlight-color: transparent;
         }
 
         .tab-item .material-icons {
-            font-size: 18px;
+            font-size: 7px; 
             transition: color 0.2s;
         }
 
@@ -290,44 +290,55 @@
             border-radius: 50%;
         }
 
-        /* News View */
-        #news-view {
+        /* Generic List View & Forms (News & Email) */
+        .list-view {
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            flex: 1;
         }
 
-        .news-header {
+        .view-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .view-title {
             font-size: 14px;
             font-weight: bold;
             color: var(--accent-color);
-            border-bottom: 1px solid var(--border-color);
             text-transform: uppercase;
         }
 
-        .news-list {
+        .view-list {
             list-style: none;
         }
 
-        .news-item {
+        .list-item {
             padding: 12px;
             border-bottom: 1px solid var(--border-color);
         }
         
-        .news-item a {
+        .list-item a, .list-item .item-title {
             color: var(--text-primary);
             text-decoration: none;
             font-size: 13px;
             line-height: 1.4;
             display: block;
             margin-bottom: 4px;
+            font-weight: 600;
         }
 
-        .news-item a:hover {
-            color: var(--accent-color);
+        .list-item .item-desc {
+            color: var(--text-primary);
+            font-size: 11px;
+            line-height: 1.4;
+            margin-bottom: 6px;
         }
 
-        .news-meta {
+        .list-item .item-meta {
             font-size: 10px;
             color: var(--text-secondary);
         }
@@ -337,6 +348,56 @@
             color: var(--text-secondary);
             font-size: 12px;
             text-align: center;
+        }
+
+        /* Form Styles */
+        .form-container {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--surface-color);
+            display: none;
+        }
+
+        .form-input {
+            width: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 8px;
+            outline: none;
+            font-size: 12px;
+        }
+
+        textarea.form-input {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-primary, .btn-secondary {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+        }
+
+        .btn-secondary {
+            background-color: var(--border-color);
+            color: var(--text-primary);
         }
 
     </style>
@@ -366,7 +427,7 @@
             <span class="material-icons">article</span>
             <span class="tab-label">News</span>
         </div>
-        <div class="tab-item" data-target="placeholder-view">
+        <div class="tab-item" data-target="email-view">
             <span class="material-icons">email</span>
             <span class="tab-label">Email</span>
         </div>
@@ -403,10 +464,34 @@
     </div>
 
     <!-- NEWS VIEW -->
-    <div id="news-view" class="view-container">
-        <div class="news-header">Top Stories</div>
-        <ul class="news-list" id="news-list">
+    <div id="news-view" class="view-container list-view">
+        <div class="view-header">
+            <div class="view-title">Top Stories</div>
+        </div>
+        <ul class="view-list" id="news-list">
             <div class="loading-text">Loading headlines...</div>
+        </ul>
+    </div>
+
+    <!-- EMAIL VIEW -->
+    <div id="email-view" class="view-container list-view">
+        <div class="view-header">
+            <div class="view-title">Emails</div>
+            <button class="action-btn" id="btn-show-email-form"><span class="material-icons" style="color:var(--accent-color);">add_circle</span></button>
+        </div>
+        
+        <div class="form-container" id="email-form">
+            <input type="text" id="email-to-from" class="form-input" placeholder="To / From">
+            <input type="text" id="email-subject" class="form-input" placeholder="Subject">
+            <textarea id="email-body" class="form-input" placeholder="Body..."></textarea>
+            <div class="form-actions">
+                <button class="btn-secondary" id="btn-cancel-email">Cancel</button>
+                <button class="btn-primary" id="btn-save-email">Save Email</button>
+            </div>
+        </div>
+
+        <ul class="view-list" id="email-list">
+            <div class="loading-text">Loading emails...</div>
         </ul>
     </div>
 
@@ -417,7 +502,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, set, get, child, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { getDatabase, ref, set, get, child, remove, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBWPCkYNw7gT_T7kcwbp5laZgIHac18bvE",
@@ -439,10 +524,12 @@
         const dayCountText = document.getElementById('day-count');
         const timelineInner = document.getElementById('timeline-inner');
         const newsList = document.getElementById('news-list');
+        const emailList = document.getElementById('email-list');
         
         let selectedDateStr = "";
         let saveTimeout = null;
         let newsLoaded = false;
+        let emailsLoaded = false;
 
         let timeLineElement = document.createElement('div');
         timeLineElement.id = 'current-time-line';
@@ -452,24 +539,88 @@
         // -------------------------
         document.querySelectorAll('.tab-item').forEach(tab => {
             tab.addEventListener('click', () => {
-                // Remove active classes
                 document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
 
-                // Add active to clicked tab
                 tab.classList.add('active');
                 const targetView = tab.getAttribute('data-target');
                 document.getElementById(targetView).classList.add('active');
 
-                // Load news if needed
                 if (targetView === 'news-view' && !newsLoaded) {
                     loadNews();
+                } else if (targetView === 'email-view' && !emailsLoaded) {
+                    loadEmails();
                 }
             });
         });
 
         // -------------------------
-        // NEWS FETCH LOGIC (using rss2json API to bypass CORS)
+        // EMAIL LOGIC
+        // -------------------------
+        const emailForm = document.getElementById('email-form');
+        document.getElementById('btn-show-email-form').addEventListener('click', () => {
+            emailForm.style.display = 'block';
+        });
+        document.getElementById('btn-cancel-email').addEventListener('click', () => {
+            emailForm.style.display = 'none';
+            document.getElementById('email-to-from').value = '';
+            document.getElementById('email-subject').value = '';
+            document.getElementById('email-body').value = '';
+        });
+        document.getElementById('btn-save-email').addEventListener('click', () => {
+            const toFrom = document.getElementById('email-to-from').value.trim();
+            const subject = document.getElementById('email-subject').value.trim();
+            const body = document.getElementById('email-body').value.trim();
+
+            if (!toFrom && !subject && !body) return;
+
+            const emailData = {
+                toFrom,
+                subject,
+                body,
+                timestamp: Date.now()
+            };
+
+            push(ref(db, 'emails'), emailData).then(() => {
+                document.getElementById('btn-cancel-email').click(); // hide & clear
+            }).catch(console.error);
+        });
+
+        function loadEmails() {
+            emailsLoaded = true;
+            const emailsRef = ref(db, 'emails');
+            
+            onValue(emailsRef, (snapshot) => {
+                emailList.innerHTML = '';
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    // Convert to array and sort by timestamp descending (latest on top)
+                    const emailArray = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+                    emailArray.sort((a, b) => b.timestamp - a.timestamp);
+
+                    emailArray.forEach(email => {
+                        const li = document.createElement('li');
+                        li.className = 'list-item';
+                        
+                        const date = new Date(email.timestamp);
+                        const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
+
+                        li.innerHTML = `
+                            <div class="item-title">${email.subject || '(No Subject)'}</div>
+                            <div class="item-desc">${email.body || ''}</div>
+                            <div class="item-meta">${email.toFrom || 'Unknown'} • ${dateStr} at ${timeStr}</div>
+                        `;
+                        emailList.appendChild(li);
+                    });
+                } else {
+                    emailList.innerHTML = '<div class="loading-text">No emails found.</div>';
+                }
+            });
+        }
+
+        // -------------------------
+        // NEWS FETCH LOGIC
         // -------------------------
         function loadNews() {
             const rssUrl = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en";
@@ -482,14 +633,14 @@
                     if (data.status === 'ok' && data.items) {
                         data.items.slice(0, 15).forEach(item => {
                             const li = document.createElement('li');
-                            li.className = 'news-item';
+                            li.className = 'list-item';
                             
                             const date = new Date(item.pubDate);
                             const timeStr = isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                             
                             li.innerHTML = `
                                 <a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title}</a>
-                                <div class="news-meta">${item.source || 'Google News'} • ${timeStr}</div>
+                                <div class="item-meta">${item.source || 'Google News'} • ${timeStr}</div>
                             `;
                             newsList.appendChild(li);
                         });
