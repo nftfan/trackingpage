@@ -141,9 +141,6 @@
     .btn-clear { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color:#fff; }
     .btn-order { background: linear-gradient(135deg,#3b82f6,#2563eb); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
 
-    /* Active Order Controls (Cancel & Chat) */
-    .active-order-controls { display: none; flex-direction: column; gap: 8px; margin-top: 2px; flex-shrink: 0; }
-
     /* Cards Layout */
     .orders-section { flex: 1; display: flex; flex-direction: column; min-height: 220px; margin-top: 4px; }
     .orders-header { padding: 8px 10px; font-size: 13px; color: #e5e7ff; display: flex; justify-content: space-between; align-items: center; letter-spacing:0.5px; text-transform: uppercase;}
@@ -302,17 +299,6 @@
     </button>
   </div>
 
-  <!-- Active Order / Live Actions (Cancel & Chat) -->
-  <div id="activeOrderControls" class="active-order-controls">
-    <button id="btnCancelOrder" class="btn-action" style="background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; display:none;">
-      Cancel Order (Waiting for Rider)
-    </button>
-    <button id="btnGlobalChat" class="btn-action" style="background: linear-gradient(135deg,#8b5cf6,#6d28d9); color: white; display:none; position:relative;">
-      💬 Chat with Rider
-      <span id="globalChatBadge" class="chat-badge" style="position:absolute; right:16px; top:50%; transform:translateY(-50%); display:none;">0</span>
-    </button>
-  </div>
-
   <!-- Live Orders Cards -->
   <div class="orders-section">
     <div class="orders-header">
@@ -448,12 +434,6 @@
   const btnClear = document.getElementById('btnClear');
   const btnOrder = document.getElementById('btnOrder');
   
-  // Active Action Controls
-  const activeOrderControls = document.getElementById('activeOrderControls');
-  const btnCancelOrder = document.getElementById('btnCancelOrder');
-  const btnGlobalChat = document.getElementById('btnGlobalChat');
-  const globalChatBadge = document.getElementById('globalChatBadge');
-
   const ordersList = document.getElementById('ordersList');
   const orderCountEl = document.getElementById('orderCount');
   
@@ -649,22 +629,17 @@
     }
   });
 
-  // --- Active Order Action Handlers (Cancel & Chat) ---
-  btnCancelOrder.onclick = async () => {
-    if (!currentlyTrackingOrderId || !currentUserId) return;
+
+  // Global Cancel Handler
+  window.cancelOrder = async function(dbKey) {
+    if (!currentUserId) return;
     if (confirm("Are you sure you want to cancel this order?")) {
       try {
-        await update(ref(db, `customerOrders/${currentUserId}/${currentlyTrackingOrderId}`), { status: 'cancelled' });
+        await update(ref(db, `customerOrders/${currentUserId}/${dbKey}`), { status: 'cancelled' });
         showToast("Order cancelled successfully.");
       } catch(e) {
         showToast("Error cancelling order.");
       }
-    }
-  };
-
-  btnGlobalChat.onclick = () => {
-    if (currentlyTrackingOrderId) {
-        window.openChat(currentlyTrackingOrderId);
     }
   };
 
@@ -716,7 +691,6 @@
          currentlyTrackingOrderId = null; pointPickup = null; pointDropoff = null;
          updateUIState();
       }
-      activeOrderControls.style.display = 'none';
       return;
     }
 
@@ -728,7 +702,6 @@
          currentlyTrackingOrderId = null; pointPickup = null; pointDropoff = null;
          notesArea.style.display = 'none'; // Hide main notes when fully done
       }
-      activeOrderControls.style.display = 'none';
       
       if (!pointPickup && !currentlyTrackingOrderId) {
          btnClear.disabled = true; btnOrder.disabled = true;
@@ -744,16 +717,6 @@
     }
 
     currentlyTrackingOrderId = activeOrder.dbKey;
-    
-    // Manage Global Actions (Cancel vs Chat) based on Rider acceptance
-    activeOrderControls.style.display = 'flex';
-    if (activeOrder.status === 'pending') {
-        btnCancelOrder.style.display = 'flex';
-        btnGlobalChat.style.display = 'none';
-    } else {
-        btnCancelOrder.style.display = 'none';
-        btnGlobalChat.style.display = 'flex';
-    }
 
     // Hide large note inputs when actively tracking (edit through cards)
     notesArea.style.display = 'none'; 
@@ -960,25 +923,6 @@
     const recentlyFinishedOrder = arr.find(o => ['delivered', 'cancelled', 'issue'].includes(o.status));
     updateTrackingMap(activeTrackingOrder || recentlyFinishedOrder || null);
 
-    // Track unread for global chat button if there's an active tracking order
-    if (activeTrackingOrder) {
-        let unreadCount = 0;
-        if (activeTrackingOrder.chat) {
-            const lastRead = lastReadTimestamps[activeTrackingOrder.dbKey] || 0;
-            Object.values(activeTrackingOrder.chat).forEach(msg => {
-                if (msg.sender === 'rider' && msg.timestamp > lastRead) unreadCount++;
-            });
-        }
-        if (unreadCount > 0) {
-            globalChatBadge.textContent = unreadCount;
-            globalChatBadge.style.display = 'inline-flex';
-        } else {
-            globalChatBadge.style.display = 'none';
-        }
-    } else {
-        globalChatBadge.style.display = 'none';
-    }
-
     arr.forEach(o => {
       if (!localStatusTimes[o.dbKey]) localStatusTimes[o.dbKey] = {};
       if (!localStatusTimes[o.dbKey][o.status]) {
@@ -1043,6 +987,33 @@
         }
         notesHtml += `</div>`;
       }
+
+      // Actions / Chat Button HTML
+      let actionHtml = '';
+      if (['started', 'arrived', 'picked_up'].includes(o.status)) {
+          let unreadCount = 0;
+          if (o.chat) {
+              const lastRead = lastReadTimestamps[o.dbKey] || 0;
+              Object.values(o.chat).forEach(msg => {
+                  if (msg.sender === 'rider' && msg.timestamp > lastRead) unreadCount++;
+              });
+          }
+          const badgeHtml = unreadCount > 0 ? `<span class="chat-badge" style="position:absolute; right:16px;">${unreadCount}</span>` : '';
+          
+          actionHtml = `
+          <div style="margin-top:10px;">
+            <button class="btn-action" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); position:relative; width: 100%;" onclick="window.openChat('${o.dbKey}')">
+              💬 Chat with Rider ${badgeHtml}
+            </button>
+          </div>`;
+      } else if (o.status === 'pending') {
+          actionHtml = `
+          <div style="margin-top:10px;">
+            <button class="btn-action" style="background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; width: 100%;" onclick="window.cancelOrder('${o.dbKey}')">
+              Cancel Order
+            </button>
+          </div>`;
+      }
       
       card.innerHTML = `
         <div class="order-card-header">
@@ -1051,6 +1022,7 @@
         </div>
         ${timelineHtml}
         ${notesHtml}
+        ${actionHtml}
       `;
       ordersList.appendChild(card);
     });
