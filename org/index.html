@@ -290,7 +290,7 @@
             border-radius: 50%;
         }
 
-        /* Generic List View & Forms (News & Email) */
+        /* Generic List View & Forms */
         .list-view {
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
@@ -320,10 +320,10 @@
             -webkit-overflow-scrolling: touch;
             flex: 1;
             padding-right: 12px;
-            scrollbar-width: none; /* Firefox */
+            scrollbar-width: none; 
         }
         .category-tabs-container::-webkit-scrollbar {
-            display: none; /* Safari and Chrome */
+            display: none; 
         }
 
         .category-tab {
@@ -387,6 +387,8 @@
             border-radius: 8px;
             font-weight: bold;
             color: #000;
+            display: inline-block;
+            margin-bottom: 4px;
         }
 
         .loading-text {
@@ -423,11 +425,6 @@
             margin-bottom: 8px;
         }
 
-        .color-picker-row label {
-            color: var(--text-secondary);
-            font-size: 12px;
-        }
-
         .color-picker-input {
             background: none;
             border: none;
@@ -457,6 +454,7 @@
             font-weight: bold;
             cursor: pointer;
             font-size: 11px;
+            text-align: center;
         }
 
         .btn-primary {
@@ -464,9 +462,86 @@
             color: var(--bg-color);
         }
 
+        .btn-primary:disabled {
+            background-color: var(--border-color);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+        }
+
         .btn-secondary {
             background-color: var(--border-color);
             color: var(--text-primary);
+        }
+
+        /* Article Output Markdown Styles */
+        #read-article-output h2, #read-article-output h3 {
+            color: var(--accent-color);
+            margin: 16px 0 8px 0;
+            font-size: 14px;
+        }
+        #read-article-output p {
+            margin-bottom: 12px;
+        }
+        #read-article-output ul, #read-article-output ol {
+            margin-bottom: 12px;
+            padding-left: 20px;
+        }
+        #read-article-output li {
+            margin-bottom: 4px;
+        }
+        .error-message {
+            background-color: rgba(255, 59, 48, 0.1);
+            border: 1px solid var(--red-line);
+            color: var(--red-line);
+            padding: 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        /* Photos View Styles */
+        .photos-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            padding: 2px;
+        }
+        .photo-item {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            cursor: pointer;
+            background-color: var(--surface-color);
+        }
+        /* Fullscreen Photo Modal */
+        .photo-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #000;
+            z-index: 99999;
+            display: none; 
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .photo-modal img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .photo-modal-actions {
+            position: absolute;
+            top: max(env(safe-area-inset-top, 20px), 20px);
+            right: 20px;
+            display: flex;
+            gap: 16px;
+            background: rgba(0,0,0,0.5);
+            padding: 8px;
+            border-radius: 8px;
+            z-index: 100000;
+        }
+        .photo-modal-actions .action-btn {
+            color: #fff;
         }
 
     </style>
@@ -500,11 +575,11 @@
             <span class="material-icons">email</span>
             <span class="tab-label">Email</span>
         </div>
-        <div class="tab-item" data-target="placeholder-view">
+        <div class="tab-item" data-target="read-view">
             <span class="material-icons">menu_book</span>
             <span class="tab-label">Read</span>
         </div>
-        <div class="tab-item" data-target="placeholder-view">
+        <div class="tab-item" data-target="photos-view">
             <span class="material-icons">photo_library</span>
             <span class="tab-label">Photos</span>
         </div>
@@ -564,11 +639,18 @@
         </div>
         
         <div class="form-container" id="email-form">
-            <input type="text" id="email-to-from" class="form-input" placeholder="To / From">
+            <div style="display: flex; gap: 8px;">
+                <select id="email-direction" class="form-input" style="width: auto; padding-right: 2px;">
+                    <option value="To">To</option>
+                    <option value="From">From</option>
+                </select>
+                <input type="text" id="email-to-from" class="form-input" placeholder="Email Address" style="flex: 1;">
+            </div>
             <input type="text" id="email-subject" class="form-input" placeholder="Subject">
             
             <div style="display: flex; gap: 8px;">
-                <input type="text" id="email-label" class="form-input" placeholder="Label (e.g., Work)" style="flex: 1;">
+                <datalist id="email-labels-list"></datalist>
+                <input type="text" id="email-label" class="form-input" list="email-labels-list" placeholder="Label (e.g., Work)" style="flex: 1;" autocomplete="off">
                 <div class="color-picker-row">
                     <input type="color" id="email-label-color" class="color-picker-input" value="#03a9f4">
                 </div>
@@ -587,9 +669,43 @@
         </ul>
     </div>
 
-    <!-- PLACEHOLDER VIEW -->
-    <div id="placeholder-view" class="view-container">
-        <div class="loading-text" style="margin-top:20px;">View not implemented yet.</div>
+    <!-- READ (ARTICLE) VIEW -->
+    <div id="read-view" class="view-container list-view">
+        <div class="view-header">
+            <div class="view-title">Write Article (AI)</div>
+        </div>
+        <div style="padding: 12px; border-bottom: 1px solid var(--border-color);">
+            <textarea id="read-prompt-input" class="form-input" placeholder="Enter a topic or text to write an article about..." style="min-height: 80px;"></textarea>
+            <button id="btn-generate-article" class="btn-primary" style="width: 100%;">Generate Article</button>
+        </div>
+        <div id="read-article-output" style="padding: 16px 12px; font-size: 13px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap;">
+            <!-- Generated article will appear here -->
+        </div>
+    </div>
+
+    <!-- PHOTOS VIEW -->
+    <div id="photos-view" class="view-container list-view">
+        <div class="view-header">
+            <div class="view-title">Photos</div>
+            <!-- Hidden file input -->
+            <input type="file" id="photo-upload-input" accept="image/*" multiple style="display: none;">
+            <button class="action-btn" id="btn-add-photo">
+                <span class="material-icons" style="color:var(--accent-color);">add_photo_alternate</span>
+            </button>
+        </div>
+        <div class="photos-grid" id="photos-grid">
+            <!-- Photos appended here via JS -->
+        </div>
+        <div id="photos-empty-state" class="loading-text" style="display: none;">No photos added yet.</div>
+    </div>
+
+    <!-- Fullscreen Photo Modal -->
+    <div class="photo-modal" id="photo-modal">
+        <div class="photo-modal-actions">
+            <button class="action-btn" id="btn-delete-photo"><span class="material-icons" style="color:var(--red-line);">delete</span></button>
+            <button class="action-btn" id="btn-close-modal"><span class="material-icons">close</span></button>
+        </div>
+        <img id="photo-modal-img" src="" alt="Full size photo">
     </div>
 
     <script type="module">
@@ -623,10 +739,12 @@
         let saveTimeout = null;
         let newsLoaded = false;
         let emailsLoaded = false;
+        let photosLoaded = false;
         let currentNewsUrl = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en";
         
         let allEmailsData = [];
         let currentEmailFilter = "All";
+        let emailLabelMap = new Map(); 
 
         let timeLineElement = document.createElement('div');
         timeLineElement.id = 'current-time-line';
@@ -647,8 +765,210 @@
                     loadNews(currentNewsUrl);
                 } else if (targetView === 'email-view' && !emailsLoaded) {
                     loadEmails();
+                } else if (targetView === 'photos-view' && !photosLoaded) {
+                    loadPhotos();
                 }
             });
+        });
+
+        // -------------------------
+        // PHOTOS LOGIC (LocalStorage)
+        // -------------------------
+        const btnAddPhoto = document.getElementById('btn-add-photo');
+        const photoUploadInput = document.getElementById('photo-upload-input');
+        const photosGrid = document.getElementById('photos-grid');
+        const photosEmptyState = document.getElementById('photos-empty-state');
+        
+        const photoModal = document.getElementById('photo-modal');
+        const photoModalImg = document.getElementById('photo-modal-img');
+        const btnCloseModal = document.getElementById('btn-close-modal');
+        const btnDeletePhoto = document.getElementById('btn-delete-photo');
+        
+        let localPhotos = [];
+        let currentViewingPhotoId = null;
+
+        function loadPhotos() {
+            photosLoaded = true;
+            try {
+                const stored = localStorage.getItem('tracker_photos');
+                if (stored) localPhotos = JSON.parse(stored);
+            } catch (err) {
+                console.error('Failed to load photos from LocalStorage', err);
+            }
+            renderPhotos();
+        }
+
+        function savePhotosToLocalStorage() {
+            try {
+                localStorage.setItem('tracker_photos', JSON.stringify(localPhotos));
+            } catch (e) {
+                alert("Device storage is full! Some photos could not be saved. Try deleting old ones.");
+                console.error(e);
+            }
+        }
+
+        function renderPhotos() {
+            photosGrid.innerHTML = '';
+            if (localPhotos.length === 0) {
+                photosEmptyState.style.display = 'block';
+            } else {
+                photosEmptyState.style.display = 'none';
+                localPhotos.forEach(photo => {
+                    const img = document.createElement('img');
+                    img.src = photo.data;
+                    img.className = 'photo-item';
+                    img.loading = 'lazy';
+                    img.addEventListener('click', () => openPhotoModal(photo));
+                    photosGrid.appendChild(img);
+                });
+            }
+        }
+
+        btnAddPhoto.addEventListener('click', () => {
+            photoUploadInput.click();
+        });
+
+        // Image Compressor to prevent LocalStorage Quota Exceeded
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 800; // Resize bounds
+                        const MAX_HEIGHT = 800;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        // Save as JPEG with 60% quality to save space
+                        resolve(canvas.toDataURL('image/jpeg', 0.6));
+                    };
+                    img.onerror = reject;
+                };
+                reader.onerror = reject;
+            });
+        }
+
+        photoUploadInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+
+            for (let file of files) {
+                try {
+                    const compressedBase64 = await compressImage(file);
+                    localPhotos.unshift({ id: Date.now() + Math.random(), data: compressedBase64 });
+                } catch (err) {
+                    console.error("Error processing image:", err);
+                }
+            }
+            savePhotosToLocalStorage();
+            renderPhotos();
+            photoUploadInput.value = ''; // Reset input
+        });
+
+        // Modal Logic
+        function openPhotoModal(photo) {
+            currentViewingPhotoId = photo.id;
+            photoModalImg.src = photo.data;
+            photoModal.style.display = 'flex';
+        }
+
+        btnCloseModal.addEventListener('click', () => {
+            photoModal.style.display = 'none';
+            currentViewingPhotoId = null;
+        });
+
+        // Close when clicking the black background
+        photoModal.addEventListener('click', (e) => {
+            if (e.target === photoModal) {
+                photoModal.style.display = 'none';
+                currentViewingPhotoId = null;
+            }
+        });
+
+        btnDeletePhoto.addEventListener('click', () => {
+            if (confirm("Delete this photo?")) {
+                localPhotos = localPhotos.filter(p => p.id !== currentViewingPhotoId);
+                savePhotosToLocalStorage();
+                renderPhotos();
+                photoModal.style.display = 'none';
+                currentViewingPhotoId = null;
+            }
+        });
+
+
+        // -------------------------
+        // READ / AI ARTICLE LOGIC
+        // -------------------------
+        const readPromptInput = document.getElementById('read-prompt-input');
+        const btnGenerateArticle = document.getElementById('btn-generate-article');
+        const readArticleOutput = document.getElementById('read-article-output');
+        const GEMINI_API_KEY = "AIzaSyBNzD2PyzZszWiOoON1Yh_1lH1QtTl6LRI";
+
+        btnGenerateArticle.addEventListener('click', async () => {
+            const topic = readPromptInput.value.trim();
+            if (!topic) return;
+
+            btnGenerateArticle.disabled = true;
+            btnGenerateArticle.innerText = "Generating...";
+            readArticleOutput.innerHTML = '<div class="loading-text">Writing article... Please wait.</div>';
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-goog-api-key': GEMINI_API_KEY
+                    },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Write a comprehensive, engaging article about: ${topic}. Format with clear headings and paragraphs.` }] }]
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error?.message || `HTTP ${response.status}: ${JSON.stringify(data)}`);
+                }
+
+                if (data.candidates && data.candidates.length > 0) {
+                    let text = data.candidates[0].content.parts[0].text;
+                    
+                    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                    text = text.replace(/### (.*?)\n/g, '<h3>$1</h3>\n');
+                    text = text.replace(/## (.*?)\n/g, '<h2>$1</h2>\n');
+                    text = text.replace(/# (.*?)\n/g, '<h2>$1</h2>\n');
+
+                    readArticleOutput.innerHTML = text;
+                } else {
+                    readArticleOutput.innerHTML = `<div class="error-message">API returned success but no content. Response: ${JSON.stringify(data)}</div>`;
+                }
+            } catch (err) {
+                console.error("Gemini API Error:", err);
+                readArticleOutput.innerHTML = `<div class="error-message"><strong>Error generating article:</strong><br><br>${err.message}</div>`;
+            } finally {
+                btnGenerateArticle.disabled = false;
+                btnGenerateArticle.innerText = "Generate Article";
+            }
         });
 
         // -------------------------
@@ -660,14 +980,23 @@
         });
         document.getElementById('btn-cancel-email').addEventListener('click', () => {
             emailForm.style.display = 'none';
+            document.getElementById('email-direction').value = 'To';
             document.getElementById('email-to-from').value = '';
             document.getElementById('email-subject').value = '';
             document.getElementById('email-body').value = '';
             document.getElementById('email-label').value = '';
             document.getElementById('email-label-color').value = '#03a9f4';
         });
+
+        document.getElementById('email-label').addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            if (emailLabelMap.has(val)) {
+                document.getElementById('email-label-color').value = emailLabelMap.get(val);
+            }
+        });
         
         document.getElementById('btn-save-email').addEventListener('click', () => {
+            const direction = document.getElementById('email-direction').value;
             const toFrom = document.getElementById('email-to-from').value.trim();
             const subject = document.getElementById('email-subject').value.trim();
             const body = document.getElementById('email-body').value.trim();
@@ -677,6 +1006,7 @@
             if (!toFrom && !subject && !body) return;
 
             const emailData = {
+                direction,
                 toFrom,
                 subject,
                 body,
@@ -690,32 +1020,47 @@
             }).catch(console.error);
         });
 
-        function renderEmailTabs() {
-            const labelMap = new Map();
+        emailList.addEventListener('click', (e) => {
+            const btn = e.target.closest('.delete-email-btn');
+            if (btn) {
+                const emailId = btn.getAttribute('data-id');
+                if (confirm("Are you sure you want to delete this email?")) {
+                    remove(ref(db, 'emails/' + emailId)).catch(console.error);
+                }
+            }
+        });
+
+        function renderEmailTabsAndDatalist() {
+            emailLabelMap.clear();
             allEmailsData.forEach(e => {
                 if (e.label) {
-                    // Use the color of the most recently added label
-                    if (!labelMap.has(e.label)) {
-                        labelMap.set(e.label, e.labelColor || '#bb86fc');
+                    if (!emailLabelMap.has(e.label)) {
+                        emailLabelMap.set(e.label, e.labelColor || '#bb86fc');
                     }
                 }
             });
 
             let html = `<div class="category-tab ${currentEmailFilter === 'All' ? 'active' : ''}" data-label="All" style="--tab-color: var(--accent-color);">All</div>`;
-            
-            labelMap.forEach((color, label) => {
+            emailLabelMap.forEach((color, label) => {
                 const isActive = currentEmailFilter === label ? 'active' : '';
                 html += `<div class="category-tab ${isActive}" data-label="${label}" style="--tab-color: ${color};">${label}</div>`;
             });
-
             emailCategoryTabs.innerHTML = html;
 
             emailCategoryTabs.querySelectorAll('.category-tab').forEach(tab => {
                 tab.addEventListener('click', () => {
                     currentEmailFilter = tab.getAttribute('data-label');
-                    renderEmailTabs();
+                    renderEmailTabsAndDatalist();
                     renderEmailList();
                 });
+            });
+
+            const datalist = document.getElementById('email-labels-list');
+            datalist.innerHTML = '';
+            emailLabelMap.forEach((color, label) => {
+                const option = document.createElement('option');
+                option.value = label;
+                datalist.appendChild(option);
             });
         }
 
@@ -744,12 +1089,25 @@
                     badgeHtml = `<span class="item-label-badge" style="background-color: ${email.labelColor || '#bb86fc'};">${email.label}</span>`;
                 }
 
+                const dir = email.direction || 'To';
+
                 li.innerHTML = `
-                    <div class="item-title">${email.subject || '(No Subject)'}</div>
-                    <div class="item-desc">${email.body || ''}</div>
-                    <div class="item-meta">
-                        ${badgeHtml}
-                        <span>${email.toFrom || 'Unknown'} • ${dateStr} at ${timeStr}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                        <div style="font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                            <strong style="color: var(--accent-color);">${dir}:</strong>
+                            <span style="color: var(--text-primary); font-weight: bold;">${email.toFrom || 'Unknown'}</span>
+                        </div>
+                        <div style="font-size: 10px; color: var(--text-secondary); text-align: right; white-space: nowrap;">
+                            ${dateStr} ${timeStr}
+                        </div>
+                    </div>
+                    ${badgeHtml}
+                    <div class="item-title" style="margin-top: 4px;">${email.subject || '(No Subject)'}</div>
+                    <div class="item-desc" style="white-space: pre-wrap;">${email.body || ''}</div>
+                    <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+                        <button class="action-btn delete-email-btn" data-id="${email.id}" style="padding: 4px;">
+                            <span class="material-icons" style="font-size: 16px; color: var(--red-line);">delete</span>
+                        </button>
                     </div>
                 `;
                 emailList.appendChild(li);
@@ -769,12 +1127,11 @@
                     allEmailsData = [];
                 }
                 
-                // Keep filter valid if the label still exists, otherwise revert to 'All'
                 if (currentEmailFilter !== 'All' && !allEmailsData.some(e => e.label === currentEmailFilter)) {
                     currentEmailFilter = 'All';
                 }
 
-                renderEmailTabs();
+                renderEmailTabsAndDatalist();
                 renderEmailList();
             });
         }
@@ -816,7 +1173,6 @@
                 });
         }
 
-        // News Tab Click Listeners
         document.querySelectorAll('#news-category-tabs .category-tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
                 document.querySelectorAll('#news-category-tabs .category-tab').forEach(t => t.classList.remove('active'));
