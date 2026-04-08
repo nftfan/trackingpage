@@ -109,10 +109,14 @@
     .table-scroll{overflow-y:auto; flex:1;}
     .data-table{width:100%;border-collapse:collapse;font-size:10px;color:#d5d7ff;}
     .data-table thead{position:sticky;top:0;z-index:1;background:rgba(255,255,255,0.05); backdrop-filter:blur(4px);}
-    .data-table th,.data-table td{padding:8px;text-align:left;white-space:nowrap;vertical-align:middle;}
+    .data-table th,.data-table td{padding:8px;text-align:left;vertical-align:top;}
     .data-table th{font-weight:700;text-transform:uppercase;color:#f3f4ff;}
     .data-table tbody tr{border-bottom:1px solid rgba(255,255,255,.03);}
     
+    /* Notes Display */
+    .table-notes-box { margin-top: 6px; font-size: 9.5px; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 4px; white-space: normal;}
+    .table-note-row { display: flex; gap: 5px; color: #cbd5ff; line-height: 1.3; word-break: break-word;}
+
     .status-badge { padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; text-transform:uppercase; }
     .st-started { background:rgba(255,255,255,0.1); color:#fff; }
     .st-arrived { background:rgba(245,158,11,0.2); color:#fcd34d; }
@@ -236,7 +240,7 @@
   <div id="viewShift" class="tab-content table-card">
     <div class="table-scroll">
       <table class="data-table">
-        <thead><tr><th>Order</th><th>Status</th><th>Time</th><th>Earned</th></tr></thead>
+        <thead><tr><th>Order & Notes</th><th>Status</th><th>Time</th><th>Earned</th></tr></thead>
         <tbody id="shiftBody">
           <tr><td colspan="4" style="text-align:center; padding:15px; color:var(--muted);">No deliveries yet.</td></tr>
         </tbody>
@@ -501,13 +505,24 @@
           const d = getDistanceKm(currentLatLng[0], currentLatLng[1], o.pickup.lat, o.pickup.lng);
           distStr = d.toFixed(1) + ' km';
         }
+
+        // Build Notes Display for Available Orders
+        let notesHtml = '';
+        if ((o.pickup && o.pickup.note) || (o.dropoff && o.dropoff.note)) {
+          notesHtml = `<div class="table-notes-box">`;
+          if (o.pickup.note) notesHtml += `<div class="table-note-row"><strong style="color:#fca5a5;">PICK:</strong> <span>${o.pickup.note}</span></div>`;
+          if (o.dropoff.note) notesHtml += `<div class="table-note-row"><strong style="color:#6ee7b7;">DROP:</strong> <span>${o.dropoff.note}</span></div>`;
+          notesHtml += `</div>`;
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>
-            <strong style="color:#a5b4fc;">${o.orderId}</strong><br>
+            <strong style="color:#a5b4fc; font-size:12px;">${o.orderId}</strong><br>
             <span style="color:var(--muted); font-size:9px;">Cust: ${o.customerId}</span>
+            ${notesHtml}
           </td>
-          <td>${distStr}</td>
+          <td style="font-weight:600; color:#e5e7ff;">${distStr}</td>
           <td>
             <div style="display:flex; gap:4px;">
               <button class="btn-accept" ${activeOrder ? 'disabled' : ''} onclick="window.acceptOrder('${o.customerId}', '${o.dbKey}')">Accept</button>
@@ -523,7 +538,7 @@
       });
     }
 
-    // Filter and update My Shift (Completed)
+    // Filter and update My Shift (Completed & Active)
     const myOrders = allOrders.filter(o => o.riderId === currentUserId).sort((a,b) => b.createdAt - a.createdAt);
     shiftBody.innerHTML = '';
     let totalCompleted = 0;
@@ -534,9 +549,22 @@
       myOrders.forEach(o => {
         if(o.status === 'delivered') totalCompleted++;
         const durationMs = o.endTime ? (o.endTime - o.createdAt) : (Date.now() - o.createdAt);
+        
+        // Build Notes Display for Shift Orders
+        let notesHtml = '';
+        if ((o.pickup && o.pickup.note) || (o.dropoff && o.dropoff.note)) {
+          notesHtml = `<div class="table-notes-box">`;
+          if (o.pickup.note) notesHtml += `<div class="table-note-row"><strong style="color:#fca5a5;">PICK:</strong> <span>${o.pickup.note}</span></div>`;
+          if (o.dropoff.note) notesHtml += `<div class="table-note-row"><strong style="color:#6ee7b7;">DROP:</strong> <span>${o.dropoff.note}</span></div>`;
+          notesHtml += `</div>`;
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td><strong style="color:#a5b4fc;">${o.orderId}</strong></td>
+          <td>
+            <strong style="color:#a5b4fc; font-size:11px;">${o.orderId}</strong>
+            ${notesHtml}
+          </td>
           <td><span class="status-badge st-${o.status}">${o.status.replace('_',' ')}</span></td>
           <td>${formatTime(durationMs)}</td>
           <td style="${o.status==='delivered' ? 'color:#fcd34d;font-weight:700;' : ''}">${o.status==='delivered'?'€5.00':'—'}</td>
