@@ -33,27 +33,27 @@
     .leaflet-container{background:#0f0f12;outline:none;font-family:inherit;}
     .leaflet-control-attribution{display:none!important;}
 
-    /* Map Tooltip Popups for Notes */
+    /* White Rectangle Tooltip Popups */
     .map-note-tooltip {
-      background: rgba(15, 23, 42, 0.9) !important;
-      border: 1px solid rgba(255,255,255,0.2) !important;
-      color: #fff !important;
-      font-size: 9px !important;
+      background: #ffffff !important;
+      border: none !important;
+      color: #111111 !important;
+      font-size: 11px !important;
       font-weight: 400 !important;
-      border-radius: 6px !important;
-      padding: 4px 8px !important;
+      border-radius: 4px !important;
+      padding: 6px 10px !important;
       white-space: pre-wrap !important;
-      max-width: 120px !important;
-      text-align: center !important;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
-      backdrop-filter: blur(4px) !important;
-      line-height: 1.2 !important;
-      text-transform: uppercase !important;
-      letter-spacing: 0.3px !important;
+      max-width: 140px !important;
+      text-align: left !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+      line-height: 1.3 !important;
+      text-transform: none !important;
+      letter-spacing: 0 !important;
     }
-    .map-note-tooltip.pickup-tooltip { border-color: #fca5a5 !important; color: #fca5a5 !important; }
-    .map-note-tooltip.dropoff-tooltip { border-color: #6ee7b7 !important; color: #6ee7b7 !important; }
-    .leaflet-tooltip-top:before { border-top-color: rgba(15, 23, 42, 0.9) !important; }
+    .map-note-tooltip.pickup-tooltip { border-left: 3px solid #ef4444 !important; }
+    .map-note-tooltip.dropoff-tooltip { border-left: 3px solid #10b981 !important; }
+    .leaflet-tooltip-top:before { border-top-color: #ffffff !important; }
+    .leaflet-tooltip-bottom:before { border-bottom-color: #ffffff !important; }
 
     /* Guide Below Map */
     .map-guide {
@@ -141,7 +141,7 @@
     /* Active Order Controls (Cancel & Chat) */
     .active-order-controls { display: none; flex-direction: column; gap: 8px; margin-top: 2px; flex-shrink: 0; }
 
-    /* Cards Layout (Replaces Table) */
+    /* Cards Layout */
     .orders-section { flex: 1; display: flex; flex-direction: column; min-height: 220px; margin-top: 4px; }
     .orders-header { padding: 8px 10px; font-size: 13px; color: #e5e7ff; display: flex; justify-content: space-between; align-items: center; letter-spacing:0.5px; text-transform: uppercase;}
     .orders-header span:last-child { font-size: 11px; color: var(--muted); text-transform: none; letter-spacing: 0; }
@@ -158,6 +158,29 @@
       transition: background 0.3s;
     }
     .order-card:hover { background: rgba(255,255,255,0.05); }
+
+    /* Completed Card Styles - Everything Grey */
+    .completed-card {
+      background: rgba(20, 20, 25, 0.4); /* Darker, recessed background */
+      border-color: rgba(255, 255, 255, 0.02);
+    }
+    .completed-card .order-id, 
+    .completed-card .pin-badge, 
+    .completed-card .tl-done, 
+    .completed-card .tl-issue, 
+    .completed-card .tl-time,
+    .completed-card .card-note-label, 
+    .completed-card span {
+      color: #71717a !important; /* Muted grey text */
+    }
+    .completed-card .pin-badge {
+      background: rgba(255,255,255,0.03) !important;
+      border-color: transparent !important;
+    }
+    .completed-card .card-note-box {
+      background: rgba(255,255,255,0.01) !important;
+      border-color: rgba(255,255,255,0.02) !important;
+    }
 
     .order-card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; }
     .order-id { font-size: 16px; color: #a5b4fc; letter-spacing: 1px; font-family: monospace; }
@@ -816,7 +839,7 @@
       // Both points exist. Check if notes are fully submitted.
       if (pNoteState === 'edit' || dNoteState === 'edit') {
          mapGuide.className = 'map-guide action-needed';
-         mapGuide.innerHTML = 'Step 4: Submit all notes to enable Place Order ����';
+         mapGuide.innerHTML = 'Step 4: Submit all notes to enable Place Order 📝';
       } else {
          mapGuide.className = 'map-guide success';
          mapGuide.innerHTML = 'Ready! Click "Place Order" to continue ✅';
@@ -948,8 +971,10 @@
       }
       localStatusTimes[o.dbKey]['pending'] = o.createdAt; 
 
+      const isCompleted = ['delivered', 'cancelled', 'issue'].includes(o.status);
+
       const card = document.createElement('div');
-      card.className = 'order-card';
+      card.className = 'order-card' + (isCompleted ? ' completed-card' : '');
       
       // Build Timeline HTML
       let timelineHtml = '<div class="timeline">';
@@ -978,15 +1003,13 @@
       if (o.pickup.note || o.dropoff.note) {
         notesHtml = `<div class="card-notes-container">`;
         
-        const isDelivered = ['delivered', 'cancelled', 'issue'].includes(o.status);
-
         if (o.pickup.note) {
             const cleanPickNote = o.pickup.note.replace(/['"`]/g, '');
             notesHtml += `
             <div class="card-note-box">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <span class="card-note-label" style="color:#fca5a5;">Pickup Note</span>
-                  ${!isDelivered ? `<button class="btn-card-edit" onclick="window.openEditModal('${o.dbKey}', 'pickup', '${cleanPickNote}')">Edit</button>` : ''}
+                  ${!isCompleted ? `<button class="btn-card-edit" onclick="window.openEditModal('${o.dbKey}', 'pickup', '${cleanPickNote}')">Edit</button>` : ''}
                 </div>
                 <div class="card-note-row"><span>${o.pickup.note}</span></div>
             </div>`;
@@ -997,7 +1020,7 @@
             <div class="card-note-box">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <span class="card-note-label" style="color:#6ee7b7;">Dropoff Note</span>
-                  ${!isDelivered ? `<button class="btn-card-edit" onclick="window.openEditModal('${o.dbKey}', 'dropoff', '${cleanDropNote}')">Edit</button>` : ''}
+                  ${!isCompleted ? `<button class="btn-card-edit" onclick="window.openEditModal('${o.dbKey}', 'dropoff', '${cleanDropNote}')">Edit</button>` : ''}
                 </div>
                 <div class="card-note-row"><span>${o.dropoff.note}</span></div>
             </div>`;
