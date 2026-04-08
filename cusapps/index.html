@@ -33,6 +33,27 @@
     .leaflet-container{background:#0f0f12;outline:none;}
     .leaflet-control-attribution{display:none!important;}
 
+    /* Map Tooltip Popups for Notes */
+    .map-note-tooltip {
+      background: rgba(15, 23, 42, 0.9) !important;
+      border: 1px solid rgba(255,255,255,0.2) !important;
+      color: #fff !important;
+      font-size: 9px !important;
+      font-weight: 800 !important;
+      border-radius: 6px !important;
+      padding: 4px 8px !important;
+      white-space: pre-wrap !important;
+      max-width: 120px !important;
+      text-align: center !important;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+      backdrop-filter: blur(4px) !important;
+      line-height: 1.2 !important;
+      text-transform: uppercase !important;
+    }
+    .map-note-tooltip.pickup-tooltip { border-color: #fca5a5 !important; color: #fca5a5 !important; }
+    .map-note-tooltip.dropoff-tooltip { border-color: #6ee7b7 !important; color: #6ee7b7 !important; }
+    .leaflet-tooltip-top:before { border-top-color: rgba(15, 23, 42, 0.9) !important; }
+
     /* Guide Below Map */
     .map-guide {
       text-align: center;
@@ -49,7 +70,7 @@
     .map-guide.action-needed { color: #fcd34d; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); }
     .map-guide.success { color: #6ee7b7; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); }
 
-    /* Notes Area */
+    /* Initial Notes Area (Under Map) */
     .notes-area { display: flex; flex-direction: column; gap: 6px; }
     .note-input-group {
       display: none; align-items: center; gap: 8px;
@@ -108,11 +129,21 @@
 
     @keyframes alert-pulse { 0% { opacity: 0.6; } 100% { opacity: 1; text-shadow: 0 0 8px currentColor; } }
 
-    .pin-badge { display: inline-block; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; padding: 2px 6px; border-radius: 4px; font-family: Menlo, monospace; font-size: 11px; font-weight: bold; letter-spacing: 1px; margin-top: 6px; }
+    .pin-badge { display: inline-block; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; padding: 2px 6px; border-radius: 4px; font-family: Menlo, monospace; font-size: 11px; font-weight: bold; letter-spacing: 1px; margin-top: 6px; margin-bottom: 12px;}
     
-    .table-notes-box { margin-top: 8px; font-size: 10.5px; background: rgba(0,0,0,0.2); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 5px;}
-    .table-note-row { display: flex; gap: 6px; color: #cbd5ff; line-height: 1.3;}
-    
+    /* Table Order Notes (Editable) */
+    .order-notes-container { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+    .order-note-block { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 8px; }
+    .order-note-header { font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }
+    .on-pickup { color: #fca5a5; }
+    .on-dropoff { color: #6ee7b7; }
+    .order-note-form { display: flex; gap: 6px; }
+    .order-note-input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 11px; padding: 6px 8px; outline: none; transition: border 0.2s; width: 100%;}
+    .order-note-input:focus { border-color: var(--accent); }
+    .order-note-btn { background: rgba(79, 140, 255, 0.15); border: 1px solid rgba(79, 140, 255, 0.3); color: #aab7ff; border-radius: 6px; padding: 0 10px; font-size: 10px; font-weight: 700; cursor: pointer; text-transform: uppercase; transition: all 0.2s; }
+    .order-note-btn:active { transform: scale(0.95); }
+    .order-note-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
     .btn-chat-open { background: linear-gradient(135deg,#8b5cf6,#6d28d9); color: white; border: none; padding: 6px 10px; border-radius: 6px; font-weight: 700; font-size: 10px; cursor: pointer; text-transform: uppercase; margin-top: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;}
     .chat-badge { background: #ef4444; color: #fff; border-radius: 50%; padding: 2px 6px; font-size: 9px; font-weight: 900; line-height: 1; display: inline-flex; align-items: center; justify-content: center;}
 
@@ -202,7 +233,7 @@
     </div>
     <div class="table-scroll">
       <table class="data-table">
-        <thead><tr><th style="width:30%;">Order Details</th><th>Real-Time Status</th></tr></thead>
+        <thead><tr><th style="width:50%;">Order Details & Notes</th><th>Real-Time Status</th></tr></thead>
         <tbody id="ordersBody">
           <tr><td colspan="2" style="text-align:center; padding:20px; color:var(--muted);">No active orders.</td></tr>
         </tbody>
@@ -247,7 +278,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, push, set, onValue, off } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, push, set, update, onValue, off } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
@@ -357,6 +388,51 @@
     localStorage.setItem('chatLastRead', JSON.stringify(lastReadTimestamps));
   }
 
+  // Handle Note Updates from Table
+  window.saveOrderNote = async function(dbKey, type) {
+    const inputId = type === 'pickup' ? `pnote-${dbKey}` : `dnote-${dbKey}`;
+    const inputEl = document.getElementById(inputId);
+    if (!inputEl) return;
+    
+    const newNote = inputEl.value.trim();
+    const btn = inputEl.nextElementSibling;
+    
+    try {
+      btn.textContent = '...';
+      btn.disabled = true;
+      
+      await update(ref(db, `customerOrders/${currentUserId}/${dbKey}/${type}`), {
+        note: newNote
+      });
+      
+      showToast(`${type} note saved!`);
+      btn.textContent = 'Saved';
+      setTimeout(() => { btn.textContent = 'Submit'; btn.disabled = false; }, 2000);
+    } catch (e) {
+      console.error(e);
+      showToast('Error saving note.');
+      btn.disabled = false;
+      btn.textContent = 'Submit';
+    }
+  };
+
+  // Live map popup bindings during order creation
+  pickupNoteInput.addEventListener('input', (e) => {
+    if (markerPickup) {
+      const val = e.target.value.trim();
+      if (val) markerPickup.bindTooltip(val, { permanent: true, direction: 'top', offset: [0, -25], className: 'map-note-tooltip pickup-tooltip' }).openTooltip();
+      else markerPickup.unbindTooltip();
+    }
+  });
+
+  dropoffNoteInput.addEventListener('input', (e) => {
+    if (markerDropoff) {
+      const val = e.target.value.trim();
+      if (val) markerDropoff.bindTooltip(val, { permanent: true, direction: 'top', offset: [0, -25], className: 'map-note-tooltip dropoff-tooltip' }).openTooltip();
+      else markerDropoff.unbindTooltip();
+    }
+  });
+
   // --- Live Tracking Map Logic ---
   function updateTrackingMap(activeOrder) {
     if (!activeOrder) {
@@ -420,11 +496,29 @@
     const pIcon = makeDotIcon('dot-red', 'PICK UP', isPending); 
     const dIcon = makeDotIcon('dot-green', 'DROP OFF');
 
-    if (!livePickupMarker) livePickupMarker = L.marker([activeOrder.pickup.lat, activeOrder.pickup.lng], { icon: pIcon }).addTo(mapLayerGroup);
-    else livePickupMarker.setIcon(pIcon);
+    if (!livePickupMarker) {
+      livePickupMarker = L.marker([activeOrder.pickup.lat, activeOrder.pickup.lng], { icon: pIcon }).addTo(mapLayerGroup);
+    } else {
+      livePickupMarker.setIcon(pIcon);
+    }
+    
+    if (activeOrder.pickup.note) {
+      livePickupMarker.bindTooltip(activeOrder.pickup.note, { permanent: true, direction: 'top', offset: [0, -25], className: 'map-note-tooltip pickup-tooltip' }).openTooltip();
+    } else {
+      livePickupMarker.unbindTooltip();
+    }
 
-    if (!liveDropoffMarker) liveDropoffMarker = L.marker([activeOrder.dropoff.lat, activeOrder.dropoff.lng], { icon: dIcon }).addTo(mapLayerGroup);
-    else liveDropoffMarker.setIcon(dIcon);
+    if (!liveDropoffMarker) {
+      liveDropoffMarker = L.marker([activeOrder.dropoff.lat, activeOrder.dropoff.lng], { icon: dIcon }).addTo(mapLayerGroup);
+    } else {
+      liveDropoffMarker.setIcon(dIcon);
+    }
+
+    if (activeOrder.dropoff.note) {
+      liveDropoffMarker.bindTooltip(activeOrder.dropoff.note, { permanent: true, direction: 'top', offset: [0, -25], className: 'map-note-tooltip dropoff-tooltip' }).openTooltip();
+    } else {
+      liveDropoffMarker.unbindTooltip();
+    }
 
     if (!livePolyline) {
       livePolyline = L.polyline([
@@ -490,9 +584,13 @@
     if (!pointPickup) {
       pointPickup = e.latlng;
       markerPickup = L.marker(pointPickup, { icon: makeDotIcon('dot-red', 'PICK UP') }).addTo(mapLayerGroup);
+      // Re-trigger input if note already typed
+      if(pickupNoteInput.value) pickupNoteInput.dispatchEvent(new Event('input'));
     } else if (!pointDropoff) {
       pointDropoff = e.latlng;
       markerDropoff = L.marker(pointDropoff, { icon: makeDotIcon('dot-green', 'DROP OFF') }).addTo(mapLayerGroup);
+      // Re-trigger input if note already typed
+      if(dropoffNoteInput.value) dropoffNoteInput.dispatchEvent(new Event('input'));
     }
     updateUIState();
   });
@@ -591,16 +689,31 @@
       }
       timelineHtml += '</div>';
 
-      // Notes Display HTML
-      let notesHtml = '';
-      const pNote = o.pickup.note;
-      const dNote = o.dropoff.note;
-      if (pNote || dNote) {
-        notesHtml = `<div class="table-notes-box">`;
-        if (pNote) notesHtml += `<div class="table-note-row"><strong style="color:#fca5a5;">PICKUP:</strong> <span>${pNote}</span></div>`;
-        if (dNote) notesHtml += `<div class="table-note-row"><strong style="color:#6ee7b7;">DROPOFF:</strong> <span>${dNote}</span></div>`;
-        notesHtml += `</div>`;
-      }
+      // Editable Notes HTML (Table)
+      const pNoteVal = o.pickup?.note || '';
+      const dNoteVal = o.dropoff?.note || '';
+      
+      const isDelivered = ['delivered', 'cancelled', 'issue'].includes(o.status);
+      const disabledAttr = isDelivered ? 'disabled' : '';
+
+      const notesHtml = `
+        <div class="order-notes-container">
+          <div class="order-note-block">
+            <div class="order-note-header on-pickup">Pickup Note</div>
+            <div class="order-note-form">
+              <input type="text" id="pnote-${o.dbKey}" class="order-note-input" placeholder="Add pickup note..." value="${pNoteVal}" ${disabledAttr}>
+              <button class="order-note-btn" onclick="window.saveOrderNote('${o.dbKey}', 'pickup')" ${disabledAttr}>Submit</button>
+            </div>
+          </div>
+          <div class="order-note-block">
+            <div class="order-note-header on-dropoff">Dropoff Note</div>
+            <div class="order-note-form">
+              <input type="text" id="dnote-${o.dbKey}" class="order-note-input" placeholder="Add dropoff note..." value="${dNoteVal}" ${disabledAttr}>
+              <button class="order-note-btn" onclick="window.saveOrderNote('${o.dbKey}', 'dropoff')" ${disabledAttr}>Submit</button>
+            </div>
+          </div>
+        </div>
+      `;
 
       // Unread Message Logic & Chat Button
       let unreadCount = 0;
@@ -620,9 +733,7 @@
       tr.innerHTML = `
         <td>
           <strong style="font-size:14px; color:#a5b4fc;">${o.orderId}</strong>
-          <div style="margin-top: 4px;">
-            <span class="pin-badge">PIN: ${o.receivingPin || 'N/A'}</span>
-          </div>
+          <div><span class="pin-badge">PIN: ${o.receivingPin || 'N/A'}</span></div>
           ${notesHtml}
         </td>
         <td>
