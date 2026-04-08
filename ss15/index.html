@@ -61,14 +61,14 @@
       background: linear-gradient(180deg, #1c1c24 0%, var(--panel) 100%);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: var(--radius-md);
-      padding: 8px 10px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
       gap: 6px;
       flex-shrink: 0;
       box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-      max-width: 360px; /* Reduced width */
-      margin: 0 auto;   /* Centered */
+      max-width: 360px;
+      margin: 0 auto;
       width: 100%;
     }
 
@@ -85,7 +85,16 @@
     }
 
     .form-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: start;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px 6px; align-items: end;
+    }
+
+    .input-col {
+      display: flex; flex-direction: column; gap: 2px;
+    }
+
+    .tiny-label {
+      font-size: 8px; color: var(--muted); font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; padding-left: 2px;
     }
 
     .form-input {
@@ -103,8 +112,7 @@
     }
     select.form-input option { background-color: var(--panel); color: var(--text); font-size: 12px; }
 
-    .time-wrapper { display: flex; flex-direction: column; gap: 2px; }
-    .end-time-hint { font-size: 9px; color: var(--accent); font-weight: 700; text-align: center; }
+    .end-time-hint { font-size: 9px; color: var(--accent); font-weight: 700; text-align: center; margin-top: 2px; }
 
     .btn-submit {
       height: 30px; border-radius: 6px; border: 0; cursor: pointer; margin-top: 0;
@@ -119,12 +127,12 @@
       text-transform: uppercase; letter-spacing: 0.3px; margin-top: 0; opacity: 0.9;
     }
 
-    /* Search Bar */
-    .search-bar { display: flex; gap: 8px; flex-shrink: 0; }
+    /* Smaller Compact Search Bar */
+    .search-bar { display: flex; gap: 6px; flex-shrink: 0; }
     .search-input {
-      flex: 1; height: 36px; border-radius: 8px; padding: 0 10px;
+      flex: 1; height: 30px; border-radius: 6px; padding: 0 8px;
       border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
-      color: var(--text); font-weight: 600; font-size: 12px; outline: none; transition: border-color 0.2s;
+      color: var(--text); font-weight: 600; font-size: 11px; outline: none; transition: border-color 0.2s;
     }
     .search-input:focus { border-color: var(--accent); }
     .search-input::placeholder { color: var(--muted); font-weight: 500; }
@@ -242,20 +250,27 @@
     </div>
     
     <div class="form-grid">
-      <select id="schedWorker" class="form-input">
-        <option value="" disabled selected>Worker</option>
-      </select>
-      <select id="schedSeg" class="form-input">
-        <option value="" disabled selected>Segment</option>
-      </select>
-      <input type="date" id="schedDate" class="form-input">
-      
-      <div class="time-wrapper">
+      <div class="input-col">
+        <select id="schedWorker" class="form-input">
+          <option value="" disabled selected>Select Worker</option>
+        </select>
+      </div>
+      <div class="input-col">
+        <select id="schedSeg" class="form-input">
+          <option value="" disabled selected>Select Segment</option>
+        </select>
+      </div>
+      <div class="input-col">
+        <span class="tiny-label">Select Date</span>
+        <input type="date" id="schedDate" class="form-input">
+      </div>
+      <div class="input-col">
+        <span class="tiny-label">Select Time</span>
         <input type="time" id="schedTime" class="form-input">
-        <div id="endTimeHint" class="end-time-hint">Ends: --:--</div>
       </div>
     </div>
-
+    
+    <div id="endTimeHint" class="end-time-hint">Ends: --:--</div>
     <button id="btnSubmitShift" class="btn-submit">Confirm</button>
     <div class="cancel-notice">To cancel added shifts, contact us in Google Chat</div>
   </div>
@@ -396,7 +411,7 @@
       Object.keys(actualsMap).forEach(d => { if(!unifiedShiftsByDate[d]) unifiedShiftsByDate[d] = []; });
 
       // Match scheduled
-      Object.entries(scheduledDataRaw).forEach(([schedKey, sched]) => {
+      Object.values(scheduledDataRaw).forEach(sched => {
         if (sched.worker) uniqueWorkers.add(sched.worker.trim());
         const dStr = sched.date;
         if (!unifiedShiftsByDate[dStr]) unifiedShiftsByDate[dStr] = [];
@@ -424,19 +439,9 @@
         }
 
         if (actualMatch) {
-          actualMatch.segment = sched.segment; 
-          actualMatch.wasScheduled = true; 
-          actualMatch.schedTime = displaySchedTime;
-          actualMatch.schedKey = schedKey;
+          actualMatch.segment = sched.segment; actualMatch.wasScheduled = true; actualMatch.schedTime = displaySchedTime;
         } else {
-          unifiedShiftsByDate[dStr].push({ 
-            type: isPast ? 'missed' : 'scheduled', 
-            worker: sched.worker, 
-            campaign: '', 
-            segment: sched.segment, 
-            scheduledTime: displaySchedTime,
-            schedKey: schedKey 
-          });
+          unifiedShiftsByDate[dStr].push({ type: isPast ? 'missed' : 'scheduled', worker: sched.worker, campaign: '', segment: sched.segment, scheduledTime: displaySchedTime });
         }
       });
 
@@ -446,8 +451,7 @@
         Object.values(actualsMap[dateStr]).forEach(act => {
           const shiftDurationMs = act.maxTs - act.minTs;
           unifiedShiftsByDate[dateStr].push({
-            type: 'actual', worker: act.worker, campaign: act.campaign, segment: act.segment, 
-            scheduledTime: act.schedTime, schedKey: act.schedKey,
+            type: 'actual', worker: act.worker, campaign: act.campaign, segment: act.segment, scheduledTime: act.schedTime,
             startTime: formatLocalTime(act.minTs), endTime: act.minTs === act.maxTs ? "Single Action" : formatLocalTime(act.maxTs),
             timeWorkedStr: formatTimeWorked(act.minTs, act.maxTs), earnings: act.validDots * 0.036, isLong: shiftDurationMs >= 3600000
           });
@@ -470,7 +474,7 @@
 
   function populateWorkerDropdown(workersSet) {
     const currentVal = schedWorker.value;
-    schedWorker.innerHTML = '<option value="" disabled selected>Worker</option>';
+    schedWorker.innerHTML = '<option value="" disabled selected>Select Worker</option>';
     Array.from(workersSet).sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'})).forEach(w => {
       const opt = document.createElement('option'); opt.value = w; opt.textContent = w; schedWorker.appendChild(opt);
     });
@@ -524,10 +528,7 @@
           <div class="worker-name">${shift.worker} ${campBadge}${segBadge}</div>
           ${statusHTML}
         </div>
-        <div class="shift-right">
-          ${timeHTML}
-          ${earningsHTML}
-        </div>
+        <div class="shift-right">${timeHTML}${earningsHTML}</div>
       </div>
     `;
   }
