@@ -462,25 +462,9 @@
             color: var(--bg-color);
         }
 
-        .btn-primary:disabled {
-            background-color: var(--border-color);
-            color: var(--text-secondary);
-            cursor: not-allowed;
-        }
-
         .btn-secondary {
             background-color: var(--border-color);
             color: var(--text-primary);
-        }
-
-        .error-message {
-            background-color: rgba(255, 59, 48, 0.1);
-            border: 1px solid var(--red-line);
-            color: var(--red-line);
-            padding: 12px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 11px;
         }
 
         /* Photos View Styles */
@@ -497,7 +481,6 @@
             cursor: pointer;
             background-color: var(--surface-color);
         }
-        /* Fullscreen Photo Modal */
         .photo-modal {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -526,6 +509,28 @@
         }
         .photo-modal-actions .action-btn {
             color: #fff;
+        }
+
+        /* Table styles for Trips */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+        .data-table th {
+            padding: 8px 6px;
+            text-align: left;
+            color: var(--accent-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .data-table td {
+            padding: 12px 6px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+        .data-table td:last-child, .data-table th:last-child {
+            text-align: right;
         }
 
     </style>
@@ -559,9 +564,9 @@
             <span class="material-icons">email</span>
             <span class="tab-label">Email</span>
         </div>
-        <div class="tab-item" data-target="read-view">
-            <span class="material-icons">menu_book</span>
-            <span class="tab-label">Read</span>
+        <div class="tab-item" data-target="trips-view">
+            <span class="material-icons">commute</span>
+            <span class="tab-label">Trips</span>
         </div>
         <div class="tab-item" data-target="photos-view">
             <span class="material-icons">photo_library</span>
@@ -593,18 +598,26 @@
 
     <!-- NEWS VIEW -->
     <div id="news-view" class="view-container list-view">
-        <div class="view-header" style="padding: 10px 12px;">
+        <div class="view-header" style="padding: 10px 12px; gap: 4px;">
             <div class="category-tabs-container" id="news-category-tabs">
-                <div class="category-tab active" data-url="https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en" style="--tab-color: var(--accent-color);">Top</div>
-                <div class="category-tab" data-url="https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en" style="--tab-color: #4caf50;">World</div>
-                <div class="category-tab" data-url="https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en" style="--tab-color: #03a9f4;">Tech</div>
-                <div class="category-tab" data-url="https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en" style="--tab-color: #ff9800;">Science</div>
-                <div class="category-tab" data-url="https://news.google.com/rss/search?q=Pakistan&hl=en-US&gl=US&ceid=US:en" style="--tab-color: #e91e63;">Pakistan</div>
+                <!-- Injected via JS -->
             </div>
+            <button class="action-btn" id="btn-add-news-topic" title="Add Topic">
+                <span class="material-icons" style="color:var(--accent-color);">add</span>
+            </button>
             <button class="action-btn" id="btn-refresh-news" title="Refresh News">
                 <span class="material-icons" style="color:var(--text-primary);">refresh</span>
             </button>
         </div>
+
+        <div class="form-container" id="news-topic-form">
+            <input type="text" id="news-topic-input" class="form-input" placeholder="Enter custom topic (e.g. Finance)">
+            <div class="form-actions">
+                <button class="btn-secondary" id="btn-cancel-topic">Cancel</button>
+                <button class="btn-primary" id="btn-save-topic">Add Topic</button>
+            </div>
+        </div>
+
         <ul class="view-list" id="news-list">
             <div class="loading-text">Loading headlines...</div>
         </ul>
@@ -653,17 +666,46 @@
         </ul>
     </div>
 
-    <!-- READ (EXPLAIN AI) VIEW -->
-    <div id="read-view" class="view-container list-view">
+    <!-- TRIPS VIEW -->
+    <div id="trips-view" class="view-container list-view">
         <div class="view-header">
-            <div class="view-title">Explain (AI)</div>
+            <div class="view-title">Trips</div>
+            <button class="action-btn" id="btn-show-trip-form">
+                <span class="material-icons" style="color:var(--accent-color);">add_circle</span>
+            </button>
         </div>
-        <div style="padding: 12px; border-bottom: 1px solid var(--border-color);">
-            <textarea id="read-prompt-input" class="form-input" placeholder="Enter a topic or text to explain..." style="min-height: 80px;"></textarea>
-            <button id="btn-generate-article" class="btn-primary" style="width: 100%;">Explain</button>
+
+        <div class="form-container" id="trip-form">
+            <input type="text" id="trip-start" class="form-input" placeholder="Start Location">
+            <input type="text" id="trip-end" class="form-input" placeholder="End Location">
+            
+            <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">
+                <input type="date" id="trip-date" class="form-input" style="flex: 1; margin-bottom: 0;">
+                <div class="color-picker-row" style="margin-bottom: 0;">
+                    <input type="color" id="trip-color" class="color-picker-input" value="#4caf50">
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button class="btn-secondary" id="btn-cancel-trip">Cancel</button>
+                <button class="btn-primary" id="btn-save-trip">Save Trip</button>
+            </div>
         </div>
-        <div id="read-article-output" style="padding: 16px 12px; font-size: 13px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap;">
-            <!-- Generated explanation will appear here -->
+
+        <div style="padding: 12px; overflow-x: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="trips-table-body">
+                    <tr><td colspan="4" class="loading-text">Loading trips...</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -714,20 +756,14 @@
         const weekNumberText = document.getElementById('week-number');
         const dayCountText = document.getElementById('day-count');
         const timelineInner = document.getElementById('timeline-inner');
-        const newsList = document.getElementById('news-list');
-        const emailList = document.getElementById('email-list');
-        const emailCategoryTabs = document.getElementById('email-category-tabs');
         
         let selectedDateStr = "";
         let saveTimeout = null;
+        
         let newsLoaded = false;
         let emailsLoaded = false;
         let photosLoaded = false;
-        let currentNewsUrl = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en";
-        
-        let allEmailsData = [];
-        let currentEmailFilter = "All";
-        let emailLabelMap = new Map(); 
+        let tripsLoaded = false;
 
         let timeLineElement = document.createElement('div');
         timeLineElement.id = 'current-time-line';
@@ -745,213 +781,240 @@
                 document.getElementById(targetView).classList.add('active');
 
                 if (targetView === 'news-view' && !newsLoaded) {
-                    loadNews(currentNewsUrl);
+                    initNews();
                 } else if (targetView === 'email-view' && !emailsLoaded) {
                     loadEmails();
+                } else if (targetView === 'trips-view' && !tripsLoaded) {
+                    loadTrips();
                 } else if (targetView === 'photos-view' && !photosLoaded) {
                     loadPhotos();
                 }
             });
         });
 
+
         // -------------------------
-        // PHOTOS LOGIC (LocalStorage)
+        // TRIPS LOGIC
         // -------------------------
-        const btnAddPhoto = document.getElementById('btn-add-photo');
-        const photoUploadInput = document.getElementById('photo-upload-input');
-        const photosGrid = document.getElementById('photos-grid');
-        const photosEmptyState = document.getElementById('photos-empty-state');
-        
-        const photoModal = document.getElementById('photo-modal');
-        const photoModalImg = document.getElementById('photo-modal-img');
-        const btnCloseModal = document.getElementById('btn-close-modal');
-        const btnDeletePhoto = document.getElementById('btn-delete-photo');
-        
-        let localPhotos = [];
-        let currentViewingPhotoId = null;
+        const tripForm = document.getElementById('trip-form');
+        const tripsTableBody = document.getElementById('trips-table-body');
 
-        function loadPhotos() {
-            photosLoaded = true;
-            try {
-                const stored = localStorage.getItem('tracker_photos');
-                if (stored) localPhotos = JSON.parse(stored);
-            } catch (err) {
-                console.error('Failed to load photos from LocalStorage', err);
-            }
-            renderPhotos();
-        }
-
-        function savePhotosToLocalStorage() {
-            try {
-                localStorage.setItem('tracker_photos', JSON.stringify(localPhotos));
-            } catch (e) {
-                alert("Device storage is full! Some photos could not be saved. Try deleting old ones.");
-                console.error(e);
-            }
-        }
-
-        function renderPhotos() {
-            photosGrid.innerHTML = '';
-            if (localPhotos.length === 0) {
-                photosEmptyState.style.display = 'block';
-            } else {
-                photosEmptyState.style.display = 'none';
-                localPhotos.forEach(photo => {
-                    const img = document.createElement('img');
-                    img.src = photo.data;
-                    img.className = 'photo-item';
-                    img.loading = 'lazy';
-                    img.addEventListener('click', () => openPhotoModal(photo));
-                    photosGrid.appendChild(img);
-                });
-            }
-        }
-
-        btnAddPhoto.addEventListener('click', () => {
-            photoUploadInput.click();
+        document.getElementById('btn-show-trip-form').addEventListener('click', () => {
+            tripForm.style.display = 'block';
+            const today = new Date();
+            document.getElementById('trip-date').value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
         });
 
-        function compressImage(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (event) => {
-                    const img = new Image();
-                    img.src = event.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 800; 
-                        const MAX_HEIGHT = 800;
-                        let width = img.width;
-                        let height = img.height;
+        document.getElementById('btn-cancel-trip').addEventListener('click', () => {
+            tripForm.style.display = 'none';
+            document.getElementById('trip-start').value = '';
+            document.getElementById('trip-end').value = '';
+            document.getElementById('trip-date').value = '';
+            document.getElementById('trip-color').value = '#4caf50';
+        });
 
-                        if (width > height) {
-                            if (width > MAX_WIDTH) {
-                                height *= MAX_WIDTH / width;
-                                width = MAX_WIDTH;
-                            }
-                        } else {
-                            if (height > MAX_HEIGHT) {
-                                width *= MAX_HEIGHT / height;
-                                height = MAX_HEIGHT;
-                            }
-                        }
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        resolve(canvas.toDataURL('image/jpeg', 0.6));
-                    };
-                    img.onerror = reject;
-                };
-                reader.onerror = reject;
+        document.getElementById('btn-save-trip').addEventListener('click', () => {
+            const start = document.getElementById('trip-start').value.trim();
+            const end = document.getElementById('trip-end').value.trim();
+            const date = document.getElementById('trip-date').value;
+            const color = document.getElementById('trip-color').value;
+
+            if (!start || !end || !date) return;
+
+            push(ref(db, 'trips'), {
+                start,
+                end,
+                date,
+                color,
+                timestamp: Date.now()
+            }).then(() => {
+                document.getElementById('btn-cancel-trip').click();
+            }).catch(console.error);
+        });
+
+        tripsTableBody.addEventListener('click', (e) => {
+            const btn = e.target.closest('.delete-trip-btn');
+            if (btn) {
+                const tripId = btn.getAttribute('data-id');
+                if (confirm("Delete this trip?")) {
+                    remove(ref(db, 'trips/' + tripId)).catch(console.error);
+                }
+            }
+        });
+
+        function loadTrips() {
+            tripsLoaded = true;
+            onValue(ref(db, 'trips'), (snapshot) => {
+                tripsTableBody.innerHTML = '';
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    const trips = Object.keys(data).map(k => ({id:k, ...data[k]}));
+                    trips.sort((a, b) => b.timestamp - a.timestamp);
+
+                    trips.forEach(t => {
+                        const dateObj = new Date(t.date);
+                        const dateStr = isNaN(dateObj) ? t.date : dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' });
+
+                        tripsTableBody.innerHTML += `
+                            <tr>
+                                <td style="border-left: 4px solid ${t.color}; padding-left: 8px;"><strong>${t.start}</strong></td>
+                                <td><strong>${t.end}</strong></td>
+                                <td style="color: var(--text-secondary);">${dateStr}</td>
+                                <td>
+                                    <button class="action-btn delete-trip-btn" data-id="${t.id}" style="padding: 2px;">
+                                        <span class="material-icons" style="font-size: 16px; color: var(--red-line);">delete</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tripsTableBody.innerHTML = '<tr><td colspan="4" class="loading-text" style="text-align:center;">No trips added.</td></tr>';
+                }
             });
         }
 
-        photoUploadInput.addEventListener('change', async (e) => {
-            const files = e.target.files;
-            if (!files || files.length === 0) return;
-
-            for (let file of files) {
-                try {
-                    const compressedBase64 = await compressImage(file);
-                    localPhotos.unshift({ id: Date.now() + Math.random(), data: compressedBase64 });
-                } catch (err) {
-                    console.error("Error processing image:", err);
-                }
-            }
-            savePhotosToLocalStorage();
-            renderPhotos();
-            photoUploadInput.value = ''; 
-        });
-
-        function openPhotoModal(photo) {
-            currentViewingPhotoId = photo.id;
-            photoModalImg.src = photo.data;
-            photoModal.style.display = 'flex';
-        }
-
-        btnCloseModal.addEventListener('click', () => {
-            photoModal.style.display = 'none';
-            currentViewingPhotoId = null;
-        });
-
-        photoModal.addEventListener('click', (e) => {
-            if (e.target === photoModal) {
-                photoModal.style.display = 'none';
-                currentViewingPhotoId = null;
-            }
-        });
-
-        btnDeletePhoto.addEventListener('click', () => {
-            if (confirm("Delete this photo?")) {
-                localPhotos = localPhotos.filter(p => p.id !== currentViewingPhotoId);
-                savePhotosToLocalStorage();
-                renderPhotos();
-                photoModal.style.display = 'none';
-                currentViewingPhotoId = null;
-            }
-        });
-
 
         // -------------------------
-        // READ / AI EXPLAIN LOGIC
+        // NEWS LOGIC
         // -------------------------
-        const readPromptInput = document.getElementById('read-prompt-input');
-        const btnGenerateArticle = document.getElementById('btn-generate-article');
-        const readArticleOutput = document.getElementById('read-article-output');
-        const GEMINI_API_KEY = "AIzaSyBNzD2PyzZszWiOoON1Yh_1lH1QtTl6LRI";
+        const newsList = document.getElementById('news-list');
+        const newsCategoryTabs = document.getElementById('news-category-tabs');
+        const newsTopicForm = document.getElementById('news-topic-form');
+        
+        let currentNewsUrl = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en";
+        let activeNewsTabName = 'Top';
 
-        btnGenerateArticle.addEventListener('click', async () => {
-            const topic = readPromptInput.value.trim();
+        const defaultNewsTopics = [
+            { name: 'Top', url: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en', color: 'var(--accent-color)' },
+            { name: 'World', url: 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en', color: '#4caf50' },
+            { name: 'Tech', url: 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en', color: '#03a9f4' },
+            { name: 'Science', url: 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en', color: '#ff9800' },
+            { name: 'Pakistan', url: 'https://news.google.com/rss/search?q=Pakistan&hl=en-US&gl=US&ceid=US:en', color: '#e91e63' }
+        ];
+
+        let customNewsTopics = [];
+
+        document.getElementById('btn-add-news-topic').addEventListener('click', () => {
+            newsTopicForm.style.display = 'block';
+            document.getElementById('news-topic-input').focus();
+        });
+
+        document.getElementById('btn-cancel-topic').addEventListener('click', () => {
+            newsTopicForm.style.display = 'none';
+            document.getElementById('news-topic-input').value = '';
+        });
+
+        document.getElementById('btn-save-topic').addEventListener('click', () => {
+            const topic = document.getElementById('news-topic-input').value.trim();
             if (!topic) return;
 
-            btnGenerateArticle.disabled = true;
-            btnGenerateArticle.innerText = "Explaining...";
-            readArticleOutput.innerHTML = '<div class="loading-text">Explaining... Please wait.</div>';
+            const url = `https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=en-US&gl=US&ceid=US:en`;
+            
+            // Generate a random nice color
+            const colors = ['#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#00bcd4', '#009688', '#8bc34a', '#cddc39', '#ffc107', '#ff5722'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
 
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-goog-api-key': GEMINI_API_KEY
-                    },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Explain the following topic clearly and concisely in about one page. Do not use any headings or titles. Topic: ${topic}` }] }]
-                    })
+            push(ref(db, 'news_topics'), { name: topic, url, color, timestamp: Date.now() }).then(() => {
+                document.getElementById('btn-cancel-topic').click();
+                activeNewsTabName = topic;
+                currentNewsUrl = url;
+            }).catch(console.error);
+        });
+
+        function renderNewsTabs() {
+            const allTopics = [...defaultNewsTopics, ...customNewsTopics];
+            newsCategoryTabs.innerHTML = '';
+            
+            allTopics.forEach(topic => {
+                const isActive = (topic.name === activeNewsTabName) ? 'active' : '';
+                const tab = document.createElement('div');
+                tab.className = `category-tab ${isActive}`;
+                tab.style.setProperty('--tab-color', topic.color);
+                tab.innerText = topic.name;
+                
+                tab.addEventListener('click', () => {
+                    activeNewsTabName = topic.name;
+                    renderNewsTabs(); 
+                    loadNews(topic.url);
+                    
+                    const container = document.getElementById('news-category-tabs');
+                    container.scrollTo({
+                        left: tab.offsetLeft - container.offsetWidth / 2 + tab.offsetWidth / 2,
+                        behavior: 'smooth'
+                    });
                 });
 
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error?.message || `HTTP ${response.status}: ${JSON.stringify(data)}`);
-                }
+                newsCategoryTabs.appendChild(tab);
+            });
+        }
 
-                if (data.candidates && data.candidates.length > 0) {
-                    let text = data.candidates[0].content.parts[0].text;
-                    
-                    // Basic Markdown parsing for display (removing headers as requested)
-                    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                    text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-                    readArticleOutput.innerHTML = text;
-                } else {
-                    readArticleOutput.innerHTML = `<div class="error-message">API returned success but no content. Response: ${JSON.stringify(data)}</div>`;
+        function initNews() {
+            newsLoaded = true;
+            
+            // Listen for custom topics
+            onValue(ref(db, 'news_topics'), (snapshot) => {
+                customNewsTopics = [];
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    customNewsTopics = Object.keys(data).map(k => ({id:k, ...data[k]})).sort((a,b) => a.timestamp - b.timestamp);
                 }
-            } catch (err) {
-                console.error("Gemini API Error:", err);
-                readArticleOutput.innerHTML = `<div class="error-message"><strong>Error generating explanation:</strong><br><br>${err.message}</div>`;
-            } finally {
-                btnGenerateArticle.disabled = false;
-                btnGenerateArticle.innerText = "Explain";
-            }
+                renderNewsTabs();
+                // Ensure initial fetch matches active tab
+                const activeTopic = [...defaultNewsTopics, ...customNewsTopics].find(t => t.name === activeNewsTabName);
+                if (activeTopic) loadNews(activeTopic.url);
+            });
+        }
+
+        function loadNews(rssUrl) {
+            currentNewsUrl = rssUrl;
+            newsList.innerHTML = '<div class="loading-text">Loading headlines...</div>';
+            const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+            
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    newsList.innerHTML = '';
+                    if (data.status === 'ok' && data.items && data.items.length > 0) {
+                        data.items.slice(0, 20).forEach(item => {
+                            const li = document.createElement('li');
+                            li.className = 'list-item';
+                            
+                            const date = new Date(item.pubDate);
+                            const timeStr = isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                            
+                            li.innerHTML = `
+                                <a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title}</a>
+                                <div class="item-meta">${item.source || 'Google News'} • ${timeStr}</div>
+                            `;
+                            newsList.appendChild(li);
+                        });
+                    } else {
+                        newsList.innerHTML = '<div class="loading-text">No news found for this topic.</div>';
+                    }
+                })
+                .catch(err => {
+                    console.error("News fetch error:", err);
+                    newsList.innerHTML = '<div class="loading-text">Error fetching news. Please check your connection.</div>';
+                });
+        }
+
+        document.getElementById('btn-refresh-news').addEventListener('click', () => {
+            loadNews(currentNewsUrl);
         });
+
 
         // -------------------------
         // EMAIL LOGIC
         // -------------------------
+        const emailList = document.getElementById('email-list');
+        const emailCategoryTabs = document.getElementById('email-category-tabs');
         const emailForm = document.getElementById('email-form');
+        
+        let allEmailsData = [];
+        let currentEmailFilter = "All";
+        let emailLabelMap = new Map(); 
+
         document.getElementById('btn-show-email-form').addEventListener('click', () => {
             emailForm.style.display = 'block';
         });
@@ -1093,9 +1156,7 @@
 
         function loadEmails() {
             emailsLoaded = true;
-            const emailsRef = ref(db, 'emails');
-            
-            onValue(emailsRef, (snapshot) => {
+            onValue(ref(db, 'emails'), (snapshot) => {
                 if (snapshot.exists()) {
                     const data = snapshot.val();
                     allEmailsData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
@@ -1113,59 +1174,144 @@
             });
         }
 
+
         // -------------------------
-        // NEWS FETCH LOGIC
+        // PHOTOS LOGIC (LocalStorage)
         // -------------------------
-        function loadNews(rssUrl) {
-            currentNewsUrl = rssUrl;
-            newsList.innerHTML = '<div class="loading-text">Loading headlines...</div>';
-            const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
-            
-            fetch(apiUrl)
-                .then(response => response.json())
-                .then(data => {
-                    newsList.innerHTML = '';
-                    if (data.status === 'ok' && data.items) {
-                        data.items.slice(0, 20).forEach(item => {
-                            const li = document.createElement('li');
-                            li.className = 'list-item';
-                            
-                            const date = new Date(item.pubDate);
-                            const timeStr = isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                            
-                            li.innerHTML = `
-                                <a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title}</a>
-                                <div class="item-meta">${item.source || 'Google News'} • ${timeStr}</div>
-                            `;
-                            newsList.appendChild(li);
-                        });
-                        newsLoaded = true;
-                    } else {
-                        newsList.innerHTML = '<div class="loading-text">Failed to load news.</div>';
-                    }
-                })
-                .catch(err => {
-                    console.error("News fetch error:", err);
-                    newsList.innerHTML = '<div class="loading-text">Error fetching news. Please check your connection.</div>';
-                });
+        const btnAddPhoto = document.getElementById('btn-add-photo');
+        const photoUploadInput = document.getElementById('photo-upload-input');
+        const photosGrid = document.getElementById('photos-grid');
+        const photosEmptyState = document.getElementById('photos-empty-state');
+        
+        const photoModal = document.getElementById('photo-modal');
+        const photoModalImg = document.getElementById('photo-modal-img');
+        const btnCloseModal = document.getElementById('btn-close-modal');
+        const btnDeletePhoto = document.getElementById('btn-delete-photo');
+        
+        let localPhotos = [];
+        let currentViewingPhotoId = null;
+
+        function loadPhotos() {
+            photosLoaded = true;
+            try {
+                const stored = localStorage.getItem('tracker_photos');
+                if (stored) localPhotos = JSON.parse(stored);
+            } catch (err) {
+                console.error('Failed to load photos from LocalStorage', err);
+            }
+            renderPhotos();
         }
 
-        document.querySelectorAll('#news-category-tabs .category-tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                document.querySelectorAll('#news-category-tabs .category-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                const url = tab.getAttribute('data-url');
-                loadNews(url);
-                const container = document.getElementById('news-category-tabs');
-                container.scrollTo({
-                    left: tab.offsetLeft - container.offsetWidth / 2 + tab.offsetWidth / 2,
-                    behavior: 'smooth'
+        function savePhotosToLocalStorage() {
+            try {
+                localStorage.setItem('tracker_photos', JSON.stringify(localPhotos));
+            } catch (e) {
+                alert("Device storage is full! Some photos could not be saved. Try deleting old ones.");
+                console.error(e);
+            }
+        }
+
+        function renderPhotos() {
+            photosGrid.innerHTML = '';
+            if (localPhotos.length === 0) {
+                photosEmptyState.style.display = 'block';
+            } else {
+                photosEmptyState.style.display = 'none';
+                localPhotos.forEach(photo => {
+                    const img = document.createElement('img');
+                    img.src = photo.data;
+                    img.className = 'photo-item';
+                    img.loading = 'lazy';
+                    img.addEventListener('click', () => openPhotoModal(photo));
+                    photosGrid.appendChild(img);
                 });
-            });
+            }
+        }
+
+        btnAddPhoto.addEventListener('click', () => {
+            photoUploadInput.click();
         });
 
-        document.getElementById('btn-refresh-news').addEventListener('click', () => {
-            loadNews(currentNewsUrl);
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 800; 
+                        const MAX_HEIGHT = 800;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.6));
+                    };
+                    img.onerror = reject;
+                };
+                reader.onerror = reject;
+            });
+        }
+
+        photoUploadInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+
+            for (let file of files) {
+                try {
+                    const compressedBase64 = await compressImage(file);
+                    localPhotos.unshift({ id: Date.now() + Math.random(), data: compressedBase64 });
+                } catch (err) {
+                    console.error("Error processing image:", err);
+                }
+            }
+            savePhotosToLocalStorage();
+            renderPhotos();
+            photoUploadInput.value = ''; 
+        });
+
+        function openPhotoModal(photo) {
+            currentViewingPhotoId = photo.id;
+            photoModalImg.src = photo.data;
+            photoModal.style.display = 'flex';
+        }
+
+        btnCloseModal.addEventListener('click', () => {
+            photoModal.style.display = 'none';
+            currentViewingPhotoId = null;
+        });
+
+        photoModal.addEventListener('click', (e) => {
+            if (e.target === photoModal) {
+                photoModal.style.display = 'none';
+                currentViewingPhotoId = null;
+            }
+        });
+
+        btnDeletePhoto.addEventListener('click', () => {
+            if (confirm("Delete this photo?")) {
+                localPhotos = localPhotos.filter(p => p.id !== currentViewingPhotoId);
+                savePhotosToLocalStorage();
+                renderPhotos();
+                photoModal.style.display = 'none';
+                currentViewingPhotoId = null;
+            }
         });
 
 
