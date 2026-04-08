@@ -87,6 +87,7 @@
             outline: none;
             color-scheme: dark;
             text-transform: uppercase;
+            width: 95px;
         }
 
         .week-square {
@@ -99,6 +100,17 @@
             align-items: center;
             justify-content: center;
             min-width: 16px;
+        }
+
+        .day-count-square {
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+            border-radius: 2px;
+            padding: 2px 4px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         #current-date-text {
@@ -252,10 +264,13 @@
 
     <header>
         <div class="header-left">
+            <button class="action-btn" id="btn-prev"><span class="material-icons">chevron_left</span></button>
             <input type="date" id="date-picker" class="date-input">
+            <button class="action-btn" id="btn-next"><span class="material-icons">chevron_right</span></button>
         </div>
         <div class="header-right">
-            <div id="week-number" class="week-square"></div>
+            <div id="day-count" class="day-count-square" title="Days since Jan 21, 1989"></div>
+            <div id="week-number" class="week-square" title="Week of the year"></div>
             <span id="current-date-text"></span>
             <button class="action-btn" id="btn-today"><span class="material-icons">today</span></button>
         </div>
@@ -301,6 +316,7 @@
         const datePicker = document.getElementById('date-picker');
         const currentDateText = document.getElementById('current-date-text');
         const weekNumberText = document.getElementById('week-number');
+        const dayCountText = document.getElementById('day-count');
         const timelineInner = document.getElementById('timeline-inner');
         
         let selectedDateStr = "";
@@ -324,8 +340,16 @@
             const [y, m, d] = dateStr.split('-');
             const dateObj = new Date(y, m - 1, d);
             
+            // Week number
             weekNumberText.innerText = getWeekNumber(dateObj);
 
+            // Days since 21 January 1989
+            const baseDateUTC = Date.UTC(1989, 0, 21); // Month is 0-indexed (0 = Jan)
+            const targetDateUTC = Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+            const daysSince = Math.floor((targetDateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
+            dayCountText.innerText = daysSince;
+
+            // Date text
             const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
             currentDateText.innerText = dateObj.toLocaleDateString('en-US', options);
 
@@ -407,6 +431,23 @@
             }).catch(console.error);
         }
 
+        function changeDateByOffset(offsetDays) {
+            const [y, m, d] = selectedDateStr.split('-');
+            const dateObj = new Date(y, m - 1, d);
+            dateObj.setDate(dateObj.getDate() + offsetDays);
+            
+            const newDateStr = formatDateForInput(dateObj);
+            
+            clearTimeout(saveTimeout);
+            saveData();
+
+            selectedDateStr = newDateStr;
+            datePicker.value = selectedDateStr;
+            updateDateDisplay(selectedDateStr);
+            loadData();
+            updateCurrentTimeLine();
+        }
+
         datePicker.addEventListener('change', (e) => {
             const newDateStr = e.target.value;
             if (!newDateStr) {
@@ -422,6 +463,9 @@
             loadData();
             updateCurrentTimeLine(); 
         });
+
+        document.getElementById('btn-prev').addEventListener('click', () => changeDateByOffset(-1));
+        document.getElementById('btn-next').addEventListener('click', () => changeDateByOffset(1));
 
         function updateCurrentTimeLine() {
             const todayStr = formatDateForInput(new Date());
