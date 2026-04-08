@@ -2,161 +2,151 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Rider App - Order Dispatch</title>
+  <title>Rider App - Live Delivery</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0f0f12" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <style>
-    :root { --bg:#0b0b0e; --panel:#141419; --muted:#8b8b95; --text:#f2f2f7; --accent:#4f8cff; --accent-2:#7a5cff; --radius-lg:12px; --radius-md:10px; }
+    :root { --bg:#0b0b0e; --panel:#141419; --muted:#8b8b95; --text:#f2f2f7; --accent:#10b981; --accent-2:#059669; --radius-lg:12px; --radius-md:10px; }
     
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-    html,body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;overflow-y:auto;}
+    html,body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;font-weight:400;overflow-y:auto;}
     .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:7px;padding:env(safe-area-inset-top,6px) 10px env(safe-area-inset-bottom,6px);}
    
     /* Loaders & Headers */
     .loader-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; transition: opacity 0.3s ease; }
     .loader-overlay.hidden { opacity: 0; pointer-events: none; }
     .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-left-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
-    .loader-text { font-weight: 600; color: var(--muted); font-size: 13px; }
+    .loader-text { color: var(--muted); font-size: 13px; font-weight:400; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
     
     header{display:flex;align-items:center;gap:8px;padding:7px 11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);flex-shrink:0;}
-    .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#4f8cff,#7a5cff);border-radius:7px;flex-shrink:0;}
-    .header-title{font-size:13px;font-weight:700;flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-    .user-pill{font-size:11px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px;flex-shrink:0;}
-    .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600;font-size:11px;outline:none;}
+    .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#3b82f6,#10b981);border-radius:7px;flex-shrink:0;}
+    .header-title{font-size:14px;flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing: 0.5px;}
+    .user-pill{font-size:11px;color:#a7f3d0;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px;flex-shrink:0;}
+    .user-pill button{appearance:none;border:0;background:transparent;color:#6ee7b7;cursor:pointer;font-size:11px;outline:none;font-weight:400;}
    
-    /* Stats Strip */
-    .session-strip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;}
-    .session-timer{font-family:Menlo,monospace;font-size:14px;font-weight:700;color:#e5e7ff;}
-    .session-timer.inactive{color:var(--muted);}
-    .session-meta{font-size:11px;color:var(--muted);display:flex;gap:12px;}
-    .session-meta b{font-size:11px;font-weight:700;color:#e5e7ff;font-family:Menlo,monospace;}
-
     /* Map */
     .map-card{border-radius:var(--radius-lg);overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#0f0f12;flex-shrink:0; position:relative;}
-    #map{height:200px;width:100%;}
-    .leaflet-container{background:#0f0f12;outline:none;}
+    #map{height:250px;width:100%;}
+    .leaflet-container{background:#0f0f12;outline:none;font-family:inherit;}
     .leaflet-control-attribution{display:none!important;}
 
-    .status-banner { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:400; background:rgba(15,23,42,0.85); backdrop-filter:blur(4px); border:1px solid rgba(255,255,255,0.15); padding:4px 12px; border-radius:999px; font-size:10px; font-weight:700; color:#fff; text-transform:uppercase; letter-spacing:0.5px; display:none; }
-    .status-banner.show { display:block; }
+    /* White Rectangle Tooltip Popups */
+    .map-note-tooltip {
+      background: #ffffff !important;
+      border: none !important;
+      color: #111111 !important;
+      font-size: 11px !important;
+      font-weight: 400 !important;
+      border-radius: 4px !important;
+      padding: 6px 10px !important;
+      white-space: pre-wrap !important;
+      max-width: 140px !important;
+      text-align: left !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+      line-height: 1.3 !important;
+      text-transform: none !important;
+      letter-spacing: 0 !important;
+    }
+    .map-note-tooltip.pickup-tooltip { border-left: 3px solid #ef4444 !important; }
+    .map-note-tooltip.dropoff-tooltip { border-left: 3px solid #10b981 !important; }
+    .leaflet-tooltip-top:before { border-top-color: #ffffff !important; }
+    .leaflet-tooltip-bottom:before { border-bottom-color: #ffffff !important; }
 
-    /* Dot Markers on Map */
-    .dot-icon-container { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    .dot-circle { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 6px rgba(0,0,0,0.8); }
+    /* Dot Icons & Animations */
+    .dot-icon-container { position: relative; width: 60px; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+    .radar-pulse { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; background: rgba(59,130,246,0.3); border-radius: 50%; animation: radar-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; z-index: 1; }
+    @keyframes radar-ping { 75%, 100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; } }
+    
+    .dot-circle { width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); z-index: 2; position: relative; }
     .dot-red { background-color: #ef4444; }
     .dot-green { background-color: #10b981; }
     .dot-blue { background-color: #3b82f6; width: 16px; height: 16px; }
-    
-    .compact-label { font-size: 9px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.7); padding: 2px 5px; border-radius: 4px; margin-top: 3px; white-space: nowrap; letter-spacing: 0.5px; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.2); }
 
-    /* Action Buttons */
-    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex-shrink: 0; }
+    /* Controls & Buttons */
     .btn-action { 
-      position: relative; /* Important for absolute badge positioning */
-      appearance: none; cursor: pointer; border-radius: 10px; padding: 12px 8px;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap:6px;
-      color: #ffffff; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase;
-      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none;
+      appearance: none; cursor: pointer; border-radius: 10px; padding: 14px 8px;
+      display: flex; align-items: center; justify-content: center; gap:6px;
+      color: #ffffff; font-size: 14px; letter-spacing: 0.5px; text-transform: uppercase;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none; border: none; font-weight:400; width: 100%;
     }
     .btn-action:active:not([disabled]) { transform: scale(0.95); filter: brightness(1.2); }
-    .btn-action[disabled] { opacity: 0.3; cursor: not-allowed; transform: none; background: rgba(255,255,255,0.02); }
+    .btn-action[disabled] { opacity: 0.4; cursor: not-allowed; transform: none; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.05); color: #888; }
+    .btn-primary { background: linear-gradient(135deg,var(--accent),var(--accent-2)); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); }
     
-    .btn-arrive.active { background: linear-gradient(135deg,#f59e0b,#d97706); border-color:#fbbf24; }
-    .btn-pickup.active { background: linear-gradient(135deg,#3b82f6,#2563eb); border-color:#60a5fa; }
-    .btn-deliver.active { background: linear-gradient(135deg,#10b981,#059669); border-color:#34d399; }
-    .btn-chat { background: linear-gradient(135deg,#8b5cf6,#6d28d9); border-color:#a78bfa; }
-
-    /* Chat Badge */
-    .chat-badge {
-      position: absolute;
-      top: -6px;
-      right: -6px;
-      background: #ef4444;
-      color: #fff;
-      border-radius: 50%;
-      min-width: 20px;
-      height: 20px;
-      font-size: 10px;
-      font-weight: 900;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s, transform 0.2s;
-      transform: scale(0.8);
+    /* Cards Layout */
+    .orders-section { display: flex; flex-direction: column; margin-top: 4px; }
+    .orders-header { padding: 8px 10px; font-size: 13px; color: #e5e7ff; display: flex; justify-content: space-between; align-items: center; letter-spacing:0.5px; text-transform: uppercase;}
+    .orders-header span:last-child { font-size: 11px; color: var(--muted); text-transform: none; letter-spacing: 0; }
+    .orders-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 20px;}
+    
+    .order-card { 
+      background: rgba(255,255,255,0.03); 
+      border: 1px solid rgba(255,255,255,0.07); 
+      border-radius: var(--radius-md); 
+      padding: 14px; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 12px;
+      transition: background 0.3s;
     }
-    .chat-badge.show { opacity: 1; transform: scale(1); }
+    .order-card:hover { background: rgba(255,255,255,0.05); }
+    .order-card.active-card { border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.05); }
 
-    /* Tabs & Data Tables */
-    .tabs-nav { display: flex; gap: 6px; flex-shrink: 0; }
-    .tab-btn { flex: 1; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: var(--muted); font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; outline: none; display: flex; align-items: center; justify-content: center; gap: 6px;}
-    .tab-btn.active { background: rgba(79,140,255,0.15); border-color: rgba(79,140,255,0.4); color: #fff; }
+    .order-card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; }
+    .order-id { font-size: 16px; color: #a5b4fc; letter-spacing: 1px; font-family: monospace; }
+    .status-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .status-pending { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+    /* Timeline inside Card */
+    .timeline { display: flex; flex-direction: column; gap: 8px; }
+    .tl-step { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; }
+    .tl-done { color: #10b981; }
+    .tl-active { color: #60a5fa; animation: alert-pulse 1.5s infinite alternate ease-in-out; }
+    .tl-time { color: var(--muted); font-family: monospace; font-size: 10px; margin-left: auto; padding-left: 10px; }
+
+    @keyframes alert-pulse { 0% { opacity: 0.6; } 100% { opacity: 1; text-shadow: 0 0 8px currentColor; } }
     
-    .tab-badge { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; font-size: 9px; font-weight: 800; color: #fff; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
-    .badge-red { background: #ef4444; }
-    .badge-blue { background: #3b82f6; }
+    /* Notes inside Card */
+    .card-notes-container { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+    .card-note-box { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 6px; }
+    .card-note-row { display: flex; gap: 8px; color: #cbd5ff; line-height: 1.4; align-items: flex-start; font-size: 12px;}
+    .card-note-label { text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
 
-    .tab-content { display: none !important; flex: 1; flex-direction: column; min-height: 220px; }
-    .tab-content.active { display: flex !important; }
+    .chat-badge { background: #ef4444; color: #fff; border-radius: 50%; padding: 2px 6px; font-size: 10px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;}
 
-    .table-card{background:rgba(255,255,255,.03);border-radius:var(--radius-md);border:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column; height: 100%;}
-    .table-scroll{overflow-y:auto; flex:1;}
-    .data-table{width:100%;border-collapse:collapse;font-size:10px;color:#d5d7ff;}
-    .data-table thead{position:sticky;top:0;z-index:1;background:rgba(255,255,255,0.05); backdrop-filter:blur(4px);}
-    .data-table th,.data-table td{padding:8px;text-align:left;vertical-align:top;}
-    .data-table th{font-weight:700;text-transform:uppercase;color:#f3f4ff;}
-    .data-table tbody tr{border-bottom:1px solid rgba(255,255,255,.03);}
-    
-    /* Notes Display */
-    .table-notes-box { margin-top: 6px; font-size: 9.5px; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 4px; white-space: normal;}
-    .table-note-row { display: flex; gap: 5px; color: #cbd5ff; line-height: 1.3; word-break: break-word;}
-
-    .status-badge { padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; text-transform:uppercase; }
-    .st-started { background:rgba(255,255,255,0.1); color:#fff; }
-    .st-arrived { background:rgba(245,158,11,0.2); color:#fcd34d; }
-    .st-picked_up { background:rgba(59,130,246,0.2); color:#93c5fd; }
-    .st-delivered { background:rgba(16,185,129,0.2); color:#6ee7b7; }
-    .st-cancelled, .st-issue { background:rgba(239,68,68,0.2); color:#fca5a5; }
-
-    /* Action Cell Buttons */
-    .btn-accept, .btn-reject, .btn-view { padding: 6px 8px; border-radius: 4px; font-weight: 700; font-size: 9px; cursor: pointer; text-transform: uppercase; border: 1px solid transparent; outline:none; transition:transform 0.1s;}
-    .btn-accept:active, .btn-reject:active, .btn-view:active { transform: scale(0.95); }
-    .btn-accept { background: rgba(16,185,129,0.2); color: #6ee7b7; border-color: rgba(16,185,129,0.3); }
-    .btn-reject { background: rgba(239,68,68,0.15); color: #fca5a5; border-color: rgba(239,68,68,0.3); }
-    .btn-view { background: rgba(59,130,246,0.15); color: #93c5fd; border-color: rgba(59,130,246,0.3); width: 100%; margin-top: 4px; display: flex; align-items:center; justify-content:center; gap:4px;}
-    .btn-accept:disabled, .btn-reject:disabled, .btn-view:disabled { opacity: 0.3; cursor: not-allowed; border-color:transparent;}
+    /* Pin Input Group for Delivery */
+    .pin-input-group { display: flex; gap: 8px; margin-top: 4px; }
+    .pin-input { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 14px; border-radius: 8px; padding: 0 12px; outline: none; font-family: monospace; letter-spacing: 2px; text-align: center;}
+    .pin-input:focus { border-color: var(--accent); }
 
     /* Modals & Inputs */
     .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9998;}
     .modal-backdrop.show{display:flex;}
     .modal{width:min(90vw,340px);background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px; display: flex; flex-direction: column;}
     .input-row{display:flex;gap:8px;}
-    .input{flex:1;height:44px;border-radius:10px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-weight:700;font-size:14px;outline:none;}
+    .input{flex:1;height:44px;border-radius:10px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-size:15px;outline:none; text-transform:uppercase; font-weight:400;}
     .input:focus{border-color:var(--accent);}
-    .btn-modal{height:44px;border-radius:10px;border:0;cursor:pointer;padding:0 16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));outline:none;}
+    .btn-modal{height:44px;border-radius:10px;border:0;cursor:pointer;padding:0 16px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));outline:none; font-size:14px; letter-spacing:0.5px;}
     .btn-modal:active { transform: scale(0.95); }
-    .error{color:#ff8a8a;font-size:11px;min-height:14px;padding-top:5px;}
+    .error{color:#ff8a8a;font-size:12px;min-height:14px;padding-top:5px;}
     
-    .toast{position:fixed;z-index:9999;left:50%;bottom:22px;transform:translateX(-50%);background:#1a1a22;border:1px solid rgba(255,255,255,.1);padding:8px 15px;border-radius:10px;color:var(--text);font-weight:600;font-size:13px;opacity:0;transition:opacity .2s;}
+    .toast{position:fixed;z-index:9999;left:50%;bottom:22px;transform:translateX(-50%);background:#1a1a22;border:1px solid rgba(255,255,255,.1);padding:10px 18px;border-radius:10px;color:var(--text);font-size:14px;opacity:0;transition:opacity .2s; letter-spacing:0.5px;}
     .toast.show{opacity:1;}
 
     /* Chat Modal */
     .chat-modal { height: 60vh; max-height: 450px; padding: 15px; }
-    .chat-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 10px; margin-bottom: 10px; font-weight:700; font-size:14px;}
-    .chat-close { background:transparent; border:none; color:var(--muted); font-size:22px; cursor:pointer; outline:none; line-height:1;}
-    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
-    .chat-msg { background: rgba(255,255,255,.05); padding: 8px 12px; border-radius: 12px; font-size: 12px; color: #e5e7ff; max-width: 85%; align-self: flex-start; line-height:1.4;}
-    .chat-msg.mine { background: rgba(79,140,255,.2); align-self: flex-end; border-bottom-right-radius: 2px; }
-    .chat-msg-meta { font-size: 9px; color: var(--muted); margin-bottom: 3px; font-weight: 600; }
-    .chat-input-area { display: flex; gap: 8px; margin-top: 12px; }
-    .chat-input { flex: 1; border-radius: 8px; padding: 0 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: var(--text); outline: none; font-size: 13px; text-transform: none;}
-    .btn-chat-send { background: linear-gradient(135deg,var(--accent),var(--accent-2)); color: #fff; border: none; padding: 0 16px; border-radius: 8px; font-weight: 700; cursor: pointer; outline:none;}
+    .chat-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 12px; margin-bottom: 12px; font-size:15px; letter-spacing:0.5px;}
+    .chat-close { background:transparent; border:none; color:var(--muted); font-size:24px; cursor:pointer; outline:none; line-height:1;}
+    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+    .chat-msg { background: rgba(255,255,255,.05); padding: 10px 14px; border-radius: 12px; font-size: 13px; color: #e5e7ff; max-width: 85%; align-self: flex-start; line-height:1.4;}
+    .chat-msg.mine { background: rgba(16,185,129,.2); align-self: flex-end; border-bottom-right-radius: 2px; }
+    .chat-msg-meta { font-size: 10px; color: var(--muted); margin-bottom: 4px; letter-spacing:0.3px;}
+    .chat-input-area { display: flex; gap: 8px; margin-top: 14px; }
+    .chat-input { flex: 1; border-radius: 8px; padding: 0 14px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: var(--text); outline: none; font-size: 14px; text-transform: none;}
+    .btn-chat-send { background: linear-gradient(135deg,var(--accent),var(--accent-2)); color: #fff; border: none; padding: 0 18px; border-radius: 8px; cursor: pointer; outline:none; font-size:13px; letter-spacing:0.5px;}
     .btn-chat-send:active { transform: scale(0.95); }
   </style>
 </head>
@@ -164,90 +154,47 @@
 
 <div id="loaderOverlay" class="loader-overlay">
   <div class="spinner"></div>
-  <div class="loader-text">Connecting to Dispatch...</div>
+  <div class="loader-text">Connecting Rider...</div>
 </div>
 
 <div class="app">
   <!-- Header -->
   <header>
     <div class="logo">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
     </div>
-    <div class="header-title" id="headerTitle">Offline</div>
+    <div class="header-title">Rider Dashboard</div>
     <div id="userPill" class="user-pill">
       <span id="userPillText"></span>
-      <button id="changeUserBtn">Switch</button>
+      <button id="changeUserBtn">Logout</button>
     </div>
   </header>
 
-  <!-- Stats Strip -->
-  <div class="session-strip">
-    <div id="sessionTimer" class="session-timer inactive">00:00</div>
-    <div class="session-meta">
-      <span>Completed: <b id="statCount">0</b></span>
-      <span>Earned: <b id="statEarned">€0.00</b></span>
-    </div>
-  </div>
-
   <!-- Map -->
   <div class="map-card">
-    <div id="statusBanner" class="status-banner">Waiting</div>
     <div id="map"></div>
   </div>
 
-  <!-- Action Controls -->
-  <div class="controls">
-    <button id="btnArrive" class="btn-action btn-arrive" disabled>
-      Arrived at Rest.
-    </button>
-    <button id="btnPickup" class="btn-action btn-pickup" disabled>
-      Food Picked Up
-    </button>
-    <button id="btnDeliver" class="btn-action btn-deliver" disabled>
-      Mark Delivered
-    </button>
-    <button id="btnChat" class="btn-action btn-chat" disabled>
-      Chat Customer
-      <span id="chatBadge" class="chat-badge">0</span>
-    </button>
-  </div>
-
-  <!-- Tabs Navigation -->
-  <div class="tabs-nav">
-    <button id="tabAvailable" class="tab-btn active">
-      Available Orders
-      <span id="badgeAvailable" class="tab-badge badge-red" style="display: none;">0</span>
-    </button>
-    <button id="tabShift" class="tab-btn">
-      My Shift
-      <span id="badgeShift" class="tab-badge badge-blue" style="display: none;">0</span>
-    </button>
-  </div>
-
-  <!-- Available Orders Tab -->
-  <div id="viewAvailable" class="tab-content active table-card">
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead><tr><th>Order Details</th><th>Dist.</th><th>Action</th></tr></thead>
-        <tbody id="availableBody">
-          <tr><td colspan="3" style="text-align:center; padding:15px; color:var(--muted);">No pending orders.</td></tr>
-        </tbody>
-      </table>
+  <!-- Active Delivery Section (Only shows when rider accepted an order) -->
+  <div class="orders-section" id="activeDeliverySection" style="display:none;">
+    <div class="orders-header">
+      <span style="color:#6ee7b7;">Active Delivery</span>
+    </div>
+    <div class="orders-list" id="activeOrderList">
+      <!-- Active card injected here -->
     </div>
   </div>
 
-  <!-- My Shift Tab -->
-  <div id="viewShift" class="tab-content table-card">
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead><tr><th>Order & Notes</th><th>Status</th><th>Time</th><th>Earned</th></tr></thead>
-        <tbody id="shiftBody">
-          <tr><td colspan="4" style="text-align:center; padding:15px; color:var(--muted);">No deliveries yet.</td></tr>
-        </tbody>
-      </table>
+  <!-- Available Orders Section -->
+  <div class="orders-section" id="availableOrdersSection">
+    <div class="orders-header">
+      <span>Available Orders</span>
+      <span id="availableCount">0 Pending</span>
+    </div>
+    <div class="orders-list" id="availableOrdersList">
+      <div style="text-align:center; padding:30px; color:var(--muted); font-size:13px;">No available orders nearby.</div>
     </div>
   </div>
-
 </div>
 
 <div id="toast" class="toast"></div>
@@ -255,40 +202,24 @@
 <!-- Login Modal -->
 <div id="loginBackdrop" class="modal-backdrop">
   <div class="modal">
-    <h2>Rider Login</h2>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Enter your Rider ID (e.g., RR1234).</p>
+    <h2 style="font-size:18px; margin-bottom:4px; font-weight:400; letter-spacing:0.5px;">Rider Login</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Enter your Rider ID (e.g., RDR123).</p>
     <div class="input-row">
-      <input id="userIdInput" class="input" type="text" placeholder="RR1234" autocomplete="off" autocapitalize="characters">
+      <input id="userIdInput" class="input" type="text" placeholder="RDR123" autocomplete="off" autocapitalize="characters">
       <button id="userJoinBtn" class="btn-modal">Login</button>
     </div>
     <div id="loginError" class="error"></div>
   </div>
 </div>
 
-<!-- PIN Verification Modal -->
-<div id="pinBackdrop" class="modal-backdrop">
-  <div class="modal">
-    <h2>Verify Delivery PIN</h2>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Ask the customer for their 4-digit receiving PIN to complete the delivery.</p>
-    <div class="input-row">
-      <input id="pinInput" class="input" type="number" placeholder="1234" autocomplete="off">
-      <button id="pinVerifyBtn" class="btn-modal">Verify</button>
-    </div>
-    <div id="pinError" class="error"></div>
-    <button id="pinCancelBtn" style="margin-top:12px; background:transparent; border:none; color:var(--muted); cursor:pointer; font-weight:600;">Cancel</button>
-  </div>
-</div>
-
 <!-- Chat Modal -->
-<div id="chatBackdrop" class="chat-backdrop modal-backdrop">
+<div id="chatBackdrop" class="modal-backdrop">
   <div class="modal chat-modal">
     <div class="chat-header">
       <span>Chat with Customer</span>
       <button id="chatCloseBtn" class="chat-close">&times;</button>
     </div>
-    <div class="chat-messages" id="chatMessages">
-      <div style="text-align:center; color:var(--muted); font-size:11px; margin-top:10px;">Say hello to the customer!</div>
-    </div>
+    <div class="chat-messages" id="chatMessages"></div>
     <div class="chat-input-area">
       <input id="chatInput" class="chat-input" type="text" placeholder="Type a message..." autocomplete="off">
       <button id="chatSendBtn" class="btn-chat-send">Send</button>
@@ -302,7 +233,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, update, onValue, push, off } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, update, onValue, off, push } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
@@ -317,90 +248,55 @@
 
   // Core State
   let currentUserId = null;
-  let currentLatLng = null;
-  let riderMarker = null;
-  let allOrders = [];
+  let allOrdersUnsub = null;
+  let riderLocationWatch = null;
+  
+  let availableOrders = [];
   let activeOrder = null;
-  let previewOrder = null; // Used to preview an available order on map
-  let timerInterval = null;
-  let activeStartTime = 0;
   
-  // Transient Set for rejected orders. Resets on refresh.
-  let rejectedOrders = new Set();
-  
+  // Chat State
+  let activeChatPath = null;
   let chatUnsub = null;
-  let currentChatPath = null;
   let lastReadTimestamps = JSON.parse(localStorage.getItem('riderChatLastRead') || '{}');
-
-  const EARNINGS_PER_DELIVERY = 5.00;
 
   // DOM Elements
   const loaderOverlay = document.getElementById('loaderOverlay');
-  const headerTitle = document.getElementById('headerTitle');
-  const statusBanner = document.getElementById('statusBanner');
+  const availableOrdersSection = document.getElementById('availableOrdersSection');
+  const availableOrdersList = document.getElementById('availableOrdersList');
+  const availableCount = document.getElementById('availableCount');
   
-  const btnArrive = document.getElementById('btnArrive');
-  const btnPickup = document.getElementById('btnPickup');
-  const btnDeliver = document.getElementById('btnDeliver');
-  const btnChat = document.getElementById('btnChat');
-  const chatBadge = document.getElementById('chatBadge');
-  
-  const badgeAvailable = document.getElementById('badgeAvailable');
-  const badgeShift = document.getElementById('badgeShift');
+  const activeDeliverySection = document.getElementById('activeDeliverySection');
+  const activeOrderList = document.getElementById('activeOrderList');
 
-  const availableBody = document.getElementById('availableBody');
-  const shiftBody = document.getElementById('shiftBody');
-  const statCount = document.getElementById('statCount');
-  const statEarned = document.getElementById('statEarned');
-  const sessionTimer = document.getElementById('sessionTimer');
+  const loginBackdrop = document.getElementById('loginBackdrop');
+  const userIdInput = document.getElementById('userIdInput');
+  const loginError = document.getElementById('loginError');
 
-  const tabAvailable = document.getElementById('tabAvailable');
-  const tabShift = document.getElementById('tabShift');
-  const viewAvailable = document.getElementById('viewAvailable');
-  const viewShift = document.getElementById('viewShift');
-
-  // PIN Modal Elements
-  const pinBackdrop = document.getElementById('pinBackdrop');
-  const pinInput = document.getElementById('pinInput');
-  const pinVerifyBtn = document.getElementById('pinVerifyBtn');
-  const pinCancelBtn = document.getElementById('pinCancelBtn');
-  const pinError = document.getElementById('pinError');
-  
-  // Chat Modal Elements
   const chatBackdrop = document.getElementById('chatBackdrop');
   const chatCloseBtn = document.getElementById('chatCloseBtn');
   const chatMessages = document.getElementById('chatMessages');
   const chatInput = document.getElementById('chatInput');
   const chatSendBtn = document.getElementById('chatSendBtn');
 
-  // Tabs Logic
-  tabAvailable.onclick = () => {
-    tabAvailable.classList.add('active'); tabShift.classList.remove('active');
-    viewAvailable.classList.add('active'); viewShift.classList.remove('active');
-  };
-  tabShift.onclick = () => {
-    tabShift.classList.add('active'); tabAvailable.classList.remove('active');
-    viewShift.classList.add('active'); viewAvailable.classList.remove('active');
-  };
-
-  // Map Setup - CartoDB Dark Matter tiles
+  // Map Setup
   const map = L.map('map', { zoomControl:false, attributionControl:false }).setView([50.8, 4.7], 12);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
-  const routeLayer = L.layerGroup().addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+  const mapLayerGroup = L.layerGroup().addTo(map);
 
-  function makeDotIcon(colorClass, labelText) {
+  let mapMarkers = [];
+  let mapPolyline = null;
+  let liveRiderMarker = null;
+
+  function makeDotIcon(colorClass, labelText, pulsing = false) {
     let labelHtml = labelText ? `<div class="compact-label">${labelText}</div>` : '';
+    let pulseHtml = pulsing ? `<div class="radar-pulse"></div>` : '';
     return L.divIcon({
       className: '',
-      html: `<div class="dot-icon-container"><div class="dot-circle ${colorClass}"></div>${labelHtml}</div>`,
-      iconSize: [60, 40],
-      iconAnchor: [30, 8] 
+      html: `<div class="dot-icon-container">${pulseHtml}<div class="dot-circle ${colorClass}"></div>${labelHtml}</div>`,
+      iconSize: [60, 60],
+      iconAnchor: [30, 30] 
     });
   }
-
-  const iconRider = makeDotIcon('dot-blue', '');
-  const iconPickup = makeDotIcon('dot-red', 'PICK UP');
-  const iconDropoff = makeDotIcon('dot-green', 'DROP OFF');
 
   function showToast(text) {
     const toast = document.getElementById('toast');
@@ -409,322 +305,304 @@
     setTimeout(() => toast.classList.remove('show'), 2500);
   }
 
-  function formatTime(ms) {
-    if(!ms || ms < 0) return "00:00";
-    const totalSec = Math.floor(ms / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  }
-  
-  function getDistanceKm(lat1, lon1, lat2, lon2) {
-    if(!lat1 || !lon1 || !lat2 || !lon2) return 0;
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  function formatTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   }
 
-  function startActiveTimer(startTime) {
-    clearInterval(timerInterval);
-    activeStartTime = startTime;
-    sessionTimer.classList.remove('inactive');
-    timerInterval = setInterval(() => {
-      sessionTimer.textContent = formatTime(Date.now() - activeStartTime);
-    }, 1000);
-  }
-
-  function stopActiveTimer() {
-    clearInterval(timerInterval);
-    sessionTimer.classList.add('inactive');
-    sessionTimer.textContent = "00:00";
-  }
-
-  function markChatAsRead(dbKey) {
-    lastReadTimestamps[dbKey] = Date.now();
+  function markChatAsRead(path) {
+    lastReadTimestamps[path] = Date.now();
     localStorage.setItem('riderChatLastRead', JSON.stringify(lastReadTimestamps));
   }
 
-  function updateMapRoute() {
-    routeLayer.clearLayers();
-    if (riderMarker) routeLayer.addLayer(riderMarker);
+  // --- Rendering UI ---
 
-    let orderToDraw = activeOrder || previewOrder;
+  const STATUS_FLOW = [
+    { key: 'pending', label: 'Waiting for Rider' },
+    { key: 'started', label: 'Heading to Rest.' },
+    { key: 'arrived', label: 'Waiting for Food' },
+    { key: 'picked_up', label: 'On the Way!' },
+    { key: 'delivered', label: 'Delivered!' }
+  ];
 
-    if (orderToDraw) {
-      const pMarker = L.marker([orderToDraw.pickup.lat, orderToDraw.pickup.lng], {icon: iconPickup}).addTo(routeLayer);
-      const dMarker = L.marker([orderToDraw.dropoff.lat, orderToDraw.dropoff.lng], {icon: iconDropoff}).addTo(routeLayer);
+  function renderMap() {
+    mapLayerGroup.clearLayers();
+    mapMarkers = [];
+    mapPolyline = null;
 
-      const lineColor = activeOrder ? '#3b82f6' : '#a855f7'; // Purple for preview, Blue for active
+    if (activeOrder) {
+      // Show Route for Active Order
+      const pIcon = makeDotIcon('dot-red', 'PICK UP'); 
+      const dIcon = makeDotIcon('dot-green', 'DROP OFF');
 
-      const line = L.polyline([
-        [orderToDraw.pickup.lat, orderToDraw.pickup.lng],
-        [orderToDraw.dropoff.lat, orderToDraw.dropoff.lng]
-      ], {color: lineColor, weight: 4, dashArray: '8 8', opacity:0.8}).addTo(routeLayer);
+      let pm = L.marker([activeOrder.pickup.lat, activeOrder.pickup.lng], { icon: pIcon }).addTo(mapLayerGroup);
+      if(activeOrder.pickup.note) pm.bindTooltip(activeOrder.pickup.note, { permanent: true, direction: 'top', offset: [0, -25], className: 'map-note-tooltip pickup-tooltip' }).openTooltip();
+
+      let dm = L.marker([activeOrder.dropoff.lat, activeOrder.dropoff.lng], { icon: dIcon }).addTo(mapLayerGroup);
+      if(activeOrder.dropoff.note) dm.bindTooltip(activeOrder.dropoff.note, { permanent: true, direction: 'top', offset: [0, -25], className: 'map-note-tooltip dropoff-tooltip' }).openTooltip();
+
+      mapPolyline = L.polyline([
+        [activeOrder.pickup.lat, activeOrder.pickup.lng],
+        [activeOrder.dropoff.lat, activeOrder.dropoff.lng]
+      ], { color: '#10b981', weight: 4, dashArray: '8 8', opacity: 0.8 }).addTo(mapLayerGroup);
       
-      map.fitBounds(line.getBounds(), {padding: [40,40]});
+      map.fitBounds(mapPolyline.getBounds(), { padding: [40, 40] });
 
-      if (previewOrder && !activeOrder) {
-        statusBanner.textContent = "Previewing Route";
-        statusBanner.classList.add('show');
+    } else {
+      // Show all pending pickups on map
+      let bounds = [];
+      availableOrders.forEach(o => {
+         let m = L.marker([o.pickup.lat, o.pickup.lng], { icon: makeDotIcon('dot-red', 'NEW', true) }).addTo(mapLayerGroup);
+         m.bindTooltip(`Order: ${o.orderId}`, { permanent: false, direction: 'top', offset: [0, -25], className: 'map-note-tooltip pickup-tooltip' });
+         bounds.push([o.pickup.lat, o.pickup.lng]);
+      });
+      if (bounds.length > 0) {
+         map.fitBounds(bounds, { padding: [40, 40] });
       }
-
-    } else if (currentLatLng) {
-      map.setView(currentLatLng, 15);
-      if (!activeOrder) statusBanner.classList.remove('show');
     }
   }
 
-  function updateUI() {
-    [btnArrive, btnPickup, btnDeliver, btnChat].forEach(b => {
-      b.disabled = true; b.classList.remove('active');
+  function createNotesHtml(o) {
+      let notesHtml = '';
+      if (o.pickup.note || o.dropoff.note) {
+        notesHtml = `<div class="card-notes-container">`;
+        if (o.pickup.note) {
+            notesHtml += `
+            <div class="card-note-box">
+                <span class="card-note-label" style="color:#fca5a5;">Pickup Note</span>
+                <div class="card-note-row"><span>${o.pickup.note}</span></div>
+            </div>`;
+        }
+        if (o.dropoff.note) {
+            notesHtml += `
+            <div class="card-note-box">
+                <span class="card-note-label" style="color:#6ee7b7;">Dropoff Note</span>
+                <div class="card-note-row"><span>${o.dropoff.note}</span></div>
+            </div>`;
+        }
+        notesHtml += `</div>`;
+      }
+      return notesHtml;
+  }
+
+  function renderAvailableOrders() {
+    availableCount.textContent = `${availableOrders.length} Pending`;
+    availableOrdersList.innerHTML = '';
+    
+    if(availableOrders.length === 0) {
+      availableOrdersList.innerHTML = '<div style="text-align:center; padding:30px; color:var(--muted); font-size:13px;">No available orders nearby.</div>';
+      return;
+    }
+
+    availableOrders.forEach(o => {
+      const card = document.createElement('div');
+      card.className = 'order-card';
+      
+      card.innerHTML = `
+        <div class="order-card-header">
+          <span class="order-id">${o.orderId}</span>
+          <span class="status-badge status-pending">New Request</span>
+        </div>
+        ${createNotesHtml(o)}
+        <div style="margin-top:8px;">
+          <button class="btn-action btn-primary" onclick="window.acceptOrder('${o.customerId}', '${o.dbKey}')">Accept Order</button>
+        </div>
+      `;
+      availableOrdersList.appendChild(card);
     });
+  }
 
-    // Filter and update Available Orders (ignore locally rejected)
-    const pendingOrders = allOrders.filter(o => o.status === 'pending' && !rejectedOrders.has(o.dbKey));
-    
-    // Clear preview if order was taken by someone else or rejected
-    if (previewOrder && !pendingOrders.find(o => o.dbKey === previewOrder.dbKey)) {
-        previewOrder = null;
-    }
-
-    // Update Available Badge
-    badgeAvailable.textContent = pendingOrders.length;
-    badgeAvailable.style.display = pendingOrders.length > 0 ? 'inline-flex' : 'none';
-
-    availableBody.innerHTML = '';
-    if(pendingOrders.length === 0) {
-      availableBody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:15px; color:var(--muted);">No pending orders.</td></tr>';
-    } else {
-      pendingOrders.forEach(o => {
-        let distStr = '—';
-        if (currentLatLng) {
-          const d = getDistanceKm(currentLatLng[0], currentLatLng[1], o.pickup.lat, o.pickup.lng);
-          distStr = d.toFixed(1) + ' km';
-        }
-
-        // Build Notes Display for Available Orders
-        let notesHtml = '';
-        if ((o.pickup && o.pickup.note) || (o.dropoff && o.dropoff.note)) {
-          notesHtml = `<div class="table-notes-box">`;
-          if (o.pickup.note) notesHtml += `<div class="table-note-row"><strong style="color:#fca5a5;">PICK:</strong> <span>${o.pickup.note}</span></div>`;
-          if (o.dropoff.note) notesHtml += `<div class="table-note-row"><strong style="color:#6ee7b7;">DROP:</strong> <span>${o.dropoff.note}</span></div>`;
-          notesHtml += `</div>`;
-        }
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>
-            <strong style="color:#a5b4fc; font-size:12px;">${o.orderId}</strong><br>
-            <span style="color:var(--muted); font-size:9px;">Cust: ${o.customerId}</span>
-            ${notesHtml}
-          </td>
-          <td style="font-weight:600; color:#e5e7ff;">${distStr}</td>
-          <td>
-            <div style="display:flex; gap:4px;">
-              <button class="btn-accept" ${activeOrder ? 'disabled' : ''} onclick="window.acceptOrder('${o.customerId}', '${o.dbKey}')">Accept</button>
-              <button class="btn-reject" ${activeOrder ? 'disabled' : ''} onclick="window.rejectOrder('${o.dbKey}')">Reject</button>
-            </div>
-            <button class="btn-view" ${activeOrder ? 'disabled' : ''} onclick="window.viewOrderOnMap('${o.dbKey}')">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-              View Map
-            </button>
-          </td>
-        `;
-        availableBody.appendChild(tr);
-      });
-    }
-
-    // Filter and update My Shift (Completed & Active)
-    const myOrders = allOrders.filter(o => o.riderId === currentUserId).sort((a,b) => b.createdAt - a.createdAt);
-    shiftBody.innerHTML = '';
-    let totalCompleted = 0;
-    
-    if(myOrders.length === 0) {
-      shiftBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:15px; color:var(--muted);">No deliveries yet.</td></tr>';
-    } else {
-      myOrders.forEach(o => {
-        if(o.status === 'delivered') totalCompleted++;
-        const durationMs = o.endTime ? (o.endTime - o.createdAt) : (Date.now() - o.createdAt);
-        
-        // Build Notes Display for Shift Orders
-        let notesHtml = '';
-        if ((o.pickup && o.pickup.note) || (o.dropoff && o.dropoff.note)) {
-          notesHtml = `<div class="table-notes-box">`;
-          if (o.pickup.note) notesHtml += `<div class="table-note-row"><strong style="color:#fca5a5;">PICK:</strong> <span>${o.pickup.note}</span></div>`;
-          if (o.dropoff.note) notesHtml += `<div class="table-note-row"><strong style="color:#6ee7b7;">DROP:</strong> <span>${o.dropoff.note}</span></div>`;
-          notesHtml += `</div>`;
-        }
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>
-            <strong style="color:#a5b4fc; font-size:11px;">${o.orderId}</strong>
-            ${notesHtml}
-          </td>
-          <td><span class="status-badge st-${o.status}">${o.status.replace('_',' ')}</span></td>
-          <td>${formatTime(durationMs)}</td>
-          <td style="${o.status==='delivered' ? 'color:#fcd34d;font-weight:700;' : ''}">${o.status==='delivered'?'€5.00':'—'}</td>
-        `;
-        shiftBody.appendChild(tr);
-      });
-    }
-    
-    // Update Shift Badge
-    badgeShift.textContent = totalCompleted;
-    badgeShift.style.display = totalCompleted > 0 ? 'inline-flex' : 'none';
-
-    statCount.textContent = totalCompleted;
-    statEarned.textContent = '€' + (totalCompleted * EARNINGS_PER_DELIVERY).toFixed(2);
-
+  function renderActiveOrder() {
+    activeOrderList.innerHTML = '';
     if (!activeOrder) {
-      headerTitle.textContent = "Ready for Orders";
-      chatBadge.classList.remove('show');
-      stopActiveTimer();
-    } else {
-      headerTitle.textContent = `${activeOrder.orderId} Active`;
-      btnChat.disabled = false;
-      statusBanner.classList.add('show');
-      
-      // Calculate Unread Messages from Customer
-      let unreadCount = 0;
-      if (activeOrder.chat) {
-        const lastRead = lastReadTimestamps[activeOrder.dbKey] || 0;
-        Object.values(activeOrder.chat).forEach(msg => {
-          if (msg.sender === 'customer' && msg.timestamp > lastRead) {
-            unreadCount++;
-          }
+      activeDeliverySection.style.display = 'none';
+      availableOrdersSection.style.display = 'flex';
+      return;
+    }
+
+    activeDeliverySection.style.display = 'flex';
+    availableOrdersSection.style.display = 'none'; // Hide available to focus on active delivery
+
+    const o = activeOrder;
+    const card = document.createElement('div');
+    card.className = 'order-card active-card';
+    
+    // Timeline
+    let timelineHtml = '<div class="timeline">';
+    let currentIdx = STATUS_FLOW.findIndex(s => s.key === o.status);
+    for(let i = 1; i <= currentIdx; i++) { // Start at 1 (skip pending)
+        const step = STATUS_FLOW[i];
+        if (i < currentIdx) {
+            timelineHtml += `<div class="tl-step tl-done">✓ ${step.label} - DONE</div>`;
+        } else {
+            timelineHtml += `<div class="tl-step tl-active">➤ ${step.label}... </div>`;
+        }
+    }
+    timelineHtml += '</div>';
+
+    // Actions based on status
+    let actionHtml = '';
+    if (o.status === 'started') {
+       actionHtml = `<button class="btn-action btn-primary" onclick="window.updateOrderStatus('${o.customerId}', '${o.dbKey}', 'arrived')">I have Arrived at Pickup</button>`;
+    } else if (o.status === 'arrived') {
+       actionHtml = `<button class="btn-action btn-primary" onclick="window.updateOrderStatus('${o.customerId}', '${o.dbKey}', 'picked_up')">Food Picked Up</button>`;
+    } else if (o.status === 'picked_up') {
+       actionHtml = `
+         <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#6ee7b7; margin-bottom:4px;">Verify Customer PIN</div>
+         <div class="pin-input-group">
+            <input type="text" id="deliveryPinInput" class="pin-input" placeholder="****" maxlength="4" autocomplete="off" />
+            <button class="btn-action btn-primary" style="width:auto; padding:0 20px;" onclick="window.completeDelivery('${o.customerId}', '${o.dbKey}', '${o.receivingPin}')">Deliver</button>
+         </div>
+       `;
+    }
+
+    // Chat Badge Logic
+    let unreadCount = 0;
+    const chatPath = `customerOrders/${o.customerId}/${o.dbKey}/chat`;
+    if (o.chat) {
+        const lastRead = lastReadTimestamps[chatPath] || 0;
+        Object.values(o.chat).forEach(msg => {
+            if (msg.sender === 'customer' && msg.timestamp > lastRead) unreadCount++;
         });
-      }
-
-      // Update the badge UI
-      if (unreadCount > 0) {
-        chatBadge.textContent = unreadCount;
-        chatBadge.classList.add('show');
-      } else {
-        chatBadge.classList.remove('show');
-      }
-      
-      if (activeOrder.status === 'started') {
-        statusBanner.textContent = "To Restaurant";
-        btnArrive.disabled = false; btnArrive.classList.add('active');
-      } else if (activeOrder.status === 'arrived') {
-        statusBanner.textContent = "Waiting for Food";
-        btnPickup.disabled = false; btnPickup.classList.add('active');
-      } else if (activeOrder.status === 'picked_up') {
-        statusBanner.textContent = "Out for Delivery";
-        btnDeliver.disabled = false; btnDeliver.classList.add('active');
-      }
     }
+    const badgeHtml = unreadCount > 0 ? `<span class="chat-badge" style="position:absolute; right:16px;">${unreadCount}</span>` : '';
 
-    updateMapRoute();
+    card.innerHTML = `
+      <div class="order-card-header">
+        <span class="order-id">${o.orderId}</span>
+      </div>
+      ${timelineHtml}
+      ${createNotesHtml(o)}
+      <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+        ${actionHtml}
+        <button class="btn-action" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); position:relative;" onclick="window.openChat('${o.customerId}', '${o.dbKey}')">
+          💬 Chat with Customer ${badgeHtml}
+        </button>
+      </div>
+    `;
+    activeOrderList.appendChild(card);
   }
 
-  // --- Actions ---
-  window.viewOrderOnMap = function(dbKey) {
-    if (activeOrder) return;
-    previewOrder = allOrders.find(o => o.dbKey === dbKey);
-    updateMapRoute();
-    window.scrollTo({top: 0, behavior: 'smooth'});
-  };
+  // --- Data Fetching & Actions ---
 
-  window.acceptOrder = async function(customerId, dbKey) {
-    if (activeOrder) return;
-    try {
-      await update(ref(db, `customerOrders/${customerId}/${dbKey}`), { 
-        status: 'started', 
-        riderId: currentUserId 
+  function listenToAllOrders() {
+    if(allOrdersUnsub) allOrdersUnsub();
+    allOrdersUnsub = onValue(ref(db, `customerOrders`), snap => {
+      const data = snap.val() || {};
+      availableOrders = [];
+      activeOrder = null;
+
+      Object.keys(data).forEach(custId => {
+         const custOrders = data[custId];
+         Object.keys(custOrders).forEach(orderKey => {
+            let o = custOrders[orderKey];
+            o.dbKey = orderKey;
+            o.customerId = custId;
+            
+            if (o.status === 'pending') {
+               availableOrders.push(o);
+            } else if (['started', 'arrived', 'picked_up'].includes(o.status) && o.riderId === currentUserId) {
+               activeOrder = o; // Rider only handles 1 active order
+            }
+         });
       });
-      previewOrder = null;
-      showToast('Order Accepted!');
-      startActiveTimer(Date.now());
-      tabShift.click();
-    } catch(e) {
-      console.error(e);
-      showToast('Error accepting order.');
-    }
-  };
 
-  window.rejectOrder = function(dbKey) {
-    rejectedOrders.add(dbKey); // Only locally stored in Set (resets on refresh)
-    if (previewOrder && previewOrder.dbKey === dbKey) {
-        previewOrder = null;
-    }
-    showToast('Order hidden for this session');
-    updateUI();
-  };
+      // Sort pending by newest first
+      availableOrders.sort((a,b) => b.createdAt - a.createdAt);
 
-  async function updateActiveStatus(newStatus) {
-    if (!activeOrder) return;
+      renderAvailableOrders();
+      renderActiveOrder();
+      renderMap();
+      hideLoader();
+    });
+  }
+
+  window.acceptOrder = async function(custId, dbKey) {
+    if (activeOrder) { showToast("You already have an active order."); return; }
     try {
-      const updates = { status: newStatus };
-      if (['delivered', 'issue', 'cancelled'].includes(newStatus)) {
-        updates.endTime = Date.now();
-      }
-      await update(ref(db, `customerOrders/${activeOrder.customerId}/${activeOrder.dbKey}`), updates);
-      showToast(`Updated to: ${newStatus.replace('_',' ')}`);
-    } catch(e) {
-      console.error(e);
-      showToast('Network error, try again.');
+       await update(ref(db, `customerOrders/${custId}/${dbKey}`), { 
+           status: 'started', 
+           riderId: currentUserId 
+       });
+       showToast("Order Accepted!");
+       startLocationTracking(custId, dbKey);
+    } catch(e) { showToast("Failed to accept order."); }
+  };
+
+  window.updateOrderStatus = async function(custId, dbKey, newStatus) {
+    try {
+       await update(ref(db, `customerOrders/${custId}/${dbKey}`), { status: newStatus });
+       showToast("Status Updated!");
+    } catch(e) { showToast("Error updating status."); }
+  };
+
+  window.completeDelivery = async function(custId, dbKey, correctPin) {
+    const inputEl = document.getElementById('deliveryPinInput');
+    const val = inputEl ? inputEl.value.trim() : '';
+    if (val !== correctPin) {
+       showToast("Incorrect PIN. Please ask customer.");
+       return;
+    }
+    try {
+       await update(ref(db, `customerOrders/${custId}/${dbKey}`), { status: 'delivered' });
+       showToast("Delivery Completed Successfully! 🎉");
+       stopLocationTracking();
+       activeOrder = null;
+    } catch(e) { showToast("Error completing delivery."); }
+  };
+
+  // --- Location Tracking ---
+  function startLocationTracking(custId, dbKey) {
+    if (riderLocationWatch) return;
+    if (navigator.geolocation) {
+      riderLocationWatch = navigator.geolocation.watchPosition(pos => {
+        const payload = { riderLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude } };
+        update(ref(db, `customerOrders/${custId}/${dbKey}`), payload);
+        
+        // Update local map marker
+        if (liveRiderMarker) liveRiderMarker.setLatLng([pos.coords.latitude, pos.coords.longitude]);
+        else liveRiderMarker = L.marker([pos.coords.latitude, pos.coords.longitude], { icon: makeDotIcon('dot-blue', 'YOU'), zIndexOffset: 1000 }).addTo(mapLayerGroup);
+
+      }, err => console.warn(err), { enableHighAccuracy: true });
     }
   }
 
-  btnArrive.onclick = () => updateActiveStatus('arrived');
-  btnPickup.onclick = () => updateActiveStatus('picked_up');
-  
-  btnDeliver.onclick = () => {
-    if (activeOrder && activeOrder.receivingPin) {
-      pinInput.value = '';
-      pinError.textContent = '';
-      pinBackdrop.classList.add('show');
-      setTimeout(() => pinInput.focus(), 50);
-    } else {
-      updateActiveStatus('delivered');
+  function stopLocationTracking() {
+    if (riderLocationWatch && navigator.geolocation) {
+      navigator.geolocation.clearWatch(riderLocationWatch);
+      riderLocationWatch = null;
     }
-  };
+    if (liveRiderMarker) { mapLayerGroup.removeLayer(liveRiderMarker); liveRiderMarker = null; }
+  }
 
-  pinVerifyBtn.onclick = () => {
-    if (pinInput.value.trim() === String(activeOrder.receivingPin)) {
-      pinBackdrop.classList.remove('show');
-      updateActiveStatus('delivered');
-    } else {
-      pinError.textContent = "Incorrect PIN. Please check and try again.";
-    }
-  };
 
-  pinCancelBtn.onclick = () => {
-    pinBackdrop.classList.remove('show');
-  };
-
-  // Chat Logic
-  btnChat.onclick = () => {
-    if (!activeOrder) return;
+  // --- Chat Logic ---
+  window.openChat = function(custId, dbKey) {
+    activeChatPath = `customerOrders/${custId}/${dbKey}/chat`;
+    markChatAsRead(activeChatPath);
+    renderActiveOrder(); // refresh unread badge
+    
     chatBackdrop.classList.add('show');
     
-    // Clear badge immediately upon opening
-    markChatAsRead(activeOrder.dbKey);
-    chatBadge.classList.remove('show');
-
-    const path = `customerOrders/${activeOrder.customerId}/${activeOrder.dbKey}/chat`;
-    
-    if (currentChatPath !== path) {
+    if (currentChatPath !== activeChatPath) {
       if (chatUnsub) { off(ref(db, currentChatPath)); }
-      currentChatPath = path;
-      chatUnsub = onValue(ref(db, path), snap => {
+      currentChatPath = activeChatPath;
+      chatUnsub = onValue(ref(db, currentChatPath), snap => {
         renderChat(snap.val() || {});
       });
     }
     setTimeout(() => chatInput.focus(), 100);
   };
 
-  chatCloseBtn.onclick = () => chatBackdrop.classList.remove('show');
+  chatCloseBtn.onclick = () => {
+    chatBackdrop.classList.remove('show');
+    activeChatPath = null;
+  };
 
   chatSendBtn.onclick = async () => {
     const text = chatInput.value.trim();
-    if (!text || !activeOrder) return;
+    if (!text || !currentChatPath) return;
     chatInput.value = '';
     await push(ref(db, currentChatPath), {
       sender: 'rider',
@@ -735,15 +613,15 @@
   chatInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') chatSendBtn.click(); });
 
   function renderChat(messagesObj) {
-    if (activeOrder && chatBackdrop.classList.contains('show')) {
-      markChatAsRead(activeOrder.dbKey);
-      chatBadge.classList.remove('show');
+    if (activeChatPath && chatBackdrop.classList.contains('show')) {
+        markChatAsRead(activeChatPath);
+        renderActiveOrder(); // Refresh badge instantly
     }
 
     chatMessages.innerHTML = '';
     const msgs = Object.values(messagesObj).sort((a,b) => a.timestamp - b.timestamp);
     if(msgs.length === 0) {
-      chatMessages.innerHTML = '<div style="text-align:center; color:var(--muted); font-size:11px; margin-top:10px;">Say hello to the customer!</div>';
+      chatMessages.innerHTML = '<div style="text-align:center; color:var(--muted); font-size:11px; margin-top:10px;">Send a message to the customer.</div>';
       return;
     }
     msgs.forEach(m => {
@@ -763,88 +641,36 @@
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
-  // Firebase Listener
-  function listenToAllOrders() {
-    onValue(ref(db, 'customerOrders'), snap => {
-      allOrders = [];
-      activeOrder = null;
-      
-      snap.forEach(custSnap => {
-        const custId = custSnap.key;
-        custSnap.forEach(oSnap => {
-          const o = oSnap.val();
-          o.dbKey = oSnap.key;
-          o.customerId = custId;
-          allOrders.push(o);
-          
-          if (o.riderId === currentUserId && ['started', 'arrived', 'picked_up'].includes(o.status)) {
-            activeOrder = o;
-            previewOrder = null; // Clear any map previews once active
-            if(!timerInterval) startActiveTimer(o.createdAt);
-          }
-        });
-      });
-      
-      updateUI();
-      hideLoader();
-    });
-  }
-
-  // Location Tracking & Saving to Firebase
-  function locateRider() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.watchPosition(async pos => {
-      currentLatLng = [pos.coords.latitude, pos.coords.longitude];
-      
-      if(!riderMarker) {
-        riderMarker = L.marker(currentLatLng, { icon: iconRider, zIndexOffset: 1000 });
-        updateMapRoute();
-      } else {
-        riderMarker.setLatLng(currentLatLng);
-        if(!activeOrder && !previewOrder) map.setView(currentLatLng); 
-      }
-
-      if (activeOrder && currentUserId) {
-        try {
-          await update(ref(db, `customerOrders/${activeOrder.customerId}/${activeOrder.dbKey}`), {
-            riderLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: Date.now() }
-          });
-        } catch (e) {
-          console.warn("Failed to push live location", e);
-        }
-      }
-
-    }, err => console.warn(err), { enableHighAccuracy: true });
-  }
-
-  // Auth Initialization
+  // --- Auth & Init ---
   function hideLoader() { loaderOverlay.classList.add('hidden'); }
 
   async function loginRider(id) {
     id = id.toUpperCase().trim();
     if (!/^[A-Z0-9]{4,8}$/.test(id)) {
-      document.getElementById('loginError').textContent = 'Invalid ID. Use 4-8 chars (e.g. RR1234)';
+      loginError.textContent = 'Use 4-8 characters (e.g. RDR123)';
       return;
     }
+    
     currentUserId = id;
     localStorage.setItem('riderId', id);
-    
-    // Reset rejected orders for new session
-    rejectedOrders = new Set();
-
     document.getElementById('userPillText').textContent = id;
     document.getElementById('userPill').style.display = 'flex';
-    document.getElementById('loginBackdrop').classList.remove('show');
+    loginBackdrop.classList.remove('show');
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        map.setView([pos.coords.latitude, pos.coords.longitude], 13);
+      }, () => {}, {timeout: 5000});
+    }
     
     listenToAllOrders();
-    locateRider();
   }
 
   const savedId = localStorage.getItem('riderId');
-  if (savedId) { loginRider(savedId); } 
-  else { document.getElementById('loginBackdrop').classList.add('show'); hideLoader(); }
+  if (savedId) loginRider(savedId); 
+  else { loginBackdrop.classList.add('show'); hideLoader(); }
 
-  document.getElementById('userJoinBtn').onclick = () => loginRider(document.getElementById('userIdInput').value);
+  document.getElementById('userJoinBtn').onclick = () => loginRider(userIdInput.value);
   document.getElementById('changeUserBtn').onclick = () => {
     localStorage.removeItem('riderId');
     window.location.reload();
