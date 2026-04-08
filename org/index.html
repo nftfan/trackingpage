@@ -473,22 +473,6 @@
             color: var(--text-primary);
         }
 
-        /* Article Output Markdown Styles */
-        #read-article-output h2, #read-article-output h3 {
-            color: var(--accent-color);
-            margin: 16px 0 8px 0;
-            font-size: 14px;
-        }
-        #read-article-output p {
-            margin-bottom: 12px;
-        }
-        #read-article-output ul, #read-article-output ol {
-            margin-bottom: 12px;
-            padding-left: 20px;
-        }
-        #read-article-output li {
-            margin-bottom: 4px;
-        }
         .error-message {
             background-color: rgba(255, 59, 48, 0.1);
             border: 1px solid var(--red-line);
@@ -669,17 +653,17 @@
         </ul>
     </div>
 
-    <!-- READ (ARTICLE) VIEW -->
+    <!-- READ (EXPLAIN AI) VIEW -->
     <div id="read-view" class="view-container list-view">
         <div class="view-header">
-            <div class="view-title">Write Article (AI)</div>
+            <div class="view-title">Explain (AI)</div>
         </div>
         <div style="padding: 12px; border-bottom: 1px solid var(--border-color);">
-            <textarea id="read-prompt-input" class="form-input" placeholder="Enter a topic or text to write an article about..." style="min-height: 80px;"></textarea>
-            <button id="btn-generate-article" class="btn-primary" style="width: 100%;">Generate Article</button>
+            <textarea id="read-prompt-input" class="form-input" placeholder="Enter a topic or text to explain..." style="min-height: 80px;"></textarea>
+            <button id="btn-generate-article" class="btn-primary" style="width: 100%;">Explain</button>
         </div>
         <div id="read-article-output" style="padding: 16px 12px; font-size: 13px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap;">
-            <!-- Generated article will appear here -->
+            <!-- Generated explanation will appear here -->
         </div>
     </div>
 
@@ -687,7 +671,6 @@
     <div id="photos-view" class="view-container list-view">
         <div class="view-header">
             <div class="view-title">Photos</div>
-            <!-- Hidden file input -->
             <input type="file" id="photo-upload-input" accept="image/*" multiple style="display: none;">
             <button class="action-btn" id="btn-add-photo">
                 <span class="material-icons" style="color:var(--accent-color);">add_photo_alternate</span>
@@ -828,7 +811,6 @@
             photoUploadInput.click();
         });
 
-        // Image Compressor to prevent LocalStorage Quota Exceeded
         function compressImage(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -838,7 +820,7 @@
                     img.src = event.target.result;
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 800; // Resize bounds
+                        const MAX_WIDTH = 800; 
                         const MAX_HEIGHT = 800;
                         let width = img.width;
                         let height = img.height;
@@ -858,7 +840,6 @@
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-                        // Save as JPEG with 60% quality to save space
                         resolve(canvas.toDataURL('image/jpeg', 0.6));
                     };
                     img.onerror = reject;
@@ -881,10 +862,9 @@
             }
             savePhotosToLocalStorage();
             renderPhotos();
-            photoUploadInput.value = ''; // Reset input
+            photoUploadInput.value = ''; 
         });
 
-        // Modal Logic
         function openPhotoModal(photo) {
             currentViewingPhotoId = photo.id;
             photoModalImg.src = photo.data;
@@ -896,7 +876,6 @@
             currentViewingPhotoId = null;
         });
 
-        // Close when clicking the black background
         photoModal.addEventListener('click', (e) => {
             if (e.target === photoModal) {
                 photoModal.style.display = 'none';
@@ -916,7 +895,7 @@
 
 
         // -------------------------
-        // READ / AI ARTICLE LOGIC
+        // READ / AI EXPLAIN LOGIC
         // -------------------------
         const readPromptInput = document.getElementById('read-prompt-input');
         const btnGenerateArticle = document.getElementById('btn-generate-article');
@@ -928,8 +907,8 @@
             if (!topic) return;
 
             btnGenerateArticle.disabled = true;
-            btnGenerateArticle.innerText = "Generating...";
-            readArticleOutput.innerHTML = '<div class="loading-text">Writing article... Please wait.</div>';
+            btnGenerateArticle.innerText = "Explaining...";
+            readArticleOutput.innerHTML = '<div class="loading-text">Explaining... Please wait.</div>';
 
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`, {
@@ -939,7 +918,7 @@
                         'X-goog-api-key': GEMINI_API_KEY
                     },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Write a comprehensive, engaging article about: ${topic}. Format with clear headings and paragraphs.` }] }]
+                        contents: [{ parts: [{ text: `Explain the following topic clearly and concisely in about one page. Do not use any headings or titles. Topic: ${topic}` }] }]
                     })
                 });
 
@@ -952,11 +931,9 @@
                 if (data.candidates && data.candidates.length > 0) {
                     let text = data.candidates[0].content.parts[0].text;
                     
+                    // Basic Markdown parsing for display (removing headers as requested)
                     text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                     text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-                    text = text.replace(/### (.*?)\n/g, '<h3>$1</h3>\n');
-                    text = text.replace(/## (.*?)\n/g, '<h2>$1</h2>\n');
-                    text = text.replace(/# (.*?)\n/g, '<h2>$1</h2>\n');
 
                     readArticleOutput.innerHTML = text;
                 } else {
@@ -964,10 +941,10 @@
                 }
             } catch (err) {
                 console.error("Gemini API Error:", err);
-                readArticleOutput.innerHTML = `<div class="error-message"><strong>Error generating article:</strong><br><br>${err.message}</div>`;
+                readArticleOutput.innerHTML = `<div class="error-message"><strong>Error generating explanation:</strong><br><br>${err.message}</div>`;
             } finally {
                 btnGenerateArticle.disabled = false;
-                btnGenerateArticle.innerText = "Generate Article";
+                btnGenerateArticle.innerText = "Explain";
             }
         });
 
