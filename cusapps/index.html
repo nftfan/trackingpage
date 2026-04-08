@@ -88,7 +88,7 @@
     .note-input { 
       width: 100%; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); 
       color: #fff; font-size: 14px; outline: none; border-radius: 8px; font-weight:400;
-      padding: 12px; min-height: 60px; font-family: inherit; transition: border 0.2s; resize: vertical;
+      padding: 12px; min-height: 50px; font-family: inherit; transition: border 0.2s; resize: vertical;
     }
     .note-input:focus { border-color: var(--accent); }
     .note-input::placeholder { color: rgba(255,255,255,0.3); }
@@ -498,16 +498,14 @@
         btnSavePickupNote.textContent = 'Submitted';
         btnSavePickupNote.disabled = true;
         btnSavePickupNote.style.display = 'inline-block';
-        
         btnEditPickupNote.style.display = 'inline-block';
       } else {
         pickupNoteInput.style.display = 'block';
         pickupNoteDisplay.style.display = 'none';
         
-        btnSavePickupNote.textContent = 'Submit';
+        btnSavePickupNote.textContent = 'Save Note';
         btnSavePickupNote.disabled = false;
         btnSavePickupNote.style.display = 'inline-block';
-        
         btnEditPickupNote.style.display = 'none';
       }
     } else {
@@ -520,16 +518,14 @@
         btnSaveDropoffNote.textContent = 'Submitted';
         btnSaveDropoffNote.disabled = true;
         btnSaveDropoffNote.style.display = 'inline-block';
-        
         btnEditDropoffNote.style.display = 'inline-block';
       } else {
         dropoffNoteInput.style.display = 'block';
         dropoffNoteDisplay.style.display = 'none';
         
-        btnSaveDropoffNote.textContent = 'Submit';
+        btnSaveDropoffNote.textContent = 'Save Note';
         btnSaveDropoffNote.disabled = false;
         btnSaveDropoffNote.style.display = 'inline-block';
-        
         btnEditDropoffNote.style.display = 'none';
       }
     }
@@ -538,11 +534,13 @@
   btnEditPickupNote.onclick = () => {
     setNoteState('pickup', 'edit');
     pickupNoteInput.focus();
+    updateUIState();
   };
 
   btnEditDropoffNote.onclick = () => {
     setNoteState('dropoff', 'edit');
     dropoffNoteInput.focus();
+    updateUIState();
   };
 
   btnSavePickupNote.onclick = async () => {
@@ -556,7 +554,7 @@
         setNoteState('pickup', 'view');
       } catch (e) {
         showToast('Error updating note');
-        btnSavePickupNote.textContent = 'Submit';
+        btnSavePickupNote.textContent = 'Save Note';
         btnSavePickupNote.disabled = false;
       }
     } else {
@@ -566,6 +564,7 @@
       }
       setNoteState('pickup', 'view');
       showToast('Pickup note saved!');
+      updateUIState();
     }
   };
 
@@ -580,7 +579,7 @@
         setNoteState('dropoff', 'view');
       } catch (e) {
         showToast('Error updating note');
-        btnSaveDropoffNote.textContent = 'Submit';
+        btnSaveDropoffNote.textContent = 'Save Note';
         btnSaveDropoffNote.disabled = false;
       }
     } else {
@@ -590,6 +589,7 @@
       }
       setNoteState('dropoff', 'view');
       showToast('Dropoff note saved!');
+      updateUIState();
     }
   };
 
@@ -792,31 +792,39 @@
     
     notesArea.style.display = 'flex';
 
+    // Strictly enforce Order Button Rules: Must have both points AND both notes must be in 'view' mode.
+    const isReadyToOrder = (pointPickup && pointDropoff && pNoteState === 'view' && dNoteState === 'view');
+    btnOrder.disabled = !isReadyToOrder;
+
     if (!pointPickup) {
       mapGuide.className = 'map-guide action-needed';
       mapGuide.innerHTML = 'Step 1: Tap map to set Pickup Location 📍';
       pickupNoteGroup.classList.remove('show');
       dropoffNoteGroup.classList.remove('show');
-      pickupNoteInput.value = '';
-      dropoffNoteInput.value = '';
-      setNoteState('pickup', 'edit');
-      setNoteState('dropoff', 'edit');
       btnClear.disabled = true;
-      btnOrder.disabled = true;
     } else if (!pointDropoff) {
       mapGuide.className = 'map-guide action-needed';
-      mapGuide.innerHTML = 'Step 2: Tap map to set Dropoff Location 🏠';
+      if (pNoteState === 'edit') {
+         mapGuide.innerHTML = 'Step 2: Submit your Pickup Note to continue 📝';
+      } else {
+         mapGuide.innerHTML = 'Step 3: Tap map to set Dropoff Location 🏠';
+      }
       pickupNoteGroup.classList.add('show');
       dropoffNoteGroup.classList.remove('show');
       btnClear.disabled = false;
-      btnOrder.disabled = true;
     } else {
-      mapGuide.className = 'map-guide success';
-      mapGuide.innerHTML = 'Step 3: Ready! Add Dropoff Note and click "Place Order" ✅';
-      pickupNoteGroup.classList.remove('show');
+      // Both points exist. Check if notes are fully submitted.
+      if (pNoteState === 'edit' || dNoteState === 'edit') {
+         mapGuide.className = 'map-guide action-needed';
+         mapGuide.innerHTML = 'Step 4: Submit all notes to enable Place Order ����';
+      } else {
+         mapGuide.className = 'map-guide success';
+         mapGuide.innerHTML = 'Ready! Click "Place Order" to continue ✅';
+      }
+      
+      pickupNoteGroup.classList.add('show');
       dropoffNoteGroup.classList.add('show');
       btnClear.disabled = false;
-      btnOrder.disabled = false;
       
       if(routePolyline) mapLayerGroup.removeLayer(routePolyline);
       routePolyline = L.polyline([pointPickup, pointDropoff], {
@@ -847,6 +855,13 @@
     pointPickup = null; pointDropoff = null;
     mapLayerGroup.clearLayers();
     routePolyline = null;
+    
+    // reset notes input fields to start fresh
+    pickupNoteInput.value = '';
+    dropoffNoteInput.value = '';
+    setNoteState('pickup', 'edit');
+    setNoteState('dropoff', 'edit');
+
     updateUIState();
   };
 
