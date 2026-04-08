@@ -312,6 +312,40 @@
             text-transform: uppercase;
         }
 
+        /* Horizontal Tabs for Categories/Labels */
+        .category-tabs-container {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            flex: 1;
+            padding-right: 12px;
+            scrollbar-width: none; /* Firefox */
+        }
+        .category-tabs-container::-webkit-scrollbar {
+            display: none; /* Safari and Chrome */
+        }
+
+        .category-tab {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-primary);
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .category-tab.active {
+            background-color: var(--tab-color, var(--accent-color));
+            border-color: var(--tab-color, var(--accent-color));
+            color: #000;
+        }
+
         .view-list {
             list-style: none;
         }
@@ -326,7 +360,8 @@
             text-decoration: none;
             font-size: 13px;
             line-height: 1.4;
-            display: block;
+            display: flex;
+            align-items: center;
             margin-bottom: 4px;
             font-weight: 600;
         }
@@ -341,6 +376,17 @@
         .list-item .item-meta {
             font-size: 10px;
             color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .item-label-badge {
+            font-size: 8px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #000;
         }
 
         .loading-text {
@@ -368,6 +414,29 @@
             margin-bottom: 8px;
             outline: none;
             font-size: 12px;
+        }
+
+        .color-picker-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .color-picker-row label {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .color-picker-input {
+            background: none;
+            border: none;
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border-radius: 4px;
+            outline: none;
         }
 
         textarea.form-input {
@@ -465,8 +534,17 @@
 
     <!-- NEWS VIEW -->
     <div id="news-view" class="view-container list-view">
-        <div class="view-header">
-            <div class="view-title">Top Stories</div>
+        <div class="view-header" style="padding: 10px 12px;">
+            <div class="category-tabs-container" id="news-category-tabs">
+                <div class="category-tab active" data-url="https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en" style="--tab-color: var(--accent-color);">Top</div>
+                <div class="category-tab" data-url="https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en" style="--tab-color: #4caf50;">World</div>
+                <div class="category-tab" data-url="https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en" style="--tab-color: #03a9f4;">Tech</div>
+                <div class="category-tab" data-url="https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en" style="--tab-color: #ff9800;">Science</div>
+                <div class="category-tab" data-url="https://news.google.com/rss/search?q=Pakistan&hl=en-US&gl=US&ceid=US:en" style="--tab-color: #e91e63;">Pakistan</div>
+            </div>
+            <button class="action-btn" id="btn-refresh-news" title="Refresh News">
+                <span class="material-icons" style="color:var(--text-primary);">refresh</span>
+            </button>
         </div>
         <ul class="view-list" id="news-list">
             <div class="loading-text">Loading headlines...</div>
@@ -475,15 +553,29 @@
 
     <!-- EMAIL VIEW -->
     <div id="email-view" class="view-container list-view">
-        <div class="view-header">
-            <div class="view-title">Emails</div>
-            <button class="action-btn" id="btn-show-email-form"><span class="material-icons" style="color:var(--accent-color);">add_circle</span></button>
+        <div class="view-header" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="view-title">Emails</div>
+                <button class="action-btn" id="btn-show-email-form"><span class="material-icons" style="color:var(--accent-color);">add_circle</span></button>
+            </div>
+            <div class="category-tabs-container" id="email-category-tabs">
+                <!-- Dynamically populated labels -->
+            </div>
         </div>
         
         <div class="form-container" id="email-form">
             <input type="text" id="email-to-from" class="form-input" placeholder="To / From">
             <input type="text" id="email-subject" class="form-input" placeholder="Subject">
+            
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="email-label" class="form-input" placeholder="Label (e.g., Work)" style="flex: 1;">
+                <div class="color-picker-row">
+                    <input type="color" id="email-label-color" class="color-picker-input" value="#03a9f4">
+                </div>
+            </div>
+
             <textarea id="email-body" class="form-input" placeholder="Body..."></textarea>
+            
             <div class="form-actions">
                 <button class="btn-secondary" id="btn-cancel-email">Cancel</button>
                 <button class="btn-primary" id="btn-save-email">Save Email</button>
@@ -525,11 +617,16 @@
         const timelineInner = document.getElementById('timeline-inner');
         const newsList = document.getElementById('news-list');
         const emailList = document.getElementById('email-list');
+        const emailCategoryTabs = document.getElementById('email-category-tabs');
         
         let selectedDateStr = "";
         let saveTimeout = null;
         let newsLoaded = false;
         let emailsLoaded = false;
+        let currentNewsUrl = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en";
+        
+        let allEmailsData = [];
+        let currentEmailFilter = "All";
 
         let timeLineElement = document.createElement('div');
         timeLineElement.id = 'current-time-line';
@@ -547,7 +644,7 @@
                 document.getElementById(targetView).classList.add('active');
 
                 if (targetView === 'news-view' && !newsLoaded) {
-                    loadNews();
+                    loadNews(currentNewsUrl);
                 } else if (targetView === 'email-view' && !emailsLoaded) {
                     loadEmails();
                 }
@@ -566,11 +663,16 @@
             document.getElementById('email-to-from').value = '';
             document.getElementById('email-subject').value = '';
             document.getElementById('email-body').value = '';
+            document.getElementById('email-label').value = '';
+            document.getElementById('email-label-color').value = '#03a9f4';
         });
+        
         document.getElementById('btn-save-email').addEventListener('click', () => {
             const toFrom = document.getElementById('email-to-from').value.trim();
             const subject = document.getElementById('email-subject').value.trim();
             const body = document.getElementById('email-body').value.trim();
+            const labelStr = document.getElementById('email-label').value.trim();
+            const labelColor = document.getElementById('email-label-color').value;
 
             if (!toFrom && !subject && !body) return;
 
@@ -578,52 +680,111 @@
                 toFrom,
                 subject,
                 body,
+                label: labelStr,
+                labelColor: labelColor,
                 timestamp: Date.now()
             };
 
             push(ref(db, 'emails'), emailData).then(() => {
-                document.getElementById('btn-cancel-email').click(); // hide & clear
+                document.getElementById('btn-cancel-email').click(); 
             }).catch(console.error);
         });
+
+        function renderEmailTabs() {
+            const labelMap = new Map();
+            allEmailsData.forEach(e => {
+                if (e.label) {
+                    // Use the color of the most recently added label
+                    if (!labelMap.has(e.label)) {
+                        labelMap.set(e.label, e.labelColor || '#bb86fc');
+                    }
+                }
+            });
+
+            let html = `<div class="category-tab ${currentEmailFilter === 'All' ? 'active' : ''}" data-label="All" style="--tab-color: var(--accent-color);">All</div>`;
+            
+            labelMap.forEach((color, label) => {
+                const isActive = currentEmailFilter === label ? 'active' : '';
+                html += `<div class="category-tab ${isActive}" data-label="${label}" style="--tab-color: ${color};">${label}</div>`;
+            });
+
+            emailCategoryTabs.innerHTML = html;
+
+            emailCategoryTabs.querySelectorAll('.category-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    currentEmailFilter = tab.getAttribute('data-label');
+                    renderEmailTabs();
+                    renderEmailList();
+                });
+            });
+        }
+
+        function renderEmailList() {
+            emailList.innerHTML = '';
+            
+            const filteredEmails = currentEmailFilter === 'All' 
+                ? allEmailsData 
+                : allEmailsData.filter(e => e.label === currentEmailFilter);
+
+            if (filteredEmails.length === 0) {
+                emailList.innerHTML = '<div class="loading-text">No emails found.</div>';
+                return;
+            }
+
+            filteredEmails.forEach(email => {
+                const li = document.createElement('li');
+                li.className = 'list-item';
+                
+                const date = new Date(email.timestamp);
+                const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
+
+                let badgeHtml = '';
+                if (email.label) {
+                    badgeHtml = `<span class="item-label-badge" style="background-color: ${email.labelColor || '#bb86fc'};">${email.label}</span>`;
+                }
+
+                li.innerHTML = `
+                    <div class="item-title">${email.subject || '(No Subject)'}</div>
+                    <div class="item-desc">${email.body || ''}</div>
+                    <div class="item-meta">
+                        ${badgeHtml}
+                        <span>${email.toFrom || 'Unknown'} • ${dateStr} at ${timeStr}</span>
+                    </div>
+                `;
+                emailList.appendChild(li);
+            });
+        }
 
         function loadEmails() {
             emailsLoaded = true;
             const emailsRef = ref(db, 'emails');
             
             onValue(emailsRef, (snapshot) => {
-                emailList.innerHTML = '';
                 if (snapshot.exists()) {
                     const data = snapshot.val();
-                    // Convert to array and sort by timestamp descending (latest on top)
-                    const emailArray = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-                    emailArray.sort((a, b) => b.timestamp - a.timestamp);
-
-                    emailArray.forEach(email => {
-                        const li = document.createElement('li');
-                        li.className = 'list-item';
-                        
-                        const date = new Date(email.timestamp);
-                        const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
-
-                        li.innerHTML = `
-                            <div class="item-title">${email.subject || '(No Subject)'}</div>
-                            <div class="item-desc">${email.body || ''}</div>
-                            <div class="item-meta">${email.toFrom || 'Unknown'} • ${dateStr} at ${timeStr}</div>
-                        `;
-                        emailList.appendChild(li);
-                    });
+                    allEmailsData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+                    allEmailsData.sort((a, b) => b.timestamp - a.timestamp);
                 } else {
-                    emailList.innerHTML = '<div class="loading-text">No emails found.</div>';
+                    allEmailsData = [];
                 }
+                
+                // Keep filter valid if the label still exists, otherwise revert to 'All'
+                if (currentEmailFilter !== 'All' && !allEmailsData.some(e => e.label === currentEmailFilter)) {
+                    currentEmailFilter = 'All';
+                }
+
+                renderEmailTabs();
+                renderEmailList();
             });
         }
 
         // -------------------------
         // NEWS FETCH LOGIC
         // -------------------------
-        function loadNews() {
-            const rssUrl = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en";
+        function loadNews(rssUrl) {
+            currentNewsUrl = rssUrl;
+            newsList.innerHTML = '<div class="loading-text">Loading headlines...</div>';
             const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
             
             fetch(apiUrl)
@@ -631,7 +792,7 @@
                 .then(data => {
                     newsList.innerHTML = '';
                     if (data.status === 'ok' && data.items) {
-                        data.items.slice(0, 15).forEach(item => {
+                        data.items.slice(0, 20).forEach(item => {
                             const li = document.createElement('li');
                             li.className = 'list-item';
                             
@@ -654,6 +815,25 @@
                     newsList.innerHTML = '<div class="loading-text">Error fetching news. Please check your connection.</div>';
                 });
         }
+
+        // News Tab Click Listeners
+        document.querySelectorAll('#news-category-tabs .category-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('#news-category-tabs .category-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const url = tab.getAttribute('data-url');
+                loadNews(url);
+                const container = document.getElementById('news-category-tabs');
+                container.scrollTo({
+                    left: tab.offsetLeft - container.offsetWidth / 2 + tab.offsetWidth / 2,
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        document.getElementById('btn-refresh-news').addEventListener('click', () => {
+            loadNews(currentNewsUrl);
+        });
 
 
         // -------------------------
