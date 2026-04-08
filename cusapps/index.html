@@ -46,16 +46,22 @@
       transition: all 0.3s ease;
       letter-spacing: 0.3px;
     }
-    .map-guide.action-needed {
-      color: #fcd34d;
-      background: rgba(245, 158, 11, 0.1);
-      border-color: rgba(245, 158, 11, 0.3);
+    .map-guide.action-needed { color: #fcd34d; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); }
+    .map-guide.success { color: #6ee7b7; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); }
+
+    /* Notes Area */
+    .notes-area { display: flex; flex-direction: column; gap: 6px; }
+    .note-input-group {
+      display: none; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); 
+      padding: 8px 12px; border-radius: var(--radius-md);
     }
-    .map-guide.success {
-      color: #6ee7b7;
-      background: rgba(16, 185, 129, 0.1);
-      border-color: rgba(16, 185, 129, 0.3);
-    }
+    .note-input-group.show { display: flex; }
+    .note-label { font-size: 9px; font-weight: 800; width: 55px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px;}
+    .nl-pickup { color: #fca5a5; }
+    .nl-dropoff { color: #6ee7b7; }
+    .note-input { flex: 1; background: transparent; border: none; color: var(--text); font-size: 12px; font-weight: 500; outline: none; }
+    .note-input::placeholder { color: var(--muted); }
 
     /* Dot Icons & Animations */
     .dot-icon-container { position: relative; width: 60px; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
@@ -92,7 +98,7 @@
     .data-table tbody tr{border-bottom:1px solid rgba(255,255,255,.03); transition: background 0.3s;}
     .data-table tbody tr:hover { background: rgba(255,255,255,0.02); }
     
-    /* Live Status Timeline (Right Column) */
+    /* Live Status Timeline */
     .timeline { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
     .tl-step { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; }
     .tl-done { color: #10b981; }
@@ -100,12 +106,13 @@
     .tl-issue { color: #f87171; }
     .tl-time { color: var(--muted); font-family: Menlo, monospace; font-size: 9px; margin-left: auto; padding-left: 10px; font-weight: 600; }
 
-    @keyframes alert-pulse {
-      0% { opacity: 0.6; }
-      100% { opacity: 1; text-shadow: 0 0 8px currentColor; }
-    }
+    @keyframes alert-pulse { 0% { opacity: 0.6; } 100% { opacity: 1; text-shadow: 0 0 8px currentColor; } }
 
     .pin-badge { display: inline-block; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; padding: 2px 6px; border-radius: 4px; font-family: Menlo, monospace; font-size: 11px; font-weight: bold; letter-spacing: 1px; margin-top: 6px; }
+    
+    .table-notes-box { margin-top: 8px; font-size: 10.5px; background: rgba(0,0,0,0.2); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 5px;}
+    .table-note-row { display: flex; gap: 6px; color: #cbd5ff; line-height: 1.3;}
+    
     .btn-chat-open { background: linear-gradient(135deg,#8b5cf6,#6d28d9); color: white; border: none; padding: 6px 10px; border-radius: 6px; font-weight: 700; font-size: 10px; cursor: pointer; text-transform: uppercase; margin-top: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;}
     .chat-badge { background: #ef4444; color: #fff; border-radius: 50%; padding: 2px 6px; font-size: 9px; font-weight: 900; line-height: 1; display: inline-flex; align-items: center; justify-content: center;}
 
@@ -164,6 +171,18 @@
 
   <!-- Instruction Guide Below Map -->
   <div id="mapGuide" class="map-guide action-needed">Step 1: Tap map to set Pickup Location 📍</div>
+
+  <!-- Notes Inputs Area -->
+  <div class="notes-area" id="notesArea">
+    <div id="pickupNoteGroup" class="note-input-group">
+      <span class="note-label nl-pickup">Pickup</span>
+      <input type="text" id="pickupNoteInput" class="note-input" placeholder="Add pickup note (optional)..." autocomplete="off">
+    </div>
+    <div id="dropoffNoteGroup" class="note-input-group">
+      <span class="note-label nl-dropoff">Dropoff</span>
+      <input type="text" id="dropoffNoteInput" class="note-input" placeholder="Add dropoff note (optional)..." autocomplete="off">
+    </div>
+  </div>
 
   <!-- Action Controls -->
   <div class="controls">
@@ -271,6 +290,12 @@
   // DOM Elements
   const loaderOverlay = document.getElementById('loaderOverlay');
   const mapGuide = document.getElementById('mapGuide');
+  const notesArea = document.getElementById('notesArea');
+  const pickupNoteGroup = document.getElementById('pickupNoteGroup');
+  const dropoffNoteGroup = document.getElementById('dropoffNoteGroup');
+  const pickupNoteInput = document.getElementById('pickupNoteInput');
+  const dropoffNoteInput = document.getElementById('dropoffNoteInput');
+
   const btnClear = document.getElementById('btnClear');
   const btnOrder = document.getElementById('btnOrder');
   const ordersBody = document.getElementById('ordersBody');
@@ -279,7 +304,6 @@
   const userIdInput = document.getElementById('userIdInput');
   const loginError = document.getElementById('loginError');
 
-  // Chat Elements
   const chatBackdrop = document.getElementById('chatBackdrop');
   const chatCloseBtn = document.getElementById('chatCloseBtn');
   const chatMessages = document.getElementById('chatMessages');
@@ -352,6 +376,7 @@
          liveRiderMarker = null; livePickupMarker = null; liveDropoffMarker = null; livePolyline = null;
          markerPickup = null; markerDropoff = null; routePolyline = null;
          currentlyTrackingOrderId = null; pointPickup = null; pointDropoff = null;
+         updateUIState();
       }
       if (!pointPickup && !currentlyTrackingOrderId) {
          btnClear.disabled = true; btnOrder.disabled = true;
@@ -367,6 +392,8 @@
     }
 
     currentlyTrackingOrderId = activeOrder.dbKey;
+    updateUIState(); // Hide inputs immediately
+
     btnClear.disabled = true;
     btnOrder.disabled = true;
 
@@ -416,21 +443,34 @@
 
   // Map Interaction Logic
   function updateUIState() {
-    if (currentlyTrackingOrderId) return; 
+    if (currentlyTrackingOrderId) {
+      notesArea.style.display = 'none';
+      return;
+    }
+    
+    notesArea.style.display = 'flex';
 
     if (!pointPickup) {
       mapGuide.className = 'map-guide action-needed';
       mapGuide.innerHTML = 'Step 1: Tap map to set Pickup Location 📍';
+      pickupNoteGroup.classList.remove('show');
+      dropoffNoteGroup.classList.remove('show');
+      pickupNoteInput.value = '';
+      dropoffNoteInput.value = '';
       btnClear.disabled = true;
       btnOrder.disabled = true;
     } else if (!pointDropoff) {
       mapGuide.className = 'map-guide action-needed';
       mapGuide.innerHTML = 'Step 2: Tap map to set Dropoff Location 🏠';
+      pickupNoteGroup.classList.add('show');
+      dropoffNoteGroup.classList.remove('show');
       btnClear.disabled = false;
       btnOrder.disabled = true;
     } else {
       mapGuide.className = 'map-guide success';
-      mapGuide.innerHTML = 'Step 3: Ready! Click "Place Order" below ✅';
+      mapGuide.innerHTML = 'Step 3: Ready! Review Notes and click "Place Order" ✅';
+      pickupNoteGroup.classList.add('show');
+      dropoffNoteGroup.classList.add('show');
       btnClear.disabled = false;
       btnOrder.disabled = false;
       
@@ -478,8 +518,8 @@
         orderId: shortId,
         receivingPin: recPin,
         customerId: currentUserId,
-        pickup: { lat: pointPickup.lat, lng: pointPickup.lng },
-        dropoff: { lat: pointDropoff.lat, lng: pointDropoff.lng },
+        pickup: { lat: pointPickup.lat, lng: pointPickup.lng, note: pickupNoteInput.value.trim() },
+        dropoff: { lat: pointDropoff.lat, lng: pointDropoff.lng, note: dropoffNoteInput.value.trim() },
         status: 'pending',
         createdAt: Date.now()
       });
@@ -495,7 +535,7 @@
     }
   };
 
-  // Table Rendering with Timeline
+  // Table Rendering with Timeline & Notes
   const STATUS_FLOW = [
     { key: 'pending', label: 'Waiting for Rider' },
     { key: 'started', label: 'Heading to Rest.' },
@@ -520,17 +560,16 @@
     updateTrackingMap(activeTrackingOrder || recentlyFinishedOrder || null);
 
     arr.forEach(o => {
-      // 1. Maintain local timestamps for timeline
       if (!localStatusTimes[o.dbKey]) localStatusTimes[o.dbKey] = {};
       if (!localStatusTimes[o.dbKey][o.status]) {
           localStatusTimes[o.dbKey][o.status] = Date.now();
           localStorage.setItem('customerStatusTimes', JSON.stringify(localStatusTimes));
       }
-      localStatusTimes[o.dbKey]['pending'] = o.createdAt; // Ensure pending always matches creation time
+      localStatusTimes[o.dbKey]['pending'] = o.createdAt; 
 
       const tr = document.createElement('tr');
       
-      // 2. Build Timeline HTML
+      // Build Timeline HTML
       let timelineHtml = '<div class="timeline">';
       let currentIdx = STATUS_FLOW.findIndex(s => s.key === o.status);
 
@@ -540,7 +579,6 @@
               const stepTime = localStatusTimes[o.dbKey][step.key] || o.createdAt;
               const timeStr = formatTime(stepTime);
               
-              // If the current step is completed, OR the overall order is marked delivered, show as DONE
               if (i < currentIdx || o.status === 'delivered') {
                   timelineHtml += `<div class="tl-step tl-done">✓ ${step.label} - DONE <span class="tl-time">${timeStr}</span></div>`;
               } else {
@@ -548,13 +586,23 @@
               }
           }
       } else {
-          // Handle issue/cancelled
           const issueTime = localStatusTimes[o.dbKey][o.status] || Date.now();
           timelineHtml += `<div class="tl-step tl-issue">❌ Cancelled / Issue <span class="tl-time">${formatTime(issueTime)}</span></div>`;
       }
       timelineHtml += '</div>';
 
-      // 3. Unread Message Logic & Chat Button
+      // Notes Display HTML
+      let notesHtml = '';
+      const pNote = o.pickup.note;
+      const dNote = o.dropoff.note;
+      if (pNote || dNote) {
+        notesHtml = `<div class="table-notes-box">`;
+        if (pNote) notesHtml += `<div class="table-note-row"><strong style="color:#fca5a5;">PICKUP:</strong> <span>${pNote}</span></div>`;
+        if (dNote) notesHtml += `<div class="table-note-row"><strong style="color:#6ee7b7;">DROPOFF:</strong> <span>${dNote}</span></div>`;
+        notesHtml += `</div>`;
+      }
+
+      // Unread Message Logic & Chat Button
       let unreadCount = 0;
       if (o.chat) {
         const lastRead = lastReadTimestamps[o.dbKey] || 0;
@@ -575,6 +623,7 @@
           <div style="margin-top: 4px;">
             <span class="pin-badge">PIN: ${o.receivingPin || 'N/A'}</span>
           </div>
+          ${notesHtml}
         </td>
         <td>
           ${timelineHtml}
