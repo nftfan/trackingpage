@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Worker Bonus Earnings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root { 
+      --bg: #0b0b0e; 
+      --panel: #141419; 
+      --muted: #8b8b95; 
+      --text: #f2f2f7; 
+      --accent: #4f8cff; 
+      --accent-2: #7a5cff;
+      --bonus-color: #10b981;
+      --radius-lg: 12px; 
+      --radius-md: 10px; 
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: env(safe-area-inset-top, 20px) 16px env(safe-area-inset-bottom, 20px);
+    }
+   
+    .loader-overlay {
+      position: fixed; inset: 0; background: var(--bg); z-index: 10000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;
+      transition: opacity 0.3s ease;
+    }
+    .loader-overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1);
+      border-left-color: var(--accent); border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .loader-text { font-weight: 600; color: var(--muted); font-size: 13px; letter-spacing: 0.5px; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* Header */
+    header {
+      background: linear-gradient(180deg, #1c1c24 0%, var(--panel) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .header-title {
+      font-size: 16px; font-weight: 800; color: #fff; letter-spacing: 0.5px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* List Container */
+    .workers-list {
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    /* Worker Section */
+    .worker-section {
+      background: var(--panel); 
+      border: 1px solid rgba(255, 255, 255, 0.05); 
+      border-radius: var(--radius-lg); 
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .worker-header {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .worker-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .worker-name-bonus {
+      font-size: 15px; 
+      font-weight: 800; 
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .worker-last-active {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .total-bonus-badge {
+      font-family: Menlo, Monaco, Consolas, monospace; 
+      font-size: 14px; 
+      font-weight: 800; 
+      color: #6ee7b7;
+      background: rgba(16, 185, 129, 0.1); 
+      border: 1px solid rgba(16, 185, 129, 0.3); 
+      padding: 4px 8px; 
+      border-radius: 6px; 
+      letter-spacing: 0.5px;
+    }
+
+    .campaigns-container {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Campaign Mini Card */
+    .campaign-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .campaign-info {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    .campaign-id {
+      font-family: Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #aab7ff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .dot-count {
+      font-size: 11px; color: #93c5fd; font-weight: 600;
+      display: flex; align-items: center; gap: 4px;
+    }
+
+    .dot-icon {
+      width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;
+      box-shadow: 0 0 6px rgba(59, 130, 246, 0.8);
+    }
+
+    .campaign-earnings {
+      font-family: Menlo, Monaco, Consolas, monospace; 
+      font-size: 12px; 
+      font-weight: 700; 
+      color: #cbd5e1;
+    }
+
+    .empty-state {
+      text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+<div id="loaderOverlay" class="loader-overlay">
+  <div class="spinner"></div>
+  <div class="loader-text">Calculating Earnings...</div>
+</div>
+
+<div class="app">
+  <header>
+    <div class="header-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+      Worker Bonus Rankings
+    </div>
+  </header>
+
+  <div id="workersList" class="workers-list">
+    <!-- Worker sections injected here via JS -->
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const loaderOverlay = document.getElementById('loaderOverlay');
+  const workersList = document.getElementById('workersList');
+
+  const BONUS_PER_BLUE_DOT = 0.036;
+
+  /**
+   * Cleans a worker's name by removing numeric suffixes (one, two, three, 1, 2, etc.)
+   * So "tomone", "tomtwo", "tom 1" all become "Tom"
+   */
+  function getBaseName(rawName) {
+    if (!rawName) return "Unknown";
+    let name = rawName.toLowerCase().trim();
+    const suffixRegex = /[\s_]*(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|\d+)$/i;
+    name = name.replace(suffixRegex, '').trim();
+    if (name.length === 0) name = rawName.trim();
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+
+  function formatLastActive(timestamp) {
+    if (!timestamp) return "Unknown";
+    const d = new Date(timestamp);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function loadBonusData() {
+    loaderOverlay.classList.remove('hidden');
+    try {
+      const dotsSnap = await get(ref(db, 'dotColors'));
+      const dotsData = dotsSnap.val() || {};
+      
+      const workerStats = {};
+
+      // Parse the database structure
+      Object.keys(dotsData).forEach(campaignId => {
+        Object.keys(dotsData[campaignId]).forEach(dotKey => {
+          const dot = dotsData[campaignId][dotKey];
+          
+          if (!dot.workerName) return;
+          
+          const baseWorkerName = getBaseName(dot.workerName);
+          
+          // Initialize worker if they don't exist
+          if (!workerStats[baseWorkerName]) {
+            workerStats[baseWorkerName] = { 
+              totalBlueDots: 0,
+              campaigns: {},
+              lastActive: 0 // Track highest timestamp
+            };
+          }
+
+          // Update last active time if this dot is newer
+          if (dot.timestamp && dot.timestamp > workerStats[baseWorkerName].lastActive) {
+            workerStats[baseWorkerName].lastActive = dot.timestamp;
+          }
+
+          // Count ONLY blue dots for bonus
+          if (dot.color === 'blue') {
+            workerStats[baseWorkerName].totalBlueDots += 1;
+            
+            // Track per campaign
+            if (!workerStats[baseWorkerName].campaigns[campaignId]) {
+              workerStats[baseWorkerName].campaigns[campaignId] = 0;
+            }
+            workerStats[baseWorkerName].campaigns[campaignId] += 1;
+          }
+        });
+      });
+
+      // Filter out workers who have 0 blue dots
+      const activeWorkers = Object.keys(workerStats)
+        .filter(name => workerStats[name].totalBlueDots > 0)
+        .map(name => {
+          return {
+            name: name,
+            totalBlueDots: workerStats[name].totalBlueDots,
+            totalEarnings: workerStats[name].totalBlueDots * BONUS_PER_BLUE_DOT,
+            campaigns: workerStats[name].campaigns,
+            lastActive: workerStats[name].lastActive // Passed into the array
+          };
+        });
+
+      // SORT BY LAST ACTIVE (Most recent first)
+      activeWorkers.sort((a, b) => b.lastActive - a.lastActive);
+
+      renderWorkers(activeWorkers);
+
+    } catch (error) {
+      console.error("Error loading data:", error);
+      workersList.innerHTML = `<div class="empty-state" style="color: #ef4444;">Failed to load data. Please try again.</div>`;
+    } finally {
+      loaderOverlay.classList.add('hidden');
+    }
+  }
+
+  function renderWorkers(workersArray) {
+    workersList.innerHTML = '';
+
+    if (workersArray.length === 0) {
+      workersList.innerHTML = `<div class="empty-state">No bonus earnings found yet. Blue dots will appear here once clicked.</div>`;
+      return;
+    }
+
+    workersArray.forEach((worker) => {
+      const section = document.createElement('div');
+      section.className = 'worker-section';
+      
+      const formattedTotalEarnings = `€${worker.totalEarnings.toFixed(2)}`;
+      const lastActiveText = formatLastActive(worker.lastActive);
+
+      // Build inner campaigns HTML
+      let campaignsHTML = '';
+      const sortedCampaigns = Object.keys(worker.campaigns).sort((a, b) => worker.campaigns[b] - worker.campaigns[a]);
+
+      sortedCampaigns.forEach(campaignId => {
+        const dotsCount = worker.campaigns[campaignId];
+        const campaignEarnings = `€${(dotsCount * BONUS_PER_BLUE_DOT).toFixed(2)}`;
+
+        campaignsHTML += `
+          <div class="campaign-card">
+            <div class="campaign-info">
+              <div class="campaign-id">${campaignId}</div>
+              <div class="dot-count">
+                <div class="dot-icon"></div>
+                ${dotsCount} Blue Dots
+              </div>
+            </div>
+            <div class="campaign-earnings">${campaignEarnings}</div>
+          </div>
+        `;
+      });
+
+      section.innerHTML = `
+        <div class="worker-header">
+          <div class="worker-info">
+            <div class="worker-name-bonus">${worker.name}</div>
+            <div class="worker-last-active">Last Active: ${lastActiveText}</div>
+          </div>
+          <div class="total-bonus-badge">${formattedTotalEarnings}</div>
+        </div>
+        <div class="campaigns-container">
+          ${campaignsHTML}
+        </div>
+      `;
+      
+      workersList.appendChild(section);
+    });
+  }
+
+  // Initialize
+  loadBonusData();
+</script>
+</body>
+</html>
