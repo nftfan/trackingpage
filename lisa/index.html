@@ -20,7 +20,6 @@
     
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     
-    /* Uniform font size globally */
     html, body {
       min-height: 100vh;
       background: var(--bg);
@@ -34,22 +33,94 @@
     
     .app {
       width: 100%;
-      max-width: 600px;
+      max-width: 1200px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 15px;
     }
 
     .header-text {
-      margin-bottom: 10px;
+      margin-bottom: 5px;
       text-align: center;
+    }
+
+    /* Controls container for week and filters */
+    .controls-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .week-controls, .filter-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--panel);
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    .week-controls button {
+      background: rgba(79, 140, 255, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(79, 140, 255, 0.2);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .week-controls button:hover {
+      background: rgba(79, 140, 255, 0.2);
+    }
+
+    .week-label {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .filter-controls {
+      justify-content: flex-start;
+      gap: 15px;
+    }
+
+    .filter-controls label {
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .filter-controls select {
+      flex: 1;
+      max-width: 300px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      cursor: pointer;
+    }
+    .filter-controls select:focus {
+      border-color: var(--accent);
     }
 
     .loader {
       text-align: center;
       padding: 40px;
       color: var(--muted);
+      grid-column: 1 / -1;
+    }
+
+    #dataContainer {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+      align-items: start;
     }
 
     .worker-card {
@@ -61,7 +132,6 @@
       flex-direction: column;
     }
 
-    /* Row Layout System */
     .data-row {
       display: flex;
       justify-content: space-between;
@@ -85,7 +155,6 @@
       text-align: right;
     }
 
-    /* Section Divider */
     .section-divider {
       background: rgba(255, 255, 255, 0.02);
       padding: 10px 16px;
@@ -97,7 +166,6 @@
       border-bottom: 1px solid var(--border);
     }
 
-    /* Shift Rows */
     .shift-row {
       display: grid;
       grid-template-columns: 2fr 3fr auto;
@@ -142,7 +210,6 @@
       border-color: rgba(239, 68, 68, 0.3);
     }
 
-    /* Footer Row & Copy Button */
     .footer-row {
       background: rgba(16, 185, 129, 0.05);
       border-bottom: 1px solid var(--border);
@@ -174,6 +241,7 @@
       background: var(--panel);
       border-radius: var(--radius);
       border: 1px dashed var(--border);
+      grid-column: 1 / -1;
     }
   </style>
 </head>
@@ -181,8 +249,23 @@
 
 <div class="app">
   <div class="header-text">
-    <div style="font-weight: 700; color: #fff;">Invoices & Shifts</div>
+    <div style="font-weight: 700; color: #fff; font-size: 1.25rem;">Invoices & Shifts</div>
     <div style="color: var(--muted);">Grouped by Belgium ID</div>
+  </div>
+
+  <div class="controls-container">
+    <div class="week-controls">
+      <button onclick="changeWeek(-1)">← Prev Week</button>
+      <div id="weekLabel" class="week-label">Loading...</div>
+      <button onclick="changeWeek(1)">Next Week →</button>
+    </div>
+    
+    <div class="filter-controls">
+      <label for="campaignFilter">Campaign:</label>
+      <select id="campaignFilter" onchange="filterChanged()">
+        <option value="ALL">All Campaigns</option>
+      </select>
+    </div>
   </div>
 
   <div id="dataContainer">
@@ -190,7 +273,6 @@
   </div>
 </div>
 
-<!-- Firebase SDKs -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
   import { getDatabase, ref, get, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
@@ -206,38 +288,86 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const dataContainer = document.getElementById('dataContainer');
+  const weekLabel = document.getElementById('weekLabel');
+  const campaignFilter = document.getElementById('campaignFilter');
 
-  // We will store loaded workers here so the copy function can access their raw data
-  window.loadedWorkersData = {};
+  window.loadedWorkersData = {}; 
+  let allRawSubmissions = null; 
+  let currentCampaign = 'ALL';
+  
+  // Week Management
+  let currentWeekStart = getMonday(new Date());
 
-  // Expose delete function
+  function getMonday(d) {
+    const date = new Date(d);
+    date.setHours(0,0,0,0);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); 
+    return new Date(date.setDate(diff));
+  }
+
+  function formatDate(date) {
+    return date.toISOString().split('T')[0];
+  }
+
+  function getWeekEnd(start) {
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23,59,59,999);
+    return end;
+  }
+
+  function updateWeekLabel() {
+    const end = getWeekEnd(currentWeekStart);
+    const options = { month: 'short', day: 'numeric' };
+    weekLabel.innerText = `${currentWeekStart.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
+  }
+
+  window.changeWeek = function(direction) {
+    currentWeekStart.setDate(currentWeekStart.getDate() + (direction * 7));
+    updateWeekLabel();
+    if(allRawSubmissions) {
+        processAndRender(allRawSubmissions);
+    }
+  }
+
+  window.filterChanged = function() {
+    currentCampaign = campaignFilter.value;
+    if(allRawSubmissions) {
+      processAndRender(allRawSubmissions);
+    }
+  }
+
   window.deleteShift = async function(key) {
     if(!confirm("Are you sure you want to delete this shift?")) return;
-    
     try {
       const shiftRef = ref(db, `userSubmissions/${key}`);
       await remove(shiftRef);
-      loadData(); // Reload data after deletion
+      await loadData(); 
     } catch(error) {
       console.error("Error deleting:", error);
       alert("Failed to delete the shift.");
     }
   };
 
-  // Expose copy function
   window.copyWorkerData = function(belgiumId, btnElement) {
     const worker = window.loadedWorkersData[belgiumId];
     if(!worker) return;
 
-    // Calculate total
     const RATE_PER_3_HOURS = 69.76;
     const totalAmount = ((worker.totalHours / 3) * RATE_PER_3_HOURS).toFixed(2);
+    
+    const end = getWeekEnd(currentWeekStart);
+    const weekStr = `${formatDate(currentWeekStart)} to ${formatDate(end)}`;
 
-    // Build the plain text format (without campaign IDs)
     let textToCopy = `FIRST NAME : ${worker.firstName}\n`;
     textToCopy += `LAST NAME : ${worker.lastName}\n`;
     textToCopy += `Role : Promoter\n`;
     textToCopy += `Belgium ID : ${formatBelgiumId(worker.belgiumId)}\n`;
+    textToCopy += `Week: ${weekStr}\n`;
+    if (currentCampaign !== 'ALL') {
+      textToCopy += `Campaign Filter : ${currentCampaign}\n`;
+    }
     textToCopy += `Total Hours : ${worker.totalHours} hrs\n\n`;
     
     textToCopy += `WORKING SCHEDULE\n`;
@@ -247,14 +377,11 @@
 
     textToCopy += `\nInvoice (Incl. 21% VAT): €${totalAmount}`;
 
-    // Copy to clipboard
     navigator.clipboard.writeText(textToCopy).then(() => {
-      // Temporarily change button visual to show success
       const originalHTML = btnElement.innerHTML;
       btnElement.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
       btnElement.style.color = '#10b981';
       btnElement.style.background = 'rgba(16, 185, 129, 0.1)';
-      
       setTimeout(() => {
         btnElement.innerHTML = originalHTML;
         btnElement.style.color = '';
@@ -266,41 +393,84 @@
     });
   };
 
-  // Format ID back to XX.XX.XX-XXX.XX
   function formatBelgiumId(rawId) {
     if (!rawId || rawId.length !== 11) return rawId;
     return `${rawId.substring(0,2)}.${rawId.substring(2,4)}.${rawId.substring(4,6)}-${rawId.substring(6,9)}.${rawId.substring(9,11)}`;
   }
 
-  // Get Day Name
   function getDayName(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { weekday: 'short' });
   }
 
-  // Determine Shift Timing Text based on Hours
   function getShiftTiming(hours) {
     if (hours === 3) return "11:00 - 14:00";
     if (hours === 6) return "11:00 - 17:00";
     return "Custom";
   }
 
+  function populateCampaignFilter(data) {
+    const campaigns = new Set();
+    Object.values(data).forEach(entry => {
+      if (entry.campaignId && entry.campaignId.trim() !== '') {
+        campaigns.add(entry.campaignId.trim());
+      }
+    });
+
+    // Keep the "ALL" option and clear the rest
+    campaignFilter.innerHTML = '<option value="ALL">All Campaigns</option>';
+    
+    Array.from(campaigns).sort().forEach(camp => {
+      const opt = document.createElement('option');
+      opt.value = camp;
+      opt.textContent = camp;
+      campaignFilter.appendChild(opt);
+    });
+
+    // Restore selected value if it still exists
+    if (campaigns.has(currentCampaign)) {
+      campaignFilter.value = currentCampaign;
+    } else {
+      currentCampaign = 'ALL';
+      campaignFilter.value = 'ALL';
+    }
+  }
+
   async function loadData() {
     try {
+      dataContainer.innerHTML = '<div class="loader">Loading data from Firebase...</div>';
       const snapshot = await get(ref(db, 'userSubmissions'));
-      const data = snapshot.val();
+      allRawSubmissions = snapshot.val() || {};
       
-      if (!data) {
-        dataContainer.innerHTML = `<div class="empty-state">No submissions found.</div>`;
+      populateCampaignFilter(allRawSubmissions);
+      processAndRender(allRawSubmissions);
+    } catch (error) {
+      console.error(error);
+      dataContainer.innerHTML = `<div class="empty-state" style="color: var(--danger); border-color: rgba(239,68,68,0.3);">Error loading data. Check console.</div>`;
+    }
+  }
+
+  function processAndRender(data) {
+    updateWeekLabel();
+    const workersMap = {};
+    const weekEnd = getWeekEnd(currentWeekStart);
+
+    Object.entries(data).forEach(([key, entry]) => {
+      const id = entry.belgiumId;
+      const camp = entry.campaignId ? entry.campaignId.trim() : 'N/A';
+
+      if (!id || !entry.date) return;
+
+      // Filter by Campaign Dropdown
+      if (currentCampaign !== 'ALL' && camp !== currentCampaign) {
         return;
       }
 
-      const workersMap = {};
+      const shiftDate = new Date(entry.date);
+      shiftDate.setHours(12,0,0,0); 
 
-      Object.entries(data).forEach(([key, entry]) => {
-        const id = entry.belgiumId;
-        if (!id) return;
-
+      // Filter by current week
+      if (shiftDate >= currentWeekStart && shiftDate <= weekEnd) {
         if (!workersMap[id]) {
           workersMap[id] = {
             firstName: entry.firstName || '',
@@ -313,7 +483,6 @@
         }
 
         const hours = parseInt(entry.workingHours, 10) || 0;
-        const camp = entry.campaignId || 'N/A';
 
         workersMap[id].totalHours += hours;
         workersMap[id].campaigns.add(camp);
@@ -326,38 +495,36 @@
           timing: getShiftTiming(hours),
           campaign: camp
         });
-      });
+      }
+    });
 
-      window.loadedWorkersData = workersMap; // Store globally for the copy function
-      renderData(workersMap);
-
-    } catch (error) {
-      console.error(error);
-      dataContainer.innerHTML = `<div class="empty-state" style="color: var(--danger); border-color: rgba(239,68,68,0.3);">Error loading data. Check console.</div>`;
-    }
+    window.loadedWorkersData = workersMap;
+    renderData(workersMap);
   }
 
   function renderData(workersMap) {
     dataContainer.innerHTML = ''; 
 
-    // Rate: 3 hours = 69.76 EUR
+    const workerIds = Object.keys(workersMap);
+    if (workerIds.length === 0) {
+      dataContainer.innerHTML = `<div class="empty-state">No shifts found for this week and campaign.</div>`;
+      return;
+    }
+
     const RATE_PER_3_HOURS = 69.76;
 
     Object.values(workersMap).forEach(worker => {
-      // Amount calculation
       const totalAmount = (worker.totalHours / 3) * RATE_PER_3_HOURS;
-      
-      // Convert campaigns Set to string
       const campaignString = Array.from(worker.campaigns).join(', ');
       
-      // Sort shifts by date (newest first)
       worker.shifts.sort((a, b) => new Date(b.date) - new Date(a.date));
 
       const shiftsHtml = worker.shifts.map(shift => `
         <div class="shift-row">
-          <div class="shift-date-info">${shift.date} (${shift.dayName})</div>
+          <div class="shift-date-info">${shift.date} <span style="color: var(--muted); font-size: 12px;">(${shift.dayName})</span></div>
           <div class="shift-time-info">
-            <span>${shift.hours} hrs | ${shift.timing}</span>
+            <span style="color: var(--text)">${shift.hours} hrs</span>
+            <span style="font-size: 11px;">${shift.timing}</span>
             <span style="font-size: 11px; color: var(--accent);">Camp: ${shift.campaign}</span>
           </div>
           <button class="btn-delete" onclick="deleteShift('${shift.key}')" title="Delete Shift">
@@ -368,45 +535,39 @@
 
       const cardHtml = `
         <div class="worker-card">
-          
           <div class="data-row">
             <span class="data-label">FIRST NAME :</span>
             <span class="data-value">${worker.firstName}</span>
           </div>
-          
           <div class="data-row">
             <span class="data-label">LAST NAME :</span>
             <span class="data-value">${worker.lastName}</span>
           </div>
-          
           <div class="data-row">
             <span class="data-label">Role :</span>
             <span class="data-value">Promoter</span>
           </div>
-
           <div class="data-row">
             <span class="data-label">Belgium ID :</span>
-            <span class="data-value">Belgium ID: ${formatBelgiumId(worker.belgiumId)}</span>
+            <span class="data-value">${formatBelgiumId(worker.belgiumId)}</span>
           </div>
-
           <div class="data-row">
             <span class="data-label">Campaign ID :</span>
             <span class="data-value" style="color: var(--accent);">${campaignString}</span>
           </div>
-
           <div class="data-row">
-            <span class="data-label">Total Hours :</span>
+            <span class="data-label">Week Hours :</span>
             <span class="data-value">${worker.totalHours} hrs</span>
           </div>
           
-          <div class="section-divider">WORKING SCHEDULE</div>
+          <div class="section-divider">WEEKLY SCHEDULE</div>
           
           <div>
             ${shiftsHtml}
           </div>
 
           <div class="data-row footer-row">
-            <span class="data-label" style="color: #10b981;">Invoice (Incl. 21% VAT)</span>
+            <span class="data-label" style="color: #10b981;">Invoice (Incl. VAT)</span>
             <span class="data-value" style="color: #10b981;">€${totalAmount.toFixed(2)}</span>
           </div>
 
@@ -414,7 +575,6 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             Copy Data
           </button>
-
         </div>
       `;
 
