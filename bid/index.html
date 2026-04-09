@@ -181,6 +181,12 @@
       transform:translateX(-50%) translateY(0); 
     }
 
+    /* Styling for the divider */
+    .divider {
+      height: 1px;
+      background: rgba(255,255,255,0.08);
+      margin: 5px 0;
+    }
   </style>
 </head>
 <body>
@@ -192,6 +198,16 @@
   </div>
 
   <div class="form-card">
+    
+    <!-- Previous Entries Dropdown -->
+    <div class="input-group">
+      <label class="label" for="previousEntries">Load Previous Entry</label>
+      <select id="previousEntries" class="form-input">
+        <option value="" disabled selected>Loading previous entries...</option>
+      </select>
+    </div>
+
+    <div class="divider"></div>
     
     <div class="form-row">
       <div class="input-group">
@@ -242,8 +258,9 @@
 
 <!-- Firebase SDKs -->
 <script type="module">
+  // Added onValue to imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, push, set, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
@@ -257,6 +274,7 @@
   const db = getDatabase(app);
 
   // DOM Elements
+  const previousEntries = document.getElementById('previousEntries');
   const firstName = document.getElementById('firstName');
   const lastName = document.getElementById('lastName');
   const belgiumId = document.getElementById('belgiumId');
@@ -278,13 +296,74 @@
     setTimeout(() => toastEl.classList.remove('show'), 3000); 
   }
 
+  // --- Fetch and populate previous entries ---
+  const submissionsRef = ref(db, 'userSubmissions');
+  onValue(submissionsRef, (snapshot) => {
+    previousEntries.innerHTML = '<option value="" disabled selected>-- Select a previous entry --</option>';
+    
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      
+      // Convert object to array and sort by newest first
+      const entriesArray = Object.keys(data).map(key => ({
+        id: key,
+        ...data[key]
+      })).sort((a, b) => b.timestamp - a.timestamp);
+      
+      // Deduplicate by Belgium ID (optional, to keep the dropdown clean)
+      const uniqueEntries = [];
+      const seenIds = new Set();
+      for (const entry of entriesArray) {
+        if (!seenIds.has(entry.belgiumId)) {
+          seenIds.add(entry.belgiumId);
+          uniqueEntries.push(entry);
+        }
+      }
+
+      uniqueEntries.forEach(entry => {
+        const option = document.createElement('option');
+        // We stringify the entry so we can parse it on selection
+        option.value = JSON.stringify(entry);
+        option.textContent = `${entry.firstName} ${entry.lastName} (${entry.campaignId})`;
+        previousEntries.appendChild(option);
+      });
+    } else {
+      previousEntries.innerHTML = '<option value="" disabled selected>No previous entries found</option>';
+    }
+  });
+
+  // --- Handle Previous Entry Selection ---
+  previousEntries.addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    try {
+      const entry = JSON.parse(e.target.value);
+      
+      firstName.value = entry.firstName || '';
+      lastName.value = entry.lastName || '';
+      workingHours.value = entry.workingHours || '';
+      campaignId.value = entry.campaignId || '';
+
+      // Format the stored raw Belgium ID properly for the UI
+      let val = (entry.belgiumId || '').replace(/\D/g, '');
+      let formatted = '';
+      if (val.length > 0) formatted += val.substring(0, 2);
+      if (val.length > 2) formatted += '.' + val.substring(2, 4);
+      if (val.length > 4) formatted += '.' + val.substring(4, 6);
+      if (val.length > 6) formatted += '-' + val.substring(6, 9);
+      if (val.length > 9) formatted += '.' + val.substring(9, 11);
+      
+      belgiumId.value = formatted;
+      
+    } catch(err) {
+      console.error("Error parsing selected entry", err);
+    }
+  });
+
   // --- Input Masking for Belgium ID ---
   belgiumId.addEventListener('input', function (e) {
-    // Strip all non-numeric characters
     let val = e.target.value.replace(/\D/g, '');
     let formatted = '';
 
-    // Apply the format XX.XX.XX-XXX.XX
     if (val.length > 0) { formatted += val.substring(0, 2); }
     if (val.length > 2) { formatted += '.' + val.substring(2, 4); }
     if (val.length > 4) { formatted += '.' + val.substring(4, 6); }
@@ -303,15 +382,12 @@
     const campVal = campaignId.value.trim();
     const dateVal = selectedDate.value;
 
-    // Basic Validation
     if (!firstVal || !lastVal || !idValFormatted || !hoursVal || !campVal || !dateVal) {
       return showToast("Please fill in all fields.", true);
     }
 
-    // Strip dots and dashes before saving to database
     const cleanBelgiumId = idValFormatted.replace(/\D/g, '');
     
-    // Ensure ID is fully typed (11 digits expected)
     if (cleanBelgiumId.length !== 11) {
       return showToast("Belgium ID must be 11 digits.", true);
     }
@@ -320,13 +396,12 @@
       btnSubmit.disabled = true;
       btnSubmit.innerHTML = 'Saving... <span style="display:inline-block; animation: spin 1s linear infinite;">⏳</span>';
 
-      // Save to Firebase under 'userSubmissions'
       const newSubmissionRef = push(ref(db, 'userSubmissions'));
       await set(newSubmissionRef, {
         firstName: firstVal,
         lastName: lastVal,
-        belgiumId: cleanBelgiumId, // Saved without punctuation
-        workingHours: parseInt(hoursVal, 10), // Saved as integer
+        belgiumId: cleanBelgiumId, 
+        workingHours: parseInt(hoursVal, 10), 
         campaignId: campVal,
         date: dateVal,
         timestamp: Date.now()
@@ -340,6 +415,7 @@
       belgiumId.value = '';
       workingHours.value = '';
       campaignId.value = '';
+      previousEntries.value = ""; // Reset dropdown
       
     } catch(error) {
       console.error(error);
@@ -350,7 +426,6 @@
     }
   });
 
-  // Simple CSS animation for the saving state
   const style = document.createElement('style');
   style.innerHTML = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
   document.head.appendChild(style);
