@@ -1,0 +1,1782 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dot Poster</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <style>
+    :root { --bg:#0b0b0e; --panel:#141419; --muted:#8b8b95; --text:#f2f2f7; --accent:#4f8cff; --accent-2:#7a5cff; --shadow:none; --radius-lg:12px; --radius-md:10px; }
+    
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    
+    html,body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:7px;padding:env(safe-area-inset-top,6px) 10px env(safe-area-inset-bottom,6px);}
+   
+    .loader-overlay {
+      position: fixed; inset: 0; background: var(--bg); z-index: 10000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;
+      transition: opacity 0.3s ease;
+    }
+    .loader-overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1);
+      border-left-color: var(--accent); border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .loader-text { font-weight: 600; color: var(--muted); font-size: 13px; letter-spacing: 0.5px; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    
+    header{display:flex;align-items:center;gap:8px;padding:7px 11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);flex-shrink:0;}
+    .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#4f8cff,#7a5cff);border-radius:7px;flex-shrink:0;}
+    
+    .btn-start-worker{
+      appearance: none; border: 0; cursor: pointer;
+      padding: 5px 10px; border-radius: 6px;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none;
+    }
+    .btn-start-worker:active{transform:scale(.95);}
+
+    .header-title{font-size:13px;font-weight:700;flex:1;}
+    .user-pill{font-size:11px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px;flex-shrink:0;}
+    .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600;font-size:11px;outline:none;}
+   
+    /* Sleek Timer Bar */
+    .session-strip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;}
+    .session-timer{font-family:Menlo,Monaco,Consolas,monospace;font-size:12px;font-weight:700;color:#e5e7ff;letter-spacing:.5px;}
+    .session-timer.inactive{color:var(--muted);}
+    #speedEmoji { font-size: 12px; }
+    .session-meta{font-size:10px;color:var(--muted);display:flex;gap:12px;}
+    .session-meta span{display:flex;flex-direction:row;align-items:center;gap:3px;}
+    .session-meta b{font-size:10px;font-weight:700;color:#e5e7ff;font-family:Menlo,monospace;}
+
+    .map-card{position:relative;border-radius:var(--radius-lg);overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#0f0f12;box-shadow:none;flex-shrink:0;}
+    #map{height:190px;width:100%;}
+    .leaflet-container{background:#0f0f12;outline:none;}
+    .leaflet-control-attribution{display:none!important;}
+
+    /* New Map Notifications */
+    .map-notif-container {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 4px;
+      pointer-events: none;
+      align-items: center;
+      width: 90%;
+    }
+    .map-notif {
+      background: rgba(20, 20, 25, 0.9);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 20px;
+      animation: mapNotifIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, mapNotifOut 0.3s ease 1.5s forwards;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    @keyframes mapNotifIn { from { opacity: 0; transform: translateY(10px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes mapNotifOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }
+    
+    .zone-nav{display:flex;align-items:center;gap:6px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;overflow-x:auto;}
+    .zone-nav::-webkit-scrollbar{display:none;}
+    .zone-nav-label{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;}
+    .zone-nav-input{width:48px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:13px;text-align:center;padding:0 2px; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);}
+    .zone-nav-input:focus{outline:none;border-color:rgba(255,255,255,.14); transform: scale(1.03);}
+    .btn-zone-go{height:32px;padding:0 10px;border-radius:8px;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:11px;font-weight:700;transition:transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);white-space:nowrap;outline:none;}
+    .btn-zone-go:active{transform:scale(.92);}
+    .divider-v{width:1px;height:20px;background:rgba(255,255,255,.1);margin:0 2px;}
+
+    /* Icon Bar */
+    .icon-bar { display: flex; align-items: center; justify-content: space-evenly; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-md); padding: 6px; flex-shrink: 0; }
+    .icon-btn { position: relative; background: transparent; border: 0; color: #aab7ff; cursor: pointer; padding: 6px 12px; display: flex; align-items: center; justify-content: center; transition: color 0.2s, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline:none; border-radius: 6px; }
+    .icon-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .icon-btn:active { transform: scale(0.92); }
+    .badge { position: absolute; top: 0; right: 0; background: #ef4444; color: #fff; font-size: 9px; font-weight: 800; padding: 1px 4px; border-radius: 999px; transform: translate(-10%, 10%); display: none; }
+    .badge.show { display: block; }
+
+    /* Map Markers without shadow */
+    .poly-label{background:transparent!important;border:none!important;box-shadow:none!important;}
+    .poly-label-inner{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:rgba(239,68,68,.85);border:1px solid rgba(239,68,68,1);font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.03em;white-space:nowrap;pointer-events:none;}
+    
+    .segment-label{background:transparent!important;border:none!important;box-shadow:none!important;}
+    .segment-label-inner{display:inline-flex;align-items:center;gap:4px;padding:3px 7px; border-radius:999px;font-size:8px; font-weight:800;color:#000;font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.02em; white-space:nowrap;pointer-events:auto;opacity: 1 !important;}
+    .segment-label.start .segment-label-inner { background:#facc15; border:1px solid #eab308; }
+    .segment-label.end .segment-label-inner { background:#60a5fa; border:1px solid #3b82f6; color:#0f172a; }
+    
+    .dist-marker { background:transparent!important; border:none!important; }
+    .dist-marker-inner {width: 18px; height: 18px;background: #7a5cff;border: 2px solid #fff;border-radius: 50% 50% 50% 0;transform: rotate(-45deg);display: flex; align-items: center; justify-content: center;}
+    .dist-marker-text {transform: rotate(45deg);font-family: Menlo, monospace;font-size: 9px;font-weight: 800;color: #fff;line-height: 1;}
+    
+    .segment-square {width: 9px; height: 9px;background: #ef4444;border: 1.5px solid rgba(255,255,255,0.9);border-radius: 2px;}
+    
+    .flag-marker { width: 22px; height: 34px; position: relative; pointer-events: none; }
+    .flag-pole { position: absolute; left: 3px; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0.4)); border-radius: 1px; }
+    .flag-cloth { position: absolute; left: 5px; top: 2px; width: 14px; height: 10px; border-radius: 2px; border: 1px solid rgba(0,0,0,0.1); }
+    .flag-cloth.red { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+    .flag-cloth.green { background: linear-gradient(135deg, #22c55e, #15803d); }
+    .flag-cloth.blue { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+    .flag-cloth.orange { background: linear-gradient(135deg, #f97316, #c2410c); }
+
+    .flag-dot { position: absolute; left: -1px; bottom: 0; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.85); }
+    .flag-dot.red { background: #ef4444; }
+    .flag-dot.green { background: #22c55e; }
+    .flag-dot.blue { background: #3b82f6; }
+    .flag-dot.orange { background: #f97316; }
+
+    /* Polished pin marker without shadow */
+    .pin-marker { width: 24px; height: 32px; position: relative; display: flex; justify-content: center; }
+    .pin-head { width: 24px; height: 24px; background: linear-gradient(135deg, #c084fc, #7e22ce); border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 1.5px solid rgba(255,255,255,0.9); }
+    .pin-shadow { display: none; }
+    .pin-dot { position: absolute; top: 8px; width: 8px; height: 8px; background: #ffffff; border-radius: 50%; }
+
+    /* Glassmorphism label */
+    .flag-name-label { background: transparent !important; border: none !important; box-shadow: none !important; }
+    .flag-name-label .inner { 
+      display: inline-block; 
+      width: max-content; 
+      font-size: 7px; 
+      font-weight: 600; 
+      color: #f8fafc; 
+      background: rgba(15, 23, 42, 0.55); 
+      backdrop-filter: blur(4px); 
+      -webkit-backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.15); 
+      border-radius: 999px; 
+      padding: 3px 6px; 
+      white-space: nowrap; 
+      letter-spacing: 0.05em; 
+      text-transform: uppercase; 
+    }
+
+    /* Buttons setup - PIXEL PERFECT, BIG COUNTS, NO SHADOW */
+    .controls { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; flex-shrink: 0; }
+    .btn-ja, .btn-nee, .btn-post, .btn-bonus { 
+      appearance: none; 
+      cursor: pointer; 
+      border-radius: 8px; 
+      aspect-ratio: 1 / 1; 
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff; 
+      font-weight: 600; 
+      font-size: 7px; 
+      letter-spacing: 0.5px; 
+      text-transform: uppercase;
+      background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.15);
+      transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), filter 0.1s, border-color 0.1s;
+      outline: none;
+      box-shadow: none;
+    }
+    
+    .btn-content { display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; width: 100%; }
+    
+    /* BIGGER BOLD COUNT */
+    .btn-count { 
+      font-size: 11px; 
+      font-weight: 900; 
+      background: rgba(0,0,0,0.3); 
+      padding: 2px 8px; 
+      border-radius: 6px; 
+      min-width: 28px; 
+      text-align: center; 
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .btn-ja:hover, .btn-nee:hover, .btn-post:hover, .btn-bonus:hover {
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    /* Highly visible click animation without shadows */
+    .btn-ja:active, .btn-nee:active, .btn-post:active, .btn-bonus:active { 
+      transform: scale(0.85); 
+      filter: brightness(1.3) contrast(1.1);
+      border-color: rgba(255,255,255,0.6);
+    }
+
+    .btn-ja[disabled], .btn-nee[disabled], .btn-post[disabled], .btn-bonus[disabled] { 
+      opacity: 0.4; 
+      cursor: not-allowed; 
+      transform: none;
+      filter: none;
+    }
+   
+    .btn-post{background:linear-gradient(135deg,#fb923c,#f97316);position:relative;}
+    .btn-post::after{content:"";position:absolute;inset:-2px;border-radius:10px;border:2px solid rgba(249,115,22,.5);animation:pulse 1.4s ease-in-out infinite;pointer-events:none;}
+    .btn-nee{background:linear-gradient(135deg,#dc2626,#ef4444);}
+    .btn-ja{background:linear-gradient(135deg,#16a34a,#22c55e);}
+    .btn-bonus{background:linear-gradient(135deg,#1f84f7,#3b82f6);}
+
+    @keyframes pulse{0%{opacity:.9;transform:scale(1);}50%{opacity:.25;transform:scale(1.05);}100%{opacity:.9;transform:scale(1);}}
+    
+    .timelines-wrapper { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+    .worker-timeline { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius-md); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+    .timeline-title { font-size: 11px; font-weight: 700; color: #aab7ff; letter-spacing: 0.3px; }
+    .timeline-scroll { display: flex; align-items: center; overflow-x: auto; padding-bottom: 2px; }
+    .timeline-scroll::-webkit-scrollbar { display: none; }
+    .t-dot-wrapper { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none; }
+    .t-dot-wrapper:active { transform: scale(0.85); }
+    .t-num { font-size: 6px; color: var(--muted); font-family: Menlo, monospace; font-weight: 600; white-space: nowrap; margin-bottom: 1px; }
+    .t-dot { width: 11px; height: 11px; border-radius: 50%; border: 2px solid #141419; outline: 1px solid rgba(255,255,255,.2); flex-shrink: 0; }
+    .t-dot.red { background: #ef4444; }
+    .t-dot.green { background: #22c55e; }
+    .t-dot.blue { background: #1f84f7; }
+    .t-dot.orange { background: #f97316; border-radius: 3px; } 
+    .t-time { font-size: 6px; color: var(--muted); font-family: Menlo, monospace; font-weight: 600; white-space: nowrap; }
+    
+    .campaign-progress { display: flex; flex-direction: column; gap: 8px; padding: 8px 11px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius-md); flex-shrink: 0; }
+    .prog-row { display: flex; flex-direction: column; gap: 4px; font-size: 10px; color: var(--muted); }
+    .prog-label { font-family: Menlo, monospace; font-weight: 600; display: block; }
+    .prog-bar-container { width: 100%; height: 6px; background: rgba(255,255,255,.1); border-radius: 3px; overflow: hidden; position: relative; }
+    .prog-bar { height: 100%; background: linear-gradient(90deg, #4f8cff, #7a5cff); transition: width 0.3s ease; width: 0%; }
+    .prog-bar.budget { background: linear-gradient(90deg, #10b981, #34d399); }
+    .col-earned { color: #fcd34d; font-family: Menlo, monospace; font-weight: 600; }
+    
+    /* Table Settings - Pixel Perfect horizontally with 6px text */
+    .table-card{flex:1;background:rgba(255,255,255,.03);border-radius:var(--radius-md);border:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;min-height:0;box-shadow:none;}
+    .table-card-header{padding:8px 8px 6px;font-size:11px;font-weight:700;color:#e5e7ff;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;}
+    .table-scroll{overflow-x:auto; overflow-y:auto; flex:1;}
+    .data-table{width:100%;border-collapse:collapse;font-size:6px;color:#d5d7ff;}
+    .data-table thead{position:sticky;top:0;z-index:1;background:linear-gradient(90deg,rgba(79,140,255,.16),rgba(122,92,255,.18));}
+    .data-table th,.data-table td{padding:3px 4px;text-align:left;white-space:nowrap; font-weight: 400;}
+    .data-table th{font-weight:700;font-size:6px;text-transform:uppercase;letter-spacing:.3px;color:#f3f4ff;border-bottom:1px solid rgba(255,255,255,.1);}
+    .data-table tbody tr:nth-child(even){background:rgba(255,255,255,.025);}
+    .data-table tbody tr:hover{background:rgba(79,140,255,.15);}
+    .data-table tr.current-worker-row { background: rgba(79,140,255,0.22) !important; font-weight: 600; }
+    .col-work{color:#fde68a;}
+    .col-avg{color:#a5f3fc;}
+    .col-green{color:#86efac;}
+    .col-red{color:#fca5a5;}
+    .col-blue{color:#93c5fd;}
+    .col-orange{color:#fdba74;}
+    .empty-row td{color:var(--muted);text-align:center;padding:8px;font-size:7px;}
+    
+    .toast{position:fixed;z-index:9999;left:50%;bottom:22px;transform:translateX(-50%);background:#1a1a22;border:1px solid rgba(255,255,255,.1);padding:8px 15px;border-radius:10px;color:var(--text);font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;box-shadow:none;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+    
+    .modal-backdrop,.worker-backdrop,.chat-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9998;}
+    .modal-backdrop.show,.worker-backdrop.show,.chat-backdrop.show{display:flex;}
+    .modal,.worker-modal,.chat-modal{width:min(90vw,380px);background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px; display: flex; flex-direction: column; box-shadow:none;}
+    
+    /* Sleek Small Chat Popup */
+    .chat-modal { height: 45vh; max-height: 400px; padding: 12px; border-radius: 12px; }
+    .chat-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 8px; margin-bottom: 8px; }
+    .chat-header h2 { font-size: 13px; margin: 0; }
+    .close-btn { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; outline:none; }
+    
+    /* Ensure scrolling inside chat */
+    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    
+    .chat-msg { background: rgba(255,255,255,.05); padding: 5px 8px; border-radius: 8px; font-size: 10px; color: #e5e7ff; line-height: 1.3; max-width: 85%; align-self: flex-start; }
+    .chat-msg.mine { background: rgba(79,140,255,.2); align-self: flex-end; border-bottom-right-radius: 2px; }
+    .chat-msg-meta { font-size: 7px; color: var(--muted); margin-bottom: 2px; font-weight: 600; }
+    .chat-input-area { display: flex; gap: 6px; margin-top: 8px; }
+    
+    .input-row{display:flex;gap:8px;}
+    .input{flex:1;height:44px;border-radius:10px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-weight:700;letter-spacing:.4px;font-size:14px;outline:none; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);}
+    .input:focus{border-color:rgba(255,255,255,.12); transform: scale(1.02);}
+    .chat-input { height: 36px; font-size: 11px; font-weight: 500; border-radius: 8px; }
+    .btn-modal{height:44px;border-radius:10px;border:0;cursor:pointer;padding:0 16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));outline:none;transition: transform 0.2s;}
+    .btn-modal:active { transform: scale(0.95); }
+    .btn-chat-send { height: 36px; padding: 0 12px; border-radius: 8px; background: linear-gradient(135deg,var(--accent),var(--accent-2)); border: 0; color: #fff; cursor: pointer; font-weight: 700; font-size: 10px; outline:none; transition: transform 0.2s;}
+    .btn-chat-send:active { transform: scale(0.95); }
+    .btn-modal:disabled, .btn-chat-send:disabled{opacity:0.6; cursor:not-allowed; transform: none;}
+    .error{color:#ff8a8a;font-size:11px;min-height:14px;padding-top:5px;}
+  </style>
+</head>
+<body>
+<div id="loaderOverlay" class="loader-overlay">
+  <div class="spinner"></div>
+  <div class="loader-text">Loading data...</div>
+</div>
+<div class="app">
+  
+  <!-- 1. HEADER -->
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="white" stroke-opacity=".9" stroke-width="1.6"/>
+        <circle cx="12" cy="12" r="3.2" fill="white"/>
+      </svg>
+    </div>
+    <button id="btnStartWorker" class="btn-start-worker">Start</button>
+    <div class="header-title"></div>
+    <div id="userPill" class="user-pill">
+      <span id="userPillText"></span>
+      <button id="changeUserBtn">Change</button>
+    </div>
+  </header>
+
+  <!-- 2. TIMER BAR (SLEEK) -->
+  <div class="session-strip">
+    <div id="sessionTimer" class="session-timer inactive">00:00:00</div>
+    <div id="speedEmoji">🐌</div>
+    <div class="session-meta">
+      <span><b id="sessionAvg">—</b> avg/min</span>
+      <span><b id="sessionTotal">0</b> today</span>
+      <span><b id="earnPerHour">€0.00</b> /hr</span>
+    </div>
+  </div>
+
+  <!-- 3. MAP -->
+  <div class="map-card">
+    <div id="map" role="application" aria-label="Map showing posted dots"></div>
+    <!-- NEW: Map Notifications Container -->
+    <div id="mapNotifContainer" class="map-notif-container"></div>
+  </div>
+
+  <!-- 4. FOCUS BAR -->
+  <div class="zone-nav">
+    <span class="zone-nav-label">Zone</span>
+    <input id="zoneInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
+    <button id="btnZoneGo" class="btn-zone-go">Go</button>
+   
+    <div class="divider-v"></div>
+    <span class="zone-nav-label">Seg</span>
+    <input id="segInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
+    <button id="btnSegGo" class="btn-zone-go">Focus</button>
+  </div>
+
+  <!-- 5. ICON BAR (Locate, Chat, Camera) -->
+  <div class="icon-bar">
+    <button id="btnLocate" class="icon-btn" title="Locate me" aria-label="Locate me">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="7"></circle>
+        <line x1="12" y1="1" x2="12" y2="5"></line>
+        <line x1="12" y1="19" x2="12" y2="23"></line>
+        <line x1="1" y1="12" x2="5" y2="12"></line>
+        <line x1="19" y1="12" x2="23" y2="12"></line>
+      </svg>
+    </button>
+    <button id="chatBtn" class="icon-btn" title="Chat">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span id="chatBadge" class="badge">0</span>
+    </button>
+    <button id="cameraBtn" class="icon-btn" title="Upload Proof">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+      </svg>
+    </button>
+  </div>
+
+  <!-- 6. BUTTONS -->
+  <div class="controls">
+    <button id="btnPost" class="btn-post" title="Post action">
+      <div class="btn-content">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+        <div class="btn-count" id="countPost">0</div>
+      </div>
+    </button>
+    <button id="btnJa" class="btn-ja" disabled>
+      <div class="btn-content">Yes <div class="btn-count" id="countRight">0</div></div>
+    </button>
+    <button id="btnNee" class="btn-nee" disabled>
+      <div class="btn-content">No <div class="btn-count" id="countLeft">0</div></div>
+    </button>
+    <button id="btnBonus" class="btn-bonus" disabled>
+      <div class="btn-content">Bonus <div class="btn-count" id="countBonus">0</div></div>
+    </button>
+  </div>
+
+  <div class="campaign-progress">
+    <div class="prog-row">
+      <span class="prog-label">Dots: <span id="totalDotsProgress">0</span> / 15000</span>
+      <div class="prog-bar-container"><div class="prog-bar" id="dotsBar"></div></div>
+    </div>
+    <div class="prog-row">
+      <span class="prog-label">Earned: €<span id="totalEarnedProgress">0.00</span> / €540 (<span id="remBudgetProgress">€540.00</span> left)</span>
+      <div class="prog-bar-container"><div class="prog-bar budget" id="budgetBar"></div></div>
+    </div>
+  </div>
+  
+  <div id="timelinesWrapper" class="timelines-wrapper"></div>
+
+  <div class="table-card" id="teamCard">
+    <div class="table-card-header" id="tableHeader">Team performance — sorted by posts</div>
+    <div class="table-scroll">
+      <table class="data-table" id="workerTable">
+        <thead><tr><th>Worker</th><th>Dots</th><th>Earned</th><th class="col-avg">Avg/min</th><th>Yes</th><th>No</th><th>Bonus</th><th>Posts</th><th>Work time</th></tr></thead>
+        <tbody id="workerBody"><tr class="empty-row"><td colspan="9">No data yet.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<div id="loginBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
+  <div class="modal">
+    <h2>Enter User ID</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">3–10 letters/numbers, e.g. FF001. Registers instantly.</p>
+    <div class="input-row">
+      <input id="userIdInput" class="input" type="text" placeholder="e.g. FF993" autocomplete="off" autocapitalize="characters" maxlength="12" inputmode="text">
+      <button id="userJoinBtn" class="btn-modal">Join</button>
+    </div>
+    <div id="loginError" class="error"></div>
+  </div>
+</div>
+
+<div id="workerBackdrop" class="worker-backdrop" aria-modal="true" role="dialog">
+  <div class="worker-modal">
+    <h2>Start Worker</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Enter first name. And job number i.e one, two, ... example: Tomone.</p>
+    <div class="input-row">
+      <input id="workerNameInput" class="input" type="text" placeholder="e.g. Tomone" maxlength="24" autocomplete="off">
+      <button id="workerSaveBtn" class="btn-modal">Save</button>
+    </div>
+    <div id="workerError" class="error"></div>
+  </div>
+</div>
+
+<div id="proofBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
+  <div class="modal">
+    <h2>Submit Photo Proof</h2>
+    <p style="margin-bottom: 12px; font-size: 12px; color: var(--muted);">Paste the image URL below. It will appear on the map automatically.</p>
+    <div class="input-row">
+      <input id="proofUrlInput" class="input" type="url" placeholder="https://..." autocomplete="off">
+      <button id="proofSubmitBtn" class="btn-modal">Submit</button>
+    </div>
+    <div id="proofError" class="error"></div>
+  </div>
+</div>
+
+<div id="chatBackdrop" class="chat-backdrop" aria-modal="true" role="dialog">
+  <div class="chat-modal">
+    <div class="chat-header">
+      <h2>Team Chat</h2>
+      <button id="closeChatBtn" class="close-btn">&times;</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div style="text-align:center; color:var(--muted); font-size:10px; margin-top:10px;">No messages yet. Say hi!</div>
+    </div>
+    <div class="chat-input-area">
+      <input id="chatInput" class="input chat-input" type="text" placeholder="Type a message..." autocomplete="off">
+      <button id="chatSendBtn" class="btn-chat-send">Send</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  // Added "increment" to imports for instant fast-saving
+  import { getDatabase, ref, push, query, orderByChild, onValue, set, update, get, runTransaction, off, increment } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+    messagingSenderId: "205455490321",
+    appId: "1:205455490321:web:9919f5dde059316c9320b0"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const proofFirebaseConfig = {
+    apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+    authDomain: "trackingclients.firebaseapp.com",
+    projectId: "trackingclients",
+    storageBucket: "trackingclients.appspot.com",
+    messagingSenderId: "27490943622",
+    appId: "1:27490943622:web:d6c87547aa5df440508707",
+    databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+  };
+  const proofApp = initializeApp(proofFirebaseConfig, "proofApp");
+  const proofDb = getDatabase(proofApp);
+
+  // ────────────────────────────────────────────────
+  // DOM elements
+  // ────────────────────────────────────────────────
+  const loaderOverlay      = document.getElementById('loaderOverlay');
+  const btnLocate          = document.getElementById('btnLocate');
+  const btnJa              = document.getElementById('btnJa');
+  const btnNee             = document.getElementById('btnNee');
+  const btnBonus           = document.getElementById('btnBonus');
+  const btnPost            = document.getElementById('btnPost');
+  const countRight         = document.getElementById('countRight');
+  const countLeft          = document.getElementById('countLeft');
+  const countBonus         = document.getElementById('countBonus');
+  const countPost          = document.getElementById('countPost');
+  const toastEl            = document.getElementById('toast');
+  const mapNotifContainer  = document.getElementById('mapNotifContainer');
+  const loginBackdrop      = document.getElementById('loginBackdrop');
+  const userIdInput        = document.getElementById('userIdInput');
+  const userJoinBtn        = document.getElementById('userJoinBtn');
+  const loginError         = document.getElementById('loginError');
+  const userPill           = document.getElementById('userPill');
+  const userPillText       = document.getElementById('userPillText');
+  const changeUserBtn      = document.getElementById('changeUserBtn');
+  const sessionTimerEl     = document.getElementById('sessionTimer');
+  const sessionAvgEl       = document.getElementById('sessionAvg');
+  const sessionTotalEl     = document.getElementById('sessionTotal');
+  const earnPerHourEl      = document.getElementById('earnPerHour');
+  const zoneInput          = document.getElementById('zoneInput');
+  const btnZoneGo          = document.getElementById('btnZoneGo');
+  const segInput           = document.getElementById('segInput');
+  const btnSegGo           = document.getElementById('btnSegGo');
+  const btnStartWorker     = document.getElementById('btnStartWorker');
+  const workerBackdrop     = document.getElementById('workerBackdrop');
+  const workerNameInput    = document.getElementById('workerNameInput');
+  const workerSaveBtn      = document.getElementById('workerSaveBtn');
+  const workerError        = document.getElementById('workerError');
+  const workerBody         = document.getElementById('workerBody');
+  const timelinesWrapper   = document.getElementById('timelinesWrapper');
+
+  // Photo proof
+  const cameraBtn          = document.getElementById('cameraBtn');
+  const proofBackdrop      = document.getElementById('proofBackdrop');
+  const proofUrlInput      = document.getElementById('proofUrlInput');
+  const proofSubmitBtn     = document.getElementById('proofSubmitBtn');
+  const proofError         = document.getElementById('proofError');
+  
+  // Chat
+  const chatBtn            = document.getElementById('chatBtn');
+  const chatBadge          = document.getElementById('chatBadge');
+  const chatBackdrop       = document.getElementById('chatBackdrop');
+  const closeChatBtn       = document.getElementById('closeChatBtn');
+  const chatMessages       = document.getElementById('chatMessages');
+  const chatInput          = document.getElementById('chatInput');
+  const chatSendBtn        = document.getElementById('chatSendBtn');
+
+  // ────────────────────────────────────────────────
+  // Leaflet map setup
+  // ────────────────────────────────────────────────
+  const map = L.map('map', { zoomControl:false, attributionControl:false, tap:true }).setView([20,0],2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+  L.control.zoom({ position:'topright' }).addTo(map);
+
+  const polygonLayer    = L.layerGroup().addTo(map);
+  const segmentsLayer   = L.layerGroup().addTo(map);
+  const postsLayer      = L.layerGroup().addTo(map);
+  const postClicksLayer = L.layerGroup().addTo(map);
+  const distMarkersLayer= L.layerGroup().addTo(map);
+  const zoneLayers = {};
+
+  function hideLoader() { loaderOverlay.classList.add('hidden'); }
+
+  // ───────────────────────────────────────────────
+  // Marker / Icon helpers
+  // ────────────────────────────────────────────────
+  function makeFlagIcon(color) {
+    return L.divIcon({
+      className: '',
+      html: `<div class="flag-marker"><div class="flag-pole"></div><div class="flag-cloth ${color}"></div><div class="flag-dot ${color}"></div></div>`,
+      iconSize: [22,34],
+      iconAnchor: [3,34]
+    });
+  }
+  const redFlagIcon   = makeFlagIcon('red');
+  const greenFlagIcon = makeFlagIcon('green');
+  const blueFlagIcon  = makeFlagIcon('blue');
+  const orangeFlagIcon = makeFlagIcon('orange');
+
+  function makePurplePinIcon() {
+    return L.divIcon({
+      className: '',
+      html: `<div class="pin-marker"><div class="pin-head"><div class="pin-dot"></div></div><div class="pin-shadow"></div></div>`,
+      iconSize: [24,32],
+      iconAnchor: [12,32]
+    });
+  }
+
+  function makeTinyNameLabel(name, postCount) {
+    const suffix = typeof postCount === 'number' ? ` · P${postCount}` : '';
+    return L.divIcon({
+      className: 'flag-name-label',
+      html: `<div class="inner">${(name || 'Unknown')}${suffix}</div>`,
+      iconSize: [40,12],
+      iconAnchor: [5,12]
+    });
+  }
+
+  function makeDistMarker(kmIndex) {
+    return L.divIcon({
+      className: 'dist-marker',
+      html: `<div class="dist-marker-inner"><span class="dist-marker-text">${kmIndex}</span></div>`,
+      iconSize: [18,18],
+      iconAnchor: [9,18]
+    });
+  }
+
+  function makeSegmentLabel(text, variant) {
+    return L.divIcon({
+      className: `segment-label ${variant}`,
+      html: `<div class="segment-label-inner">${text}</div>`,
+      iconSize: [10,10],
+      iconAnchor: [0,0]
+    });
+  }
+
+  function makeSegmentSquare(color) {
+    return L.divIcon({
+      className: '',
+      html: `<div class="segment-square" style="background:${color};"></div>`,
+      iconSize: [9,9],
+      iconAnchor: [4.5,4.5]
+    });
+  }
+
+  // ────────────────────────────────────────────────
+  // Polygon / Segment loading
+  // ────────────────────────────────────────────────
+  const polyApp = firebase.initializeApp({
+    apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+    authDomain: "leuvenflyers-23584.firebaseapp.com",
+    databaseURL: "https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+    projectId: "leuvenflyers-23584",
+    storageBucket: "leuvenflyers-23584.firebasestorage.app",
+    messagingSenderId: "1077790950414",
+    appId: "1:1077790950414:web:036fafe06df86f41ed285f"
+  }, "polygonSaver");
+
+  const polyDb = polyApp.database();
+
+  function haversineKm(a, b) {
+    const toRad = d => d * Math.PI / 180;
+    const R = 6371;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+    const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function pathLengthKm(coords) {
+    let d = 0;
+    for (let i = 1; i < coords.length; i++) d += haversineKm(coords[i-1], coords[i]);
+    return d;
+  }
+
+  function getPointAtDistance(coords, targetKm) {
+    let dist = 0;
+    for (let i = 1; i < coords.length; i++) {
+      const segDist = haversineKm(coords[i-1], coords[i]);
+      if (dist + segDist >= targetKm) {
+        const ratio = (targetKm - dist) / segDist;
+        const lat = coords[i-1].lat + (coords[i].lat - coords[i-1].lat) * ratio;
+        const lng = coords[i-1].lng + (coords[i].lng - coords[i-1].lng) * ratio;
+        return { lat, lng };
+      }
+      dist += segDist;
+    }
+    return null;
+  }
+
+  const segments = [];
+  let isolatedSegmentId = null;
+
+  function loadAndDrawPolygons() {
+    polygonLayer.clearLayers();
+    Object.keys(zoneLayers).forEach(k => delete zoneLayers[k]);
+    polyDb.ref('polygons').once('value', snapshot => {
+      let idx = 1;
+      snapshot.forEach(child => {
+        const raw = child.val();
+        const coordsArr = Object.keys(raw).filter(k => !isNaN(Number(k))).sort((a,b)=>Number(a)-Number(b)).map(k => [raw[k].lat, raw[k].lng]);
+        if (coordsArr.length < 3) return;
+        const poly = L.polygon(coordsArr, { color:'#ef4444', weight:1.2, opacity:0.85, fillColor:'#ef4444', fillOpacity:0.06, interactive:false }).addTo(polygonLayer);
+        zoneLayers[String(idx)] = poly;
+        const center = poly.getBounds().getCenter();
+        L.marker(center, { icon: L.divIcon({ className:'poly-label', html:`<div class="poly-label-inner">Z${idx}</div>`, iconAnchor:[16,8] }), interactive:false }).addTo(polygonLayer);
+        idx++;
+      });
+    });
+  }
+
+  function showAllSegments() {
+    isolatedSegmentId = null;
+    if (!map.hasLayer(polygonLayer)) map.addLayer(polygonLayer);
+    distMarkersLayer.clearLayers();
+    segments.forEach(s => {
+      if (!map.hasLayer(s.poly)) s.poly.addTo(segmentsLayer);
+      if (!map.hasLayer(s.startSq)) s.startSq.addTo(segmentsLayer);
+      if (!map.hasLayer(s.endSq)) s.endSq.addTo(segmentsLayer);
+      if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
+      if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
+      s.poly.setStyle({ color: '#a855f7', weight: 3, dashArray: '6 6', opacity: 0.9 });
+    });
+  }
+
+  function isolateSegment(id) {
+    isolatedSegmentId = id;
+    let found = false;
+    if (map.hasLayer(polygonLayer)) map.removeLayer(polygonLayer);
+    distMarkersLayer.clearLayers();
+    segments.forEach(s => {
+      const on = s.id === id;
+      if (on) {
+        found = true;
+        if (!map.hasLayer(s.poly)) s.poly.addTo(segmentsLayer);
+        if (!map.hasLayer(s.startSq)) s.startSq.addTo(segmentsLayer);
+        if (!map.hasLayer(s.endSq)) s.endSq.addTo(segmentsLayer);
+        if (!map.hasLayer(s.startLabel)) s.startLabel.addTo(segmentsLayer);
+        if (!map.hasLayer(s.endLabel)) s.endLabel.addTo(segmentsLayer);
+        s.poly.setStyle({ color: '#a855f7', weight: 3, dashArray: null, opacity: 1.0 });
+        const rawCoords = s.poly.getLatLngs();
+        const coords = rawCoords.map(c => ({ lat: c.lat, lng: c.lng }));
+        const totalLen = pathLengthKm(coords);
+        let distStep = 0.5;
+        let idxCounter = 1;
+        while (distStep < totalLen) {
+          const pt = getPointAtDistance(coords, distStep);
+          if (pt) {
+            L.marker([pt.lat, pt.lng], { icon: makeDistMarker(idxCounter), zIndexOffset: 100 }).addTo(distMarkersLayer);
+            idxCounter++;
+          }
+          distStep += 0.5;
+        }
+        map.flyToBounds(s.poly.getBounds(), { padding: [50, 50], duration: 1.0 });
+      } else {
+        map.removeLayer(s.poly);
+        map.removeLayer(s.startSq);
+        map.removeLayer(s.endSq);
+        map.removeLayer(s.startLabel);
+        map.removeLayer(s.endLabel);
+      }
+    });
+    return found;
+  }
+
+  function loadSegments() {
+    segmentsLayer.clearLayers();
+    segments.length = 0;
+    isolatedSegmentId = null;
+    const styleBase = { color: '#a855f7', weight: 3, dashArray: '6 6', opacity: 0.9 };
+    polyDb.ref('segments').once('value', snapshot => {
+      let idx = 1;
+      snapshot.forEach(child => {
+        const raw = child.val();
+        const coords = Object.keys(raw)
+          .filter(k => !isNaN(Number(k)))
+          .sort((a,b)=>Number(a)-Number(b))
+          .map(k => ({ lat: raw[k].lat, lng: raw[k].lng }));
+        if (coords.length < 2) return;
+        const km = pathLengthKm(coords);
+        const polyline = L.polyline(coords, styleBase).addTo(segmentsLayer);
+        const start = coords[0];
+        const end = coords[coords.length - 1];
+        const startSq = L.marker([start.lat, start.lng], { icon: makeSegmentSquare('#ef4444'), interactive: true, zIndexOffset: 60 }).addTo(segmentsLayer);
+        const endSq = L.marker([end.lat, end.lng], { icon: makeSegmentSquare('#22c55e'), interactive: true, zIndexOffset: 60 }).addTo(segmentsLayer);
+        const startLabel = L.marker([start.lat, start.lng], { icon: makeSegmentLabel(`S#${idx} · ${km.toFixed(2)} km`, 'start'), interactive: true, zIndexOffset: 50 }).addTo(segmentsLayer);
+        const endLabel = L.marker([end.lat, end.lng], { icon: makeSegmentLabel(`E#${idx} · ${km.toFixed(2)} km`, 'end'), interactive: true, zIndexOffset: 50 }).addTo(segmentsLayer);
+        const segObj = { id: idx, poly: polyline, startSq, endSq, startLabel, endLabel };
+        segments.push(segObj);
+        const focus = () => { isolateSegment(idx); showToast(`Focused Segment #${idx}`); };
+        startSq.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        endSq.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        startLabel.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        endLabel.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        polyline.on('click', e => { focus(); L.DomEvent.stopPropagation(e); });
+        idx++;
+      });
+    });
+  }
+
+  loadAndDrawPolygons();
+  loadSegments();
+
+  function goToZone(num) {
+    const poly = zoneLayers[String(num)];
+    if (!poly) { showToast(`Zone ${num} not found`); return; }
+    if (!map.hasLayer(polygonLayer)) showAllSegments();
+    map.flyToBounds(poly.getBounds(), { padding:[28,28], duration:0.9, maxZoom:17 });
+    showToast(`Zoomed to Zone ${num}`);
+  }
+
+  btnZoneGo.addEventListener('click', () => {
+    const n = parseInt(zoneInput.value, 10);
+    if (!n || n < 1) { showToast('Enter a valid zone number'); return; }
+    goToZone(n);
+  });
+  zoneInput.addEventListener('keyup', e => { if (e.key === 'Enter') btnZoneGo.click(); });
+
+  btnSegGo.addEventListener('click', () => {
+    const n = parseInt(segInput.value, 10);
+    if (!n || n < 1) { showToast('Enter valid segment #'); return; }
+    const found = isolateSegment(n);
+    if (found) showToast(`Focused Segment #${n}`);
+    else showToast(`Segment #${n} not found`);
+  });
+  segInput.addEventListener('keyup', e => { if(e.key === 'Enter') btnSegGo.click(); });
+
+  map.on('click', () => showAllSegments());
+
+  // ────────────────────────────────────────────────
+  // Core state
+  // ────────────────────────────────────────────────
+  let currentLatLng = null;
+  let currentMarker = null;
+  let currentUserId = null;
+  let myStatsUnsub = null;
+  let myPostsUnsub = null;
+  let workersUnsub = null;
+  let chatUnsub = null;
+  let currentWorkerName = null;
+  let currentWorkerPostClicks = 0;
+  let lastReadChatTs = 0;
+  
+  const greenStyle = { radius:2.5, color:'#16a34a', weight:1, fillColor:'#22c55e', fillOpacity:.9 };
+  const redStyle   = { radius:2.5, color:'#991b1b', weight:1, fillColor:'#ef4444', fillOpacity:.9 };
+  const blueStyle  = { radius:2.5, color:'#1e40af', weight:1, fillColor:'#1f84f7', fillOpacity:.9 };
+  const orangeDotStyle = { radius:2.5, color:'#c2410c', weight:1, fillColor:'#f97316', fillOpacity:.9 };
+
+  let workersMeta = {};
+  let workersCache = null;
+
+  // General system toast (still used for errors, worker changes, etc.)
+  function showToast(text) {
+    toastEl.textContent = text;
+    toastEl.classList.add('show');
+    setTimeout(()=>toastEl.classList.remove('show'), 2500);
+  }
+
+  // NEW: Sleek map notifications exclusively for button clicks
+  function showMapNotification(msg, colorHex) {
+    const el = document.createElement('div');
+    el.className = 'map-notif';
+    el.innerHTML = `<span style="color:${colorHex}; margin-right:4px;">●</span> ${msg}`;
+    mapNotifContainer.appendChild(el);
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 1800);
+  }
+
+  function setPostEnabled(on) {
+    const ok = on && !!currentUserId && !!currentWorkerName;
+    btnJa.disabled = btnNee.disabled = btnBonus.disabled = btnPost.disabled = !ok;
+  }
+
+  function formatDate(ts) {
+    const d = new Date(ts);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+  }
+  
+  function isToday(ts) {
+    const d = new Date(ts);
+    const today = new Date();
+    return d.getDate() === today.getDate() &&
+           d.getMonth() === today.getMonth() &&
+           d.getFullYear() === today.getFullYear();
+  }
+
+  function formatWorkDuration(ms) {
+    if (!ms || ms <= 0) return '0h 00m';
+    const m = Math.floor(ms / 60000);
+    return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;
+  }
+
+  function formatLocalTime(ts) {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function formatHMS(ms) {
+    if (ms < 0) ms = 0;
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sc = s % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
+  }
+
+  function normalizeWorkerName(v) {
+    return (v || '').trim().replace(/\s+/g, ' ');
+  }
+
+  function validateWorkerName(v) {
+    return /^[A-Za-z]{2,20}$/.test(v);
+  }
+
+  function getPostCountForName(name) {
+    const key = (name || '').toLowerCase();
+    return workersMeta[key]?.postClicks || 0;
+  }
+
+  function updateWorkerUi() {
+    currentWorkerPostClicks = getPostCountForName(currentWorkerName);
+    if (currentWorkerName) {
+      btnStartWorker.textContent = currentWorkerName;
+    } else {
+      btnStartWorker.textContent = 'Start';
+    }
+  }
+
+  function openWorkerModal() {
+    workerError.textContent = '';
+    workerNameInput.value = currentWorkerName || '';
+    workerBackdrop.classList.add('show');
+    setTimeout(() => workerNameInput.focus(), 50);
+  }
+
+  function closeWorkerModal() {
+    workerBackdrop.classList.remove('show');
+  }
+
+  async function saveWorkerName(name) {
+    if (!currentUserId) return;
+    const now = Date.now();
+    const safe = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    await set(ref(db, `users/${currentUserId}/workers/${safe}`), {
+      firstName: name,
+      createdAt: now,
+      lastActiveAt: now,
+      postClicks: workersMeta[safe]?.postClicks || 0
+    });
+  }
+
+  function renderTimelines(dotsArray) {
+    timelinesWrapper.innerHTML = '';
+    if (!dotsArray || !dotsArray.length) return;
+    
+    const todayDots = dotsArray.filter(d => isToday(d.timestamp));
+    if (!todayDots.length) return;
+    
+    // Group dots by worker name
+    const byWorker = {};
+    todayDots.forEach(d => {
+      const name = d.workerName || 'Unknown';
+      if (!byWorker[name]) byWorker[name] = [];
+      byWorker[name].push(d);
+    });
+    
+    Object.keys(byWorker).sort().forEach(workerName => {
+      const arr = byWorker[workerName].sort((a,b) => a.timestamp - b.timestamp);
+      
+      const block = document.createElement('div');
+      block.className = 'worker-timeline';
+      
+      const title = document.createElement('div');
+      title.className = 'timeline-title';
+      title.textContent = `Worker: ${workerName}`;
+      block.appendChild(title);
+      
+      const scroll = document.createElement('div');
+      scroll.className = 'timeline-scroll';
+      
+      let prevTimestamp = null;
+      let dNum = 0;
+      let pNum = 0;
+      
+      arr.forEach(d => {
+        const el = document.createElement('div');
+        el.className = 't-dot-wrapper';
+        
+        let marginLeft = 6; // base minimal margin
+        if (prevTimestamp) {
+          const diffSec = (d.timestamp - prevTimestamp) / 1000;
+          // Add extra space based on time elapsed, maxed out at 100px
+          const extra = Math.min(100, Math.max(0, diffSec * 0.5));
+          marginLeft += extra;
+        }
+        prevTimestamp = d.timestamp;
+        
+        el.style.marginLeft = marginLeft + 'px';
+        
+        let labelStr = '';
+        if (d.color === 'orange') {
+          pNum++;
+          labelStr = `P${pNum}`;
+        } else {
+          dNum++;
+          labelStr = `D${dNum}`;
+        }
+
+        const timeStr = formatLocalTime(d.timestamp);
+        el.innerHTML = `
+          <div class="t-num">${labelStr}</div>
+          <div class="t-dot ${d.color}"></div>
+          <div class="t-time">${timeStr}</div>
+        `;
+        el.addEventListener('click', () => {
+          map.flyTo([d.lat, d.lng], 18, { animate: true, duration: 0.6 });
+          const pulseColor = d.color === 'green' ? '#22c55e' : d.color === 'blue' ? '#1f84f7' : d.color === 'orange' ? '#f97316' : '#ef4444';
+          const pulse = L.circle([d.lat, d.lng], { radius:12, color:pulseColor, weight:2, opacity:1, fillOpacity:0.2 }).addTo(map);
+          setTimeout(() => map.removeLayer(pulse), 1500);
+        });
+        scroll.appendChild(el);
+      });
+      
+      block.appendChild(scroll);
+      timelinesWrapper.appendChild(block);
+      
+      // auto scroll to end
+      setTimeout(() => scroll.scrollLeft = scroll.scrollWidth, 50);
+    });
+  }
+
+  function rebuildMapLayer(dotsArray) {
+    postsLayer.clearLayers();
+    if (!dotsArray || !dotsArray.length) return;
+
+    const byWorker = {};
+    dotsArray.forEach(d => {
+      const name = d.workerName || 'Unknown';
+      if (!byWorker[name]) byWorker[name] = [];
+      byWorker[name].push(d);
+    });
+
+    Object.keys(byWorker).forEach(name => {
+      const arr = byWorker[name].sort((a,b) => a.timestamp - b.timestamp);
+      
+      // Filter out orange dots for the polyline connection
+      const connectionDots = arr.filter(d => d.color !== 'orange');
+      const latlngs = connectionDots.map(d => [d.lat, d.lng]);
+      if (latlngs.length > 1) {
+        L.polyline(latlngs, {color:'#4f8cff', weight:1.5, opacity:0.7, dashArray:'4,7'}).addTo(postsLayer);
+      }
+
+      arr.forEach(d => {
+        let style = redStyle;
+        let typeLabel = '✗ No';
+        if (d.color === 'green') { style = greenStyle; typeLabel = '✓ Yes'; }
+        else if (d.color === 'blue') { style = blueStyle; typeLabel = '★ Bonus'; }
+        else if (d.color === 'orange') { style = orangeDotStyle; typeLabel = '✉ Post'; }
+        
+        L.circleMarker([d.lat, d.lng], style)
+          .bindTooltip(`${typeLabel} — ${formatLocalTime(d.timestamp)} · ${d.workerName||'Unknown'}`, {direction:'top', offset:[0,-4]})
+          .addTo(postsLayer);
+      });
+
+      const first = arr[0], last = arr[arr.length-1];
+      const firstPosts = getPostCountForName(first.workerName);
+      const lastPosts  = getPostCountForName(last.workerName);
+
+      let firstIcon = redFlagIcon, lastIcon = redFlagIcon;
+      if (first.color === 'green') firstIcon = greenFlagIcon;
+      else if (first.color === 'blue') firstIcon = blueFlagIcon;
+      else if (first.color === 'orange') firstIcon = orangeFlagIcon;
+      
+      if (last.color === 'green') lastIcon = greenFlagIcon;
+      else if (last.color === 'blue') lastIcon = blueFlagIcon;
+      else if (last.color === 'orange') lastIcon = orangeFlagIcon;
+
+      L.marker([first.lat, first.lng], {icon:firstIcon, zIndexOffset:200})
+        .bindTooltip(`🚩 First — ${formatLocalTime(first.timestamp)} · ${first.workerName||'Unknown'}`, {direction:'top', offset:[6,-30]})
+        .addTo(postsLayer);
+      L.marker([first.lat, first.lng], {icon:makeTinyNameLabel(first.workerName||'Unknown', firstPosts), zIndexOffset:202}).addTo(postsLayer);
+
+      L.marker([last.lat, last.lng], {icon:lastIcon, zIndexOffset:201})
+        .bindTooltip(`🏁 Last — ${formatLocalTime(last.timestamp)} · ${last.workerName||'Unknown'}`, {direction:'top', offset:[6,-30]})
+        .addTo(postsLayer);
+      L.marker([last.lat, last.lng], {icon:makeTinyNameLabel(last.workerName||'Unknown', lastPosts), zIndexOffset:203}).addTo(postsLayer);
+    });
+  }
+
+  function renderWorkerTable() {
+    workerBody.innerHTML = '';
+    if (!currentUserId || !workersCache) {
+      workerBody.innerHTML = '<tr class="empty-row"><td colspan="9">No data yet.</td></tr>';
+      return;
+    }
+
+    const rows = Object.keys(workersCache).map(name => {
+      const w = workersCache[name];
+      const mins = w.workMs > 0 ? w.workMs / 60000 : 0;
+      const avg = mins > 0 ? w.count / mins : 0;
+      return { name, ...w, avg };
+    }).sort((a,b) => (b.posts||0) - (a.posts||0) || b.avg - a.avg);
+
+    if (!rows.length) {
+      workerBody.innerHTML = '<tr class="empty-row"><td colspan="9">No data yet.</td></tr>';
+      return;
+    }
+
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      if (currentWorkerName && r.name.toLowerCase() === currentWorkerName.toLowerCase()) {
+        tr.classList.add('current-worker-row');
+      }
+      const earnedAmount = (r.count * 0.036).toFixed(2);
+      tr.innerHTML = `
+        <td>${r.name}</td>
+        <td>${r.count}</td>
+        <td class="col-earned">€${earnedAmount}</td>
+        <td class="col-avg">${r.avg.toFixed(2)}</td>
+        <td class="col-green">${r.green}</td>
+        <td class="col-red">${r.red}</td>
+        <td class="col-blue">${r.blue}</td>
+        <td class="col-orange">${r.posts}</td>
+        <td class="col-work">${formatWorkDuration(r.workMs)}</td>`;
+      workerBody.appendChild(tr);
+    });
+  }
+
+  function updateButtonCounts() {
+    if (currentWorkerName && workersCache) {
+      const key = currentWorkerName.toLowerCase();
+      const w = workersCache[key];
+      if (w) {
+        countRight.textContent = w.green || 0;
+        countLeft.textContent = w.red || 0;
+        countBonus.textContent = w.blue || 0;
+        countPost.textContent = w.posts || 0;
+      } else {
+        countRight.textContent = 0;
+        countLeft.textContent = 0;
+        countBonus.textContent = 0;
+        countPost.textContent = 0;
+      }
+    } else {
+      countRight.textContent = 0;
+      countLeft.textContent = 0;
+      countBonus.textContent = 0;
+      countPost.textContent = 0;
+    }
+  }
+
+  function updateSessionDisplayForCurrentWorker(postsArray) {
+    let sessionDurationMs = 0;
+    let sessionDots = 0;
+    let sessionAvg = 0;
+    let isActive = false;
+
+    if (currentWorkerName && postsArray?.length) {
+      const workerKey = currentWorkerName.toLowerCase();
+      // only count red, green, blue for stats, not orange posts
+      const workerPosts = postsArray.filter(p => (p.workerName || '').toLowerCase() === workerKey && p.color !== 'orange');
+
+      if (workerPosts.length > 0) {
+        isActive = true;
+        sessionDots = workerPosts.length;
+
+        const timestamps = workerPosts.map(p => p.timestamp).sort((a,b) => a - b);
+        const firstTs = timestamps[0];
+        const lastTs  = timestamps[timestamps.length - 1];
+        sessionDurationMs = Math.max(0, lastTs - firstTs);
+
+        const minutes = sessionDurationMs / 60000;
+        sessionAvg = minutes > 0 ? sessionDots / minutes : 0;
+      }
+    }
+
+    sessionTimerEl.classList.toggle('inactive', !isActive);
+    sessionTimerEl.textContent = isActive ? formatHMS(sessionDurationMs) : "00:00:00";
+
+    sessionAvgEl.textContent   = isActive ? sessionAvg.toFixed(2) : "—";
+    sessionTotalEl.textContent = isActive ? String(sessionDots) : "0";
+
+    const emojiEl = document.getElementById('speedEmoji');
+    if (emojiEl) {
+      if (isActive && sessionAvg >= 5) {
+        emojiEl.textContent = '🔥';
+      } else if (isActive) {
+        emojiEl.textContent = '🐌';
+      } else {
+        emojiEl.textContent = '–';
+      }
+    }
+
+    const earnPerMin  = sessionAvg * 0.036;
+    const earnPerHour = earnPerMin * 60;
+    earnPerHourEl.textContent = '€' + earnPerHour.toFixed(2);
+  }
+
+  function attachMyStatsListener(id) {
+    if (typeof myStatsUnsub === 'function') { myStatsUnsub(); myStatsUnsub = null; }
+    myStatsUnsub = onValue(ref(db, `users/${id}/stats`), snap => {
+      const s = snap.val() || {};
+      // Stats for UI like global dot counts 
+    });
+  }
+
+  function attachWorkersListener(id) {
+    if (typeof workersUnsub === 'function') { workersUnsub(); workersUnsub = null; }
+    const workersRef = ref(db, `users/${id}/workers`);
+    const handler = snap => {
+      workersMeta = {};
+      snap.forEach(child => {
+        const v = child.val();
+        workersMeta[child.key] = {
+          name: v.firstName || child.key,
+          postClicks: v.postClicks || 0,
+          lastActiveAt: v.lastActiveAt || 0
+        };
+      });
+      updateWorkerUi();
+      renderWorkerTable();
+      updateButtonCounts();
+    };
+    onValue(workersRef, handler);
+    workersUnsub = () => off(workersRef, 'value', handler);
+  }
+  
+  function attachChatListener(id) {
+    if (typeof chatUnsub === 'function') { chatUnsub(); chatUnsub = null; }
+    const chatRef = query(ref(db, `chats/${id}`), orderByChild('timestamp'));
+    const handler = snap => {
+      chatMessages.innerHTML = '';
+      let unread = 0;
+      const isChatOpen = chatBackdrop.classList.contains('show');
+      
+      let hasMsgs = false;
+      snap.forEach(child => {
+        hasMsgs = true;
+        const msg = child.val();
+        const el = document.createElement('div');
+        const isMe = msg.workerName === currentWorkerName;
+        el.className = `chat-msg ${isMe ? 'mine' : ''}`;
+        el.innerHTML = `
+          <div class="chat-msg-meta">${msg.workerName} · ${formatLocalTime(msg.timestamp)}</div>
+          <div>${msg.text}</div>
+        `;
+        chatMessages.appendChild(el);
+        
+        if (msg.timestamp > lastReadChatTs && !isChatOpen && !isMe) {
+          unread++;
+        }
+      });
+      
+      if (!hasMsgs) {
+        chatMessages.innerHTML = '<div style="text-align:center; color:var(--muted); font-size:10px; margin-top:10px;">No messages yet. Say hi!</div>';
+      } else {
+        // scroll to bottom
+        setTimeout(() => chatMessages.scrollTop = chatMessages.scrollHeight, 10);
+      }
+      
+      if (unread > 0) {
+        chatBadge.textContent = unread;
+        chatBadge.classList.add('show');
+      } else {
+        chatBadge.classList.remove('show');
+      }
+    };
+    onValue(chatRef, handler);
+    chatUnsub = () => off(chatRef, 'value', handler);
+  }
+
+  function attachMyPostsListener(id) {
+    if (typeof myPostsUnsub === 'function') {
+        myPostsUnsub();
+        myPostsUnsub = null;
+    }
+
+    let normalDots = [];
+    let orangeDots = [];
+
+    const normalRef = query(ref(db, `userPosts/${id}`), orderByChild('timestamp'));
+    const orangeRef = query(ref(db, `userPostClicks/${id}`), orderByChild('timestamp'));
+
+    const combineAndProcess = () => {
+        const allDots = [...normalDots, ...orangeDots].sort((a, b) => a.timestamp - b.timestamp);
+
+        hideLoader();
+
+        let totalTeamDots = 0;
+        allDots.forEach(d => {
+            if (d.color === 'orange') return;
+            totalTeamDots++;
+        });
+
+        // Build per-worker stats
+        const workers = {};
+        allDots.forEach(d => {
+            const name = d.workerName || 'Unknown';
+            const key = name.toLowerCase();
+            if (!workers[key]) {
+                workers[key] = {
+                    name,
+                    count: 0,
+                    green: 0,
+                    red: 0,
+                    blue: 0,
+                    earliest: d.timestamp,
+                    latest: d.timestamp,
+                    posts: getPostCountForName(name)
+                };
+            }
+            const w = workers[key];
+            if (d.color !== 'orange') {
+                w.count++;
+                if (d.color === 'green') w.green++;
+                else if (d.color === 'blue') w.blue++;
+                else w.red++;
+                if (d.timestamp < w.earliest) w.earliest = d.timestamp;
+                if (d.timestamp > w.latest) w.latest = d.timestamp;
+            }
+        });
+
+        // Merge missing workers from meta
+        Object.keys(workersMeta).forEach(k => {
+            if (!workers[k]) {
+                workers[k] = {
+                    name: workersMeta[k].name,
+                    count: 0,
+                    green: 0,
+                    red: 0,
+                    blue: 0,
+                    earliest: Date.now(),
+                    latest: Date.now(),
+                    posts: workersMeta[k].postClicks || 0
+                };
+            } else {
+                workers[k].posts = workersMeta[k].postClicks || 0;
+            }
+        });
+
+        Object.values(workers).forEach(w => {
+            w.workMs = w.count > 0 ? Math.max(w.latest - w.earliest, 0) : 0;
+        });
+
+        workersCache = workers;
+
+        rebuildMapLayer(allDots);
+        renderTimelines(allDots);
+        renderWorkerTable();
+        updateButtonCounts();
+        updateSessionDisplayForCurrentWorker(allDots);
+
+        // Campaign progress (only red/green/blue)
+        const TARGET_DOTS = 15000;
+        const TOTAL_BUDGET = 540;
+        const teamEarned = totalTeamDots * 0.036;
+        const remBudget = Math.max(0, TOTAL_BUDGET - teamEarned);
+
+        document.getElementById('totalDotsProgress').textContent = totalTeamDots;
+        document.getElementById('dotsBar').style.width = Math.min(100, (totalTeamDots / TARGET_DOTS) * 100) + '%';
+        document.getElementById('totalEarnedProgress').textContent = teamEarned.toFixed(2);
+        document.getElementById('remBudgetProgress').textContent = '€' + remBudget.toFixed(2);
+        document.getElementById('budgetBar').style.width = Math.min(100, (teamEarned / TOTAL_BUDGET) * 100) + '%';
+    };
+
+    const normalHandler = snap => {
+        normalDots = [];
+        snap.forEach(child => {
+            const v = child.val();
+            if (v && typeof v.lat === 'number' && typeof v.lng === 'number') normalDots.push(v);
+        });
+        combineAndProcess();
+    };
+
+    const orangeHandler = snap => {
+        orangeDots = [];
+        snap.forEach(child => {
+            const v = child.val();
+            if (v && typeof v.lat === 'number' && typeof v.lng === 'number') orangeDots.push(v);
+        });
+        combineAndProcess();
+    };
+
+    onValue(normalRef, normalHandler);
+    onValue(orangeRef, orangeHandler);
+
+    myPostsUnsub = () => {
+        off(normalRef, 'value', normalHandler);
+        off(orangeRef, 'value', orangeHandler);
+    };
+  }
+
+  const LS_KEY = 'dotPoster:userId';
+  function normalizeUserId(id) {
+    return (id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+  function validateUserId(id) {
+    return /^[A-Z0-9]{3,10}$/.test(id);
+  }
+
+  function showLogin() {
+    hideLoader();
+    loginBackdrop.classList.add('show');
+    userIdInput.value = '';
+    loginError.textContent = '';
+    setPostEnabled(false);
+
+    if (typeof myStatsUnsub === 'function') { myStatsUnsub(); myStatsUnsub = null; }
+    if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
+    if (typeof workersUnsub === 'function') { workersUnsub(); workersUnsub = null; }
+    if (typeof chatUnsub === 'function') { chatUnsub(); chatUnsub = null; }
+
+    currentUserId = null;
+    currentWorkerName = null;
+    currentWorkerPostClicks = 0;
+    workersMeta = {};
+    workersCache = null;
+
+    updateWorkerUi();
+    postsLayer.clearLayers();
+    postClicksLayer.clearLayers();
+    timelinesWrapper.innerHTML = '';
+    sessionTimerEl.textContent = '00:00:00';
+    sessionAvgEl.textContent = '—';
+    sessionTotalEl.textContent = '0';
+    earnPerHourEl.textContent = '€0.00';
+    renderWorkerTable();
+    updateButtonCounts();
+  }
+
+  function hideLogin() { loginBackdrop.classList.remove('show'); }
+
+  async function registerUser(id) {
+    const now = Date.now();
+    const userRef = ref(db, `users/${id}`);
+    try {
+      const snap = await get(userRef);
+      if (snap.exists()) {
+        await update(userRef, { lastActiveAt: now });
+      } else {
+        await set(userRef, {
+          createdAt: now,
+          lastActiveAt: now,
+          ua: navigator.userAgent || '',
+          stats: { totalDots: 0, totalEarningsCents: 0 }
+        });
+      }
+    } catch (e) {
+      console.error('Register error', e);
+    }
+  }
+
+  function onUserReady(id) {
+    currentUserId = id;
+    localStorage.setItem(LS_KEY, id);
+    userPillText.textContent = id;
+    userPill.style.display = 'flex';
+    attachMyStatsListener(id);
+    attachWorkersListener(id);
+    attachMyPostsListener(id);
+    attachChatListener(id);
+    setPostEnabled(!!currentLatLng);
+    goToCurrentLocation({ focus: true });
+  }
+
+  const stored = normalizeUserId(localStorage.getItem(LS_KEY));
+  if (validateUserId(stored)) {
+    registerUser(stored).then(() => onUserReady(stored));
+  } else {
+    showLogin();
+  }
+
+  userJoinBtn.addEventListener('click', async () => {
+    loginError.textContent = '';
+    const id = normalizeUserId(userIdInput.value);
+    if (!validateUserId(id)) {
+      loginError.textContent = 'Use 3–10 letters/numbers, e.g. FF001';
+      return;
+    }
+    await registerUser(id);
+    onUserReady(id);
+    hideLogin();
+    showToast(`User ${id} ready`);
+  });
+
+  userIdInput.addEventListener('keyup', e => { if (e.key === 'Enter') userJoinBtn.click(); });
+  changeUserBtn.addEventListener('click', showLogin);
+
+  btnStartWorker.addEventListener('click', () => {
+    if (!currentUserId) { showToast('Join with User ID first'); return; }
+    openWorkerModal();
+  });
+
+  workerSaveBtn.addEventListener('click', async () => {
+    workerError.textContent = '';
+    const name = normalizeWorkerName(workerNameInput.value);
+    if (!validateWorkerName(name)) {
+      workerError.textContent = 'Use 2–20 letters (first name only).';
+      return;
+    }
+    try {
+      currentWorkerName = name;
+      await saveWorkerName(name);
+      updateWorkerUi();
+      setPostEnabled(!!currentLatLng);
+      closeWorkerModal();
+      showToast(`Worker ${name} started`);
+      // Re-render session & table with new active worker
+      if (myPostsUnsub) myPostsUnsub(); // force refresh
+      attachMyPostsListener(currentUserId);
+      renderWorkerTable();
+    } catch (e) {
+      console.error(e);
+      workerError.textContent = 'Failed to save worker';
+    }
+  });
+
+  workerNameInput.addEventListener('keyup', e => { if (e.key === 'Enter') workerSaveBtn.click(); });
+
+  // ────────────────────────────────────────────────
+  // Chat Feature
+  // ────────────────────────────────────────────────
+  chatBtn.addEventListener('click', () => {
+    if (!currentUserId) { showToast('Join with User ID first'); return; }
+    chatBackdrop.classList.add('show');
+    chatBadge.classList.remove('show');
+    chatBadge.textContent = '0';
+    lastReadChatTs = Date.now();
+    setTimeout(() => chatInput.focus(), 50);
+  });
+  
+  closeChatBtn.addEventListener('click', () => {
+    chatBackdrop.classList.remove('show');
+    lastReadChatTs = Date.now();
+  });
+  
+  chatBackdrop.addEventListener('click', e => {
+    if (e.target === chatBackdrop) {
+      chatBackdrop.classList.remove('show');
+      lastReadChatTs = Date.now();
+    }
+  });
+  
+  chatSendBtn.addEventListener('click', async () => {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    if (!currentWorkerName) {
+      showToast('Start a worker first to chat');
+      openWorkerModal();
+      return;
+    }
+    
+    try {
+      chatSendBtn.disabled = true;
+      await push(ref(db, `chats/${currentUserId}`), {
+        text,
+        workerName: currentWorkerName,
+        timestamp: Date.now()
+      });
+      chatInput.value = '';
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to send message');
+    } finally {
+      chatSendBtn.disabled = false;
+      chatInput.focus();
+    }
+  });
+  
+  chatInput.addEventListener('keyup', e => { if (e.key === 'Enter') chatSendBtn.click(); });
+
+  // ────────────────────────────────────────────────
+  // Photo Proof
+  // ────────────────────────────────────────────────
+  cameraBtn.addEventListener('click', () => {
+    if (!currentUserId) { showToast('Join with User ID first'); return; }
+    proofError.textContent = '';
+    proofUrlInput.value = '';
+    proofBackdrop.classList.add('show');
+    setTimeout(() => proofUrlInput.focus(), 50);
+  });
+
+  proofBackdrop.addEventListener('click', e => {
+    if (e.target === proofBackdrop) proofBackdrop.classList.remove('show');
+  });
+
+  proofSubmitBtn.addEventListener('click', async () => {
+    const url = proofUrlInput.value.trim();
+    if (!url) { proofError.textContent = 'Please enter a valid image URL.'; return; }
+    if (!currentLatLng) { proofError.textContent = 'Location not available yet.'; return; }
+
+    let campaignId = currentUserId;
+    if (campaignId && campaignId.startsWith('FF')) {
+      campaignId = 'XX' + campaignId.substring(2);
+    }
+    const nodePath = `campaigns/${campaignId}/proofs`;
+    const [lat, lng] = currentLatLng;
+
+    const payload = {
+      url,
+      lat,
+      lng,
+      timestamp: Date.now()
+    };
+
+    try {
+      proofSubmitBtn.disabled = true;
+      proofSubmitBtn.textContent = 'Submitting...';
+      await push(ref(proofDb, nodePath), payload);
+      showToast('Photo Proof submitted!');
+      proofBackdrop.classList.remove('show');
+    } catch (e) {
+      console.error(e);
+      proofError.textContent = 'Failed to submit proof. Try again.';
+    } finally {
+      proofSubmitBtn.disabled = false;
+      proofSubmitBtn.textContent = 'Submit';
+    }
+  });
+
+  function ensureLocMarker(latlng) {
+    const purplePinIcon = makePurplePinIcon();
+    if (!currentMarker) {
+      currentMarker = L.marker(latlng, { icon: purplePinIcon }).addTo(map);
+    } else {
+      currentMarker.setLatLng(latlng);
+      currentMarker.setIcon(purplePinIcon);
+    }
+  }
+
+  async function goToCurrentLocation({ focus = true } = {}) {
+    if (!('geolocation' in navigator)) {
+      showToast('Geolocation not supported');
+      return;
+    }
+    return new Promise(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          currentLatLng = [pos.coords.latitude, pos.coords.longitude];
+          ensureLocMarker(currentLatLng);
+          if (focus) map.setView(currentLatLng, Math.max(map.getZoom(), 15), { animate: true });
+          setPostEnabled(true);
+          resolve(currentLatLng);
+        },
+        err => {
+          let msg = 'Location error';
+          if (err.code === 1) msg = 'Location permission denied. Please enable it.';
+          else if (err.code === 2) msg = 'Location unavailable.';
+          else if (err.code === 3) msg = 'Location timed out.';
+          showToast(msg);
+          setPostEnabled(false);
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 25000, maximumAge: 10000 }
+      );
+    });
+  }
+
+  if ('geolocation' in navigator) {
+    navigator.geolocation.watchPosition(
+      pos => {
+        currentLatLng = [pos.coords.latitude, pos.coords.longitude];
+        ensureLocMarker(currentLatLng);
+        setPostEnabled(true);
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 25000 }
+    );
+  }
+
+  // FAST: Optimistic Fire-and-Forget Post Logic
+  async function postDot(color) {
+    if (!currentUserId) { showLogin(); return; }
+    if (!currentWorkerName) { openWorkerModal(); return; }
+    if (!currentLatLng) {
+      await goToCurrentLocation({ focus: true });
+      if (!currentLatLng) return;
+    }
+
+    // 1. INSTANT UI UPDATES
+    if (color === 'green') countRight.textContent = parseInt(countRight.textContent || 0) + 1;
+    if (color === 'red') countLeft.textContent = parseInt(countLeft.textContent || 0) + 1;
+    if (color === 'blue') countBonus.textContent = parseInt(countBonus.textContent || 0) + 1;
+
+    let msg = color === 'green' ? '✓ Yes posted' :
+              color === 'blue'  ? '★ Bonus posted' : 
+              color === 'orange' ? '✉ Post recorded' : '✗ No posted';
+              
+    let pulseColor = color === 'green' ? '#22c55e' : color === 'blue' ? '#1f84f7' : color === 'orange' ? '#f97316' : '#ef4444';
+
+    // Show on map instead of toast
+    showMapNotification(`${msg} (${currentWorkerName})`, pulseColor);
+
+    if (currentMarker) {
+      const pulse = L.circle(currentMarker.getLatLng(), { radius:8, color:pulseColor, weight:1, opacity:.7, fillOpacity:0 }).addTo(map);
+      setTimeout(() => map.removeLayer(pulse), 500);
+    }
+
+    // 2. BACKGROUND FIREBASE SAVING
+    const [lat, lng] = currentLatLng;
+    const now = Date.now();
+    const data = { lat, lng, userId: currentUserId, color, timestamp: now, workerName: currentWorkerName, ua: navigator.userAgent || '' };
+
+    try {
+      const newKey = push(ref(db, `userPosts/${currentUserId}`)).key;
+      const updates = {
+        [`userPosts/${currentUserId}/${newKey}`]: data,
+        [`dotColors/${currentUserId}/${newKey}`]: { color, timestamp: now, workerName: currentWorkerName },
+        [`users/${currentUserId}/lastPostAt`]: now,
+        [`users/${currentUserId}/workers/${currentWorkerName.toLowerCase()}/lastActiveAt`]: now
+      };
+
+      if (color !== 'orange') {
+        updates[`users/${currentUserId}/stats/totalDots`] = increment(1);
+        updates[`users/${currentUserId}/stats/totalEarningsCents`] = increment(10);
+      }
+
+      // No await! Sent to background
+      update(ref(db), updates).catch(e => console.error("Background sync failed", e));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function recordPostClick() {
+    if (!currentUserId) { showLogin(); return; }
+    if (!currentWorkerName) { openWorkerModal(); return; }
+    if (!currentLatLng) {
+      await goToCurrentLocation({ focus: true });
+      if (!currentLatLng) return;
+    }
+
+    const key = currentWorkerName.toLowerCase();
+    const now = Date.now();
+    const [lat, lng] = currentLatLng || [0, 0];
+
+    // 1. INSTANT UI UPDATE
+    const newCount = (workersMeta[key]?.postClicks || 0) + 1;
+    workersMeta[key] = { ...(workersMeta[key] || { name: currentWorkerName }), postClicks: newCount };
+    currentWorkerPostClicks = newCount;
+    countPost.textContent = newCount;
+
+    // Show on map instead of toast
+    showMapNotification(`✉ Post recorded (${currentWorkerName})`, '#f97316');
+
+    if (currentMarker) {
+        const pulse = L.circle(currentMarker.getLatLng(), { radius: 8, color: '#f97316', weight: 1, opacity: 0.7, fillOpacity: 0 }).addTo(map);
+        setTimeout(() => map.removeLayer(pulse), 500);
+    }
+
+    // 2. BACKGROUND FIREBASE SAVING
+    const clickData = { lat, lng, userId: currentUserId, color: 'orange', timestamp: now, workerName: currentWorkerName, ua: navigator.userAgent || '' };
+
+    try {
+        const newKey = push(ref(db, `userPostClicks/${currentUserId}`)).key;
+        const updates = {
+          [`userPostClicks/${currentUserId}/${newKey}`]: clickData,
+          [`users/${currentUserId}/lastPostClickAt`]: now,
+          [`users/${currentUserId}/workers/${key}/postClicks`]: increment(1)
+        };
+
+        // No await! Sent to background
+        update(ref(db), updates).catch(e => console.error("Background sync failed", e));
+    } catch (e) {
+        console.error(e);
+    }
+  }
+
+  btnLocate.addEventListener('click', () => goToCurrentLocation({ focus: true }));
+  btnJa.addEventListener('click', () => postDot('green'));
+  btnNee.addEventListener('click', () => postDot('red'));
+  btnBonus.addEventListener('click', () => postDot('blue'));
+  btnPost.addEventListener('click', recordPostClick);
+
+  goToCurrentLocation({ focus: true });
+  updateWorkerUi();
+  renderWorkerTable();
+  updateButtonCounts();
+</script>
+</body>
+</html>
