@@ -643,18 +643,30 @@
     }
   };
 
-  // --- Card Edit Modal Logic ---
+  // --- Card Edit & Map Note Modal Logic ---
   let modalEditDbKey = null;
   let modalEditType = null;
+  let mapNoteType = null; 
   
   window.openEditModal = function(dbKey, type, currentNote) {
     modalEditDbKey = dbKey;
     modalEditType = type;
+    mapNoteType = null;
     editNoteTitle.innerHTML = type === 'pickup' ? '<span style="color:#fca5a5;">Edit Pickup Note</span>' : '<span style="color:#6ee7b7;">Edit Dropoff Note</span>';
     editNoteModalInput.value = currentNote;
     editNoteBackdrop.classList.add('show');
     setTimeout(() => editNoteModalInput.focus(), 100);
   };
+
+  function openMapNoteModal(type) {
+    modalEditDbKey = null;
+    modalEditType = null;
+    mapNoteType = type;
+    editNoteTitle.innerHTML = type === 'pickup' ? '<span style="color:#fca5a5;">Add Pickup Note</span>' : '<span style="color:#6ee7b7;">Add Dropoff Note</span>';
+    editNoteModalInput.value = '';
+    editNoteBackdrop.classList.add('show');
+    setTimeout(() => editNoteModalInput.focus(), 100);
+  }
 
   btnEditNoteCancel.onclick = () => {
     editNoteBackdrop.classList.remove('show');
@@ -662,6 +674,30 @@
 
   btnEditNoteSave.onclick = async () => {
     const val = editNoteModalInput.value.trim();
+    
+    // Handle saving new map notes instantly
+    if (mapNoteType) {
+        if (mapNoteType === 'pickup') {
+            pickupNoteInput.value = val;
+            setNoteState('pickup', 'view');
+            if(markerPickup) {
+               if(val) markerPickup.bindTooltip(val, { permanent: true, direction: 'top', offset: [0, -25], className: 'map-note-tooltip pickup-tooltip' }).openTooltip();
+               else markerPickup.unbindTooltip();
+            }
+        } else if (mapNoteType === 'dropoff') {
+            dropoffNoteInput.value = val;
+            setNoteState('dropoff', 'view');
+            if(markerDropoff) {
+               if(val) markerDropoff.bindTooltip(val, { permanent: true, direction: 'top', offset: [0, -25], className: 'map-note-tooltip dropoff-tooltip' }).openTooltip();
+               else markerDropoff.unbindTooltip();
+            }
+        }
+        editNoteBackdrop.classList.remove('show');
+        mapNoteType = null;
+        updateUIState();
+        return;
+    }
+
     if (!modalEditDbKey || !modalEditType) return;
     
     btnEditNoteSave.textContent = 'Saving...';
@@ -679,7 +715,6 @@
         btnEditNoteSave.disabled = false;
     }
   };
-
 
   // --- Live Tracking Map Logic ---
   function updateTrackingMap(activeOrder) {
@@ -844,11 +879,11 @@
     if (!pointPickup) {
       pointPickup = e.latlng;
       markerPickup = L.marker(pointPickup, { icon: makeDotIcon('dot-red', 'PICK UP') }).addTo(mapLayerGroup);
-      if(pickupNoteInput.value) pickupNoteInput.dispatchEvent(new Event('input'));
+      openMapNoteModal('pickup');
     } else if (!pointDropoff) {
       pointDropoff = e.latlng;
       markerDropoff = L.marker(pointDropoff, { icon: makeDotIcon('dot-green', 'DROP OFF') }).addTo(mapLayerGroup);
-      if(dropoffNoteInput.value) dropoffNoteInput.dispatchEvent(new Event('input'));
+      openMapNoteModal('dropoff');
     }
     updateUIState();
   });
@@ -1051,6 +1086,10 @@
       chatUnsub = onValue(ref(db, path), snap => {
         renderChat(snap.val() || {});
       });
+    } else {
+      // Force render if reopening the same chat
+      const orderData = currentOrdersData[dbKey] || {};
+      renderChat(orderData.chat || {});
     }
     setTimeout(() => chatInput.focus(), 100);
   };
