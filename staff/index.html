@@ -224,6 +224,13 @@
     .bubble-meta { font-size: 8px; opacity: 0.7; display: flex; justify-content: space-between; gap: 10px;}
     .bubble-sender { font-weight: 800; text-transform: capitalize; }
     
+    /* Clickable Link Styling in Bubbles */
+    .chat-bubble a {
+      color: inherit;
+      text-decoration: underline;
+      font-weight: 600;
+    }
+
     /* Utility class */
     .hidden-force { display: none !important; }
 
@@ -330,7 +337,7 @@
         </div>
         <div class="input-group">
           <label>Message</label>
-          <input type="text" id="msgText" placeholder="Type message..." autocomplete="off">
+          <input type="text" id="msgText" placeholder="Type message or link..." autocomplete="off">
         </div>
         <button id="btnSendNewMsg" class="btn btn-lg btn-primary" style="margin-top: 5px;">Start Chat</button>
       </div>
@@ -363,7 +370,7 @@
       <div id="chatMessages" class="chat-messages-container"></div>
       
       <div class="chat-input-row" id="chatInputRow">
-        <input type="text" id="chatReplyText" placeholder="Type a reply..." autocomplete="off">
+        <input type="text" id="chatReplyText" placeholder="Type a reply or link..." autocomplete="off">
         <button class="btn btn-primary" id="btnSendReply" style="width:70px; height:36px;">Send</button>
       </div>
     </div>
@@ -410,6 +417,22 @@
     let hash = 0;
     for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
     return colors[Math.abs(hash) % colors.length];
+  }
+
+  // Linkify text helper function to turn URLs into clickable links
+  function linkify(text) {
+    // Escape standard HTML first to prevent XSS
+    let safeText = text.replace(/&/g, '&amp;')
+                       .replace(/</g, '&lt;')
+                       .replace(/>/g, '&gt;')
+                       .replace(/"/g, '&quot;')
+                       .replace(/'/g, '&#039;');
+    
+    // Regex to match URLs starting with http:// or https://
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return safeText.replace(urlRegex, function(url) {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+    });
   }
 
   // View logic
@@ -707,12 +730,13 @@
       let senderNameHtml = '';
       if (!isMe) senderNameHtml = `<span class="bubble-sender">${msg.sender}</span>`;
       
+      // We pass msg.text through our new linkify helper
       div.innerHTML = `
         <div class="bubble-meta">
           ${senderNameHtml}
           <span style="margin-left:auto;">${timeStr}</span>
         </div>
-        <div style="margin-top:3px; font-size:11px;">${msg.text}</div>
+        <div style="margin-top:3px; font-size:11px;">${linkify(msg.text)}</div>
       `;
       container.appendChild(div);
     });
