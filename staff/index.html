@@ -206,7 +206,11 @@
     }
     .bubble-meta { font-size: 8px; opacity: 0.7; display: flex; justify-content: space-between; gap: 10px;}
     .bubble-sender { font-weight: 800; text-transform: capitalize; }
+    
     .chat-input-row { display: flex; gap: 6px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;}
+    
+    /* Utility class to absolutely hide elements */
+    .hidden-force { display: none !important; }
 
   </style>
 </head>
@@ -324,7 +328,11 @@
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">
         <h2 id="chatTitle" style="color: #fff; font-size:11px; margin:0; text-transform:uppercase;"></h2>
-        <button class="btn btn-sm btn-secondary" id="btnBackChat">Back</button>
+        <div style="display:flex; gap: 5px;">
+          <!-- Delete button (Hidden by default, shown ONLY to Manager) -->
+          <button class="btn btn-sm btn-danger hidden-force" id="btnDeleteChat">Delete</button>
+          <button class="btn btn-sm btn-secondary" id="btnBackChat">Back</button>
+        </div>
       </div>
       
       <div id="chatMessages" class="chat-messages-container"></div>
@@ -341,7 +349,7 @@
 <!-- Firebase SDKs -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, get, set, push, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, get, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
@@ -357,6 +365,7 @@
   let currentChatId = null; 
   let currentChatType = null; // 'dm' or 'channel'
   let allMessagesRaw = [];
+  let currentActiveMsgs = []; // Tracks messages in the currently open view
 
   // View logic
   window.showView = function(viewId) {
@@ -370,7 +379,7 @@
   document.getElementById('btnTabInbox').addEventListener('click', () => {
     document.getElementById('btnTabInbox').classList.add('active');
     document.getElementById('btnTabChannels').classList.remove('active');
-    currentChatId = null; currentChatType = null;
+    currentChatId = null; currentChatType = null; currentActiveMsgs = [];
     showView('inboxView');
     processMessages(allMessagesRaw);
   });
@@ -378,17 +387,17 @@
   document.getElementById('btnTabChannels').addEventListener('click', () => {
     document.getElementById('btnTabChannels').classList.add('active');
     document.getElementById('btnTabInbox').classList.remove('active');
-    currentChatId = null; currentChatType = null;
+    currentChatId = null; currentChatType = null; currentActiveMsgs = [];
     showView('channelsView');
     processMessages(allMessagesRaw); 
   });
 
   document.getElementById('btnBackChat').addEventListener('click', () => {
     if(currentChatType === 'channel') {
-      currentChatId = null; currentChatType = null;
+      currentChatId = null; currentChatType = null; currentActiveMsgs = [];
       showView('channelsView');
     } else {
-      currentChatId = null; currentChatType = null;
+      currentChatId = null; currentChatType = null; currentActiveMsgs = [];
       showView('inboxView');
     }
     processMessages(allMessagesRaw);
@@ -442,7 +451,7 @@
     document.getElementById('loggedInTabs').style.display = 'none';
     document.getElementById('headerAuthButtons').style.display = 'flex';
     document.getElementById('headerUserButtons').style.display = 'none';
-    currentChatId = null; currentChatType = null;
+    currentChatId = null; currentChatType = null; currentActiveMsgs = [];
     showView('landingView');
   });
 
@@ -481,8 +490,9 @@
       if(!snapshot.exists()) {
         allMessagesRaw = [];
       } else {
-        // Sort oldest to newest so chat bubbles flow top to bottom naturally
-        allMessagesRaw = Object.values(snapshot.val()).sort((a,b) => a.timestamp - b.timestamp);
+        const data = snapshot.val();
+        // Capture keys to allow deletion
+        allMessagesRaw = Object.keys(data).map(key => ({ ...data[key], id: key })).sort((a,b) => a.timestamp - b.timestamp);
       }
       processMessages(allMessagesRaw);
     });
@@ -600,7 +610,11 @@
       let activeMsgs = [];
       if (currentChatType === 'channel' && channelThreads[currentChatId]) activeMsgs = channelThreads[currentChatId].msgs;
       if (currentChatType === 'dm' && dmThreads[currentChatId]) activeMsgs = dmThreads[currentChatId].msgs;
+      
+      currentActiveMsgs = activeMsgs;
       renderChatBubbles(activeMsgs, username);
+    } else {
+      currentActiveMsgs = [];
     }
   }
 
@@ -611,11 +625,20 @@
     
     document.getElementById('chatTitle').textContent = type === 'channel' ? `# ${id}` : `Chat: ${id}`;
     
-    // Hide the reply input row if it is a channel
+    // Explicitly hide or show the reply row using the new CSS class for absolute guarantee
+    const chatInputRow = document.getElementById('chatInputRow');
     if (type === 'channel') {
-      document.getElementById('chatInputRow').style.display = 'none';
+      chatInputRow.classList.add('hidden-force');
     } else {
-      document.getElementById('chatInputRow').style.display = 'flex';
+      chatInputRow.classList.remove('hidden-force');
+    }
+
+    // Manager Delete Button logic
+    const btnDelete = document.getElementById('btnDeleteChat');
+    if (username === 'manager') {
+      btnDelete.classList.remove('hidden-force');
+    } else {
+      btnDelete.classList.add('hidden-force');
     }
 
     // Mark as read immediately
@@ -663,6 +686,30 @@
     container.scrollTop = container.scrollHeight;
   }
 
+  // Delete Chat Logic (Manager Only)
+  document.getElementById('btnDeleteChat').addEventListener('click', async () => {
+    if(!confirm("Are you sure you want to completely delete this chat/channel? This cannot be undone.")) return;
+    
+    const btn = document.getElementById('btnDeleteChat');
+    btn.disabled = true;
+    
+    const updates = {};
+    currentActiveMsgs.forEach(msg => {
+      if(msg.id) updates[msg.id] = null; // Marks it for deletion in Firebase
+    });
+
+    try {
+      await update(ref(db, 'appStaffMessages'), updates);
+      // Simulate clicking the back button to exit the deleted chat smoothly
+      document.getElementById('btnBackChat').click();
+    } catch(e) {
+      console.error(e);
+      alert("Error deleting chat.");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   // Send New Message (Manager Only)
   document.getElementById('btnSendNewMsg').addEventListener('click', async () => {
     const btn = document.getElementById('btnSendNewMsg');
@@ -691,16 +738,12 @@
     const text = textInput.value.trim();
     const sender = localStorage.getItem('staffLoggedIn');
 
-    if(!text || !sender || !currentChatId) return;
+    if(!text || !sender || !currentChatId || currentChatType === 'channel') return;
 
     let receiver = '';
     let tag = '';
 
-    if (currentChatType === 'channel') {
-      tag = currentChatId;
-      receiver = 'all'; // Channels go to all
-    } else {
-      // It's a DM
+    if (currentChatType === 'dm') {
       if (sender === 'manager') {
         receiver = (currentChatId === 'Broadcasts') ? 'all' : currentChatId;
       } else {
