@@ -214,6 +214,7 @@
     .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
     .btn-secondary { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; }
     .btn-danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
 
     /* Button Loading State */
     .btn.loading {
@@ -318,6 +319,24 @@
       text-align: center;
     }
 
+    /* Ping Section Styling */
+    #pingSection {
+      display: none;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(16, 185, 129, 0.05);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      padding: 10px 12px;
+      transition: all 0.3s ease;
+    }
+    .ping-text {
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1.4;
+      max-width: 65%;
+      transition: color 0.3s ease;
+    }
   </style>
 </head>
 <body>
@@ -350,11 +369,16 @@
       <span class="material-symbols-outlined">send</span>
       <span>FlyersApp</span>
     </a>
-	
 	 <a href="https://www.leuvenflyers.com/viewseg/" target="_blank" rel="noopener noreferrer" class="quick-link-item">
       <span class="material-symbols-outlined">map</span>
       <span>Segments</span>
     </a>
+  </div>
+
+  <!-- Ping Team Section (Visible Only When Logged In) -->
+  <div id="pingSection" class="card">
+    <div id="pingInstructionText" class="ping-text">Need immediate assistance? Click Ping to alert the team.</div>
+    <button id="btnPing" class="btn btn-success" style="height: 28px; padding: 0 16px; font-size: 10px;">Ping</button>
   </div>
 
   <!-- Main Tabs -->
@@ -544,6 +568,47 @@
     }
   }
 
+  // --- PING BUTTON LOGIC ---
+  document.getElementById('btnPing').addEventListener('click', async () => {
+    const username = localStorage.getItem('staffLoggedIn');
+    if (!username) return;
+
+    const btn = document.getElementById('btnPing');
+    const pingInstructionText = document.getElementById('pingInstructionText');
+    setBtnLoading(btn, true);
+
+    try {
+      await sendTelegramNotification(`🔔 <b>PING ALERT!</b>\nUser <b>${username}</b> has pinged the team for an immediate response.`);
+      
+      // Success state
+      btn.textContent = "Pinged!";
+      btn.disabled = true; // Disable button
+      btn.classList.replace('btn-success', 'btn-secondary');
+      
+      // Update text and color
+      pingInstructionText.textContent = "A team member will respond shortly.";
+      pingInstructionText.style.color = "#10b981";
+
+      // Reset after 60 seconds
+      setTimeout(() => {
+        btn.textContent = "Ping";
+        btn.disabled = false; // Re-enable button
+        btn.classList.replace('btn-secondary', 'btn-success');
+        pingInstructionText.textContent = "Need immediate assistance? Click Ping to alert the team.";
+        pingInstructionText.style.color = "var(--muted)";
+      }, 60000);
+      
+    } catch(err) {
+      console.error(err);
+      btn.textContent = "Error";
+      setTimeout(() => {
+          btn.textContent = "Ping";
+      }, 3000);
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  });
+
   // Button Loading State Helper
   function setBtnLoading(btn, isLoading) {
     if (isLoading) {
@@ -683,6 +748,7 @@
   document.getElementById('btnLogout').addEventListener('click', () => {
     localStorage.removeItem('staffLoggedIn');
     document.getElementById('loggedInTabs').style.display = 'none';
+    document.getElementById('pingSection').style.display = 'none'; // Hide ping section
     document.getElementById('headerAuthButtons').style.display = 'flex';
     document.getElementById('headerUserButtons').style.display = 'none';
     currentChatId = null; currentChatType = null; currentActiveMsgs = [];
@@ -694,6 +760,7 @@
     document.getElementById('headerAuthButtons').style.display = 'none';
     document.getElementById('headerUserButtons').style.display = 'flex';
     document.getElementById('loggedInTabs').style.display = 'flex';
+    document.getElementById('pingSection').style.display = 'flex'; // Show ping section
     
     document.getElementById('btnTabInbox').classList.add('active');
     document.getElementById('btnTabChannels').classList.remove('active');
