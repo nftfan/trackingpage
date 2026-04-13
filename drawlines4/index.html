@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Segment Viewer - Mobile</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    html, body { height: 100%; width: 100%; margin: 0; padding: 0; font-family: 'Roboto', Arial, sans-serif; background: #f5f5f7; display: flex; flex-direction: column; }
+    
+    /* Map section (Top half) */
+    #map-container { flex: 0 0 45vh; width: 100%; position: relative; z-index: 10; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    #map { height: 100%; width: 100%; background: #e9ecef; }
+    
+    /* List section (Bottom half) */
+    #list-container { flex: 1; overflow-y: auto; padding: 10px; background: #fff; }
+    
+    /* Table Styling */
+    table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+    th { text-align: left; padding: 12px 8px; border-bottom: 2px solid #ddd; color: #555; position: sticky; top: 0; background: #fff; z-index: 5; }
+    td { padding: 12px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+    
+    /* Segment Label */
+    .seg-label { font-weight: bold; font-size: 16px; color: #333; }
+    .status-badge { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; margin-top: 4px; }
+    .status-avail { background: #e6f4ea; color: #1e8e3e; }
+    .status-not-avail { background: #fce8e6; color: #d93025; }
+    .status-none { background: #f1f3f4; color: #5f6368; }
+
+    /* Buttons */
+    .btn-group { display: flex; flex-direction: column; gap: 6px; }
+    .btn-row { display: flex; gap: 6px; }
+    button { border: none; border-radius: 6px; padding: 8px 10px; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    button:active { transform: scale(0.98); }
+    
+    .btn-view { background: #007bff; color: #fff; width: 100%; }
+    .btn-avail { background: #34a853; color: #fff; flex: 1; }
+    .btn-not-avail { background: #ea4335; color: #fff; flex: 1; }
+
+    .material-icons { font-size: 16px; }
+
+    /* Markers Styling */
+    .seg-endpoint { background: transparent!important; border: none!important; pointer-events: none; }
+    .seg-circle {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: bold;
+    }
+    .seg-circle.start { background-color: #fdd835; color: #333; } /* Yellow */
+    .seg-circle.end { background-color: #1e88e5; color: #fff; } /* Blue */
+  </style>
+</head>
+<body>
+
+  <!-- Top: Map -->
+  <div id="map-container">
+    <div id="map"></div>
+  </div>
+  
+  <!-- Bottom: List -->
+  <div id="list-container">
+    <table id="segments-table">
+      <thead>
+        <tr>
+          <th>Segment</th>
+          <th style="width: 130px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="segments-body">
+        <!-- Rows injected via JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <!-- Leaflet -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <script>
+    // 1. Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+      authDomain: "leuvenflyers-23584.firebaseapp.com",
+      databaseURL: "https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+      projectId: "leuvenflyers-23584",
+      storageBucket: "leuvenflyers-23584.firebasestorage.app",
+      messagingSenderId: "1077790950414",
+      appId: "1:1077790950414:web:036fafe06df86f41ed285f"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 2. Map Setup
+    const map = L.map('map', { zoomControl: false }).setView([50.8503, 4.3517], 13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { 
+      maxZoom: 19
+    }).addTo(map);
+
+    // Layer Group to hold ONLY the currently viewed segment and its markers
+    const activeSegmentLayer = new L.FeatureGroup().addTo(map);
+    
+    // Data stores
+    let segmentsData = {};
+    let segmentKeys = [];
+    let segmentStatuses = {};
+    let currentlyViewedKey = null; // Track which segment is on the map
+
+    // 3. UI Helpers
+    const tbody = document.getElementById('segments-body');
+
+    function updateTable() {
+      tbody.innerHTML = '';
+      segmentKeys.forEach((key, index) => {
+        const segNum = index + 1;
+        const status = segmentStatuses[key] || 'none';
+        
+        let statusText = 'No Status';
+        let statusClass = 'status-none';
+        if (status === 'available') { statusText = 'Available'; statusClass = 'status-avail'; }
+        else if (status === 'not_available') { statusText = 'Not Available'; statusClass = 'status-not-avail'; }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div class="seg-label">Segment ${segNum}</div>
+            <div class="status-badge ${statusClass}">${statusText}</div>
+          </td>
+          <td>
+            <div class="btn-group">
+              <button class="btn-view" onclick="viewOnMap('${key}', ${segNum})">
+                <span class="material-icons">visibility</span> View
+              </button>
+              <div class="btn-row">
+                <button class="btn-avail" onclick="setStatus('${key}', 'available')">
+                  <span class="material-icons">check</span>
+                </button>
+                <button class="btn-not-avail" onclick="setStatus('${key}', 'not_available')">
+                  <span class="material-icons">close</span>
+                </button>
+              </div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function createEndpointMarker(latlng, type, text) {
+      const typeClass = type === 'start' ? 'start' : 'end';
+      return L.marker(latlng, {
+        icon: L.divIcon({
+          className: 'seg-endpoint',
+          html: `<div class="seg-circle ${typeClass}">${text}</div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        }),
+        interactive: false
+      });
+    }
+
+    function getSegmentColor(key) {
+      const status = segmentStatuses[key];
+      if (status === 'available') return '#34a853'; // Green
+      if (status === 'not_available') return '#ea4335'; // Red
+      return '#007bff'; // Default Blue
+    }
+
+    // 4. Actions
+    window.setStatus = function(key, status) {
+      db.ref('segment_status/' + key).set(status);
+    };
+
+    window.viewOnMap = function(key, segNum) {
+      const seg = segmentsData[key];
+      if (seg) {
+        currentlyViewedKey = key;
+        
+        // Clear previously active segment and markers
+        activeSegmentLayer.clearLayers();
+
+        // Get color based on status
+        const lineColor = getSegmentColor(key);
+        const segmentStyle = { color: lineColor, weight: 6, opacity: 0.9 };
+
+        // Draw line
+        const polyline = L.polyline(seg.coords, segmentStyle).addTo(activeSegmentLayer);
+        
+        // Add Start and End markers
+        if (seg.coords.length > 0) {
+            const startMarker = createEndpointMarker(seg.coords[0], 'start', segNum);
+            startMarker.addTo(activeSegmentLayer);
+
+            if (seg.coords.length > 1) {
+                const endMarker = createEndpointMarker(seg.coords[seg.coords.length - 1], 'end', segNum);
+                endMarker.addTo(activeSegmentLayer);
+            }
+        }
+
+        // Scroll up to view the map
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // Fit map to segment bounds
+        map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+      }
+    };
+
+    // 5. Firebase Sync - SEGMENTS
+    db.ref('segments').on('child_added', (snapshot) => {
+      const key = snapshot.key;
+      const raw = snapshot.val();
+      if (!raw) return;
+      
+      segmentKeys.push(key);
+      const coords = Array.isArray(raw) ? raw : Object.keys(raw).sort((a,b) => a - b).map(k => raw[k]);
+      const cleanCoords = coords.map(c => ({ lat: c.lat, lng: c.lng }));
+      
+      // Store data, but DO NOT add to map yet
+      segmentsData[key] = { coords: cleanCoords };
+      
+      updateTable();
+    });
+
+    db.ref('segments').on('child_removed', (snapshot) => {
+      const key = snapshot.key;
+      segmentKeys = segmentKeys.filter(k => k !== key);
+      delete segmentsData[key];
+      // If the deleted segment is currently being viewed, clear the map
+      if (currentlyViewedKey === key) {
+        activeSegmentLayer.clearLayers();
+        currentlyViewedKey = null;
+      }
+      updateTable();
+    });
+
+    // 6. Firebase Sync - STATUSES
+    db.ref('segment_status').on('value', (snapshot) => {
+      segmentStatuses = snapshot.val() || {};
+      updateTable(); 
+
+      // If the segment currently shown on the map had its status changed, update its color instantly
+      if (currentlyViewedKey && segmentsData[currentlyViewedKey]) {
+        const newLineColor = getSegmentColor(currentlyViewedKey);
+        
+        activeSegmentLayer.eachLayer((layer) => {
+          // Check if the layer is the polyline (not a marker)
+          if (layer instanceof L.Polyline) {
+            layer.setStyle({ color: newLineColor });
+          }
+        });
+      }
+    });
+
+  </script>
+</body>
+</html>
