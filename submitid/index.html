@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LeuvenFlyers Staff Registration</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      background: #0b0b0e;
+      color: #fff;
+      font-family: Inter, sans-serif;
+      display: flex;
+      justify-content: center;
+      padding: 30px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .brand {
+      font-size: 22px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #4f8cff, #7a5cff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .info {
+      font-size: 12px;
+      color: #a1a1aa;
+      line-height: 1.5;
+      text-align: left;
+      background: #141419;
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .info a {
+      color: #4f8cff;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .card {
+      background: #141419;
+      padding: 20px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      border: 1px solid rgba(255,255,255,0.08);
+      margin-top: 15px;
+    }
+
+    input {
+      height: 42px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #000;
+      color: #fff;
+      padding: 0 12px;
+      font-size: 14px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #4f8cff;
+    }
+
+    button {
+      height: 45px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #4f8cff, #7a5cff);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a22;
+      padding: 10px 18px;
+      border-radius: 8px;
+      opacity: 0;
+      transition: 0.3s;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <div class="brand">LeuvenFlyers</div>
+
+    <div class="info">
+      Please enter your <strong>first name</strong> and <strong>last name exactly as written on your Belgium ID</strong>. We will use this information to create your contract.<br><br>
+
+      Before submitting your data, make sure your <strong>Amplo account is activated</strong>.<br>
+      Create your account here: <a href="https://helloamplo.be/en/" target="_blank">helloamplo.be/en</a><br><br>
+
+      Please also upload all required documents to Amplo.<br><br>
+
+      <strong>Note:</strong> Amplo is only a payment service. Do not contact them regarding LeuvenFlyers. For any questions, use the LeuvenFlyers staff chat app.
+    </div>
+  </div>
+
+  <div class="card">
+    <input type="text" id="firstName" placeholder="First Name">
+    <input type="text" id="lastName" placeholder="Last Name">
+    <input type="text" id="belgiumId" placeholder="94.08.09-704.86" maxlength="15">
+
+    <button id="submitBtn">Submit</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.appspot.com"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const firstName = document.getElementById('firstName');
+  const lastName = document.getElementById('lastName');
+  const belgiumId = document.getElementById('belgiumId');
+  const submitBtn = document.getElementById('submitBtn');
+  const toast = document.getElementById('toast');
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  belgiumId.addEventListener('input', function(e) {
+    let val = e.target.value.replace(/\D/g, '');
+    let formatted = '';
+
+    if (val.length > 0) formatted += val.substring(0,2);
+    if (val.length > 2) formatted += '.' + val.substring(2,4);
+    if (val.length > 4) formatted += '.' + val.substring(4,6);
+    if (val.length > 6) formatted += '-' + val.substring(6,9);
+    if (val.length > 9) formatted += '.' + val.substring(9,11);
+
+    e.target.value = formatted;
+  });
+
+  submitBtn.addEventListener('click', async () => {
+    const first = firstName.value.trim();
+    const last = lastName.value.trim();
+    const id = belgiumId.value.replace(/\D/g, '');
+
+    if (!first || !last || !id) {
+      return showToast("Please fill in all fields");
+    }
+
+    if (id.length !== 11) {
+      return showToast("Invalid Belgium ID");
+    }
+
+    try {
+      submitBtn.disabled = true;
+
+      const newRef = push(ref(db, 'flyerstaff'));
+
+      await set(newRef, {
+        firstName: first,
+        lastName: last,
+        belgiumId: id,
+        createdAt: Date.now()
+      });
+
+      showToast("Data submitted successfully");
+
+      firstName.value = '';
+      lastName.value = '';
+      belgiumId.value = '';
+
+    } catch (err) {
+      showToast("Error saving data");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+</script>
+
+</body>
+</html>
