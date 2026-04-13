@@ -355,8 +355,6 @@
       <span class="material-symbols-outlined">map</span>
       <span>Segments</span>
     </a>
-   
-   
   </div>
 
   <!-- Main Tabs -->
@@ -525,6 +523,27 @@
   
   const systemRoles = ['alert', 'warning', 'pickup', 'payments'];
 
+  // --- TELEGRAM BOT NOTIFICATION ---
+  async function sendTelegramNotification(message) {
+    const botToken = "8534170558:AAEGa7u6IILrJGAF7KWQJWRRulXxbHyKvHs";
+    const chatId = "2141064153";
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    
+    try {
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: "HTML"
+        })
+      });
+    } catch (error) {
+      console.error("Telegram error:", error);
+    }
+  }
+
   // Button Loading State Helper
   function setBtnLoading(btn, isLoading) {
     if (isLoading) {
@@ -617,6 +636,10 @@
       } else {
         await set(userRef, { password: p1, createdAt: Date.now() });
         alertBox.textContent = 'Registered! Login now.'; alertBox.className = 'alert success';
+        
+        // Notify Telegram
+        sendTelegramNotification(`🆕 <b>New Registration!</b>\nUser: <b>${username}</b> has just registered.`);
+
         setTimeout(() => showView('loginView'), 1500);
       }
     } catch(err) {
@@ -642,6 +665,10 @@
       const snap = await get(userRef);
       if (snap.exists() && snap.val().password === pass) {
         localStorage.setItem('staffLoggedIn', username);
+        
+        // Notify Telegram
+        sendTelegramNotification(`🔑 <b>User Login</b>\nUser: <b>${username}</b> just logged into the app.`);
+
         loadDashboard(username);
       } else {
         alertBox.textContent = 'Wrong name or pass'; alertBox.className = 'alert error';
