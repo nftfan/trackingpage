@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LeuvenFlyers Staff Data</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      background: #0b0b0e;
+      color: #fff;
+      font-family: Inter, sans-serif;
+      display: flex;
+      justify-content: center;
+      padding: 30px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 700px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .brand {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #4f8cff, #7a5cff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: #9ca3af;
+      font-size: 13px;
+      margin-top: 5px;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #141419;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 13px;
+    }
+
+    th {
+      background: rgba(255,255,255,0.04);
+      font-weight: 700;
+      color: #cbd5e1;
+    }
+
+    tr:hover {
+      background: rgba(255,255,255,0.03);
+    }
+
+    .empty {
+      text-align: center;
+      padding: 20px;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="brand">LeuvenFlyers</div>
+    <div class="subtitle">Submitted Staff Data</div>
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>First Name</th>
+        <th>Last Name</th>
+        <th>Belgium ID</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      <tr><td colspan="4" class="empty">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.appspot.com"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const tableBody = document.getElementById('tableBody');
+
+  function formatDate(ts) {
+    const d = new Date(ts);
+    return d.toLocaleString();
+  }
+
+  const staffRef = ref(db, 'flyerstaff');
+
+  onValue(staffRef, (snapshot) => {
+    tableBody.innerHTML = '';
+
+    if (!snapshot.exists()) {
+      tableBody.innerHTML = '<tr><td colspan="4" class="empty">No data found</td></tr>';
+      return;
+    }
+
+    const data = snapshot.val();
+
+    const entries = Object.keys(data).map(key => ({
+      id: key,
+      ...data[key]
+    })).sort((a, b) => b.createdAt - a.createdAt);
+
+    entries.forEach(entry => {
+      const row = document.createElement('tr');
+
+      row.innerHTML = `
+        <td>${entry.firstName || ''}</td>
+        <td>${entry.lastName || ''}</td>
+        <td>${entry.belgiumId || ''}</td>
+        <td>${entry.createdAt ? formatDate(entry.createdAt) : ''}</td>
+      `;
+
+      tableBody.appendChild(row);
+    });
+  });
+</script>
+
+</body>
+</html>
