@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+  <title>Staff C</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"/>
+  <meta name="theme-color" content="#2563eb">
+
+  <!-- Performance hints -->
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+  <link rel="dns-prefetch" href="https://unpkg.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <link rel="dns-prefetch" href="https://a.basemaps.cartocdn.com">
+  <link rel="dns-prefetch" href="https://b.basemaps.cartocdn.com">
+  <link rel="dns-prefetch" href="https://c.basemaps.cartocdn.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- PWA -->
+  <link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
+  <link rel="apple-touch-icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSn9R0Pzr6o3YrTIR00Je6KJ27VPq7wGdRKzw&s">
+  <link rel="apple-touch-startup-image" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSn9R0Pzr6o3YrTIR00Je6KJ27VPq7wGdRKzw&s">
+
+  <!-- Fonts and styles -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Icons+Outlined&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <style>
+        :root {
+            --bg: #0b0b0e;
+            --panel: #141419;
+            --muted: #8b8b95;
+            --text: #f2f2f7;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            padding: 18px 20px;
+            background: var(--panel);
+            font-size: 18px;
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .search-bar {
+            padding: 15px 20px;
+            background: var(--panel);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+        .search-input:focus {
+            border-color: #4f8cff;
+        }
+        .chat-container {
+            flex: 1;
+            padding: 15px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+        }
+        .bubble {
+            max-width: 80%;
+            padding: 14px 18px;
+            border-radius: 14px;
+            font-size: 14.5px;
+            line-height: 1.5;
+            position: relative;
+        }
+        .bubble-manager   { background: rgba(139, 92, 246, 0.35); border-left: 5px solid #8b5cf6; align-self: flex-start; }
+        .bubble-alert     { background: rgba(239, 68, 68, 0.35);  border-left: 5px solid #ef4444; align-self: flex-start; }
+        .bubble-warning   { background: rgba(245, 158, 11, 0.35); border-left: 5px solid #f59e0b; align-self: flex-start; }
+        .bubble-training  { background: rgba(231, 76, 47, 0.35);  border-left: 5px solid #e74c2f; align-self: flex-start; }
+        .bubble-pickup    { background: rgba(16, 185, 129, 0.35); border-left: 5px solid #10b981; align-self: flex-start; }
+        .bubble-payments  { background: rgba(59, 130, 246, 0.35); border-left: 5px solid #3b82f6; align-self: flex-start; }
+
+        .bubble-staff {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #4f8cff, #7a5cff);
+            color: white;
+        }
+
+        .sender {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            opacity: 0.9;
+        }
+        .date-time {
+            font-size: 10px;
+            opacity: 0.65;
+            margin-top: 8px;
+            text-align: right;
+        }
+        .empty {
+            text-align: center;
+            color: var(--muted);
+            margin-top: 100px;
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>All Role Conversations • Single Thread</header>
+
+    <!-- Search Bar -->
+    <div class="search-bar">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search by staff name or message content...">
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+            <!-- Messages loaded here -->
+        </div>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBWPCkYNw7gT_T7kcwbp5laZgIHac18bvE",
+        authDomain: "expandlf.firebaseapp.com",
+        databaseURL: "https://expandlf-default-rtdb.firebaseio.com",
+        projectId: "expandlf",
+        storageBucket: "expandlf.firebasestorage.app",
+        messagingSenderId: "890066961009",
+        appId: "1:890066961009:web:3a2ed1e7c2cf797f3751d0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let allMessages = [];
+    let currentFilter = '';
+
+    onValue(ref(db, 'appStaffMessages'), (snapshot) => {
+        if (snapshot.exists()) {
+            allMessages = Object.keys(snapshot.val()).map(key => ({
+                id: key,
+                ...snapshot.val()[key]
+            })).sort((a, b) => a.timestamp - b.timestamp);
+        } else {
+            allMessages = [];
+        }
+        renderMessages();
+    });
+
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        currentFilter = e.target.value.toLowerCase().trim();
+        renderMessages();
+    });
+
+    function renderMessages() {
+        const container = document.getElementById('chatMessages');
+        container.innerHTML = '';
+
+        let filteredMessages = allMessages;
+
+        if (currentFilter) {
+            filteredMessages = allMessages.filter(msg => {
+                const senderMatch = msg.sender.toLowerCase().includes(currentFilter);
+                const receiverMatch = msg.receiver && msg.receiver.toLowerCase().includes(currentFilter);
+                const textMatch = msg.text.toLowerCase().includes(currentFilter);
+                return senderMatch || receiverMatch || textMatch;
+            });
+        }
+
+        if (filteredMessages.length === 0) {
+            container.innerHTML = '<div class="empty">No messages found.</div>';
+            return;
+        }
+
+        const roles = ['manager', 'alert', 'warning', 'training', 'pickup', 'payments'];
+
+        filteredMessages.forEach(msg => {
+            const isSystemRole = roles.includes(msg.sender);
+            const isStaff = !isSystemRole;
+
+            const bubble = document.createElement('div');
+            let bubbleClass = 'bubble';
+            
+            if (isStaff) {
+                bubbleClass += ' bubble-staff';
+            } else {
+                bubbleClass += ` bubble-${msg.sender}`;
+            }
+
+            bubble.className = bubbleClass;
+
+            const dateObj = new Date(msg.timestamp);
+            const dateStr = dateObj.toLocaleDateString('en-GB', { 
+                day: '2-digit', 
+                month: 'short', 
+                year: 'numeric' 
+            });
+            const timeStr = `${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+
+            const senderDisplay = isSystemRole 
+                ? msg.sender.toUpperCase() 
+                : msg.sender;
+
+            bubble.innerHTML = `
+                <div class="sender">${senderDisplay} 
+                    ${msg.receiver && msg.receiver !== 'all' ? `→ ${msg.receiver}` : ''}
+                </div>
+                <div>${msg.text}</div>
+                <div class="date-time">${dateStr} • ${timeStr}</div>
+            `;
+
+            container.appendChild(bubble);
+        });
+
+        container.scrollTop = container.scrollHeight;
+    }
+</script>
+
+</body>
+</html>
