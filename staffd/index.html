@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LeuvenFlyers Staff (Desktop)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+  <style>
+    :root { 
+      --bg: #0b0b0e; 
+      --panel: #141419; 
+      --muted: #8b8b95; 
+      --text: #f2f2f7; 
+      --accent: #4f8cff; 
+      --accent-2: #7a5cff;
+      --radius-lg: 8px; 
+      --radius-md: 6px; 
+      
+      /* Role Colors */
+      --role-alert: #ef4444;
+      --role-warning: #f59e0b;
+      --role-pickup: #10b981;
+      --role-payments: #3b82f6;
+      --role-manager: #8b5cf6;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif;
+      font-size: 12px; height: 100vh; overflow: hidden; display: flex;
+    }
+
+    /* Layout Structure */
+    .app-wrapper {
+      display: flex; width: 100%; height: 100%; max-width: 1400px; margin: 0 auto;
+    }
+
+    .sidebar {
+      width: 250px; background: var(--panel); border-right: 1px solid rgba(255,255,255,0.05);
+      border-left: 1px solid rgba(255,255,255,0.05); display: none; flex-direction: column;
+      overflow-y: auto;
+    }
+    
+    .sidebar.active { display: flex; }
+
+    .sidebar-header {
+      padding: 15px; font-weight: 800; text-transform: uppercase; color: var(--muted);
+      border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 10px; letter-spacing: 1px;
+    }
+
+    .sidebar-item {
+      padding: 12px 15px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.02);
+      transition: 0.2s; display: flex; align-items: center; gap: 10px; text-transform: capitalize;
+    }
+    .sidebar-item:hover { background: rgba(255,255,255,0.05); }
+
+    .sidebar-role-item { font-weight: 700; text-transform: uppercase; }
+    
+    /* Main Center Area */
+    .main-container {
+      flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; gap: 15px;
+    }
+
+    /* Header Layout */
+    header {
+      display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    header h1 {
+      font-size: 16px; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-transform: uppercase;
+    }
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+    .logged-in-name { font-size: 14px; font-weight: 700; color: var(--accent); text-transform: capitalize; }
+
+    /* Quick Links */
+    .quick-links {
+      display: flex; gap: 15px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-lg); padding: 15px;
+    }
+    .quick-link-item {
+      display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--muted);
+      font-weight: 700; text-transform: uppercase; transition: 0.2s; background: var(--panel);
+      padding: 8px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); flex: 1; justify-content: center;
+    }
+    .quick-link-item:hover { color: #fff; background: rgba(255,255,255,0.1); }
+    .quick-link-item .material-symbols-outlined { font-size: 18px; color: var(--accent); }
+
+    /* Tabs Container */
+    #loggedInTabs { display: none; background: rgba(255, 255, 255, 0.03); border-radius: var(--radius-md); padding: 5px; gap: 5px; }
+    .tab-btn { flex: 1; background: transparent; border: none; padding: 10px; color: var(--muted); font-weight: 700; border-radius: 4px; cursor: pointer; text-transform: uppercase; transition: 0.2s; position: relative; }
+    .tab-btn.active { background: var(--panel); color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+
+    /* Views */
+    .view-section { display: none; flex-direction: column; gap: 15px; animation: fadeIn 0.2s ease; flex: 1; }
+    .view-section.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    .card { background: var(--panel); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+
+    /* Inputs & Buttons */
+    .input-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    input, select { width: 100%; height: 40px; border-radius: var(--radius-md); padding: 0 15px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); color: #fff; outline: none; transition: 0.2s; }
+    input:focus, select:focus { border-color: var(--accent); }
+    
+    .btn { border-radius: var(--radius-md); border: 0; cursor: pointer; font-weight: 800; text-transform: uppercase; display: flex; align-items: center; justify-content: center; transition: 0.2s; padding: 0 15px; height: 36px;}
+    .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
+    .btn-secondary { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; }
+    .btn-danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+
+    /* Lists */
+    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--radius-md); cursor: pointer; transition: 0.2s; }
+    .list-item:hover { background: rgba(255,255,255,0.06); }
+    .list-name { font-size: 13px; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+    
+    /* Role Badges/Dots */
+    .role-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+    .bg-alert { background: var(--role-alert); }
+    .bg-warning { background: var(--role-warning); }
+    .bg-pickup { background: var(--role-pickup); }
+    .bg-payments { background: var(--role-payments); }
+    .bg-manager { background: var(--role-manager); }
+
+    /* Chat Bubbles UI */
+    .chat-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .chat-messages-container { flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding: 10px; min-height: 400px; }
+    .chat-input-row { display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; }
+
+    .chat-bubble { max-width: 60%; padding: 12px 15px; border-radius: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 5px; }
+    .bubble-me { align-self: flex-end; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-bottom-right-radius: 2px; }
+    .bubble-other { align-self: flex-start; background: rgba(255,255,255,0.1); color: #fff; border-bottom-left-radius: 2px; }
+    
+    /* Specific Sender Colors in Chat */
+    .bubble-sender-alert { background: rgba(239, 68, 68, 0.2); border-left: 4px solid var(--role-alert); }
+    .bubble-sender-warning { background: rgba(245, 158, 11, 0.2); border-left: 4px solid var(--role-warning); }
+    .bubble-sender-pickup { background: rgba(16, 185, 129, 0.2); border-left: 4px solid var(--role-pickup); }
+    .bubble-sender-payments { background: rgba(59, 130, 246, 0.2); border-left: 4px solid var(--role-payments); }
+    .bubble-sender-manager { background: rgba(139, 92, 246, 0.2); border-left: 4px solid var(--role-manager); }
+
+    .bubble-meta { font-size: 10px; opacity: 0.7; display: flex; justify-content: space-between; gap: 15px; }
+    .bubble-sender { font-weight: 800; text-transform: uppercase; }
+
+    .hidden-force { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- Left Sidebar (Staff) -->
+  <aside id="leftSidebar" class="sidebar">
+    <div class="sidebar-header">All Staff</div>
+    <div id="staffListContainer"></div>
+  </aside>
+
+  <!-- Main Center Area -->
+  <main class="main-container">
+    <header>
+      <h1>LeuvenFlyers Staff Desktop</h1>
+      <div id="headerAuthButtons" class="header-actions">
+        <button class="btn btn-secondary" onclick="showView('loginView')">Login</button>
+        <button class="btn btn-primary" onclick="showView('registerView')">Register</button>
+      </div>
+      <div id="headerUserButtons" class="header-actions" style="display: none;">
+        <span id="loggedInName" class="logged-in-name"></span>
+        <button id="btnLogout" class="btn btn-danger">Logout</button>
+      </div>
+    </header>
+
+    <div class="quick-links">
+      <a href="https://postimages.org/" target="_blank" class="quick-link-item"><span class="material-symbols-outlined">photo_camera</span>Proof</a>
+      <a href="https://www.leuvenflyers.com/ss15/" target="_blank" class="quick-link-item"><span class="material-symbols-outlined">event_available</span>Book Shift</a>
+      <a href="https://www.leuvenflyers.com/ms400/" target="_blank" class="quick-link-item"><span class="material-symbols-outlined">send</span>FlyersApp</a>
+      <a href="https://www.leuvenflyers.com/viewseg/" target="_blank" class="quick-link-item"><span class="material-symbols-outlined">map</span>Segments</a>
+    </div>
+
+    <!-- Tabs -->
+    <div id="loggedInTabs">
+      <button class="tab-btn active" id="btnTabInbox">Inbox</button>
+      <button class="tab-btn" id="btnTabChannels">Channels</button>
+    </div>
+
+    <!-- Views -->
+    <div id="landingView" class="view-section active">
+      <div class="card" style="text-align:center; padding: 40px; color: var(--muted);">
+        <h2>Welcome to the Staff Portal</h2>
+        <p>Please Login or Register using the buttons above.</p>
+      </div>
+    </div>
+
+    <div id="registerView" class="view-section">
+      <div class="card" style="max-width: 400px; margin: 0 auto;">
+        <h3>Register</h3>
+        <div class="input-group"><label>First Name</label><input type="text" id="regFirstName"></div>
+        <div class="input-group"><label>Password</label><input type="password" id="regPass"></div>
+        <div class="input-group"><label>Repeat Password</label><input type="password" id="regPass2"></div>
+        <button id="btnRegisterSubmit" class="btn btn-primary" style="margin-top:10px;">Register</button>
+      </div>
+    </div>
+
+    <div id="loginView" class="view-section">
+      <div class="card" style="max-width: 400px; margin: 0 auto;">
+        <h3>Login</h3>
+        <div class="input-group"><label>First Name</label><input type="text" id="loginFirstName"></div>
+        <div class="input-group"><label>Password</label><input type="password" id="loginPass"></div>
+        <button id="btnLoginSubmit" class="btn btn-primary" style="margin-top:10px;">Login</button>
+      </div>
+    </div>
+
+    <div id="inboxView" class="view-section">
+      <div class="card">
+        <div id="managerSendForm" style="display:none; flex-direction:column; gap:10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px;">
+          <h4>New Message (Admin)</h4>
+          <div style="display:flex; gap:15px;">
+            <div class="input-group"><label>Send As</label><select id="msgSenderRole"><option value="manager">Manager</option><option value="alert">Alert</option><option value="warning">Warning</option><option value="pickup">Pickup</option><option value="payments">Payments</option></select></div>
+            <div class="input-group"><label>Send To</label><select id="msgReceiver"><option value="all">All (Broadcast)</option></select></div>
+            <div class="input-group"><label>Tag (Opt)</label><input type="text" id="msgTag" placeholder="e.g. Updates"></div>
+          </div>
+          <div class="input-group"><label>Message</label><input type="text" id="msgText" placeholder="Type message..."></div>
+          <button id="btnSendNewMsg" class="btn btn-primary">Send</button>
+        </div>
+        <h4>Direct Messages</h4>
+        <div id="inboxListBody"></div>
+      </div>
+    </div>
+
+    <div id="channelsView" class="view-section">
+      <div class="card" id="channelListBody"></div>
+    </div>
+
+    <div id="chatRoomView" class="view-section" style="flex:1;">
+      <div class="card" style="height:100%;">
+        <div class="chat-header">
+          <h2 id="chatTitle" style="color:#fff; font-size:18px;"></h2>
+          <button class="btn btn-secondary" id="btnBackChat">Back to List</button>
+        </div>
+        <div id="chatMessages" class="chat-messages-container"></div>
+        <div class="chat-input-row" id="chatInputRow">
+          <input type="text" id="chatReplyText" placeholder="Type a reply..." style="flex:1;">
+          <button class="btn btn-primary" id="btnSendReply">Send</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Right Sidebar (Admin Roles/Tags) -->
+  <aside id="rightSidebar" class="sidebar">
+    <div class="sidebar-header">System Roles</div>
+    <div class="sidebar-item sidebar-role-item" onclick="filterByRole('manager')"><span class="role-dot bg-manager"></span> Manager</div>
+    <div class="sidebar-item sidebar-role-item" onclick="filterByRole('alert')"><span class="role-dot bg-alert"></span> Alert</div>
+    <div class="sidebar-item sidebar-role-item" onclick="filterByRole('warning')"><span class="role-dot bg-warning"></span> Warning</div>
+    <div class="sidebar-item sidebar-role-item" onclick="filterByRole('pickup')"><span class="role-dot bg-pickup"></span> Pickup</div>
+    <div class="sidebar-item sidebar-role-item" onclick="filterByRole('payments')"><span class="role-dot bg-payments"></span> Payments</div>
+  </aside>
+
+</div>
+
+<!-- Firebase SDK integration remains similar but styled for Desktop -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, get, set, push, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBWPCkYNw7gT_T7kcwbp5laZgIHac18bvE",
+    authDomain: "expandlf.firebaseapp.com",
+    databaseURL: "https://expandlf-default-rtdb.firebaseio.com",
+    projectId: "expandlf",
+    storageBucket: "expandlf.firebasestorage.app",
+    messagingSenderId: "890066961009",
+    appId: "1:890066961009:web:3a2ed1e7c2cf797f3751d0"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  let allMessagesRaw = [];
+  let currentChatId = null;
+  let currentChatType = null;
+  const systemRoles = ['alert', 'warning', 'pickup', 'payments', 'manager'];
+
+  window.showView = function(viewId) {
+    document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+    document.getElementById(viewId).classList.add('active');
+  };
+
+  document.getElementById('btnTabInbox').onclick = () => { showView('inboxView'); };
+  document.getElementById('btnTabChannels').onclick = () => { showView('channelsView'); };
+  document.getElementById('btnBackChat').onclick = () => { showView(currentChatType === 'channel' ? 'channelsView' : 'inboxView'); };
+
+  // Auth & UI State
+  function updateUIForUser(username) {
+    if(username) {
+      document.getElementById('loggedInName').textContent = username;
+      document.getElementById('headerAuthButtons').style.display = 'none';
+      document.getElementById('headerUserButtons').style.display = 'flex';
+      document.getElementById('loggedInTabs').style.display = 'flex';
+      document.getElementById('leftSidebar').classList.add('active');
+      document.getElementById('rightSidebar').classList.add('active');
+      
+      if(username === 'manager') document.getElementById('managerSendForm').style.display = 'flex';
+      
+      showView('inboxView');
+      fetchData(username);
+    } else {
+      document.getElementById('headerAuthButtons').style.display = 'flex';
+      document.getElementById('headerUserButtons').style.display = 'none';
+      document.getElementById('loggedInTabs').style.display = 'none';
+      document.getElementById('leftSidebar').classList.remove('active');
+      document.getElementById('rightSidebar').classList.remove('active');
+      showView('landingView');
+    }
+  }
+
+  function fetchData(username) {
+    // Fetch Users for Left Sidebar
+    onValue(ref(db, 'appStaffUsers'), (snap) => {
+      const staffContainer = document.getElementById('staffListContainer');
+      const receiverSelect = document.getElementById('msgReceiver');
+      staffContainer.innerHTML = '';
+      if(receiverSelect) receiverSelect.innerHTML = '<option value="all">All (Broadcast)</option>';
+      
+      if(snap.exists()) {
+        Object.keys(snap.val()).forEach(u => {
+          if(!systemRoles.includes(u)) {
+            // Populate sidebar
+            const div = document.createElement('div');
+            div.className = 'sidebar-item';
+            div.innerHTML = `<span class="material-symbols-outlined">person</span> ${u}`;
+            div.onclick = () => { openChat(u, 'dm', []); };
+            staffContainer.appendChild(div);
+
+            // Populate select dropdown
+            if(receiverSelect) {
+              const opt = document.createElement('option'); opt.value = u; opt.textContent = u; receiverSelect.appendChild(opt);
+            }
+          }
+        });
+      }
+    });
+
+    // Fetch Messages
+    onValue(ref(db, 'appStaffMessages'), (snap) => {
+      if(snap.exists()) {
+        const data = snap.val();
+        allMessagesRaw = Object.keys(data).map(key => ({ ...data[key], id: key })).sort((a,b) => a.timestamp - b.timestamp);
+      } else { allMessagesRaw = []; }
+      processMessages(allMessagesRaw, username);
+    });
+  }
+
+  function processMessages(msgs, username) {
+    const inboxListBody = document.getElementById('inboxListBody');
+    const channelListBody = document.getElementById('channelListBody');
+    inboxListBody.innerHTML = ''; channelListBody.innerHTML = '';
+
+    let dmThreads = {}; let channelThreads = {};
+
+    msgs.forEach(msg => {
+      let showMessage = (username === 'manager') || (msg.receiver === username || msg.sender === username || msg.receiver === 'all');
+      if(!showMessage) return;
+
+      if(msg.tag) {
+        if(!channelThreads[msg.tag]) channelThreads[msg.tag] = [];
+        channelThreads[msg.tag].push(msg);
+      } else {
+        let threadId = systemRoles.includes(msg.sender) ? msg.sender : (msg.sender === username ? msg.receiver : msg.sender);
+        if(!dmThreads[threadId]) dmThreads[threadId] = [];
+        dmThreads[threadId].push(msg);
+      }
+    });
+
+    // Render DM list
+    Object.keys(dmThreads).forEach(t => {
+      const div = document.createElement('div'); div.className = 'list-item';
+      let dotClass = systemRoles.includes(t) ? `bg-${t}` : 'bg-manager'; // default dot
+      div.innerHTML = `<span class="list-name"><span class="role-dot ${dotClass}"></span> ${t}</span>`;
+      div.onclick = () => openChat(t, 'dm', dmThreads[t]);
+      inboxListBody.appendChild(div);
+    });
+
+    // Render Channels List
+    Object.keys(channelThreads).forEach(t => {
+      const div = document.createElement('div'); div.className = 'list-item';
+      div.innerHTML = `<span class="list-name"># ${t}</span>`;
+      div.onclick = () => openChat(t, 'channel', channelThreads[t]);
+      channelListBody.appendChild(div);
+    });
+
+    if(currentChatId) {
+      let activeMsgs = currentChatType === 'dm' ? dmThreads[currentChatId] : channelThreads[currentChatId];
+      renderChatBubbles(activeMsgs || [], username);
+    }
+  }
+
+  function openChat(id, type, msgs) {
+    currentChatId = id; currentChatType = type;
+    document.getElementById('chatTitle').textContent = type === 'channel' ? `# ${id}` : `Chat: ${id}`;
+    document.getElementById('chatInputRow').style.display = type === 'channel' ? 'none' : 'flex';
+    showView('chatRoomView');
+    processMessages(allMessagesRaw, localStorage.getItem('staffLoggedIn'));
+  }
+
+  // Exposed to global for Right Sidebar filtering
+  window.filterByRole = function(role) {
+    const username = localStorage.getItem('staffLoggedIn');
+    if(!username) return;
+    const filteredMsgs = allMessagesRaw.filter(m => m.sender === role);
+    currentChatId = role; currentChatType = 'dm';
+    document.getElementById('chatTitle').textContent = `Role Filtering: ${role.toUpperCase()}`;
+    document.getElementById('chatInputRow').style.display = 'none'; // Read-only view for role filtering
+    showView('chatRoomView');
+    renderChatBubbles(filteredMsgs, username);
+  };
+
+  function renderChatBubbles(msgs, currentUser) {
+    const container = document.getElementById('chatMessages');
+    container.innerHTML = '';
+    msgs.forEach(msg => {
+      const isMe = (msg.sender === currentUser) && !systemRoles.includes(msg.sender);
+      const isSystem = systemRoles.includes(msg.sender);
+      
+      const div = document.createElement('div');
+      let classes = `chat-bubble ${isMe ? 'bubble-me' : 'bubble-other'}`;
+      if (isSystem) classes += ` bubble-sender-${msg.sender}`; // Add specific color class
+      
+      div.className = classes;
+      
+      const d = new Date(msg.timestamp);
+      const timeStr = `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+      
+      div.innerHTML = `
+        <div class="bubble-meta">
+          <span class="bubble-sender">${msg.sender} ${msg.receiver !== 'all' ? `→ ${msg.receiver}` : ''}</span>
+          <span>${timeStr}</span>
+        </div>
+        <div style="margin-top:5px;">${msg.text}</div>
+      `;
+      container.appendChild(div);
+    });
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // Handlers
+  document.getElementById('btnLoginSubmit').onclick = () => {
+    const u = document.getElementById('loginFirstName').value.trim().toLowerCase();
+    if(u) { localStorage.setItem('staffLoggedIn', u); updateUIForUser(u); }
+  };
+  
+  document.getElementById('btnLogout').onclick = () => {
+    localStorage.removeItem('staffLoggedIn'); updateUIForUser(null);
+  };
+
+  document.getElementById('btnSendNewMsg').onclick = async () => {
+    const sender = document.getElementById('msgSenderRole').value;
+    const receiver = document.getElementById('msgReceiver').value;
+    const text = document.getElementById('msgText').value.trim();
+    if(!text) return;
+    await set(push(ref(db, 'appStaffMessages')), { sender, receiver, text, timestamp: Date.now() });
+    document.getElementById('msgText').value = '';
+  };
+
+  document.getElementById('btnSendReply').onclick = async () => {
+    const text = document.getElementById('chatReplyText').value.trim();
+    let sender = localStorage.getItem('staffLoggedIn');
+    if(!text || !sender || currentChatType === 'channel') return;
+    await set(push(ref(db, 'appStaffMessages')), { sender, receiver: currentChatId, text, timestamp: Date.now() });
+    document.getElementById('chatReplyText').value = '';
+  };
+
+  const saved = localStorage.getItem('staffLoggedIn');
+  if(saved) updateUIForUser(saved);
+
+</script>
+</body>
+</html>
