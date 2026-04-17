@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1540,57 +1541,78 @@
     }
 
     /* FF2615 dots: tiny blue circles (#1f6feb) and a blue path. Live box shows only the number. */
-    function listenFF2615Dots(){
-      const userPostsRef = ref(ff974Db, `userPosts/${FF2615_USER}`);
-      onValue(userPostsRef, (snapshot) => {
+  function listenFF2615Dots(){
+    const userPostsRef = ref(ff974Db, `userPosts/${FF2615_USER}`);
+    onValue(userPostsRef, (snapshot) => {
+        // === CLEAR OLD LAYERS ===
         ff974DotsLayer.clearLayers();
-        if (ff974DotsPolyline) {
-          map.removeLayer(ff974DotsPolyline);
-          ff974DotsPolyline = null;
+        
+        // Clear previous polylines (we now use multiple segments)
+        if (window.ff974PathLayers) {
+            window.ff974PathLayers.forEach(l => map.removeLayer(l));
         }
+        window.ff974PathLayers = [];
 
         const dotsList = [];
         if(snapshot.exists()){
-          snapshot.forEach(child => {
-            const v = child.val();
-            if(!v) return;
-            if(typeof v.lat !== 'number' || typeof v.lng !== 'number' || v.color === 'orange') return;
-            const ts = typeof v.timestamp === 'number'
-              ? v.timestamp
-              : (typeof v.ts === 'number' ? v.ts : Date.now());
-            dotsList.push({lat: v.lat, lng: v.lng, ts});
-          });
+            snapshot.forEach(child => {
+                const v = child.val();
+                if(!v) return;
+                if(typeof v.lat !== 'number' || typeof v.lng !== 'number' || v.color === 'orange') return;
+                const ts = typeof v.timestamp === 'number' ? v.timestamp : (typeof v.ts === 'number' ? v.ts : Date.now());
+                dotsList.push({lat: v.lat, lng: v.lng, ts});
+            });
         }
-
         dotsList.sort((a,b)=>a.ts - b.ts);
 
-        // Draw tiny blue circles
+        // === DRAW BLUE DOTS (unchanged) ===
         dotsList.forEach(dot=>{
-          L.circleMarker([dot.lat, dot.lng], {
-            radius: 3,
-            color: '#1f6feb',
-            weight: 1,
-            fillColor: '#1f6feb',
-            fillOpacity: 0.9
-          }).addTo(ff974DotsLayer);
+            L.circleMarker([dot.lat, dot.lng], { 
+                radius: 3, 
+                color: '#1f6feb', 
+                weight: 1, 
+                fillColor: '#1f6feb', 
+                fillOpacity: 0.9 
+            }).addTo(ff974DotsLayer);
         });
 
-        // Connect with a thin blue path
+        // === DRAW BLUE LINE – ONLY connect dots ≤ 250m apart ===
         if (dotsList.length >= 2) {
-          const latlngs = dotsList.map(d => [d.lat, d.lng]);
-          ff974DotsPolyline = L.polyline(latlngs, {
-            color: '#1f6feb',
-            weight: 1,
-            opacity: 0.7
-          }).addTo(map);
+            let currentSegment = [dotsList[0]];
+
+            for (let i = 1; i < dotsList.length; i++) {
+                const prev = dotsList[i-1];
+                const curr = dotsList[i];
+
+                if (distanceMeters(prev, curr) <= 250) {
+                    // still close → continue the same segment
+                    currentSegment.push(curr);
+                } else {
+                    // gap > 250m → finish current segment and start a new one
+                    if (currentSegment.length >= 2) {
+                        const poly = L.polyline(
+                            currentSegment.map(d => [d.lat, d.lng]),
+                            { color: '#1f6feb', weight: 1, opacity: 0.7 }
+                        ).addTo(map);
+                        window.ff974PathLayers.push(poly);
+                    }
+                    currentSegment = [curr];   // start new segment
+                }
+            }
+
+            // don't forget the last segment
+            if (currentSegment.length >= 2) {
+                const poly = L.polyline(
+                    currentSegment.map(d => [d.lat, d.lng]),
+                    { color: '#1f6feb', weight: 1, opacity: 0.7 }
+                ).addTo(map);
+                window.ff974PathLayers.push(poly);
+            }
         }
 
         updateLatestDotUI(dotsList.length, dotsList[dotsList.length-1] || null);
-      }, (err) => {
-        console.error('FF2615 dots listener failed:', err);
-        ff974LiveCountEl.textContent = '0';
-      });
-    }
+    });
+}
 
     function updateLatestDotUI(totalCount, latestDot){
       const now = Date.now();
@@ -1775,6 +1797,12 @@
         if (!viewCalculationInterval) { viewCalculationInterval = setInterval(updateViewingZones, 4000); }
       }
     });
+	
+	function distanceMeters(a, b) {
+    return L.latLng(a.lat, a.lng).distanceTo(L.latLng(b.lat, b.lng));
+}
+
+
   </script>
 </body>
 </html>
