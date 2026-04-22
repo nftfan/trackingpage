@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+    <title>Tracker</title>
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Tracker">
+    <meta name="theme-color" content="#121212">
+
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1960/1960242.png">
+    <link rel="manifest" href="https://raw.githubusercontent.com/leuvenfd/coinfun/refs/heads/main/and.json">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Roboto+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #13131a;
+            --panel-bg: #181824;
+            --accent: #7c3aed;
+            --danger: #ef4444;
+            --safe-top: env(safe-area-inset-top);
+        }
+
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+
+        html, body {
+            background: var(--bg-dark);
+            color: #e5e6eb;
+            font-family: 'Inter', sans-serif;
+            margin: 0; padding: 0;
+            height: 100%; width: 100%;
+            overflow: hidden; /* Prevents body bounce */
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding-top: var(--safe-top); /* Offset for iPhone notch */
+        }
+
+        /* Map Section */
+        #viewMap {
+            width: 100vw;
+            height: 38vh;
+            border-bottom: 1px solid #23233A;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        /* Search Bars */
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 12px;
+            background: var(--panel-bg);
+            border-bottom: 1px solid #23233A;
+            flex-shrink: 0;
+        }
+
+        .searchbox {
+            flex: 1;
+            font-size: 13px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #2e2e3e;
+            background: var(--bg-dark);
+            color: #fff;
+            outline: none;
+        }
+
+        .searchbox:focus { border-color: var(--accent); }
+
+        /* Scrolling Table Area */
+        .table-box {
+            flex-grow: 1;
+            overflow-y: auto;
+            background: #14141d;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table { width: 100%; border-collapse: collapse; min-width: 320px; }
+        
+        th {
+            background: #191921;
+            color: #a78bfa;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 12px 8px;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            text-align: left;
+        }
+
+        td {
+            padding: 14px 8px;
+            font-size: 11px;
+            border-bottom: 1px solid #23233a;
+        }
+
+        /* Interactive Rows */
+        tr.data-row { cursor: pointer; transition: background 0.1s; }
+        tr.data-row:active { background: #23233a !important; }
+
+        /* Delay Highlighting */
+        .gap-red { background: rgba(239, 68, 68, 0.12); }
+        .gap-red td.delta-cell { color: var(--danger); font-weight: 800; }
+
+        /* Dots & Text */
+        .dot-tag { 
+            display: inline-block; 
+            width: 10px; height: 10px; 
+            border-radius: 50%; 
+            vertical-align: middle; 
+        }
+        .dot-green  { background: #22c55e; }
+        .dot-red    { background: #ef4444; }
+        .dot-blue   { background: #3b82f6; }
+        .dot-orange { background: #f97316; }
+        .dot-yellow { background: #eab308; }
+
+        .mono { font-family: 'Roboto Mono', monospace; font-size: 10px; opacity: 0.8; }
+
+        /* Loading Spinner */
+        .spinner {
+            margin: 40px auto;
+            border: 3px solid #23233a;
+            border-left: 3px solid var(--accent);
+            border-radius: 50%;
+            width: 30px; height: 30px;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="viewMap"></div>
+
+    <div class="toolbar">
+        <input id="workerSearch" type="search" class="searchbox" placeholder="Worker..." autocomplete="off">
+        <input id="campaignSearch" type="search" class="searchbox" placeholder="Campaign..." autocomplete="off">
+    </div>
+
+    <div class="table-box" id="tableBox">
+        <table>
+            <thead>
+                <tr>
+                    <th>Camp</th>
+                    <th>Worker</th>
+                    <th>Dot</th>
+                    <th>Time</th>
+                    <th>Δ Prev</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr><td colspan="5"><div class="spinner"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    // Firebase Configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+        authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+        databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+        projectId: "tokentransfer-4a9b3",
+        storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+        messagingSenderId: "205455490321",
+        appId: "1:205455490321:web:9919f5dde059316c9320b0"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // App State
+    let DOTS_DATA = [];
+    let FILTERED_DATA = [];
+    let renderedRows = 0;
+    const PAGE_SIZE = 40;
+    const EXTRA_SIZE = 25;
+    const COLOR_HEX = { green: "#22c55e", red: "#ef4444", blue: "#3b82f6", orange: "#f97316", yellow: "#eab308" };
+
+    // Initialize Map
+    const viewMap = L.map('viewMap', { zoomControl: false, attributionControl: false }).setView([0, 0], 2);
+    let activeMarker = null;
+
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png").addTo(viewMap);
+
+    // Fetch Data
+    async function loadData() {
+        try {
+            const snap = await db.ref("userPosts").once("value");
+            let dataArr = [];
+            snap.forEach(campSnap => {
+                campSnap.forEach(postSnap => {
+                    const val = postSnap.val();
+                    if (val.lat && val.lng) {
+                        dataArr.push({
+                            campaignId: campSnap.key,
+                            worker: val.workerName || "N/A",
+                            color: val.color || "green",
+                            lat: val.lat,
+                            lng: val.lng,
+                            posted: val.timestamp
+                        });
+                    }
+                });
+            });
+            DOTS_DATA = dataArr.sort((a, b) => b.posted - a.posted);
+            runFilters();
+        } catch (err) {
+            document.getElementById('tableBody').innerHTML = "<tr><td colspan='5' style='text-align:center'>Load Failed</td></tr>";
+        }
+    }
+
+    function runFilters() {
+        const wSearch = document.getElementById('workerSearch').value.toLowerCase();
+        const cSearch = document.getElementById('campaignSearch').value.toLowerCase();
+        
+        FILTERED_DATA = DOTS_DATA.filter(d => 
+            d.worker.toLowerCase().includes(wSearch) && 
+            d.campaignId.toLowerCase().includes(cSearch)
+        );
+
+        document.getElementById('tableBody').innerHTML = "";
+        renderedRows = 0;
+        if (FILTERED_DATA.length > 0) renderRows(PAGE_SIZE);
+    }
+
+    function renderRows(count) {
+        const container = document.getElementById('tableBody');
+        const limit = Math.min(renderedRows + count, FILTERED_DATA.length);
+        const frag = document.createDocumentFragment();
+
+        for (let i = renderedRows; i < limit; i++) {
+            const d = FILTERED_DATA[i];
+            let diff = 0;
+            let isLate = false;
+
+            if (i + 1 < FILTERED_DATA.length) {
+                diff = d.posted - FILTERED_DATA[i+1].posted;
+                if (diff > 30000) isLate = true; // Over 30 seconds
+            }
+
+            const tr = document.createElement('tr');
+            tr.className = 'data-row' + (isLate ? ' gap-red' : '');
+            tr.dataset.idx = i;
+
+            tr.innerHTML = `
+                <td class="mono">${d.campaignId.slice(-4)}</td>
+                <td>${d.worker}</td>
+                <td style="text-align:center"><span class="dot-tag dot-${d.color}"></span></td>
+                <td>${new Date(d.posted).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</td>
+                <td class="delta-cell">${formatTime(diff)}</td>
+            `;
+            frag.appendChild(tr);
+        }
+        container.appendChild(frag);
+        renderedRows = limit;
+    }
+
+    function formatTime(ms) {
+        if (ms <= 0) return "—";
+        const sec = Math.floor(ms / 1000);
+        return sec < 60 ? `+${sec}s` : `+${Math.floor(sec/60)}m ${sec%60}s`;
+    }
+
+    // Handlers
+    document.getElementById('tableBox').addEventListener('scroll', (e) => {
+        const el = e.target;
+        if (el.scrollTop + el.clientHeight > el.scrollHeight - 150) {
+            if (renderedRows < FILTERED_DATA.length) renderRows(EXTRA_SIZE);
+        }
+    });
+
+    document.getElementById('tableBody').addEventListener('click', (e) => {
+        const row = e.target.closest('.data-row');
+        if (!row) return;
+        
+        const d = FILTERED_DATA[row.dataset.idx];
+        if (activeMarker) viewMap.removeLayer(activeMarker);
+
+        activeMarker = L.circleMarker([d.lat, d.lng], {
+            color: '#fff',
+            weight: 1,
+            fillColor: COLOR_HEX[d.color] || '#22c55e',
+            fillOpacity: 1,
+            radius: 11
+        }).addTo(viewMap);
+
+        viewMap.setView([d.lat, d.lng], 17, { animate: true });
+    });
+
+    document.getElementById('workerSearch').addEventListener('input', runFilters);
+    document.getElementById('campaignSearch').addEventListener('input', runFilters);
+
+    loadData();
+</script>
+</body>
+</html>
