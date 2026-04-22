@@ -112,6 +112,50 @@
     }
     select.form-input option { background-color: var(--panel); color: var(--text); font-size: 12px; }
 
+    /* City Toggle Checkbox */
+    .city-toggle-row {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px; padding: 6px 8px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+    .city-toggle-row:hover { border-color: rgba(79,140,255,0.3); background: rgba(79,140,255,0.04); }
+    .city-toggle-row.checked { 
+      border-color: rgba(16, 185, 129, 0.4); 
+      background: rgba(16, 185, 129, 0.07); 
+    }
+
+    .city-checkbox {
+      width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+      border: 1.5px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.18s;
+    }
+    .city-toggle-row.checked .city-checkbox {
+      background: #10b981; border-color: #10b981;
+    }
+    .city-checkbox svg { opacity: 0; transition: opacity 0.15s; }
+    .city-toggle-row.checked .city-checkbox svg { opacity: 1; }
+
+    .city-toggle-label {
+      font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.4px; line-height: 1.3; flex: 1;
+      transition: color 0.2s;
+    }
+    .city-toggle-row.checked .city-toggle-label { color: #6ee7b7; }
+
+    .city-preview-badge {
+      font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 999px;
+      letter-spacing: 0.4px; flex-shrink: 0; transition: all 0.2s;
+    }
+    .city-preview-badge.leuven {
+      color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3);
+    }
+    .city-preview-badge.all {
+      color: #6ee7b7; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
+    }
+
     .end-time-hint { font-size: 9px; color: var(--accent); font-weight: 700; text-align: center; margin-top: 2px; }
 
     .btn-submit {
@@ -195,15 +239,22 @@
     .shift-card.long-shift { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3); }
 
     .shift-left { display: flex; flex-direction: column; gap: 4px; }
-    .worker-name { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
+    .worker-name { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
     .campaign-badge {
       font-family: Menlo, Monaco, Consolas, monospace; font-size: 9px; font-weight: 800; color: #fde68a;
       background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); padding: 2px 5px; border-radius: 999px; letter-spacing: 0.5px;
     }
-    .segment-badge {
-      font-family: Menlo, Monaco, monospace; font-size: 9px; font-weight: 800; color: #e5e7ff;
-      background: rgba(122, 92, 255, 0.2); border: 1px solid rgba(122, 92, 255, 0.4); padding: 2px 5px; border-radius: 999px; letter-spacing: 0.5px;
+
+    /* City badge replacing segment badge */
+    .city-badge {
+      font-family: Menlo, Monaco, monospace; font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 999px; letter-spacing: 0.5px;
+    }
+    .city-badge.leuven {
+      color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3);
+    }
+    .city-badge.all {
+      color: #6ee7b7; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
     }
 
     .status-text { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px; }
@@ -256,11 +307,6 @@
         </select>
       </div>
       <div class="input-col">
-        <select id="schedSeg" class="form-input">
-          <option value="" disabled selected>Select Segment</option>
-        </select>
-      </div>
-      <div class="input-col">
         <span class="tiny-label">Select Date</span>
         <input type="date" id="schedDate" class="form-input">
       </div>
@@ -268,11 +314,25 @@
         <span class="tiny-label">Select Time</span>
         <input type="time" id="schedTime" class="form-input">
       </div>
+      <div class="input-col" style="justify-content: flex-end;">
+        <!-- spacer to keep grid aligned -->
+      </div>
+    </div>
+
+    <!-- City willingness toggle -->
+    <div id="cityToggleRow" class="city-toggle-row" onclick="toggleCity()">
+      <div class="city-checkbox" id="cityCheckbox">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <div class="city-toggle-label">Willing to work in other cities beyond Leuven, if a higher salary is offered</div>
+      <div class="city-preview-badge leuven" id="cityPreviewBadge">Leuven</div>
     </div>
     
     <div id="endTimeHint" class="end-time-hint">Ends: --:--</div>
     <button id="btnSubmitShift" class="btn-submit">Confirm</button>
-    <div class="cancel-notice">To cancel added shifts, contact us in Google Chat</div>
+    <div class="cancel-notice">To cancel added shifts, contact us in Staff Chat</div>
   </div>
 
   <!-- Search Bar -->
@@ -334,15 +394,25 @@
   const schedWorker = document.getElementById('schedWorker');
   const schedDate = document.getElementById('schedDate');
   const schedTime = document.getElementById('schedTime');
-  const schedSeg = document.getElementById('schedSeg');
   const endTimeHint = document.getElementById('endTimeHint');
+  const cityToggleRow = document.getElementById('cityToggleRow');
+  const cityPreviewBadge = document.getElementById('cityPreviewBadge');
 
-  // Populate Segments
-  for(let i=1; i<=500; i++){
-    const opt = document.createElement('option'); opt.value = i; opt.textContent = `Segment ${i}`;
-    schedSeg.appendChild(opt);
-  }
-  
+  // City toggle state
+  let cityWilling = false;
+
+  window.toggleCity = function() {
+    cityWilling = !cityWilling;
+    cityToggleRow.classList.toggle('checked', cityWilling);
+    if (cityWilling) {
+      cityPreviewBadge.textContent = 'All';
+      cityPreviewBadge.className = 'city-preview-badge all';
+    } else {
+      cityPreviewBadge.textContent = 'Leuven';
+      cityPreviewBadge.className = 'city-preview-badge leuven';
+    }
+  };
+
   // Set default date
   schedDate.value = toDateString(new Date());
 
@@ -438,10 +508,15 @@
             }
         }
 
+        // cityWilling: true = "All", false = "Leuven"
+        const cityScope = sched.cityWilling === true ? 'all' : 'leuven';
+
         if (actualMatch) {
-          actualMatch.segment = sched.segment; actualMatch.wasScheduled = true; actualMatch.schedTime = displaySchedTime;
+          actualMatch.cityScope = cityScope;
+          actualMatch.wasScheduled = true;
+          actualMatch.schedTime = displaySchedTime;
         } else {
-          unifiedShiftsByDate[dStr].push({ type: isPast ? 'missed' : 'scheduled', worker: sched.worker, campaign: '', segment: sched.segment, scheduledTime: displaySchedTime });
+          unifiedShiftsByDate[dStr].push({ type: isPast ? 'missed' : 'scheduled', worker: sched.worker, campaign: '', cityScope, scheduledTime: displaySchedTime });
         }
       });
 
@@ -451,7 +526,7 @@
         Object.values(actualsMap[dateStr]).forEach(act => {
           const shiftDurationMs = act.maxTs - act.minTs;
           unifiedShiftsByDate[dateStr].push({
-            type: 'actual', worker: act.worker, campaign: act.campaign, segment: act.segment, scheduledTime: act.schedTime,
+            type: 'actual', worker: act.worker, campaign: act.campaign, cityScope: act.cityScope, scheduledTime: act.schedTime,
             startTime: formatLocalTime(act.minTs), endTime: act.minTs === act.maxTs ? "Single Action" : formatLocalTime(act.maxTs),
             timeWorkedStr: formatTimeWorked(act.minTs, act.maxTs), earnings: act.validDots * 0.036, isLong: shiftDurationMs >= 3600000
           });
@@ -483,15 +558,20 @@
 
   // Submit Logic
   btnSubmitShift.addEventListener('click', async () => {
-    const worker = schedWorker.value, date = schedDate.value, time = schedTime.value, seg = schedSeg.value;
-    if(!worker || !date || !time || !seg) return showToast("Please fill all fields.");
+    const worker = schedWorker.value, date = schedDate.value, time = schedTime.value;
+    if(!worker || !date || !time) return showToast("Please fill all fields.");
     try {
       btnSubmitShift.disabled = true;
       btnSubmitShift.textContent = "Scheduling...";
-      await set(push(ref(db, 'scheduledShifts')), { worker, date, time, segment: seg, timestamp: Date.now() });
+      await set(push(ref(db, 'scheduledShifts')), { worker, date, time, cityWilling, timestamp: Date.now() });
       showToast("Shift Scheduled!"); 
       
-      schedWorker.value = ''; schedTime.value = ''; schedSeg.value = ''; endTimeHint.textContent = 'Ends: --:--';
+      schedWorker.value = ''; schedTime.value = '';
+      cityWilling = false;
+      cityToggleRow.classList.remove('checked');
+      cityPreviewBadge.textContent = 'Leuven';
+      cityPreviewBadge.className = 'city-preview-badge leuven';
+      endTimeHint.textContent = 'Ends: --:--';
       loadData(); 
     } catch(e) { 
       showToast("Failed to save."); console.error(e); 
@@ -520,12 +600,19 @@
     }
     
     const campBadge = shift.campaign ? `<span class="campaign-badge">${shift.campaign}</span>` : '';
-    const segBadge = shift.segment ? `<span class="segment-badge">Seg ${shift.segment}</span>` : '';
+
+    // City badge: "All" (green) if willing, "Leuven" (blue) otherwise; omit if no data
+    let cityBadge = '';
+    if (shift.cityScope === 'all') {
+      cityBadge = `<span class="city-badge all">All</span>`;
+    } else if (shift.cityScope === 'leuven' || shift.cityScope) {
+      cityBadge = `<span class="city-badge leuven">Leuven</span>`;
+    }
     
     return `
       <div class="shift-card ${extraClasses}">
         <div class="shift-left">
-          <div class="worker-name">${shift.worker} ${campBadge}${segBadge}</div>
+          <div class="worker-name">${shift.worker} ${campBadge}${cityBadge}</div>
           ${statusHTML}
         </div>
         <div class="shift-right">${timeHTML}${earningsHTML}</div>
