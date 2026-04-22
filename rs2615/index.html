@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Campaign XX2615 – Live Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#0a0a0f"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #13131a;
+      --border:    #1f1f2e;
+      --accent1:   #00e5ff;   /* Live count – electric cyan */
+      --accent2:   #ff3d6b;   /* QR – hot pink-red */
+      --muted:     #5a5a7a;
+      --text:      #e8e8f0;
+      --text-dim:  #8888aa;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; min-height: 100svh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ─── Background noise texture ─── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    .app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; min-height: 100svh; display: flex; flex-direction: column; padding: 0 0 32px; }
+
+    /* ─── Header ─── */
+    .header {
+      padding: 48px 24px 24px;
+      display: flex; flex-direction: column; gap: 6px;
+      position: relative;
+    }
+    .header-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .header-title {
+      font-family: var(--font-head);
+      font-size: 28px; font-weight: 800; letter-spacing: -0.5px;
+      color: var(--text);
+      line-height: 1.1;
+    }
+    .campaign-id {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 14px; margin-top: 4px;
+      font-size: 13px; font-weight: 500; color: var(--accent1);
+      letter-spacing: 2px;
+      width: fit-content;
+    }
+    .campaign-id::before {
+      content: '';
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent1);
+      box-shadow: 0 0 8px var(--accent1);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* ─── Tabs ─── */
+    .tabs {
+      display: flex; gap: 0;
+      margin: 16px 24px 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px;
+    }
+    .tab-btn {
+      flex: 1; padding: 10px 12px;
+      background: transparent; border: none; cursor: pointer;
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted);
+      border-radius: 9px;
+      transition: all 0.2s ease;
+    }
+    .tab-btn.active {
+      background: var(--border);
+      color: var(--text);
+    }
+    .tab-btn[data-tab="live"].active { color: var(--accent1); }
+    .tab-btn[data-tab="qr"].active   { color: var(--accent2); }
+
+    /* ─── Content Panels ─── */
+    .panel { display: none; padding: 24px; animation: fadeIn 0.25s ease; }
+    .panel.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ─── Big Counter Card ─── */
+    .counter-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px 24px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      position: relative; overflow: hidden;
+    }
+    .counter-card::after {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: 20px;
+      opacity: 0.06;
+      pointer-events: none;
+    }
+    .counter-card.live::after  { background: radial-gradient(circle at 50% 0%, var(--accent1) 0%, transparent 70%); }
+    .counter-card.qr::after    { background: radial-gradient(circle at 50% 0%, var(--accent2) 0%, transparent 70%); }
+
+    .counter-glow {
+      position: absolute; top: -40px; left: 50%; transform: translateX(-50%);
+      width: 200px; height: 120px; border-radius: 50%;
+      filter: blur(40px); opacity: 0.18; pointer-events: none;
+    }
+    .live .counter-glow { background: var(--accent1); }
+    .qr  .counter-glow  { background: var(--accent2); }
+
+    .counter-label {
+      font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--muted); z-index: 1;
+    }
+    .counter-number {
+      font-family: var(--font-head);
+      font-size: 88px; font-weight: 800; line-height: 1;
+      letter-spacing: -4px; z-index: 1;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .live  .counter-number { color: var(--accent1); text-shadow: 0 0 40px rgba(0,229,255,0.35); }
+    .qr    .counter-number { color: var(--accent2); text-shadow: 0 0 40px rgba(255,61,107,0.35); }
+
+    .counter-sublabel {
+      font-size: 11px; color: var(--text-dim); z-index: 1; text-align: center;
+    }
+
+    /* Status pill */
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      border-radius: 999px; padding: 5px 14px; font-size: 10px; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--text-dim); z-index: 1; margin-top: 4px;
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .live  .status-dot { background: var(--accent1); box-shadow: 0 0 6px var(--accent1); }
+    .qr    .status-dot { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+
+    /* ─── Batch Table ─── */
+    .batch-section { margin-top: 28px; }
+    .batch-title {
+      font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .batch-title::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    .batch-table {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+    }
+    .batch-header {
+      display: grid; grid-template-columns: 80px 1fr 1fr;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .batch-row {
+      display: grid; grid-template-columns: 80px 1fr 1fr;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      align-items: center;
+      animation: slideIn 0.3s ease;
+      transition: background 0.15s;
+    }
+    .batch-row:last-child { border-bottom: none; }
+    .batch-row:hover { background: rgba(255,255,255,0.02); }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; } }
+
+    .batch-name {
+      font-family: var(--font-head); font-size: 13px; font-weight: 700;
+      color: var(--accent1);
+    }
+    .batch-count {
+      font-size: 13px; font-weight: 500; color: var(--text);
+    }
+    .batch-date {
+      font-size: 11px; color: var(--text-dim);
+    }
+
+    .batch-empty {
+      padding: 28px 16px; text-align: center;
+      font-size: 11px; color: var(--muted);
+    }
+
+    /* ─── Loading skeleton ─── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--border) 25%, var(--surface) 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 6px;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* ─── Connection badge ─── */
+    .conn-badge {
+      position: fixed; bottom: 16px; right: 16px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 12px;
+      font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--muted); display: flex; align-items: center; gap: 6px;
+      z-index: 100;
+    }
+    .conn-dot { width: 5px; height: 5px; border-radius: 50%; background: #4caf50; }
+
+    /* ─── Last updated ─── */
+    .last-updated {
+      text-align: center; padding: 8px;
+      font-size: 9px; letter-spacing: 1px; color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-eyebrow">LEUVENFLYERS · LIVE TRACKER</div>
+    <div class="header-title">Campaign</div>
+    <div class="campaign-id">XX2615</div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="live" onclick="switchTab('live')">📍 Live Count</button>
+    <button class="tab-btn" data-tab="qr" onclick="switchTab('qr')">📱 QR Scans</button>
+  </div>
+
+  <!-- LIVE COUNT PANEL -->
+  <div class="panel active" id="panel-live">
+    <div class="counter-card live">
+      <div class="counter-glow"></div>
+      <div class="counter-label">Flyers Delivered</div>
+      <div class="counter-number" id="live-count">—</div>
+      <div class="counter-sublabel">GPS-tracked delivery points</div>
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        Live Updating
+      </div>
+    </div>
+
+    <!-- Batch milestones -->
+    <div class="batch-section">
+      <div class="batch-title">Batch Milestones (per 1,000)</div>
+      <div class="batch-table">
+        <div class="batch-header">
+          <span>Batch</span>
+          <span>Count</span>
+          <span>Reached</span>
+        </div>
+        <div id="batch-body">
+          <div class="batch-empty">Loading batches…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="last-updated" id="live-updated">Connecting…</div>
+  </div>
+
+  <!-- QR SCANS PANEL -->
+  <div class="panel" id="panel-qr">
+    <div class="counter-card qr">
+      <div class="counter-glow"></div>
+      <div class="counter-label">QR Code Scans</div>
+      <div class="counter-number" id="qr-count">—</div>
+      <div class="counter-sublabel">Unique scan events for XX2615</div>
+      <div class="status-pill qr">
+        <div class="status-dot"></div>
+        Live Updating
+      </div>
+    </div>
+    <div class="last-updated" id="qr-updated">Connecting…</div>
+  </div>
+
+</div>
+
+<div class="conn-badge">
+  <div class="conn-dot"></div>
+  Firebase Connected
+</div>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp }   from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  /* ── Firebase configs ── */
+  const campaignConfig = {
+    apiKey:            "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+    authDomain:        "trackingclients.firebaseapp.com",
+    projectId:         "trackingclients",
+    storageBucket:     "trackingclients.appspot.com",
+    messagingSenderId: "27490943622",
+    appId:             "1:27490943622:web:d6c87547aa5df440508707",
+    databaseURL:       "https://trackingclients-default-rtdb.firebaseio.com/"
+  };
+
+  const ff974Config = {
+    apiKey:            "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain:        "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL:       "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId:         "tokentransfer-4a9b3",
+    storageBucket:     "tokentransfer-4a9b3.firebasestorage.app",
+    messagingSenderId: "205455490321",
+    appId:             "1:205455490321:web:9919f5dde059316c9320b0"
+  };
+
+  const campaignApp = initializeApp(campaignConfig, 'campaignApp');
+  const ff974App    = initializeApp(ff974Config,    'ff974App');
+  const campaignDb  = getDatabase(campaignApp);
+  const ff974Db     = getDatabase(ff974App);
+
+  /* ── Helpers ── */
+  function now() {
+    const d = new Date();
+    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+           + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  }
+
+  function animateNumber(el, target) {
+    const current = parseInt(el.dataset.value || '0', 10) || 0;
+    if (current === target) return;
+    el.dataset.value = target;
+    const steps = 30;
+    const step  = (target - current) / steps;
+    let i = 0;
+    const tick = () => {
+      i++;
+      const v = i >= steps ? target : Math.round(current + step * i);
+      el.textContent = v.toLocaleString();
+      if (i < steps) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  /* ── Live Count: FF2615 dots ── */
+  const liveEl      = document.getElementById('live-count');
+  const liveUpdEl   = document.getElementById('live-updated');
+  const batchBodyEl = document.getElementById('batch-body');
+
+  // Store timestamps per dot index so we can assign batch dates
+  let dotTimestamps = [];
+
+  onValue(ref(ff974Db, 'userPosts/FF2615'), snap => {
+    const dots = [];
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const v = child.val();
+        if (!v || typeof v.lat !== 'number' || typeof v.lng !== 'number') return;
+        if (v.color === 'orange') return;
+        const ts = typeof v.timestamp === 'number' ? v.timestamp
+                 : typeof v.ts === 'number'        ? v.ts
+                 : 0;
+        dots.push({ ts });
+      });
+    }
+    dots.sort((a, b) => a.ts - b.ts);
+    dotTimestamps = dots.map(d => d.ts);
+
+    const count = dots.length;
+    animateNumber(liveEl, count);
+    liveUpdEl.textContent = 'Last updated: ' + now();
+
+    // Render batches
+    renderBatches(count, dotTimestamps);
+  });
+
+  function renderBatches(total, timestamps) {
+    const batches = Math.floor(total / 1000);
+    if (batches === 0) {
+      batchBodyEl.innerHTML = `<div class="batch-empty">First batch unlocks at 1,000 flyers<br/><span style="opacity:.5;">(${total} / 1,000 so far)</span></div>`;
+      return;
+    }
+
+    let html = '';
+    for (let b = 1; b <= batches; b++) {
+      const milestoneIdx = b * 1000 - 1;          // index of the 1000th, 2000th… dot
+      const ts = timestamps[milestoneIdx] || 0;
+      const dateStr = ts
+        ? new Date(ts).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+        : '—';
+      html += `
+        <div class="batch-row">
+          <span class="batch-name">Batch ${b}</span>
+          <span class="batch-count">${(b * 1000).toLocaleString()} flyers</span>
+          <span class="batch-date">${dateStr}</span>
+        </div>`;
+    }
+    batchBodyEl.innerHTML = html;
+  }
+
+  /* ── QR Scans ── */
+  const qrEl    = document.getElementById('qr-count');
+  const qrUpdEl = document.getElementById('qr-updated');
+
+  onValue(ref(campaignDb, 'qr_scans'), snap => {
+    let count = 0;
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const s = child.val();
+        if (s && s.promoCode === 'XX2615') count++;
+      });
+    }
+    animateNumber(qrEl, count);
+    qrUpdEl.textContent = 'Last updated: ' + now();
+  });
+</script>
+
+<script>
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+  }
+</script>
+</body>
+</html>
