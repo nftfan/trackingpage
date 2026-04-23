@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -17,6 +18,7 @@
       --sched-color: #f59e0b;
       --missed-color: #ef4444; 
       --long-shift-color: #10b981;
+      --pickup-color: #f472b6;
       --radius-lg: 12px; 
       --radius-md: 10px; 
     }
@@ -156,6 +158,50 @@
       color: #6ee7b7; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
     }
 
+    /* ── Pick up Toggle ── */
+    .pickup-toggle-row {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px; padding: 6px 8px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+    .pickup-toggle-row:hover { border-color: rgba(244,114,182,0.3); background: rgba(244,114,182,0.04); }
+    .pickup-toggle-row.checked {
+      border-color: rgba(244,114,182,0.45);
+      background: rgba(244,114,182,0.08);
+    }
+
+    .pickup-checkbox {
+      width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+      border: 1.5px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.18s;
+    }
+    .pickup-toggle-row.checked .pickup-checkbox {
+      background: var(--pickup-color); border-color: var(--pickup-color);
+    }
+    .pickup-checkbox svg { opacity: 0; transition: opacity 0.15s; }
+    .pickup-toggle-row.checked .pickup-checkbox svg { opacity: 1; }
+
+    .pickup-toggle-label {
+      font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.4px; line-height: 1.3; flex: 1;
+      transition: color 0.2s;
+    }
+    .pickup-toggle-row.checked .pickup-toggle-label { color: var(--pickup-color); }
+
+    .pickup-preview-badge {
+      font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 999px;
+      letter-spacing: 0.4px; flex-shrink: 0; transition: all 0.2s;
+    }
+    .pickup-preview-badge.off {
+      color: var(--muted); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    }
+    .pickup-preview-badge.on {
+      color: var(--pickup-color); background: rgba(244,114,182,0.15); border: 1px solid rgba(244,114,182,0.35);
+    }
+
     .end-time-hint { font-size: 9px; color: var(--accent); font-weight: 700; text-align: center; margin-top: 2px; }
 
     .btn-submit {
@@ -238,6 +284,12 @@
     .shift-card.missed { background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2); }
     .shift-card.long-shift { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3); }
 
+    /* ── Pickup shift card styling ── */
+    .shift-card.pickup-shift {
+      background: rgba(244, 114, 182, 0.07);
+      border-color: rgba(244, 114, 182, 0.35);
+    }
+
     .shift-left { display: flex; flex-direction: column; gap: 4px; }
     .worker-name { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
@@ -255,6 +307,22 @@
     }
     .city-badge.all {
       color: #6ee7b7; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
+    }
+
+    /* ── Pickup label badge ── */
+    .pickup-label-badge {
+      font-family: Menlo, Monaco, monospace; font-size: 9px; font-weight: 800; padding: 2px 6px;
+      border-radius: 999px; letter-spacing: 0.5px;
+      color: var(--pickup-color);
+      background: rgba(244, 114, 182, 0.15);
+      border: 1px solid rgba(244, 114, 182, 0.4);
+    }
+
+    /* ── Pickup time pill ── */
+    .shift-time.pickup-time {
+      color: var(--pickup-color);
+      background: rgba(244, 114, 182, 0.12);
+      border-color: rgba(244, 114, 182, 0.35);
     }
 
     .status-text { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px; }
@@ -302,9 +370,8 @@
     
     <div class="form-grid">
       <div class="input-col">
-        <select id="schedWorker" class="form-input">
-          <option value="" disabled selected>Select Worker</option>
-        </select>
+        <span class="tiny-label">First Name</span>
+        <input type="text" id="schedWorker" class="form-input" placeholder="Enter name..." autocomplete="off" autocorrect="off" spellcheck="false">
       </div>
       <div class="input-col">
         <span class="tiny-label">Select Date</span>
@@ -328,6 +395,17 @@
       </div>
       <div class="city-toggle-label">Willing to work in other cities beyond Local area, if a higher salary is offered</div>
       <div class="city-preview-badge local" id="cityPreviewBadge">Local</div>
+    </div>
+
+    <!-- Pick up toggle -->
+    <div id="pickupToggleRow" class="pickup-toggle-row" onclick="togglePickup()">
+      <div class="pickup-checkbox" id="pickupCheckbox">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <div class="pickup-toggle-label">Pick up</div>
+      <div class="pickup-preview-badge off" id="pickupPreviewBadge">Off</div>
     </div>
     
     <div id="endTimeHint" class="end-time-hint">Ends: --:--</div>
@@ -397,9 +475,12 @@
   const endTimeHint = document.getElementById('endTimeHint');
   const cityToggleRow = document.getElementById('cityToggleRow');
   const cityPreviewBadge = document.getElementById('cityPreviewBadge');
+  const pickupToggleRow = document.getElementById('pickupToggleRow');
+  const pickupPreviewBadge = document.getElementById('pickupPreviewBadge');
 
-  // City toggle state
+  // Toggle states
   let cityWilling = false;
+  let isPickup = false;
 
   window.toggleCity = function() {
     cityWilling = !cityWilling;
@@ -410,6 +491,18 @@
     } else {
       cityPreviewBadge.textContent = 'Local';
       cityPreviewBadge.className = 'city-preview-badge local';
+    }
+  };
+
+  window.togglePickup = function() {
+    isPickup = !isPickup;
+    pickupToggleRow.classList.toggle('checked', isPickup);
+    if (isPickup) {
+      pickupPreviewBadge.textContent = 'On';
+      pickupPreviewBadge.className = 'pickup-preview-badge on';
+    } else {
+      pickupPreviewBadge.textContent = 'Off';
+      pickupPreviewBadge.className = 'pickup-preview-badge off';
     }
   };
 
@@ -510,17 +603,26 @@
 
         // cityWilling: true = "All", false = "Local"
         const cityScope = sched.cityWilling === true ? 'all' : 'local';
+        // pickup flag
+        const pickupFlag = sched.isPickup === true;
 
         if (actualMatch) {
           actualMatch.cityScope = cityScope;
           actualMatch.wasScheduled = true;
           actualMatch.schedTime = displaySchedTime;
+          actualMatch.isPickup = pickupFlag;
         } else {
-          unifiedShiftsByDate[dStr].push({ type: isPast ? 'missed' : 'scheduled', worker: sched.worker, campaign: '', cityScope, scheduledTime: displaySchedTime });
+          unifiedShiftsByDate[dStr].push({
+            type: isPast ? 'missed' : 'scheduled',
+            worker: sched.worker,
+            campaign: '',
+            cityScope,
+            scheduledTime: displaySchedTime,
+            isPickup: pickupFlag,
+            startTimeOnly: sched.time   // raw start time for pickup display
+          });
         }
       });
-
-      populateWorkerDropdown(uniqueWorkers);
 
       Object.keys(actualsMap).forEach(dateStr => {
         Object.values(actualsMap[dateStr]).forEach(act => {
@@ -528,7 +630,8 @@
           unifiedShiftsByDate[dateStr].push({
             type: 'actual', worker: act.worker, campaign: act.campaign, cityScope: act.cityScope, scheduledTime: act.schedTime,
             startTime: formatLocalTime(act.minTs), endTime: act.minTs === act.maxTs ? "Single Action" : formatLocalTime(act.maxTs),
-            timeWorkedStr: formatTimeWorked(act.minTs, act.maxTs), earnings: act.validDots * 0.036, isLong: shiftDurationMs >= 3600000
+            timeWorkedStr: formatTimeWorked(act.minTs, act.maxTs), earnings: act.validDots * 0.036, isLong: shiftDurationMs >= 3600000,
+            isPickup: act.isPickup || false
           });
         });
       });
@@ -548,12 +651,7 @@
   }
 
   function populateWorkerDropdown(workersSet) {
-    const currentVal = schedWorker.value;
-    schedWorker.innerHTML = '<option value="" disabled selected>Select Worker</option>';
-    Array.from(workersSet).sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'})).forEach(w => {
-      const opt = document.createElement('option'); opt.value = w; opt.textContent = w; schedWorker.appendChild(opt);
-    });
-    if (currentVal && workersSet.has(currentVal)) schedWorker.value = currentVal;
+    // Free-text input — no dropdown to populate
   }
 
   // Submit Logic
@@ -563,14 +661,20 @@
     try {
       btnSubmitShift.disabled = true;
       btnSubmitShift.textContent = "Scheduling...";
-      await set(push(ref(db, 'scheduledShifts')), { worker, date, time, cityWilling, timestamp: Date.now() });
+      await set(push(ref(db, 'scheduledShifts')), { worker, date, time, cityWilling, isPickup, timestamp: Date.now() });
       showToast("Shift Scheduled!"); 
       
-      schedWorker.value = ''; schedTime.value = '';
+      schedWorker.value = ''; schedWorker.blur(); schedTime.value = '';
       cityWilling = false;
       cityToggleRow.classList.remove('checked');
       cityPreviewBadge.textContent = 'Local';
       cityPreviewBadge.className = 'city-preview-badge local';
+
+      isPickup = false;
+      pickupToggleRow.classList.remove('checked');
+      pickupPreviewBadge.textContent = 'Off';
+      pickupPreviewBadge.className = 'pickup-preview-badge off';
+
       endTimeHint.textContent = 'Ends: --:--';
       loadData(); 
     } catch(e) { 
@@ -584,24 +688,48 @@
   // --- Rendering UI ---
   function createShiftCardHTML(shift) {
     let statusHTML = '', timeHTML = '', earningsHTML = '', extraClasses = '';
+
+    // Pickup badge (shown in worker name row for pickup entries)
+    const pickupBadge = shift.isPickup
+      ? `<span class="pickup-label-badge">&#128661; Pickup</span>`
+      : '';
+
     if (shift.type === 'scheduled') {
-      extraClasses = 'scheduled';
+      extraClasses = 'scheduled' + (shift.isPickup ? ' pickup-shift' : '');
       statusHTML = `<div class="status-text scheduled"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Shift Accepted</div>`;
-      timeHTML = `<div class="shift-time scheduled-time">${shift.scheduledTime}</div>`;
+      // Pickup: show only start time; normal: show full range
+      if (shift.isPickup) {
+        const startOnly = shift.startTimeOnly || (shift.scheduledTime ? shift.scheduledTime.split(' - ')[0] : '');
+        timeHTML = `<div class="shift-time pickup-time">${startOnly}</div>`;
+      } else {
+        timeHTML = `<div class="shift-time scheduled-time">${shift.scheduledTime}</div>`;
+      }
     } else if (shift.type === 'missed') {
-      extraClasses = 'missed';
+      extraClasses = 'missed' + (shift.isPickup ? ' pickup-shift' : '');
       statusHTML = `<div class="status-text missed">No Data Recorded</div>`;
-      timeHTML = `<div class="shift-time">${shift.scheduledTime}</div>`;
+      if (shift.isPickup) {
+        const startOnly = shift.startTimeOnly || (shift.scheduledTime ? shift.scheduledTime.split(' - ')[0] : '');
+        timeHTML = `<div class="shift-time pickup-time">${startOnly}</div>`;
+      } else {
+        timeHTML = `<div class="shift-time">${shift.scheduledTime}</div>`;
+      }
     } else {
-      if (shift.isLong) extraClasses += ' long-shift';
+      // actual
+      if (shift.isPickup) extraClasses += ' pickup-shift';
+      if (shift.isLong && !shift.isPickup) extraClasses += ' long-shift';
       statusHTML = `<div class="time-worked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Worked: ${shift.timeWorkedStr}</div>`;
-      timeHTML = `<div class="shift-time">${shift.endTime === "Single Action" ? shift.startTime : `${shift.startTime} - ${shift.endTime}`}</div>`;
+      if (shift.isPickup) {
+        // Only show start time for pickup entries
+        timeHTML = `<div class="shift-time pickup-time">${shift.startTime}</div>`;
+      } else {
+        timeHTML = `<div class="shift-time">${shift.endTime === "Single Action" ? shift.startTime : `${shift.startTime} - ${shift.endTime}`}</div>`;
+      }
       earningsHTML = `<div class="shift-earnings">€${(shift.earnings || 0).toFixed(2)}</div>`;
     }
     
     const campBadge = shift.campaign ? `<span class="campaign-badge">${shift.campaign}</span>` : '';
 
-    // City badge: "All" (green) if willing, "Local" (blue) otherwise; omit if no data
+    // City badge
     let cityBadge = '';
     if (shift.cityScope === 'all') {
       cityBadge = `<span class="city-badge all">All</span>`;
@@ -612,7 +740,7 @@
     return `
       <div class="shift-card ${extraClasses}">
         <div class="shift-left">
-          <div class="worker-name">${shift.worker} ${campBadge}${cityBadge}</div>
+          <div class="worker-name">${shift.worker} ${campBadge}${cityBadge}${pickupBadge}</div>
           ${statusHTML}
         </div>
         <div class="shift-right">${timeHTML}${earningsHTML}</div>
