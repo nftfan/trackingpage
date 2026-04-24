@@ -188,17 +188,31 @@
   outline: none;
   border: none;
   padding: 0;
-  transition: transform .12s cubic-bezier(.4, 0, .2, 1), filter .12s;
+  /* Snappy press + release */
+  transition:
+    transform .08s cubic-bezier(.4, 0, .2, 1),
+    filter .08s,
+    box-shadow .08s;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
+  /* Subtle resting ring so button feels tappable */
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.08);
 }
 
-/* PRESS */
+/* PRESS — deep scale + strong brightness flash */
 .btn-ja:active, .btn-nee:active,
 .btn-post:active, .btn-bonus:active {
-  transform: scale(0.82);
-  filter: brightness(1.18) saturate(1.1);
+  transform: scale(0.78);
+  filter: brightness(1.35) saturate(1.15);
+  box-shadow: 0 0 0 5px rgba(255,255,255,0.22);
+}
+
+/* JS TAP CLASS — fires instantly on pointerdown for zero-lag feel */
+.btn-tapped {
+  transform: scale(0.78) !important;
+  filter: brightness(1.35) saturate(1.15) !important;
+  box-shadow: 0 0 0 5px rgba(255,255,255,0.22) !important;
 }
 
 /* HOVER — desktop only */
@@ -209,16 +223,18 @@
   .btn-bonus:hover:not(:disabled) {
     transform: scale(1.06);
     filter: brightness(1.08);
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.14);
   }
 }
 
 /* DISABLED */
 .btn-ja:disabled, .btn-nee:disabled,
 .btn-post:disabled, .btn-bonus:disabled {
-  opacity: .38;
+  opacity: .35;
   cursor: not-allowed;
   transform: none !important;
   filter: none !important;
+  box-shadow: none !important;
 }
 
 /* INNER LAYOUT */
@@ -237,11 +253,17 @@
   font-weight: 800;
   color: #fff;
   line-height: 1;
-  background: rgba(0,0,0,.22);
+  background: rgba(0,0,0,.25);
   border-radius: 6px;
   padding: 2px 6px;
   min-width: 24px;
   text-align: center;
+  /* Count pops on tap */
+  transition: transform .1s cubic-bezier(.4,0,.2,1);
+}
+
+.btn-tapped .btn-count {
+  transform: scale(1.25);
 }
 
 .btn-label {
@@ -263,16 +285,16 @@
 .btn-post::before {
   content: "";
   position: absolute;
-  inset: -4px;
+  inset: -5px;
   border-radius: 50%;
-  border: 2px solid rgba(234,112,24,.55);
+  border: 2px solid rgba(234,112,24,.5);
   animation: ring 1.6s ease-in-out infinite;
   pointer-events: none;
 }
 
 @keyframes ring {
   0%   { opacity: .9; transform: scale(1); }
-  55%  { opacity: 0;  transform: scale(1.18); }
+  55%  { opacity: 0;  transform: scale(1.2); }
   100% { opacity: .9; transform: scale(1); }
 }
     
@@ -1853,6 +1875,19 @@
   updateWorkerUi();
   renderWorkerTable();
   updateButtonCounts();
+  
+  // Haptic + visual tap feedback
+['btnPost','btnJa','btnNee','btnBonus'].forEach(id => {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.addEventListener('pointerdown', () => {
+    // Haptic pulse (works on Android Chrome + iOS Safari 16.4+)
+    if (navigator.vibrate) navigator.vibrate(8);
+    btn.classList.add('btn-tapped');
+    setTimeout(() => btn.classList.remove('btn-tapped'), 150);
+  });
+});
+
 </script>
 </body>
 </html>
