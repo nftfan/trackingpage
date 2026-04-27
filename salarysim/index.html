@@ -9,25 +9,83 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         .row-border { border-bottom: 1px solid #f3f4f6; padding-top: 0.75rem; padding-bottom: 0.75rem; }
+
+        /* Status Toggle */
+        .toggle-btn {
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .toggle-btn.active-bediende {
+            background: #1e1b4b;
+            color: white;
+        }
+        .toggle-btn.active-jobstudent {
+            background: #065f46;
+            color: white;
+        }
+        .toggle-btn.inactive {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        .toggle-btn.inactive:hover {
+            background: #e5e7eb;
+        }
+
+        /* Header theming */
+        .header-bediende { background: #1e1b4b; }
+        .header-jobstudent { background: #065f46; }
+
+        /* Net section theming */
+        .net-bediende { background: #f0fdf4; border-color: #bbf7d0; }
+        .net-jobstudent { background: #ecfdf5; border-color: #6ee7b7; }
+        .net-title-bediende { color: #15803d; }
+        .net-title-jobstudent { color: #047857; }
+        .net-value-bediende { color: #166534; }
+        .net-value-jobstudent { color: #065f46; }
+
+        .dimmed { opacity: 0.35; pointer-events: none; }
+        .tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.1rem 0.5rem;
+            border-radius: 999px;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .tag-na { background: #fee2e2; color: #b91c1c; }
+        .tag-low { background: #d1fae5; color: #065f46; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen p-4 md:p-8">
 
     <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8">
-        
+
         <!-- Input Section -->
         <div class="md:col-span-5">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-8">
-                <h2 class="text-xl font-bold mb-6 text-indigo-900">Configure Amounts</h2>
+                <h2 class="text-xl font-bold mb-2 text-indigo-900">Configure Amounts</h2>
+
+                <!-- Status Toggle -->
+                <div class="flex gap-2 mb-5">
+                    <button id="btn-bediende" class="toggle-btn active-bediende" onclick="setStatus('bediende')">Bediende</button>
+                    <button id="btn-jobstudent" class="toggle-btn inactive" onclick="setStatus('jobstudent')">Jobstudent</button>
+                </div>
+
                 <p class="text-sm text-gray-500 mb-6">Type in any amount below. The other fields will automatically adjust based on standard PC 200 rates.</p>
-                
+
                 <div class="space-y-5">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
                         <input type="text" id="empName" placeholder="e.g. John Doe" value="Tom"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all">
                     </div>
-                    
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Number of Hours</label>
                         <input type="number" id="empHours" placeholder="3.00" value="3" step="0.5" min="0"
@@ -61,23 +119,26 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Status Info Box -->
+                <div id="status-info" class="mt-5 p-4 rounded-xl text-sm"></div>
             </div>
         </div>
 
         <!-- Output Section -->
         <div class="md:col-span-7">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div class="bg-indigo-900 text-white p-6 md:p-8">
+                <div id="output-header" class="header-bediende text-white p-6 md:p-8">
                     <h2 class="text-2xl font-bold" id="display-name">Employee Payroll Summary</h2>
-                    <p class="text-indigo-200 mt-1">Joint Labour Committee: <span class="font-medium text-white">PC 200</span> | Status: <span class="font-medium text-white">Bediende</span></p>
+                    <p class="text-indigo-200 mt-1" id="header-sub">Joint Labour Committee: <span class="font-medium text-white">PC 200</span> | Status: <span class="font-medium text-white" id="header-status">Bediende</span></p>
                 </div>
-                
+
                 <div class="p-6 md:p-8 space-y-2">
-                    
+
                     <!-- Invoice Section -->
                     <div class="mb-8 bg-gray-50 p-5 rounded-xl border border-gray-100">
                         <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Invoice Details</h3>
-                        
+
                         <div class="flex justify-between font-bold text-lg text-indigo-900 pt-2 pb-1">
                             <span>Invoice Amount (VAT Included)</span>
                             <span id="out-invoice-incl">€ 69.76</span>
@@ -86,7 +147,7 @@
                             <span>Invoice amount per hour (VAT incl.)</span>
                             <span id="out-invoice-hourly-incl">€ 23.25 / hr</span>
                         </div>
-                        
+
                         <div class="flex justify-between text-gray-600 row-border">
                             <span>VAT Amount (21%)</span>
                             <span id="out-vat">€ 12.11</span>
@@ -113,29 +174,29 @@
                         </div>
 
                         <div class="flex justify-between text-red-500 row-border">
-                            <span>NSSO Contribution Employee (13.07%)</span>
+                            <span>NSSO Contribution Employee <span id="nsso-rate-label">(13.07%)</span></span>
                             <span id="out-nsso">- € 5.66</span>
                         </div>
-                        
+
                         <div class="flex justify-between font-semibold text-gray-800 row-border">
                             <span>Taxable Salary</span>
                             <span id="out-taxable">€ 37.65</span>
                         </div>
-                        
-                        <div class="flex justify-between text-red-500 row-border">
+
+                        <div id="tax-row" class="flex justify-between text-red-500 row-border">
                             <span>Prepaid Income Tax</span>
                             <span id="out-tax">- € 6.78</span>
                         </div>
                     </div>
 
                     <!-- Net Section -->
-                    <div class="bg-green-50 p-5 rounded-xl border border-green-100">
-                        <h3 class="text-sm font-bold text-green-700 uppercase tracking-wider mb-3">Net Payout</h3>
+                    <div id="net-section" class="net-bediende p-5 rounded-xl border">
+                        <h3 class="text-sm font-bold uppercase tracking-wider mb-3 net-title-bediende" id="net-title">Net Payout</h3>
                         <div class="flex justify-between font-semibold text-gray-800 row-border border-green-200">
                             <span>Net Salary</span>
                             <span id="out-net">€ 30.87</span>
                         </div>
-                        <div class="flex justify-between text-green-700 row-border border-green-200">
+                        <div id="holiday-row" class="flex justify-between text-green-700 row-border border-green-200">
                             <span>Holiday Pay</span>
                             <span id="out-holiday">€ 5.13</span>
                         </div>
@@ -144,7 +205,7 @@
                             <span>€ 0.00</span>
                         </div>
 
-                        <div class="flex justify-between font-bold text-3xl text-green-800 pt-5 mt-2">
+                        <div class="flex justify-between font-bold text-3xl pt-5 mt-2 net-value-bediende" id="net-total-row">
                             <span>Net Total</span>
                             <span id="out-net-total">€ 36.00</span>
                         </div>
@@ -156,116 +217,200 @@
     </div>
 
     <script>
-        // Foundational Ratios from original data
         const VAT_RATE = 0.21;
-        const EXCL_TO_NET_RATIO = 57.65 / 36.00; // 1.601388...
-        const GROSS_TO_NET_RATIO = 43.31 / 36.00;
-        const HOLIDAY_RATIO = 5.13 / 36.00;
-        const NSSO_RATE = 0.1307;
 
-        // Utility to format numbers cleanly
+        // Bediende ratios (from your data)
+        const BEDIENDE = {
+            nssoRate: 0.1307,
+            holidayRate: 5.13 / 43.31,         // holiday as % of gross
+            employerRate: 14.34 / 57.65,        // employer contrib as % of excl
+            grossToExclRatio: 43.31 / 57.65,    // gross as % of excl
+            taxRate: null,                       // derived
+            hasHoliday: true,
+            hasTax: true,
+            label: 'Bediende',
+            headerClass: 'header-bediende',
+            nssoLabel: '13.07%'
+        };
+
+        // Jobstudent ratios (from your data)
+        const JOBSTUDENT = {
+            nssoRate: 0.0271,
+            holidayRate: 0,                      // no holiday pay
+            employerRate: 162.28 / 676.20,       // employer contrib as % of excl
+            grossToExclRatio: 513.92 / 676.20,   // gross as % of excl
+            taxRate: 0,                          // no prepaid tax
+            hasHoliday: false,
+            hasTax: false,
+            label: 'Jobstudent',
+            headerClass: 'header-jobstudent',
+            nssoLabel: '2.71%'
+        };
+
+        let currentStatus = 'bediende';
+
+        function setStatus(status) {
+            currentStatus = status;
+
+            const isBediende = status === 'bediende';
+
+            // Toggle buttons
+            document.getElementById('btn-bediende').className = 'toggle-btn ' + (isBediende ? 'active-bediende' : 'inactive');
+            document.getElementById('btn-jobstudent').className = 'toggle-btn ' + (!isBediende ? 'active-jobstudent' : 'inactive');
+
+            // Header
+            const header = document.getElementById('output-header');
+            header.className = (isBediende ? 'header-bediende' : 'header-jobstudent') + ' text-white p-6 md:p-8';
+
+            // Header subtitle color
+            document.getElementById('header-sub').className = isBediende ? 'text-indigo-200 mt-1' : 'text-green-200 mt-1';
+            document.getElementById('header-status').textContent = isBediende ? 'Bediende' : 'Jobstudent';
+
+            // Net section theming
+            const netSection = document.getElementById('net-section');
+            netSection.className = (isBediende ? 'net-bediende' : 'net-jobstudent') + ' p-5 rounded-xl border';
+
+            // Holiday row visibility
+            document.getElementById('holiday-row').style.display = isBediende ? '' : 'none';
+
+            // Tax row
+            const taxRow = document.getElementById('tax-row');
+            if (!isBediende) {
+                taxRow.classList.add('dimmed');
+            } else {
+                taxRow.classList.remove('dimmed');
+            }
+
+            // NSSO label
+            document.getElementById('nsso-rate-label').textContent = isBediende ? '(13.07%)' : '(2.71%)';
+
+            // Info box
+            const infoBox = document.getElementById('status-info');
+            if (isBediende) {
+                infoBox.className = 'mt-5 p-4 rounded-xl text-sm bg-indigo-50 text-indigo-800 border border-indigo-100';
+                infoBox.innerHTML = `<strong>Bediende</strong>: Standard employee contract. NSSO at 13.07%, prepaid income tax applies, holiday pay accrues at ~11.84% of gross.`;
+            } else {
+                infoBox.className = 'mt-5 p-4 rounded-xl text-sm bg-emerald-50 text-emerald-800 border border-emerald-100';
+                infoBox.innerHTML = `<strong>Jobstudent</strong>: Reduced NSSO rate of 2.71%. No prepaid income tax. No holiday pay accrual. Net salary = taxable salary.`;
+            }
+
+            // Recalculate with current inputs
+            onInclChange();
+        }
+
+        function getConfig() {
+            return currentStatus === 'bediende' ? BEDIENDE : JOBSTUDENT;
+        }
+
         function formatCurrency(num) {
             if (num < 0) return `- € ${Math.abs(num).toFixed(2)}`;
             return `€ ${num.toFixed(2)}`;
         }
 
-        // --- Event Handlers for Omni-directional calculation ---
-
-        // When Net Total changes, update both Invoice fields
-        function onNetChange() {
-            const net = parseFloat(document.getElementById('netTotal').value) || 0;
-            const excl = net * EXCL_TO_NET_RATIO;
+        function computeFromExcl(excl) {
+            const cfg = getConfig();
             const incl = excl * (1 + VAT_RATE);
-            
-            document.getElementById('invoiceExcl').value = excl.toFixed(2);
-            document.getElementById('invoiceIncl').value = incl.toFixed(2);
-            updateBreakdown(net, excl, incl);
+            const employer = excl * cfg.employerRate;
+            const gross = excl * cfg.grossToExclRatio;
+            const nsso = gross * cfg.nssoRate;
+            const taxable = gross - nsso;
+            const holiday = gross * cfg.holidayRate;
+
+            let netSalary, prepaidTax;
+            if (cfg.hasTax) {
+                // For bediende, derive tax from original ratio
+                // tax = taxable - netSalary; netSalary = netTotal - holiday
+                // netTotal = excl / EXCL_TO_NET_RATIO (bediende)
+                const exclToNetRatio = 57.65 / 36.00;
+                const netTotal = excl / exclToNetRatio;
+                netSalary = netTotal - holiday;
+                prepaidTax = taxable - netSalary;
+            } else {
+                prepaidTax = 0;
+                netSalary = taxable; // for jobstudent
+            }
+
+            const netTotal = netSalary + holiday;
+            return { incl, excl, employer, gross, nsso, taxable, holiday, netSalary, prepaidTax, netTotal };
         }
 
-        // When Invoice Excl changes, update Net Total and Invoice Incl
-        function onExclChange() {
-            const excl = parseFloat(document.getElementById('invoiceExcl').value) || 0;
-            const net = excl / EXCL_TO_NET_RATIO;
-            const incl = excl * (1 + VAT_RATE);
-            
-            document.getElementById('netTotal').value = net.toFixed(2);
-            document.getElementById('invoiceIncl').value = incl.toFixed(2);
-            updateBreakdown(net, excl, incl);
-        }
-
-        // When Invoice Incl changes, update Invoice Excl and Net Total
         function onInclChange() {
             const incl = parseFloat(document.getElementById('invoiceIncl').value) || 0;
             const excl = incl / (1 + VAT_RATE);
-            const net = excl / EXCL_TO_NET_RATIO;
-            
             document.getElementById('invoiceExcl').value = excl.toFixed(2);
-            document.getElementById('netTotal').value = net.toFixed(2);
-            updateBreakdown(net, excl, incl);
+            const r = computeFromExcl(excl);
+            document.getElementById('netTotal').value = r.netTotal.toFixed(2);
+            renderBreakdown(r);
         }
 
-        // When Name or Hours change, it just repaints the breakdown (no money shifts)
-        function onBasicChange() {
-            const net = parseFloat(document.getElementById('netTotal').value) || 0;
+        function onExclChange() {
             const excl = parseFloat(document.getElementById('invoiceExcl').value) || 0;
-            const incl = parseFloat(document.getElementById('invoiceIncl').value) || 0;
-            updateBreakdown(net, excl, incl);
+            const incl = excl * (1 + VAT_RATE);
+            document.getElementById('invoiceIncl').value = incl.toFixed(2);
+            const r = computeFromExcl(excl);
+            document.getElementById('netTotal').value = r.netTotal.toFixed(2);
+            renderBreakdown(r);
         }
 
-        // Core calculation to update the right side of the screen
-        function updateBreakdown(netTotal, invoiceExcl, invoiceIncl) {
+        function onNetChange() {
+            const cfg = getConfig();
+            const net = parseFloat(document.getElementById('netTotal').value) || 0;
+
+            let excl;
+            if (cfg.hasTax) {
+                const exclToNetRatio = 57.65 / 36.00;
+                excl = net * exclToNetRatio;
+            } else {
+                // jobstudent: net = gross - nsso = excl * grossToExclRatio * (1 - nssoRate)
+                excl = net / (cfg.grossToExclRatio * (1 - cfg.nssoRate));
+            }
+
+            const incl = excl * (1 + VAT_RATE);
+            document.getElementById('invoiceExcl').value = excl.toFixed(2);
+            document.getElementById('invoiceIncl').value = incl.toFixed(2);
+            const r = computeFromExcl(excl);
+            renderBreakdown(r);
+        }
+
+        function onBasicChange() {
+            onInclChange();
+        }
+
+        function renderBreakdown(r) {
             const name = document.getElementById('empName').value || 'Employee';
             const hours = parseFloat(document.getElementById('empHours').value) || 0;
+            const hourlyGross = hours > 0 ? r.gross / hours : 0;
+            const hourlyIncl = hours > 0 ? r.incl / hours : 0;
 
-            // Calculations
-            const vat = invoiceIncl - invoiceExcl;
-            const grossSalary = netTotal * GROSS_TO_NET_RATIO;
-            const employerContrib = invoiceExcl - grossSalary;
-            
-            const nsso = grossSalary * NSSO_RATE;
-            const taxableSalary = grossSalary - nsso;
-            
-            const holidayPay = netTotal * HOLIDAY_RATIO;
-            const netSalary = netTotal - holidayPay;
-            const prepaidTax = taxableSalary - netSalary;
-
-            // Hourly calculations
-            const hourlyWage = hours > 0 ? (grossSalary / hours) : 0;
-            const hourlyInvoiceIncl = hours > 0 ? (invoiceIncl / hours) : 0;
-
-            // Update UI
             document.getElementById('display-name').textContent = `${name}'s Payroll Summary`;
             document.getElementById('out-hours').textContent = hours.toFixed(2);
-            document.getElementById('out-hourly').textContent = formatCurrency(hourlyWage);
-            
-            // New Invoice Hourly Rate update
-            document.getElementById('out-invoice-hourly-incl').textContent = `${formatCurrency(hourlyInvoiceIncl)} / hr`;
-            
-            document.getElementById('out-invoice-incl').textContent = formatCurrency(invoiceIncl);
-            document.getElementById('out-invoice-excl').textContent = formatCurrency(invoiceExcl);
-            document.getElementById('out-vat').textContent = formatCurrency(vat);
-            document.getElementById('out-employer').textContent = formatCurrency(-employerContrib);
-            
-            document.getElementById('out-gross').textContent = formatCurrency(grossSalary);
-            document.getElementById('out-nsso').textContent = formatCurrency(-nsso);
-            document.getElementById('out-taxable').textContent = formatCurrency(taxableSalary);
-            document.getElementById('out-tax').textContent = formatCurrency(-prepaidTax);
-            
-            document.getElementById('out-net').textContent = formatCurrency(netSalary);
-            document.getElementById('out-holiday').textContent = formatCurrency(holidayPay);
-            document.getElementById('out-net-total').textContent = formatCurrency(netTotal);
+            document.getElementById('out-hourly').textContent = formatCurrency(hourlyGross);
+            document.getElementById('out-invoice-hourly-incl').textContent = `${formatCurrency(hourlyIncl)} / hr`;
+
+            document.getElementById('out-invoice-incl').textContent = formatCurrency(r.incl);
+            document.getElementById('out-invoice-excl').textContent = formatCurrency(r.excl);
+            document.getElementById('out-vat').textContent = formatCurrency(r.incl - r.excl);
+            document.getElementById('out-employer').textContent = formatCurrency(-r.employer);
+
+            document.getElementById('out-gross').textContent = formatCurrency(r.gross);
+            document.getElementById('out-nsso').textContent = formatCurrency(-r.nsso);
+            document.getElementById('out-taxable').textContent = formatCurrency(r.taxable);
+            document.getElementById('out-tax').textContent = formatCurrency(-r.prepaidTax);
+
+            document.getElementById('out-net').textContent = formatCurrency(r.netSalary);
+            document.getElementById('out-holiday').textContent = formatCurrency(r.holiday);
+            document.getElementById('out-net-total').textContent = formatCurrency(r.netTotal);
         }
 
-        // Attach listeners
-        document.getElementById('netTotal').addEventListener('input', onNetChange);
-        document.getElementById('invoiceExcl').addEventListener('input', onExclChange);
+        // Listeners
         document.getElementById('invoiceIncl').addEventListener('input', onInclChange);
-        
+        document.getElementById('invoiceExcl').addEventListener('input', onExclChange);
+        document.getElementById('netTotal').addEventListener('input', onNetChange);
         document.getElementById('empName').addEventListener('input', onBasicChange);
         document.getElementById('empHours').addEventListener('input', onBasicChange);
 
-        // Run once on load to populate the right side based on default inputs
-        onBasicChange();
+        // Init
+        setStatus('bediende');
     </script>
 </body>
 </html>
