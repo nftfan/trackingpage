@@ -139,14 +139,14 @@
       padding: 10px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; margin-top: 2px;
     }
     .stat-box { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
-    .stat-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+    .stat-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; text-align: center; }
     .stat-value { font-size: 14px; font-weight: 800; color: #f2f2f7; font-family: Menlo, Monaco, Consolas, monospace; }
     .stat-value.earned { color: #fcd34d; }
     .stat-value.total { color: #10b981; }
     .stat-value.dots { color: #4f8cff; }
     .stat-divider { width: 1px; height: 28px; background: rgba(255,255,255,.1); }
 
-    /* Campaign Progress */
+    /* Campaign Progress & Connections */
     .campaign-progress {
       background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius-md);
       padding: 12px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; margin-bottom: 20px; margin-top: 4px;
@@ -157,6 +157,12 @@
     .prog-bar-container { width: 100%; height: 8px; background: rgba(255,255,255,.1); border-radius: 4px; overflow: hidden; }
     .prog-bar { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); transition: width 0.3s ease; width: 0%; }
     .camp-footer { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+
+    /* CPC Info Box */
+    .cpc-info {
+      background: rgba(249, 115, 22, 0.08); border: 1px solid rgba(249, 115, 22, 0.2); border-radius: 8px;
+      padding: 10px 12px; margin-top: 6px; font-size: 10px; color: #d5d7ff; line-height: 1.5;
+    }
 
     .toast{position:fixed;z-index:9999;left:50%;bottom:22px;transform:translateX(-50%);background:#1a1a22;border:1px solid rgba(255,255,255,.1);padding:8px 15px;border-radius:10px;color:var(--text);font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;box-shadow:none;}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
@@ -299,6 +305,7 @@
 
   <!-- Campaign Progress -->
   <div class="campaign-progress">
+    <!-- Campaign Dots Progress -->
     <div class="camp-header">
       <span class="camp-title">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
@@ -312,16 +319,33 @@
       <span id="campRem">100% Remaining</span>
     </div>
     
-    <div style="height:1px; background:rgba(255,255,255,0.1); margin: 6px 0;"></div>
+    <div style="height:1px; background:rgba(255,255,255,0.1); margin: 8px 0 6px;"></div>
     
-    <!-- Connections Without Progress Bar -->
-    <div class="camp-header" style="margin-top: 2px;">
+    <!-- Connections Block -->
+    <div class="camp-header">
       <span class="camp-title" style="color:#f97316;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-        Connections made
+        Team Connections
       </span>
-      <span class="camp-percent" id="connCount" style="color:#f97316; font-size:16px;">0</span>
+      <span class="camp-percent" id="connCount" style="color:#f97316; font-size:15px;">0</span>
     </div>
+
+    <div style="height:1px; background:rgba(255,255,255,0.1); margin: 6px 0 8px;"></div>
+    
+    <!-- CPC and Motivation -->
+    <div class="camp-header">
+      <span class="camp-title" style="color:#aab7ff;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        Cost Per Connection (CPC)
+      </span>
+      <span class="camp-percent" id="cpcValue" style="color:#aab7ff; font-size:15px;">€0.00</span>
+    </div>
+    
+    <div class="cpc-info">
+      <strong style="color:#fcd34d;">💡 Boost your rank!</strong> 
+      A lower CPC indicates high efficiency and top-tier job quality. Making more connections lowers your CPC, significantly increasing your chances for <strong style="color:#fff;">more shifts and future promotions!</strong>
+    </div>
+
   </div>
 
 </div>
@@ -446,6 +470,7 @@
   const todayWorkerDotsEl = document.getElementById('todayWorkerDots');
   const todayWorkerEarningsEl = document.getElementById('todayWorkerEarnings');
   const totalWorkerEarningsEl = document.getElementById('totalWorkerEarnings');
+  const cpcValueEl = document.getElementById('cpcValue');
   
   // Progress bindings
   const campPercentEl = document.getElementById('campPercent');
@@ -714,9 +739,9 @@
     let sessionDurationMs = 0, sessionDots = 0, sessionAvg = 0, isActive = false;
     let greenC = 0, redC = 0, blueC = 0, orangeC = 0;
     
-    // Group variables
     let todayGroupDotsCount = 0;
     let totalGroupDotsCount = 0;
+    let totalGroupPostsCount = 0;
 
     const baseName = currentWorkerName ? currentWorkerName.replace(/[0-9]/g, '').toLowerCase() : '';
 
@@ -736,10 +761,14 @@
 
         // group logic for stats row
         const wBaseName = pWorkerLower.replace(/[0-9]/g, '');
-        if (wBaseName === baseName && p.color !== 'orange') {
-            totalGroupDotsCount++;
-            if (isToday(p.timestamp)) {
-                todayGroupDotsCount++;
+        if (wBaseName === baseName) {
+            if (p.color !== 'orange') {
+                totalGroupDotsCount++;
+                if (isToday(p.timestamp)) {
+                    todayGroupDotsCount++;
+                }
+            } else {
+                totalGroupPostsCount++;
             }
         }
       });
@@ -773,10 +802,16 @@
     const earnPerMin = sessionAvg * 0.036;
     earnPerHourEl.textContent = '€' + (earnPerMin * 60).toFixed(2);
 
-    // Grouped Stats Row
+    // Grouped Stats Row Updates
     todayWorkerDotsEl.textContent = todayGroupDotsCount;
     todayWorkerEarningsEl.textContent = '€' + (todayGroupDotsCount * 0.036).toFixed(2);
-    totalWorkerEarningsEl.textContent = '€' + (totalGroupDotsCount * 0.036).toFixed(2);
+    
+    const totalWorkerEarnings = totalGroupDotsCount * 0.036;
+    totalWorkerEarningsEl.textContent = '€' + totalWorkerEarnings.toFixed(2);
+
+    // Cost Per Connection Update
+    const cpc = totalGroupPostsCount > 0 ? (totalWorkerEarnings / totalGroupPostsCount) : null;
+    cpcValueEl.textContent = cpc !== null ? '€' + cpc.toFixed(2) : '—';
   }
 
   function updateCampaignProgress(totalTeamDots, totalTeamPosts) {
@@ -861,6 +896,7 @@
     updateWorkerUi(); postsLayer.clearLayers();
     sessionTimerEl.textContent = '00:00:00'; sessionAvgEl.textContent = '—'; sessionTotalEl.textContent = '0'; earnPerHourEl.textContent = '€0.00';
     todayWorkerDotsEl.textContent = '0'; todayWorkerEarningsEl.textContent = '€0.00'; totalWorkerEarningsEl.textContent = '€0.00';
+    cpcValueEl.textContent = '€0.00';
     updateCampaignProgress(0, 0);
   }
   function hideLogin() { loginBackdrop.classList.remove('show'); }
