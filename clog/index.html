@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dot Tracker Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#0b0b0e; --panel:#141419; --muted:#8b8b95; --text:#f2f2f7; --accent:#4f8cff; --accent-2:#7a5cff; --radius-lg:12px; --radius-md:10px; }
+    
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    
+    html,body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:12px;padding:env(safe-area-inset-top,12px) 10px env(safe-area-inset-bottom,12px);}
+   
+    .loader-overlay {
+      position: fixed; inset: 0; background: var(--bg); z-index: 10000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;
+      transition: opacity 0.3s ease;
+    }
+    .loader-overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1);
+      border-left-color: var(--accent); border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .loader-text { font-weight: 600; color: var(--muted); font-size: 13px; letter-spacing: 0.5px; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    
+    header{display:flex;align-items:center;gap:8px;padding:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);flex-shrink:0;}
+    .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#4f8cff,#7a5cff);border-radius:7px;flex-shrink:0;}
+    .header-title{font-size:15px;font-weight:700;flex:1;}
+    .user-pill{font-size:12px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:4px 10px;border-radius:999px;display:none;align-items:center;gap:8px;flex-shrink:0;}
+    .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:700;font-size:12px;outline:none;}
+   
+    .campaign-progress { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius-md); flex-shrink: 0; }
+    .prog-row { display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--muted); }
+    .prog-label { font-family: Menlo, monospace; font-weight: 600; display: block; }
+    .prog-bar-container { width: 100%; height: 8px; background: rgba(255,255,255,.1); border-radius: 4px; overflow: hidden; position: relative; }
+    .prog-bar { height: 100%; background: linear-gradient(90deg, #4f8cff, #7a5cff); transition: width 0.3s ease; width: 0%; }
+    .prog-bar.budget { background: linear-gradient(90deg, #10b981, #34d399); }
+    .col-earned { color: #fcd34d; font-family: Menlo, monospace; font-weight: 600; }
+    
+    .timelines-wrapper { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+    .worker-timeline { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); border-radius: var(--radius-md); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .timeline-title { font-size: 12px; font-weight: 700; color: #aab7ff; letter-spacing: 0.3px; }
+    .timeline-scroll { display: flex; align-items: center; overflow-x: auto; padding-bottom: 4px; }
+    .timeline-scroll::-webkit-scrollbar { height: 4px; }
+    .timeline-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    .t-dot-wrapper { display: flex; flex-direction: column; align-items: center; gap: 4px; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none; }
+    .t-num { font-size: 8px; color: var(--muted); font-family: Menlo, monospace; font-weight: 600; white-space: nowrap; margin-bottom: 1px; }
+    .t-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #141419; outline: 1px solid rgba(255,255,255,.2); flex-shrink: 0; }
+    .t-dot.red { background: #ef4444; }
+    .t-dot.green { background: #22c55e; }
+    .t-dot.blue { background: #1f84f7; }
+    .t-dot.orange { background: #f97316; border-radius: 3px; } 
+    .t-time { font-size: 8px; color: var(--muted); font-family: Menlo, monospace; font-weight: 600; white-space: nowrap; }
+    
+    .table-card{flex:1;background:rgba(255,255,255,.03);border-radius:var(--radius-md);border:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;min-height:0;box-shadow:none;}
+    .table-card-header{padding:10px 10px 8px;font-size:12px;font-weight:700;color:#e5e7ff;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;}
+    .table-scroll{overflow-x:auto; overflow-y:auto; flex:1;}
+    .data-table{width:100%;border-collapse:collapse;font-size:10px;color:#d5d7ff;}
+    .data-table thead{position:sticky;top:0;z-index:1;background:linear-gradient(90deg,rgba(79,140,255,.16),rgba(122,92,255,.18));}
+    .data-table th,.data-table td{padding:6px 8px;text-align:left;white-space:nowrap; font-weight: 400;}
+    .data-table th{font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.3px;color:#f3f4ff;border-bottom:1px solid rgba(255,255,255,.1);}
+    .data-table tbody tr:nth-child(even){background:rgba(255,255,255,.025);}
+    .data-table tbody tr:hover{background:rgba(79,140,255,.15);}
+    .col-work{color:#fde68a;}
+    .col-avg{color:#a5f3fc;}
+    .col-green{color:#86efac;}
+    .col-red{color:#fca5a5;}
+    .col-blue{color:#93c5fd;}
+    .col-orange{color:#fdba74;}
+    .empty-row td{color:var(--muted);text-align:center;padding:16px;font-size:11px;}
+    
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9998;}
+    .modal-backdrop.show{display:flex;}
+    .modal{width:min(90vw,380px);background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px; display: flex; flex-direction: column;}
+    .input-row{display:flex;gap:8px;}
+    .input{flex:1;height:48px;border-radius:10px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-weight:700;letter-spacing:.4px;font-size:16px;outline:none;}
+    .input:focus{border-color:var(--accent);}
+    .btn-modal{height:48px;border-radius:10px;border:0;cursor:pointer;padding:0 20px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));outline:none;}
+    .error{color:#ff8a8a;font-size:12px;min-height:16px;padding-top:8px;}
+  </style>
+</head>
+<body>
+<div id="loaderOverlay" class="loader-overlay hidden">
+  <div class="spinner"></div>
+  <div class="loader-text">Loading data...</div>
+</div>
+
+<div class="app">
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="white" stroke-opacity=".9" stroke-width="1.6"/>
+        <circle cx="12" cy="12" r="3.2" fill="white"/>
+      </svg>
+    </div>
+    <div class="header-title">Dot Tracker Dashboard</div>
+    <div id="userPill" class="user-pill">
+      <span id="userPillText"></span>
+      <button id="changeUserBtn">Logout</button>
+    </div>
+  </header>
+
+  <div class="campaign-progress">
+    <div class="prog-row">
+      <span class="prog-label">Dots: <span id="totalDotsProgress">0</span> / 15000</span>
+      <div class="prog-bar-container"><div class="prog-bar" id="dotsBar"></div></div>
+    </div>
+    <div class="prog-row">
+      <span class="prog-label">Earned: €<span id="totalEarnedProgress">0.00</span> / €540 (<span id="remBudgetProgress">€540.00</span> left)</span>
+      <div class="prog-bar-container"><div class="prog-bar budget" id="budgetBar"></div></div>
+    </div>
+  </div>
+  
+  <div id="timelinesWrapper" class="timelines-wrapper"></div>
+
+  <div class="table-card" id="teamCard">
+    <div class="table-card-header">Team performance — sorted by posts</div>
+    <div class="table-scroll">
+      <table class="data-table" id="workerTable">
+        <thead><tr><th>Worker</th><th>Dots</th><th>Earned</th><th class="col-avg">Avg/min</th><th>Yes</th><th>No</th><th>Bonus</th><th>Posts</th><th>Work time</th></tr></thead>
+        <tbody id="workerBody"><tr class="empty-row"><td colspan="9">No data yet.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="loginBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h2>Enter FF ID</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">View campaign progress, worker timelines, and statistics.</p>
+    <div class="input-row">
+      <input id="userIdInput" class="input" type="text" placeholder="e.g. FF993" autocomplete="off" autocapitalize="characters" maxlength="12">
+      <button id="userJoinBtn" class="btn-modal">View</button>
+    </div>
+    <div id="loginError" class="error"></div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, query, orderByChild, onValue, get, update, set, off } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+    messagingSenderId: "205455490321",
+    appId: "1:205455490321:web:9919f5dde059316c9320b0"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // DOM elements
+  const loaderOverlay      = document.getElementById('loaderOverlay');
+  const loginBackdrop      = document.getElementById('loginBackdrop');
+  const userIdInput        = document.getElementById('userIdInput');
+  const userJoinBtn        = document.getElementById('userJoinBtn');
+  const loginError         = document.getElementById('loginError');
+  const userPill           = document.getElementById('userPill');
+  const userPillText       = document.getElementById('userPillText');
+  const changeUserBtn      = document.getElementById('changeUserBtn');
+  const workerBody         = document.getElementById('workerBody');
+  const timelinesWrapper   = document.getElementById('timelinesWrapper');
+
+  let currentUserId = null;
+  let workersUnsub = null;
+  let myPostsUnsub = null;
+  let workersMeta = {};
+  let workersCache = null;
+
+  function isToday(ts) {
+    const d = new Date(ts);
+    const today = new Date();
+    return d.getDate() === today.getDate() &&
+           d.getMonth() === today.getMonth() &&
+           d.getFullYear() === today.getFullYear();
+  }
+
+  function formatWorkDuration(ms) {
+    if (!ms || ms <= 0) return '0h 00m';
+    const m = Math.floor(ms / 60000);
+    return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;
+  }
+
+  function formatLocalTime(ts) {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function getPostCountForName(name) {
+    const key = (name || '').toLowerCase();
+    return workersMeta[key]?.postClicks || 0;
+  }
+
+  function renderTimelines(dotsArray) {
+    timelinesWrapper.innerHTML = '';
+    if (!dotsArray || !dotsArray.length) return;
+    
+    const todayDots = dotsArray.filter(d => isToday(d.timestamp));
+    if (!todayDots.length) return;
+    
+    const byWorker = {};
+    todayDots.forEach(d => {
+      const name = d.workerName || 'Unknown';
+      if (!byWorker[name]) byWorker[name] = [];
+      byWorker[name].push(d);
+    });
+    
+    Object.keys(byWorker).sort().forEach(workerName => {
+      const arr = byWorker[workerName].sort((a,b) => a.timestamp - b.timestamp);
+      
+      const block = document.createElement('div');
+      block.className = 'worker-timeline';
+      
+      const title = document.createElement('div');
+      title.className = 'timeline-title';
+      title.textContent = `Worker: ${workerName}`;
+      block.appendChild(title);
+      
+      const scroll = document.createElement('div');
+      scroll.className = 'timeline-scroll';
+      
+      let prevTimestamp = null;
+      let dNum = 0, pNum = 0;
+      
+      arr.forEach(d => {
+        const el = document.createElement('div');
+        el.className = 't-dot-wrapper';
+        
+        let marginLeft = 8;
+        if (prevTimestamp) {
+          const diffSec = (d.timestamp - prevTimestamp) / 1000;
+          const extra = Math.min(100, Math.max(0, diffSec * 0.5));
+          marginLeft += extra;
+        }
+        prevTimestamp = d.timestamp;
+        el.style.marginLeft = marginLeft + 'px';
+        
+        let labelStr = '';
+        if (d.color === 'orange') { pNum++; labelStr = `P${pNum}`; } 
+        else { dNum++; labelStr = `D${dNum}`; }
+
+        const timeStr = formatLocalTime(d.timestamp);
+        el.innerHTML = `
+          <div class="t-num">${labelStr}</div>
+          <div class="t-dot ${d.color}"></div>
+          <div class="t-time">${timeStr}</div>
+        `;
+        scroll.appendChild(el);
+      });
+      
+      block.appendChild(scroll);
+      timelinesWrapper.appendChild(block);
+      setTimeout(() => scroll.scrollLeft = scroll.scrollWidth, 50);
+    });
+  }
+
+  function renderWorkerTable() {
+    workerBody.innerHTML = '';
+    if (!currentUserId || !workersCache) {
+      workerBody.innerHTML = '<tr class="empty-row"><td colspan="9">No data yet.</td></tr>';
+      return;
+    }
+
+    const rows = Object.keys(workersCache).map(name => {
+      const w = workersCache[name];
+      const mins = w.workMs > 0 ? w.workMs / 60000 : 0;
+      const avg = mins > 0 ? w.count / mins : 0;
+      return { name, ...w, avg };
+    }).sort((a,b) => (b.posts||0) - (a.posts||0) || b.avg - a.avg);
+
+    if (!rows.length) {
+      workerBody.innerHTML = '<tr class="empty-row"><td colspan="9">No data yet.</td></tr>';
+      return;
+    }
+
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const earnedAmount = (r.count * 0.036).toFixed(2);
+      tr.innerHTML = `
+        <td>${r.name}</td>
+        <td>${r.count}</td>
+        <td class="col-earned">€${earnedAmount}</td>
+        <td class="col-avg">${r.avg.toFixed(2)}</td>
+        <td class="col-green">${r.green}</td>
+        <td class="col-red">${r.red}</td>
+        <td class="col-blue">${r.blue}</td>
+        <td class="col-orange">${r.posts}</td>
+        <td class="col-work">${formatWorkDuration(r.workMs)}</td>`;
+      workerBody.appendChild(tr);
+    });
+  }
+
+  function attachWorkersListener(id) {
+    if (typeof workersUnsub === 'function') { workersUnsub(); workersUnsub = null; }
+    const workersRef = ref(db, `users/${id}/workers`);
+    const handler = snap => {
+      workersMeta = {};
+      snap.forEach(child => {
+        const v = child.val();
+        workersMeta[child.key] = { name: v.firstName || child.key, postClicks: v.postClicks || 0 };
+      });
+      renderWorkerTable();
+    };
+    onValue(workersRef, handler);
+    workersUnsub = () => off(workersRef, 'value', handler);
+  }
+
+  function attachMyPostsListener(id) {
+    if (typeof myPostsUnsub === 'function') { myPostsUnsub(); myPostsUnsub = null; }
+
+    let normalDots = [];
+    let orangeDots = [];
+
+    const normalRef = query(ref(db, `userPosts/${id}`), orderByChild('timestamp'));
+    const orangeRef = query(ref(db, `userPostClicks/${id}`), orderByChild('timestamp'));
+
+    const combineAndProcess = () => {
+        loaderOverlay.classList.add('hidden');
+        const allDots = [...normalDots, ...orangeDots].sort((a, b) => a.timestamp - b.timestamp);
+
+        let totalTeamDots = 0;
+        const workers = {};
+
+        allDots.forEach(d => {
+            if (d.color !== 'orange') totalTeamDots++;
+            const name = d.workerName || 'Unknown';
+            const key = name.toLowerCase();
+            
+            if (!workers[key]) {
+                workers[key] = { name, count: 0, green: 0, red: 0, blue: 0, earliest: d.timestamp, latest: d.timestamp, posts: getPostCountForName(name) };
+            }
+            const w = workers[key];
+            if (d.color !== 'orange') {
+                w.count++;
+                if (d.color === 'green') w.green++;
+                else if (d.color === 'blue') w.blue++;
+                else w.red++;
+                if (d.timestamp < w.earliest) w.earliest = d.timestamp;
+                if (d.timestamp > w.latest) w.latest = d.timestamp;
+            }
+        });
+
+        Object.keys(workersMeta).forEach(k => {
+            if (!workers[k]) {
+                workers[k] = { name: workersMeta[k].name, count: 0, green: 0, red: 0, blue: 0, earliest: Date.now(), latest: Date.now(), posts: workersMeta[k].postClicks || 0 };
+            } else {
+                workers[k].posts = workersMeta[k].postClicks || 0;
+            }
+        });
+
+        Object.values(workers).forEach(w => w.workMs = w.count > 0 ? Math.max(w.latest - w.earliest, 0) : 0);
+        workersCache = workers;
+
+        renderTimelines(allDots);
+        renderWorkerTable();
+
+        const TARGET_DOTS = 15000;
+        const TOTAL_BUDGET = 540;
+        const teamEarned = totalTeamDots * 0.036;
+        const remBudget = Math.max(0, TOTAL_BUDGET - teamEarned);
+
+        document.getElementById('totalDotsProgress').textContent = totalTeamDots;
+        document.getElementById('dotsBar').style.width = Math.min(100, (totalTeamDots / TARGET_DOTS) * 100) + '%';
+        document.getElementById('totalEarnedProgress').textContent = teamEarned.toFixed(2);
+        document.getElementById('remBudgetProgress').textContent = '€' + remBudget.toFixed(2);
+        document.getElementById('budgetBar').style.width = Math.min(100, (teamEarned / TOTAL_BUDGET) * 100) + '%';
+    };
+
+    const normalHandler = snap => {
+        normalDots = [];
+        snap.forEach(child => {
+            const v = child.val();
+            if (v && typeof v.lat === 'number') normalDots.push(v);
+        });
+        combineAndProcess();
+    };
+
+    const orangeHandler = snap => {
+        orangeDots = [];
+        snap.forEach(child => {
+            const v = child.val();
+            if (v && typeof v.lat === 'number') orangeDots.push(v);
+        });
+        combineAndProcess();
+    };
+
+    onValue(normalRef, normalHandler);
+    onValue(orangeRef, orangeHandler);
+
+    myPostsUnsub = () => { off(normalRef, 'value', normalHandler); off(orangeRef, 'value', orangeHandler); };
+  }
+
+  const LS_KEY = 'dotPoster:dashUserId';
+  function normalizeUserId(id) { return (id || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  function validateUserId(id) { return /^[A-Z0-9]{3,10}$/.test(id); }
+
+  function showLogin() {
+    loaderOverlay.classList.add('hidden');
+    loginBackdrop.classList.add('show');
+    userIdInput.value = '';
+    loginError.textContent = '';
+    
+    if (typeof myPostsUnsub === 'function') myPostsUnsub();
+    if (typeof workersUnsub === 'function') workersUnsub();
+    
+    currentUserId = null;
+    workersMeta = {};
+    workersCache = null;
+    userPill.style.display = 'none';
+    timelinesWrapper.innerHTML = '';
+    renderWorkerTable();
+  }
+
+  function hideLogin() { loginBackdrop.classList.remove('show'); }
+
+  async function registerUser(id) {
+    const userRef = ref(db, `users/${id}`);
+    try {
+      const snap = await get(userRef);
+      if (snap.exists()) await update(userRef, { lastDashActiveAt: Date.now() });
+      else await set(userRef, { createdAt: Date.now(), lastDashActiveAt: Date.now(), stats: { totalDots: 0, totalEarningsCents: 0 } });
+    } catch (e) { console.error('Register error', e); }
+  }
+
+  function onUserReady(id) {
+    loaderOverlay.classList.remove('hidden');
+    currentUserId = id;
+    localStorage.setItem(LS_KEY, id);
+    userPillText.textContent = id;
+    userPill.style.display = 'flex';
+    attachWorkersListener(id);
+    attachMyPostsListener(id);
+  }
+
+  const stored = normalizeUserId(localStorage.getItem(LS_KEY));
+  if (validateUserId(stored)) {
+    registerUser(stored).then(() => onUserReady(stored));
+  } else {
+    showLogin();
+  }
+
+  userJoinBtn.addEventListener('click', async () => {
+    loginError.textContent = '';
+    const id = normalizeUserId(userIdInput.value);
+    if (!validateUserId(id)) { loginError.textContent = 'Use 3–10 letters/numbers, e.g. FF001'; return; }
+    await registerUser(id);
+    onUserReady(id);
+    hideLogin();
+  });
+
+  userIdInput.addEventListener('keyup', e => { if (e.key === 'Enter') userJoinBtn.click(); });
+  changeUserBtn.addEventListener('click', () => {
+    localStorage.removeItem(LS_KEY);
+    showLogin();
+  });
+
+</script>
+</body>
+</html>
