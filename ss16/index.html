@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Worker Schedule & History</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root { 
+      --bg: #0b0b0e; 
+      --panel: #141419; 
+      --muted: #8b8b95; 
+      --text: #f2f2f7; 
+      --accent: #4f8cff; 
+      --accent-2: #7a5cff;
+      --sched-color: #f59e0b;
+      --missed-color: #ef4444; 
+      --long-shift-color: #10b981;
+      --pickup-color: #f472b6;
+      --radius-lg: 12px; 
+      --radius-md: 10px; 
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: env(safe-area-inset-top, 12px) 12px env(safe-area-inset-bottom, 12px);
+    }
+   
+    .loader-overlay {
+      position: fixed; inset: 0; background: var(--bg); z-index: 10000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;
+      transition: opacity 0.3s ease;
+    }
+    .loader-overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1);
+      border-left-color: var(--accent); border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .loader-text { font-weight: 600; color: var(--muted); font-size: 13px; letter-spacing: 0.5px; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* Ultra Compact Inline Add Shift Card */
+    .add-shift-card {
+      background: linear-gradient(180deg, #1c1c24 0%, var(--panel) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      max-width: 360px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .add-shift-header {
+      font-size: 12px; font-weight: 800; color: #fff; letter-spacing: 0.3px;
+      display: flex; align-items: center; gap: 4px; margin-bottom: 0;
+    }
+
+    .instruction-box {
+      font-size: 9px; color: #6ee7b7; background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px; padding: 4px 6px;
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      text-align: center; line-height: 1.2;
+    }
+
+    .form-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px 6px; align-items: end;
+    }
+
+    .input-col {
+      display: flex; flex-direction: column; gap: 2px;
+    }
+
+    .tiny-label {
+      font-size: 8px; color: var(--muted); font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; padding-left: 2px;
+    }
+
+    .form-input {
+      width: 100%; height: 30px; border-radius: 6px; padding: 0 8px;
+      border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3);
+      color: #fff; font-weight: 600; font-size: 10px; outline: none; transition: 0.2s;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .form-input:focus { border-color: var(--accent); background: rgba(79,140,255,0.05); }
+    
+    select.form-input { 
+      appearance: none; cursor: pointer; padding-right: 20px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b8b95' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 6px center; background-size: 10px;
+    }
+    select.form-input option { background-color: var(--panel); color: var(--text); font-size: 12px; }
+
+    /* City Toggle Checkbox */
+    .city-toggle-row {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px; padding: 6px 8px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+    .city-toggle-row:hover { border-color: rgba(79,140,255,0.3); background: rgba(79,140,255,0.04); }
+    .city-toggle-row.checked { 
+      border-color: rgba(16, 185, 129, 0.4); 
+      background: rgba(16, 185, 129, 0.07); 
+    }
+
+    .city-checkbox {
+      width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+      border: 1.5px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.18s;
+    }
+    .city-toggle-row.checked .city-checkbox {
+      background: #10b981; border-color: #10b981;
+    }
+    .city-checkbox svg { opacity: 0; transition: opacity 0.15s; }
+    .city-toggle-row.checked .city-checkbox svg { opacity: 1; }
+
+    .city-toggle-label {
+      font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.4px; line-height: 1.3; flex: 1;
+      transition: color 0.2s;
+    }
+    .city-toggle-row.checked .city-toggle-label { color: #6ee7b7; }
+
+    .city-preview-badge {
+      font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 999px;
+      letter-spacing: 0.4px; flex-shrink: 0; transition: all 0.2s;
+    }
+    .city-preview-badge.local {
+      color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3);
+    }
+    .city-preview-badge.all {
+      color: #6ee7b7; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
+    }
+
+    /* ── Pick up Toggle ── */
+    .pickup-toggle-row {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px; padding: 6px 8px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+    .pickup-toggle-row:hover { border-color: rgba(244,114,182,0.3); background: rgba(244,114,182,0.04); }
+    .pickup-toggle-row.checked {
+      border-color: rgba(244,114,182,0.45);
+      background: rgba(244,114,182,0.08);
+    }
+
+    .pickup-checkbox {
+      width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+      border: 1.5px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.18s;
+    }
+    .pickup-toggle-row.checked .pickup-checkbox {
+      background: var(--pickup-color); border-color: var(--pickup-color);
+    }
+    .pickup-checkbox svg { opacity: 0; transition: opacity 0.15s; }
+    .pickup-toggle-row.checked .pickup-checkbox svg { opacity: 1; }
+
+    .pickup-toggle-label {
+      font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.4px; line-height: 1.3; flex: 1;
+      transition: color 0.2s;
+    }
+    .pickup-toggle-row.checked .pickup-toggle-label { color: var(--pickup-color); }
+
+    .pickup-preview-badge {
+      font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 999px;
+      letter-spacing: 0.4px; flex-shrink: 0; transition: all 0.2s;
+    }
+    .pickup-preview-badge.off {
+      color: var(--muted); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    }
+    .pickup-preview-badge.on {
+      color: var(--pickup-color); background: rgba(244,114,182,0.15); border: 1px solid rgba(244,114,182,0.35);
+    }
+
+    .end-time-hint { font-size: 9px; color: var(--accent); font-weight: 700; text-align: center; margin-top: 2px; }
+
+    .btn-submit {
+      height: 30px; border-radius: 6px; border: 0; cursor: pointer; margin-top: 0;
+      font-weight: 800; font-size: 10px; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      transition: 0.2s; width: 100%; box-shadow: 0 2px 8px rgba(79,140,255,0.2);
+    }
+    .btn-submit:active { transform: scale(0.98); box-shadow: none; }
+
+    .cancel-notice {
+      font-size: 8px; color: #fca5a5; text-align: center; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.3px; margin-top: 0; opacity: 0.9;
+    }
+
+    /* Smaller Compact Search Bar */
+    .search-bar { display: flex; gap: 6px; flex-shrink: 0; }
+    .search-input {
+      flex: 1; height: 30px; border-radius: 6px; padding: 0 8px;
+      border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
+      color: var(--text); font-weight: 600; font-size: 11px; outline: none; transition: border-color 0.2s;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--muted); font-weight: 500; }
+
+    /* Header & Navigation */
+    #calendarNav { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 10px; background: rgba(255, 255, 255, .05);
+      border: 1px solid rgba(255, 255, 255, .08); border-radius: var(--radius-md);
+    }
+    .header-title { font-size: 13px; font-weight: 700; color: #e5e7ff; text-align: center; flex: 1; }
+    .nav-btn {
+      appearance: none; border: 0; cursor: pointer; padding: 6px 10px; border-radius: 6px;
+      background: rgba(255,255,255,0.07); color: #fff; font-size: 11px; font-weight: 700;
+      transition: transform 0.2s, background 0.2s; outline: none;
+    }
+    .nav-btn:active { transform: scale(.95); }
+    .nav-btn:hover { background: rgba(255,255,255,0.12); }
+
+    /* Week Strip M T W T F S S */
+    .week-strip {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 10px; background: rgba(255, 255, 255, .03);
+      border: 1px solid rgba(255, 255, 255, .06); border-radius: var(--radius-md);
+    }
+    .weekday-btn {
+      appearance: none; border: 0; background: transparent; cursor: pointer;
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-weight: 700; font-size: 11px; outline: none;
+      transition: background 0.2s, color 0.2s;
+    }
+    .weekday-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .weekday-btn.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff; box-shadow: 0 2px 6px rgba(79,140,255,0.3);
+    }
+
+    /* Container */
+    .schedule-container { display: flex; flex-direction: column; gap: 10px; flex: 1; padding-bottom: 20px; }
+    .day-card { background: var(--panel); border: 1px solid rgba(255, 255, 255, .06); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; }
+    .day-header {
+      background: linear-gradient(90deg, rgba(79,140,255,.1), rgba(122,92,255,.1));
+      padding: 8px 12px; font-size: 12px; font-weight: 700; color: #aab7ff;
+      border-bottom: 1px solid rgba(255, 255, 255, .06); display: flex; justify-content: space-between; align-items: center;
+    }
+    .day-header.today { background: linear-gradient(90deg, rgba(34,197,94,.15), rgba(16,185,129,.15)); color: #86efac; }
+    .day-content { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .empty-day { font-size: 11px; color: var(--muted); text-align: center; padding: 20px 0; font-style: italic; }
+    .search-results-title { font-size: 11px; font-weight: 700; color: #aab7ff; text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 4px 0; }
+
+    /* Shift Cards */
+    .shift-card {
+      background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .05);
+      border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .shift-card.scheduled { background: rgba(245, 158, 11, 0.06); border-color: rgba(245, 158, 11, 0.3); }
+    .shift-card.missed { background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2); }
+    .shift-card.long-shift { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3); }
+
+    /* ── Pickup shift card styling ── */
+    .shift-card.pickup-shift {
+      background: rgba(244, 114, 182, 0.07);
+      border-color: rgba(244, 114, 182, 0.35);
+    }
+
+    .shift-left { display: flex; flex-direction: column; gap: 4px; }
+    .worker-name { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+    .campaign-badge {
+      font-family: Menlo, Monaco, Consolas, monospace; font-size: 9px; font-weight: 800; color: #fde68a;
+      background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); padding: 2px 5px; border-radius: 999px; letter-spacing: 0.5px;
+    }
+
+    /* City badge replacing segment badge */
+    .city-badge {
+      font-family: Menlo, Monaco, monospace; font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 999px; letter-spacing: 0.5px;
+    }
+    .city-badge.local {
+      color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3);
+    }
+    .city-badge.all {
+      color: #6ee7b7; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
+    }
+
+    /* ── Pickup label badge ── */
+    .pickup-label-badge {
+      font-family: Menlo, Monaco, monospace; font-size: 9px; font-weight: 800; padding: 2px 6px;
+      border-radius: 999px; letter-spacing: 0.5px;
+      color: var(--pickup-color);
+      background: rgba(244, 114, 182, 0.15);
+      border: 1px solid rgba(244, 114, 182, 0.4);
+    }
+
+    /* ── Pickup time pill ── */
+    .shift-time.pickup-time {
+      color: var(--pickup-color);
+      background: rgba(244, 114, 182, 0.12);
+      border-color: rgba(244, 114, 182, 0.35);
+    }
+
+    .status-text { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px; }
+    .status-text.scheduled { color: var(--sched-color); }
+    .status-text.actual { color: #cbd5e1; }
+    .status-text.missed { color: var(--missed-color); }
+    .time-worked { font-size: 9px; color: #cbd5e1; font-weight: 500; display: flex; align-items: center; gap: 4px; }
+    .shift-card.long-shift .time-worked { color: #6ee7b7; font-weight: 600; }
+
+    .shift-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .shift-time {
+      font-size: 11px; font-weight: 600; color: #93c5fd; font-family: Menlo, Monaco, monospace;
+      background: rgba(59, 130, 246, 0.1); padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+    .shift-time.scheduled-time { color: #fcd34d; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); }
+    .shift-earnings {
+      font-size: 10px; font-weight: 800; color: #fcd34d; font-family: Menlo, Monaco, monospace;
+      background: rgba(252, 211, 77, 0.1); padding: 2px 5px; border-radius: 4px; border: 1px solid rgba(252, 211, 77, 0.2);
+    }
+
+    .toast { position:fixed; z-index:9999; left:50%; bottom:22px; transform:translateX(-50%); background:#1a1a22; border:1px solid rgba(255,255,255,.1); padding:8px 15px; border-radius:10px; color:var(--text); font-weight:600; font-size:12px; opacity:0; pointer-events:none; transition:opacity .2s ease,transform .2s ease; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(-4px); }
+
+  </style>
+</head>
+<body>
+
+<div id="loaderOverlay" class="loader-overlay">
+  <div class="spinner"></div>
+  <div class="loader-text">Loading data...</div>
+</div>
+
+<div class="app">
+  
+  <!-- Ultra Compact Add Shift Form -->
+  <div class="add-shift-card">
+    <div class="add-shift-header">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+      Schedule Shift
+    </div>
+    
+    <div class="instruction-box">
+      Select start time. 1 shift = 3 hours.
+    </div>
+    
+    <div class="form-grid">
+      <div class="input-col">
+        <span class="tiny-label">First Name</span>
+        <input type="text" id="schedWorker" class="form-input" placeholder="Enter name..." autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="input-col">
+        <span class="tiny-label">Select Date</span>
+        <input type="date" id="schedDate" class="form-input">
+      </div>
+      <div class="input-col">
+        <span class="tiny-label">Select Time</span>
+        <input type="time" id="schedTime" class="form-input">
+      </div>
+      <div class="input-col" style="justify-content: flex-end;">
+        <!-- spacer to keep grid aligned -->
+      </div>
+    </div>
+
+    <!-- City willingness toggle -->
+    <div id="cityToggleRow" class="city-toggle-row" onclick="toggleCity()">
+      <div class="city-checkbox" id="cityCheckbox">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <div class="city-toggle-label">Willing to work in other cities beyond Local area, if a higher salary is offered</div>
+      <div class="city-preview-badge local" id="cityPreviewBadge">Local</div>
+    </div>
+
+    <!-- Pick up toggle -->
+    <div id="pickupToggleRow" class="pickup-toggle-row" onclick="togglePickup()">
+      <div class="pickup-checkbox" id="pickupCheckbox">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <div class="pickup-toggle-label">Pick up</div>
+      <div class="pickup-preview-badge off" id="pickupPreviewBadge">Off</div>
+    </div>
+    
+    <div id="endTimeHint" class="end-time-hint">Ends: --:--</div>
+    <button id="btnSubmitShift" class="btn-submit">Confirm</button>
+    <div class="cancel-notice">To cancel added shifts, contact us in Staff Chat</div>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="search-bar">
+    <input type="text" id="searchCampaign" class="search-input" placeholder="Campaign ID..." autocomplete="off">
+    <input type="text" id="searchWorker" class="search-input" placeholder="Worker Name..." autocomplete="off">
+  </div>
+
+  <!-- Daily Navigation Container -->
+  <div id="calendarNav">
+    <header>
+      <button id="btnPrev" class="nav-btn">&larr; Back</button>
+      <div id="dayLabel" class="header-title">Loading...</div>
+      <button id="btnNext" class="nav-btn">Next &rarr;</button>
+    </header>
+    <div id="weekStrip" class="week-strip">
+      <!-- Weekday buttons generated by JS -->
+    </div>
+  </div>
+
+  <div id="searchResultsTitle" class="search-results-title" style="display: none;">All Matching Shifts</div>
+
+  <!-- Content Container -->
+  <div id="scheduleContainer" class="schedule-container"></div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Firebase SDKs -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, get, push, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // DOM
+  const btnPrev = document.getElementById('btnPrev');
+  const btnNext = document.getElementById('btnNext');
+  const dayLabel = document.getElementById('dayLabel');
+  const weekStrip = document.getElementById('weekStrip');
+  const scheduleContainer = document.getElementById('scheduleContainer');
+  const loaderOverlay = document.getElementById('loaderOverlay');
+  const searchCampaign = document.getElementById('searchCampaign');
+  const searchWorker = document.getElementById('searchWorker');
+  const calendarNav = document.getElementById('calendarNav');
+  const searchResultsTitle = document.getElementById('searchResultsTitle');
+  const toastEl = document.getElementById('toast');
+
+  const btnSubmitShift = document.getElementById('btnSubmitShift');
+  const schedWorker = document.getElementById('schedWorker');
+  const schedDate = document.getElementById('schedDate');
+  const schedTime = document.getElementById('schedTime');
+  const endTimeHint = document.getElementById('endTimeHint');
+  const cityToggleRow = document.getElementById('cityToggleRow');
+  const cityPreviewBadge = document.getElementById('cityPreviewBadge');
+  const pickupToggleRow = document.getElementById('pickupToggleRow');
+  const pickupPreviewBadge = document.getElementById('pickupPreviewBadge');
+
+  // Toggle states
+  let cityWilling = false;
+  let isPickup = false;
+
+  window.toggleCity = function() {
+    cityWilling = !cityWilling;
+    cityToggleRow.classList.toggle('checked', cityWilling);
+    if (cityWilling) {
+      cityPreviewBadge.textContent = 'All';
+      cityPreviewBadge.className = 'city-preview-badge all';
+    } else {
+      cityPreviewBadge.textContent = 'Local';
+      cityPreviewBadge.className = 'city-preview-badge local';
+    }
+  };
+
+  window.togglePickup = function() {
+    isPickup = !isPickup;
+    pickupToggleRow.classList.toggle('checked', isPickup);
+    if (isPickup) {
+      pickupPreviewBadge.textContent = 'On';
+      pickupPreviewBadge.className = 'pickup-preview-badge on';
+    } else {
+      pickupPreviewBadge.textContent = 'Off';
+      pickupPreviewBadge.className = 'pickup-preview-badge off';
+    }
+  };
+
+  // Set default date
+  schedDate.value = toDateString(new Date());
+
+  // Auto Calculate End Time Hint
+  schedTime.addEventListener('input', () => {
+    if(!schedTime.value) {
+      endTimeHint.textContent = 'Ends: --:--';
+      return;
+    }
+    const [h, m] = schedTime.value.split(':');
+    let endH = (parseInt(h, 10) + 3) % 24;
+    endTimeHint.textContent = `Ends: ${String(endH).padStart(2,'0')}:${m}`;
+  });
+
+  // State
+  let currentViewDate = new Date();
+  let unifiedShiftsByDate = {}; 
+
+  // Utilities
+  function showToast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); setTimeout(() => toastEl.classList.remove('show'), 2500); }
+  function formatLocalTime(ts) { const d = new Date(ts); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+  function formatTimeWorked(minTs, maxTs) {
+    const ms = maxTs - minTs;
+    if (ms === 0) return "< 1m";
+    const totalMins = Math.floor(ms / 60000);
+    const h = Math.floor(totalMins / 60); const m = totalMins % 60;
+    if (h === 0) return `${m}m`; return `${h}h ${String(m).padStart(2, '0')}m`;
+  }
+  function getStartOfWeek(date) {
+    const d = new Date(date); const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
+  }
+  function addDays(date, days) { const r = new Date(date); r.setDate(r.getDate() + days); return r; }
+  function formatDateLabel(dateStr) { return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); }
+  function toDateString(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
+  function isToday(dateStr) { return dateStr === toDateString(new Date()); }
+
+  // Load & Merge Data
+  async function loadData() {
+    loaderOverlay.classList.remove('hidden');
+    try {
+      // Fetch from the correct paths: userPosts and userPostClicks
+      const [postsSnap, clicksSnap, schedSnap] = await Promise.all([
+        get(ref(db, 'userPosts')), 
+        get(ref(db, 'userPostClicks')),
+        get(ref(db, 'scheduledShifts'))
+      ]);
+      
+      const postsData = postsSnap.val() || {}; 
+      const clicksData = clicksSnap.val() || {}; 
+      const scheduledDataRaw = schedSnap.val() || {};
+      
+      const actualsMap = {}; 
+      const uniqueWorkers = new Set();
+      
+      // Helper function to process both normal dots and orange posts
+      const processDots = (dataNode) => {
+        Object.keys(dataNode).forEach(campaignId => {
+          Object.keys(dataNode[campaignId]).forEach(dotKey => {
+            const dot = dataNode[campaignId][dotKey];
+            if (!dot.timestamp || !dot.workerName) return;
+            
+            const dateStr = toDateString(new Date(dot.timestamp));
+            const workerName = dot.workerName.trim();
+            uniqueWorkers.add(workerName);
+            const key = `${workerName.toLowerCase()}_${campaignId.toLowerCase()}`;
+            
+            if (!actualsMap[dateStr]) actualsMap[dateStr] = {};
+            if (!actualsMap[dateStr][key]) {
+              actualsMap[dateStr][key] = { 
+                minTs: dot.timestamp, maxTs: dot.timestamp, 
+                worker: workerName, campaign: campaignId, validDots: 0 
+              };
+            }
+            
+            if (dot.timestamp < actualsMap[dateStr][key].minTs) actualsMap[dateStr][key].minTs = dot.timestamp;
+            if (dot.timestamp > actualsMap[dateStr][key].maxTs) actualsMap[dateStr][key].maxTs = dot.timestamp;
+            if (dot.color !== 'orange') actualsMap[dateStr][key].validDots++;
+          });
+        });
+      };
+
+      // Process both datasets
+      processDots(postsData);
+      processDots(clicksData);
+
+      unifiedShiftsByDate = {};
+      const now = new Date();
+      Object.keys(actualsMap).forEach(d => { if(!unifiedShiftsByDate[d]) unifiedShiftsByDate[d] = []; });
+
+      // Match scheduled
+      Object.values(scheduledDataRaw).forEach(sched => {
+        if (sched.worker) uniqueWorkers.add(sched.worker.trim());
+        const dStr = sched.date;
+        if (!unifiedShiftsByDate[dStr]) unifiedShiftsByDate[dStr] = [];
+        
+        const schedDateTime = new Date(`${dStr}T${sched.time}`);
+        const isPast = schedDateTime < now;
+        
+        // Calculate the 3-hour window display
+        let displaySchedTime = sched.time;
+        if (sched.time && sched.time.includes(':')) {
+          const [sh, sm] = sched.time.split(':');
+          const endH = (parseInt(sh, 10) + 3) % 24;
+          displaySchedTime = `${sched.time} - ${String(endH).padStart(2,'0')}:${sm}`;
+        }
+
+        let actualMatch = null;
+        if(actualsMap[dStr]) {
+            const keys = Object.keys(actualsMap[dStr]);
+            for(let k of keys) {
+                if(actualsMap[dStr][k].worker.toLowerCase() === sched.worker.toLowerCase()) {
+                    actualMatch = actualsMap[dStr][k];
+                    break;
+                }
+            }
+        }
+
+        // cityWilling: true = "All", false = "Local"
+        const cityScope = sched.cityWilling === true ? 'all' : 'local';
+        // pickup flag
+        const pickupFlag = sched.isPickup === true;
+
+        if (actualMatch) {
+          actualMatch.cityScope = cityScope;
+          actualMatch.wasScheduled = true;
+          actualMatch.schedTime = displaySchedTime;
+          actualMatch.isPickup = pickupFlag;
+        } else {
+          unifiedShiftsByDate[dStr].push({
+            type: isPast ? 'missed' : 'scheduled',
+            worker: sched.worker,
+            campaign: '',
+            cityScope,
+            scheduledTime: displaySchedTime,
+            isPickup: pickupFlag,
+            startTimeOnly: sched.time   // raw start time for pickup display
+          });
+        }
+      });
+
+      Object.keys(actualsMap).forEach(dateStr => {
+        Object.values(actualsMap[dateStr]).forEach(act => {
+          const shiftDurationMs = act.maxTs - act.minTs;
+          unifiedShiftsByDate[dateStr].push({
+            type: 'actual', worker: act.worker, campaign: act.campaign, cityScope: act.cityScope, scheduledTime: act.schedTime,
+            startTime: formatLocalTime(act.minTs), endTime: act.minTs === act.maxTs ? "Single Action" : formatLocalTime(act.maxTs),
+            timeWorkedStr: formatTimeWorked(act.minTs, act.maxTs), earnings: act.validDots * 0.036, isLong: shiftDurationMs >= 3600000,
+            isPickup: act.isPickup || false
+          });
+        });
+      });
+
+      Object.keys(unifiedShiftsByDate).forEach(d => {
+        unifiedShiftsByDate[d].sort((a,b) => {
+          const tA = a.startTime || a.scheduledTime || ""; const tB = b.startTime || b.scheduledTime || ""; return tA.localeCompare(tB);
+        });
+      });
+
+      updateView();
+    } catch (e) {
+      console.error(e); showToast("Error loading data");
+    } finally {
+      loaderOverlay.classList.add('hidden');
+    }
+  }
+
+  function populateWorkerDropdown(workersSet) {
+    // Free-text input — no dropdown to populate
+  }
+
+  // Submit Logic
+  btnSubmitShift.addEventListener('click', async () => {
+    const worker = schedWorker.value, date = schedDate.value, time = schedTime.value;
+    if(!worker || !date || !time) return showToast("Please fill all fields.");
+    try {
+      btnSubmitShift.disabled = true;
+      btnSubmitShift.textContent = "Scheduling...";
+      await set(push(ref(db, 'scheduledShifts')), { worker, date, time, cityWilling, isPickup, timestamp: Date.now() });
+      showToast("Shift Scheduled!"); 
+      
+      schedWorker.value = ''; schedWorker.blur(); schedTime.value = '';
+      cityWilling = false;
+      cityToggleRow.classList.remove('checked');
+      cityPreviewBadge.textContent = 'Local';
+      cityPreviewBadge.className = 'city-preview-badge local';
+
+      isPickup = false;
+      pickupToggleRow.classList.remove('checked');
+      pickupPreviewBadge.textContent = 'Off';
+      pickupPreviewBadge.className = 'pickup-preview-badge off';
+
+      endTimeHint.textContent = 'Ends: --:--';
+      loadData(); 
+    } catch(e) { 
+      showToast("Failed to save."); console.error(e); 
+    } finally { 
+      btnSubmitShift.disabled = false;
+      btnSubmitShift.textContent = "Confirm";
+    }
+  });
+
+  // --- Rendering UI ---
+  function createShiftCardHTML(shift) {
+    let statusHTML = '', timeHTML = '', earningsHTML = '', extraClasses = '';
+
+    // Pickup badge (shown in worker name row for pickup entries)
+    const pickupBadge = shift.isPickup
+      ? `<span class="pickup-label-badge">&#128661; Pickup</span>`
+      : '';
+
+    if (shift.type === 'scheduled') {
+      extraClasses = 'scheduled' + (shift.isPickup ? ' pickup-shift' : '');
+      statusHTML = `<div class="status-text scheduled"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Shift Accepted</div>`;
+      // Pickup: show only start time; normal: show full range
+      if (shift.isPickup) {
+        const startOnly = shift.startTimeOnly || (shift.scheduledTime ? shift.scheduledTime.split(' - ')[0] : '');
+        timeHTML = `<div class="shift-time pickup-time">${startOnly}</div>`;
+      } else {
+        timeHTML = `<div class="shift-time scheduled-time">${shift.scheduledTime}</div>`;
+      }
+    } else if (shift.type === 'missed') {
+      extraClasses = 'missed' + (shift.isPickup ? ' pickup-shift' : '');
+      statusHTML = `<div class="status-text missed">No Data Recorded</div>`;
+      if (shift.isPickup) {
+        const startOnly = shift.startTimeOnly || (shift.scheduledTime ? shift.scheduledTime.split(' - ')[0] : '');
+        timeHTML = `<div class="shift-time pickup-time">${startOnly}</div>`;
+      } else {
+        timeHTML = `<div class="shift-time">${shift.scheduledTime}</div>`;
+      }
+    } else {
+      // actual
+      if (shift.isPickup) extraClasses += ' pickup-shift';
+      if (shift.isLong && !shift.isPickup) extraClasses += ' long-shift';
+      statusHTML = `<div class="time-worked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Worked: ${shift.timeWorkedStr}</div>`;
+      if (shift.isPickup) {
+        // Only show start time for pickup entries
+        timeHTML = `<div class="shift-time pickup-time">${shift.startTime}</div>`;
+      } else {
+        timeHTML = `<div class="shift-time">${shift.endTime === "Single Action" ? shift.startTime : `${shift.startTime} - ${shift.endTime}`}</div>`;
+      }
+      earningsHTML = `<div class="shift-earnings">€${(shift.earnings || 0).toFixed(2)}</div>`;
+    }
+    
+    const campBadge = shift.campaign ? `<span class="campaign-badge">${shift.campaign}</span>` : '';
+
+    // City badge
+    let cityBadge = '';
+    if (shift.cityScope === 'all') {
+      cityBadge = `<span class="city-badge all">All</span>`;
+    } else if (shift.cityScope === 'local' || shift.cityScope) {
+      cityBadge = `<span class="city-badge local">Local</span>`;
+    }
+    
+    return `
+      <div class="shift-card ${extraClasses}">
+        <div class="shift-left">
+          <div class="worker-name">${shift.worker} ${campBadge}${cityBadge}${pickupBadge}</div>
+          ${statusHTML}
+        </div>
+        <div class="shift-right">${timeHTML}${earningsHTML}</div>
+      </div>
+    `;
+  }
+
+  function renderDay() {
+    calendarNav.style.display = 'flex';
+    searchResultsTitle.style.display = 'none';
+    
+    const dateStr = toDateString(currentViewDate);
+    dayLabel.textContent = formatDateLabel(dateStr);
+
+    weekStrip.innerHTML = '';
+    const startOfWeek = getStartOfWeek(currentViewDate);
+    const dayLetters = ['M','T','W','T','F','S','S'];
+    
+    for(let i=0; i<7; i++){
+      const d = addDays(startOfWeek, i);
+      const isSelected = toDateString(d) === dateStr;
+      const btn = document.createElement('button');
+      btn.className = `weekday-btn ${isSelected ? 'active' : ''}`;
+      btn.textContent = dayLetters[i];
+      btn.onclick = () => { currentViewDate = d; updateView(); };
+      weekStrip.appendChild(btn);
+    }
+
+    scheduleContainer.innerHTML = '';
+    const shifts = unifiedShiftsByDate[dateStr] || [];
+    const isDayToday = isToday(dateStr);
+
+    const dayCard = document.createElement('div');
+    dayCard.className = 'day-card';
+    dayCard.innerHTML = `
+      <div class="day-header ${isDayToday ? 'today' : ''}">
+        <span>${formatDateLabel(dateStr)}</span>
+        ${isDayToday ? '<span style="font-size:9px; font-weight:800; background:rgba(34,197,94,0.2); padding:2px 6px; border-radius:4px;">TODAY</span>' : ''}
+      </div>
+      <div class="day-content">
+        ${shifts.length === 0 ? `<div class="empty-day">No shifts on this date.</div>` : shifts.map(createShiftCardHTML).join('')}
+      </div>
+    `;
+    scheduleContainer.appendChild(dayCard);
+  }
+
+  function renderFilteredSearch(campaignQuery, workerQuery) {
+    calendarNav.style.display = 'none';
+    searchResultsTitle.style.display = 'block';
+    scheduleContainer.innerHTML = '';
+
+    const allDates = Object.keys(unifiedShiftsByDate).sort().reverse();
+    let totalFound = 0;
+
+    allDates.forEach(dateStr => {
+      const matchedShifts = unifiedShiftsByDate[dateStr].filter(s => {
+        const cMatch = campaignQuery === '' || (s.campaign && s.campaign.toLowerCase().includes(campaignQuery));
+        const wMatch = workerQuery === '' || s.worker.toLowerCase().includes(workerQuery);
+        return cMatch && wMatch;
+      });
+
+      if (matchedShifts.length > 0) {
+        totalFound += matchedShifts.length;
+        const dayCard = document.createElement('div');
+        dayCard.className = 'day-card';
+        dayCard.innerHTML = `
+          <div class="day-header ${isToday(dateStr) ? 'today' : ''}"><span>${formatDateLabel(dateStr)}</span></div>
+          <div class="day-content">${matchedShifts.map(createShiftCardHTML).join('')}</div>
+        `;
+        scheduleContainer.appendChild(dayCard);
+      }
+    });
+
+    if (totalFound === 0) scheduleContainer.innerHTML = `<div class="day-card" style="padding: 20px; text-align: center; color: var(--muted); font-size: 11px;">No shifts found.</div>`;
+  }
+
+  function updateView() {
+    const campQuery = searchCampaign.value.trim().toLowerCase();
+    const workerQuery = searchWorker.value.trim().toLowerCase();
+    if (campQuery || workerQuery) renderFilteredSearch(campQuery, workerQuery);
+    else renderDay();
+  }
+
+  btnPrev.addEventListener('click', () => { currentViewDate = addDays(currentViewDate, -1); updateView(); });
+  btnNext.addEventListener('click', () => { currentViewDate = addDays(currentViewDate, 1); updateView(); });
+  searchCampaign.addEventListener('input', updateView);
+  searchWorker.addEventListener('input', updateView);
+
+  loadData();
+</script>
+</body>
+</html>
