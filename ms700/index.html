@@ -133,7 +133,7 @@
     .btn-bonus{background:linear-gradient(135deg,#1f84f7,#3b82f6);}
     @keyframes pulse{0%{opacity:.9;transform:scale(1);}50%{opacity:.25;transform:scale(1.05);}100%{opacity:.9;transform:scale(1);}}
     
-    /* Stats Row: Grouped Worker Earnings and Dots */
+    /* Stats Row: Grouped Worker Stats */
     .stats-card {
       background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: var(--radius-md);
       padding: 10px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; margin-top: 2px;
@@ -144,6 +144,7 @@
     .stat-value.earned { color: #fcd34d; }
     .stat-value.total { color: #10b981; }
     .stat-value.dots { color: #4f8cff; }
+    .stat-value.conns { color: #f97316; }
     .stat-divider { width: 1px; height: 28px; background: rgba(255,255,255,.1); }
 
     /* Campaign Progress & Connections */
@@ -263,6 +264,12 @@
         <circle cx="12" cy="13" r="4"></circle>
       </svg>
     </button>
+    <button id="btnLatestDot" class="icon-btn" title="Latest Dot">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>
+    </button>
   </div>
 
   <div class="controls">
@@ -285,7 +292,7 @@
     </button>
   </div>
 
-  <!-- Grouped Stats Row -->
+  <!-- Grouped Stats Row 1: Dots & Earnings -->
   <div class="stats-card">
     <div class="stat-box">
       <div class="stat-label">Today's Dots</div>
@@ -300,6 +307,24 @@
     <div class="stat-box">
       <div class="stat-label">Total Earned</div>
       <div class="stat-value total" id="totalWorkerEarnings">€0.00</div>
+    </div>
+  </div>
+
+  <!-- Grouped Stats Row 2: Connections & CPC -->
+  <div class="stats-card" style="margin-top:4px;">
+    <div class="stat-box">
+      <div class="stat-label">Today's Conns</div>
+      <div class="stat-value conns" id="todayWorkerConns">0</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-box">
+      <div class="stat-label">Total Conns</div>
+      <div class="stat-value conns" id="totalWorkerConns">0</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-box">
+      <div class="stat-label">CPC</div>
+      <div class="stat-value total" id="cpcValue">€0.00</div>
     </div>
   </div>
 
@@ -321,7 +346,7 @@
     
     <div style="height:1px; background:rgba(255,255,255,0.1); margin: 8px 0 6px;"></div>
     
-    <!-- Connections Block -->
+    <!-- Team Connections -->
     <div class="camp-header">
       <span class="camp-title" style="color:#f97316;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
@@ -330,20 +355,10 @@
       <span class="camp-percent" id="connCount" style="color:#f97316; font-size:15px;">0</span>
     </div>
 
-    <div style="height:1px; background:rgba(255,255,255,0.1); margin: 6px 0 8px;"></div>
-    
-    <!-- CPC and Motivation -->
-    <div class="camp-header">
-      <span class="camp-title" style="color:#aab7ff;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-        Cost Per Connection (CPC)
-      </span>
-      <span class="camp-percent" id="cpcValue" style="color:#aab7ff; font-size:15px;">€0.00</span>
-    </div>
-    
+    <!-- CPC Motivation Box -->
     <div class="cpc-info">
       <strong style="color:#fcd34d;">💡 Boost your rank!</strong> 
-      A lower CPC indicates high efficiency and top-tier job quality. Making more connections lowers your CPC, significantly increasing your chances for <strong style="color:#fff;">more shifts and future promotions!</strong>
+      A lower CPC (Cost Per Connection) indicates high efficiency and top-tier job quality. Making more connections lowers your CPC, significantly increasing your chances for <strong style="color:#fff;">more shifts and future promotions!</strong>
     </div>
 
   </div>
@@ -470,6 +485,8 @@
   const todayWorkerDotsEl = document.getElementById('todayWorkerDots');
   const todayWorkerEarningsEl = document.getElementById('todayWorkerEarnings');
   const totalWorkerEarningsEl = document.getElementById('totalWorkerEarnings');
+  const todayWorkerConnsEl = document.getElementById('todayWorkerConns');
+  const totalWorkerConnsEl = document.getElementById('totalWorkerConns');
   const cpcValueEl = document.getElementById('cpcValue');
   
   // Progress bindings
@@ -478,7 +495,7 @@
   const campRemEl = document.getElementById('campRem');
   const connCountEl = document.getElementById('connCount');
 
-  // Chat/Proof bindings
+  // Chat/Proof/Latest Dot bindings
   const chatBtn = document.getElementById('chatBtn');
   const chatBadge = document.getElementById('chatBadge');
   const chatBackdrop = document.getElementById('chatBackdrop');
@@ -487,6 +504,7 @@
   const chatInput = document.getElementById('chatInput');
   const chatSendBtn = document.getElementById('chatSendBtn');
   const cameraBtn = document.getElementById('cameraBtn');
+  const btnLatestDot = document.getElementById('btnLatestDot');
   const proofBackdrop = document.getElementById('proofBackdrop');
   const proofUrlInput = document.getElementById('proofUrlInput');
   const proofSubmitBtn = document.getElementById('proofSubmitBtn');
@@ -501,6 +519,8 @@
   const postsLayer = L.layerGroup().addTo(map);
   const distMarkersLayer = L.layerGroup().addTo(map);
   const zoneLayers = {};
+
+  let latestDotLatLng = null; // Track latest dot
 
   function hideLoader() { loaderOverlay.classList.add('hidden'); }
 
@@ -741,9 +761,12 @@
     
     let todayGroupDotsCount = 0;
     let totalGroupDotsCount = 0;
+    let todayGroupPostsCount = 0;
     let totalGroupPostsCount = 0;
 
     const baseName = currentWorkerName ? currentWorkerName.replace(/[0-9]/g, '').toLowerCase() : '';
+    
+    let highestTimestamp = 0;
 
     if (currentWorkerName && allDots?.length) {
       const exactWorkerName = currentWorkerName.toLowerCase();
@@ -751,24 +774,28 @@
       allDots.forEach(p => {
         const pWorkerLower = (p.workerName || '').toLowerCase();
         
-        // specific exact worker for buttons (only today's session technically, but we count all specific worker posts)
+        // Exact worker for buttons tracking
         if (pWorkerLower === exactWorkerName) {
           if(p.color === 'green') greenC++;
           else if(p.color === 'red') redC++;
           else if(p.color === 'blue') blueC++;
           else if(p.color === 'orange') orangeC++;
+
+          if (p.timestamp > highestTimestamp) {
+            highestTimestamp = p.timestamp;
+            latestDotLatLng = [p.lat, p.lng];
+          }
         }
 
-        // group logic for stats row
+        // Group logic for stats rows
         const wBaseName = pWorkerLower.replace(/[0-9]/g, '');
         if (wBaseName === baseName) {
             if (p.color !== 'orange') {
                 totalGroupDotsCount++;
-                if (isToday(p.timestamp)) {
-                    todayGroupDotsCount++;
-                }
+                if (isToday(p.timestamp)) todayGroupDotsCount++;
             } else {
                 totalGroupPostsCount++;
+                if (isToday(p.timestamp)) todayGroupPostsCount++;
             }
         }
       });
@@ -809,6 +836,10 @@
     const totalWorkerEarnings = totalGroupDotsCount * 0.036;
     totalWorkerEarningsEl.textContent = '€' + totalWorkerEarnings.toFixed(2);
 
+    // Connections Updates
+    todayWorkerConnsEl.textContent = todayGroupPostsCount;
+    totalWorkerConnsEl.textContent = totalGroupPostsCount;
+
     // Cost Per Connection Update
     const cpc = totalGroupPostsCount > 0 ? (totalWorkerEarnings / totalGroupPostsCount) : null;
     cpcValueEl.textContent = cpc !== null ? '€' + cpc.toFixed(2) : '—';
@@ -823,7 +854,7 @@
     campBarEl.style.width = percentage + '%';
     campRemEl.textContent = remaining.toFixed(1) + '% Remaining';
 
-    // Connections
+    // Team Connections
     connCountEl.textContent = totalTeamPosts;
   }
   
@@ -862,6 +893,7 @@
 
     const combineAndProcess = () => {
       hideLoader();
+      latestDotLatLng = null; // Reset before calculating
       const allDots = [...normalDots, ...orangeDots].sort((a, b) => a.timestamp - b.timestamp);
 
       let totalTeamDots = 0;
@@ -896,7 +928,8 @@
     updateWorkerUi(); postsLayer.clearLayers();
     sessionTimerEl.textContent = '00:00:00'; sessionAvgEl.textContent = '—'; sessionTotalEl.textContent = '0'; earnPerHourEl.textContent = '€0.00';
     todayWorkerDotsEl.textContent = '0'; todayWorkerEarningsEl.textContent = '€0.00'; totalWorkerEarningsEl.textContent = '€0.00';
-    cpcValueEl.textContent = '€0.00';
+    todayWorkerConnsEl.textContent = '0'; totalWorkerConnsEl.textContent = '0'; cpcValueEl.textContent = '€0.00';
+    latestDotLatLng = null;
     updateCampaignProgress(0, 0);
   }
   function hideLogin() { loginBackdrop.classList.remove('show'); }
@@ -966,6 +999,16 @@
       await push(ref(proofDb, `campaigns/${cId}/proofs`), { url, lat: currentLatLng[0], lng: currentLatLng[1], timestamp: Date.now() });
       showToast('Proof submitted!'); proofBackdrop.classList.remove('show');
     } catch (e) { proofError.textContent = 'Failed to submit'; } finally { proofSubmitBtn.disabled = false; proofSubmitBtn.textContent = 'Submit'; }
+  });
+
+  // Latest Dot navigation
+  btnLatestDot.addEventListener('click', () => {
+    if (latestDotLatLng) {
+      map.flyTo(latestDotLatLng, 18, { animate: true, duration: 1 });
+      showToast('Moved to latest dot');
+    } else {
+      showToast('No dots posted yet');
+    }
   });
 
   function ensureLocMarker(latlng) {
