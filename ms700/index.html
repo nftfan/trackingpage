@@ -75,10 +75,9 @@
     .zone-nav{display:flex;align-items:center;gap:6px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;overflow-x:auto;}
     .zone-nav::-webkit-scrollbar{display:none;}
     .zone-nav-label{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;}
-    .zone-nav-input{width:48px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:13px;text-align:center;padding:0 2px; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);}
+    .zone-nav-input{width:auto;min-width:60px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:13px;text-align:center;padding:0 6px; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);}
     .zone-nav-input:focus{outline:none;border-color:rgba(255,255,255,.14); transform: scale(1.03);}
-    .btn-zone-go{height:32px;padding:0 10px;border-radius:8px;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:11px;font-weight:700;transition:transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);white-space:nowrap;outline:none;}
-    .btn-zone-go:active{transform:scale(.92);}
+    .zone-nav-input option {background:#141419;color:#f2f2f7;}
     .divider-v{width:1px;height:20px;background:rgba(255,255,255,.1);margin:0 2px;}
 
     .icon-bar { display: flex; align-items: center; justify-content: space-evenly; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-md); padding: 6px; flex-shrink: 0; }
@@ -253,13 +252,15 @@
 
   <div class="zone-nav">
     <span class="zone-nav-label">Zone</span>
-    <input id="zoneInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
-    <button id="btnZoneGo" class="btn-zone-go">Go</button>
+    <select id="zoneSelect" class="zone-nav-input">
+      <option value="" disabled selected>—</option>
+    </select>
    
     <div class="divider-v"></div>
     <span class="zone-nav-label">Seg</span>
-    <input id="segInput" class="zone-nav-input" type="number" min="1" placeholder="№" inputmode="numeric">
-    <button id="btnSegGo" class="btn-zone-go">Focus</button>
+    <select id="segSelect" class="zone-nav-input">
+      <option value="" disabled selected>—</option>
+    </select>
   </div>
 
   <div class="icon-bar">
@@ -371,7 +372,7 @@
     <div class="camp-header">
       <span class="camp-title" style="color:#f97316;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-        Team Connections
+        Total Connections
       </span>
       <span class="camp-percent" id="connCount" style="color:#f97316; font-size:15px;">0</span>
     </div>
@@ -492,10 +493,8 @@
   const sessionAvgEl = document.getElementById('sessionAvg');
   const sessionTotalEl = document.getElementById('sessionTotal');
   const earnPerHourEl = document.getElementById('earnPerHour');
-  const zoneInput = document.getElementById('zoneInput');
-  const btnZoneGo = document.getElementById('btnZoneGo');
-  const segInput = document.getElementById('segInput');
-  const btnSegGo = document.getElementById('btnSegGo');
+  const zoneSelect = document.getElementById('zoneSelect');
+  const segSelect = document.getElementById('segSelect');
   const btnStartWorker = document.getElementById('btnStartWorker');
   const workerBackdrop = document.getElementById('workerBackdrop');
   const workerNameInput = document.getElementById('workerNameInput');
@@ -609,6 +608,7 @@
   function loadAndDrawPolygons() {
     get(ref(polyDb, 'polygons')).then(snapshot => {
       let idx = 1;
+      zoneSelect.innerHTML = '<option value="" disabled selected>—</option>';
       snapshot.forEach(child => {
         const raw = child.val();
         const coordsArr = Object.keys(raw).filter(k => !isNaN(Number(k))).sort((a,b)=>Number(a)-Number(b)).map(k => [raw[k].lat, raw[k].lng]);
@@ -617,6 +617,11 @@
         zoneLayers[String(idx)] = poly;
         const center = poly.getBounds().getCenter();
         L.marker(center, { icon: L.divIcon({ className:'poly-label', html:`<div class="poly-label-inner">Z${idx}</div>`, iconAnchor:[16,8] }), interactive:false }).addTo(polygonLayer);
+        
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = String(idx);
+        zoneSelect.appendChild(opt);
         idx++;
       });
     });
@@ -669,6 +674,7 @@
   function loadSegments() {
     get(ref(polyDb, 'segments')).then(snapshot => {
       let idx = 1;
+      segSelect.innerHTML = '<option value="" disabled selected>—</option>';
       snapshot.forEach(child => {
         const raw = child.val();
         const coords = Object.keys(raw).filter(k => !isNaN(Number(k))).sort((a,b)=>Number(a)-Number(b)).map(k => ({ lat: raw[k].lat, lng: raw[k].lng }));
@@ -684,7 +690,12 @@
         const segObj = { id: idx, poly: polyline, startSq, endSq, startLabel, endLabel };
         segments.push(segObj);
         
-        const focus = () => { isolateSegment(idx); showToast(`Focused Segment #${idx}`); };
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = String(idx);
+        segSelect.appendChild(opt);
+
+        const focus = () => { segSelect.value = String(idx); isolateSegment(idx); showToast(`Focused Segment #${idx}`); };
         [startSq, endSq, startLabel, endLabel, polyline].forEach(el => el.on('click', e => { focus(); L.DomEvent.stopPropagation(e); }));
         idx++;
       });
@@ -694,16 +705,18 @@
   loadAndDrawPolygons();
   loadSegments();
 
-  btnZoneGo.addEventListener('click', () => {
-    const n = parseInt(zoneInput.value, 10);
-    if (!n || !zoneLayers[String(n)]) { showToast('Invalid zone'); return; }
+  zoneSelect.addEventListener('change', (e) => {
+    const n = e.target.value;
+    if (!n || !zoneLayers[n]) { showToast('Invalid zone'); return; }
     if (!map.hasLayer(polygonLayer)) showAllSegments();
-    map.flyToBounds(zoneLayers[String(n)].getBounds(), { padding:[28,28], duration:0.9, maxZoom:17 });
+    map.flyToBounds(zoneLayers[n].getBounds(), { padding:[28,28], duration:0.9, maxZoom:17 });
   });
-  btnSegGo.addEventListener('click', () => {
-    const n = parseInt(segInput.value, 10);
+
+  segSelect.addEventListener('change', (e) => {
+    const n = parseInt(e.target.value, 10);
     if (isolateSegment(n)) showToast(`Focused Segment #${n}`); else showToast(`Segment not found`);
   });
+
   map.on('click', () => showAllSegments());
 
   let currentLatLng = null;
@@ -726,6 +739,7 @@
       localClicks = JSON.parse(localStorage.getItem(key)) || [];
       globalAbsDCount = parseInt(localStorage.getItem(`dotPoster:absD:${userId}`) || "0", 10);
       globalAbsPCount = parseInt(localStorage.getItem(`dotPoster:absP:${userId}`) || "0", 10);
+      if(localClicks.length > 50) localClicks = localClicks.slice(-50);
       renderLocalClicks();
     } catch(e) { localClicks = []; globalAbsDCount = 0; globalAbsPCount = 0; }
   }
@@ -754,7 +768,7 @@
         if (globalAbsDCount % 300 === 0) localClicks.push({ type: 'upload' });
     }
     
-    if(localClicks.length > 150) localClicks = localClicks.slice(-150); // Keep UI performant
+    if(localClicks.length > 50) localClicks = localClicks.slice(-50); // Keep UI performant with 50 items limit
     
     localStorage.setItem(`dotPoster:clicks:${currentUserId}`, JSON.stringify(localClicks));
     localStorage.setItem(`dotPoster:absD:${currentUserId}`, globalAbsDCount);
