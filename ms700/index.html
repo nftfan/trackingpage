@@ -88,6 +88,17 @@
     .badge { position: absolute; top: 0; right: 0; background: #ef4444; color: #fff; font-size: 9px; font-weight: 800; padding: 1px 4px; border-radius: 999px; transform: translate(-10%, 10%); display: none; }
     .badge.show { display: block; }
 
+    /* Click Pattern Bar */
+    .click-pattern-bar {
+      display: flex; align-items: center; gap: 8px; overflow-x: auto;
+      background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px; padding: 6px 8px; height: 36px; margin-bottom: -2px; scroll-behavior: smooth;
+    }
+    .click-pattern-bar::-webkit-scrollbar { display: none; }
+    .cp-item { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; }
+    .cp-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
+    .cp-label { font-size: 6px; font-weight: 800; font-family: Menlo, monospace; color: var(--muted); text-transform: uppercase; }
+
     .poly-label{background:transparent!important;border:none!important;box-shadow:none!important;}
     .poly-label-inner{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:rgba(239,68,68,.85);border:1px solid rgba(239,68,68,1);font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.03em;white-space:nowrap;pointer-events:none;}
     .segment-label{background:transparent!important;border:none!important;box-shadow:none!important;}
@@ -264,13 +275,16 @@
         <circle cx="12" cy="13" r="4"></circle>
       </svg>
     </button>
-    <button id="btnLatestDot" class="icon-btn" title="Latest Dot">
+    <button id="btnLatestDot" class="icon-btn" title="Go to Latest Campaign Dot">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"></circle>
         <circle cx="12" cy="12" r="3"></circle>
       </svg>
     </button>
   </div>
+
+  <!-- Click Pattern Local History Bar -->
+  <div id="clickPatternBar" class="click-pattern-bar"></div>
 
   <div class="controls">
     <button id="btnPost" class="btn-post" title="Post action">
@@ -510,6 +524,11 @@
   const proofSubmitBtn = document.getElementById('proofSubmitBtn');
   const proofError = document.getElementById('proofError');
 
+  // Click Pattern Local Storage Variables
+  let localClicks = [];
+  let localDCount = 0;
+  let localPCount = 0;
+
   const map = L.map('map', { zoomControl:false, attributionControl:false, tap:true }).setView([20,0],2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
   L.control.zoom({ position:'topright' }).addTo(map);
@@ -520,7 +539,7 @@
   const distMarkersLayer = L.layerGroup().addTo(map);
   const zoneLayers = {};
 
-  let latestDotLatLng = null; // Track latest dot
+  let latestDotLatLng = null; // Track absolute latest dot in the campaign
 
   function hideLoader() { loaderOverlay.classList.add('hidden'); }
 
@@ -690,6 +709,48 @@
   const blueStyle  = { radius:2.5, color:'#1e40af', weight:1, fillColor:'#1f84f7', fillOpacity:.9 };
   const orangeDotStyle = { radius:2.5, color:'#c2410c', weight:1, fillColor:'#f97316', fillOpacity:.9 };
 
+  // --- Clicking Pattern History ---
+  function loadLocalClicks(userId) {
+    try {
+      const key = `dotPoster:clicks:${userId}`;
+      localClicks = JSON.parse(localStorage.getItem(key)) || [];
+      localDCount = 0; localPCount = 0;
+      localClicks.forEach(c => { if (c.c === 'orange') localPCount++; else localDCount++; });
+      renderLocalClicks();
+    } catch(e) { localClicks = []; localDCount = 0; localPCount = 0; }
+  }
+
+  function addLocalClick(color) {
+    if (!currentUserId) return;
+    let label = '';
+    if (color === 'orange') { localPCount++; label = 'p' + localPCount; }
+    else { localDCount++; label = 'd' + localDCount; }
+    
+    localClicks.push({ c: color, l: label });
+    if(localClicks.length > 100) localClicks.shift(); // Keep UI performant
+    
+    localStorage.setItem(`dotPoster:clicks:${currentUserId}`, JSON.stringify(localClicks));
+    renderLocalClicks();
+  }
+
+  function renderLocalClicks() {
+    const bar = document.getElementById('clickPatternBar');
+    bar.innerHTML = '';
+    localClicks.forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'cp-item';
+      let bg = '#ef4444';
+      if(c.c==='green') bg='#22c55e';
+      if(c.c==='blue') bg='#3b82f6';
+      if(c.c==='orange') bg='#f97316';
+
+      item.innerHTML = `<div class="cp-dot" style="background:${bg}"></div><div class="cp-label">${c.l}</div>`;
+      bar.appendChild(item);
+    });
+    // Auto-scroll to latest
+    setTimeout(() => bar.scrollLeft = bar.scrollWidth, 10);
+  }
+
   function showToast(text) { toastEl.textContent = text; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 2500); }
   function showMapNotification(msg, colorHex) {
     const el = document.createElement('div'); el.className = 'map-notif'; el.innerHTML = `<span style="color:${colorHex}; margin-right:4px;">●</span> ${msg}`;
@@ -765,8 +826,6 @@
     let totalGroupPostsCount = 0;
 
     const baseName = currentWorkerName ? currentWorkerName.replace(/[0-9]/g, '').toLowerCase() : '';
-    
-    let highestTimestamp = 0;
 
     if (currentWorkerName && allDots?.length) {
       const exactWorkerName = currentWorkerName.toLowerCase();
@@ -780,11 +839,6 @@
           else if(p.color === 'red') redC++;
           else if(p.color === 'blue') blueC++;
           else if(p.color === 'orange') orangeC++;
-
-          if (p.timestamp > highestTimestamp) {
-            highestTimestamp = p.timestamp;
-            latestDotLatLng = [p.lat, p.lng];
-          }
         }
 
         // Group logic for stats rows
@@ -893,8 +947,14 @@
 
     const combineAndProcess = () => {
       hideLoader();
-      latestDotLatLng = null; // Reset before calculating
+      latestDotLatLng = null; // Reset before finding
       const allDots = [...normalDots, ...orangeDots].sort((a, b) => a.timestamp - b.timestamp);
+      
+      // Absolute latest dot in the campaign globally
+      if (allDots.length > 0) {
+        const absoluteLast = allDots[allDots.length - 1];
+        latestDotLatLng = [absoluteLast.lat, absoluteLast.lng];
+      }
 
       let totalTeamDots = 0;
       let totalTeamPosts = 0;
@@ -930,6 +990,7 @@
     todayWorkerDotsEl.textContent = '0'; todayWorkerEarningsEl.textContent = '€0.00'; totalWorkerEarningsEl.textContent = '€0.00';
     todayWorkerConnsEl.textContent = '0'; totalWorkerConnsEl.textContent = '0'; cpcValueEl.textContent = '€0.00';
     latestDotLatLng = null;
+    localClicks = []; renderLocalClicks();
     updateCampaignProgress(0, 0);
   }
   function hideLogin() { loginBackdrop.classList.remove('show'); }
@@ -945,6 +1006,7 @@
 
   function onUserReady(id) {
     currentUserId = id; localStorage.setItem(LS_KEY, id); userPillText.textContent = id; userPill.style.display = 'flex';
+    loadLocalClicks(id);
     attachMyPostsListener(id); attachChatListener(id);
     setPostEnabled(!!currentLatLng); goToCurrentLocation({ focus: true });
   }
@@ -1005,7 +1067,7 @@
   btnLatestDot.addEventListener('click', () => {
     if (latestDotLatLng) {
       map.flyTo(latestDotLatLng, 18, { animate: true, duration: 1 });
-      showToast('Moved to latest dot');
+      showToast('Moved to latest campaign dot');
     } else {
       showToast('No dots posted yet');
     }
@@ -1043,6 +1105,7 @@
     let msg = color==='green'?'✓ Yes posted':color==='blue'?'★ Bonus posted':color==='orange'?'✉ Post recorded':'✗ No posted';
     let pulseColor = color==='green'?'#22c55e':color==='blue'?'#1f84f7':color==='orange'?'#f97316':'#ef4444';
     showMapNotification(`${msg} (${currentWorkerName})`, pulseColor);
+    addLocalClick(color); // Add to local clicking pattern
     
     if (currentMarker) { const pulse = L.circle(currentMarker.getLatLng(), { radius:8, color:pulseColor, weight:1, opacity:.7, fillOpacity:0 }).addTo(map); setTimeout(() => map.removeLayer(pulse), 500); }
     
@@ -1062,6 +1125,7 @@
     countPost.textContent = parseInt(countPost.textContent||0) + 1;
 
     showMapNotification(`✉ Post recorded (${currentWorkerName})`, '#f97316');
+    addLocalClick('orange'); // Add to local clicking pattern
     if (currentMarker) { const pulse = L.circle(currentMarker.getLatLng(), { radius: 8, color: '#f97316', weight: 1, opacity: 0.7, fillOpacity: 0 }).addTo(map); setTimeout(() => map.removeLayer(pulse), 500); }
 
     const [lat, lng] = currentLatLng, now = Date.now();
