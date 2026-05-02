@@ -92,12 +92,17 @@
     .click-pattern-bar {
       display: flex; align-items: center; gap: 8px; overflow-x: auto;
       background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 8px; padding: 6px 8px; height: 36px; margin-bottom: -2px; scroll-behavior: smooth;
+      border-radius: 8px; padding: 6px 8px; height: 42px; margin-bottom: -2px; scroll-behavior: smooth;
     }
     .click-pattern-bar::-webkit-scrollbar { display: none; }
-    .cp-item { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; }
+    .cp-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; flex-shrink: 0; min-width: 14px; }
     .cp-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
+    .cp-square { width: 14px; height: 14px; border-radius: 3px; background: linear-gradient(135deg, #fb923c, #f97316); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; }
+    .cp-pause { background: #facc15; color: #451a03; font-size: 8px; font-weight: 800; padding: 2px 4px; border-radius: 4px; text-transform: uppercase; margin: 0 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
     .cp-label { font-size: 6px; font-weight: 800; font-family: Menlo, monospace; color: var(--muted); text-transform: uppercase; }
+
+    /* History Navigation Marker */
+    .history-marker { background: transparent !important; border: none !important; box-shadow: none !important; }
 
     .poly-label{background:transparent!important;border:none!important;box-shadow:none!important;}
     .poly-label-inner{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:rgba(239,68,68,.85);border:1px solid rgba(239,68,68,1);font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.03em;white-space:nowrap;pointer-events:none;}
@@ -275,7 +280,7 @@
         <circle cx="12" cy="13" r="4"></circle>
       </svg>
     </button>
-    <button id="btnLatestDot" class="icon-btn" title="Go to Latest Campaign Dot">
+    <button id="btnLatestDot" class="icon-btn" title="View Previous Campaign Dot">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"></circle>
         <circle cx="12" cy="12" r="3"></circle>
@@ -529,6 +534,11 @@
   let localDCount = 0;
   let localPCount = 0;
 
+  // History Navigation Variables
+  let globalAllDots = [];
+  let historyIndex = -1;
+  let historyMarker = null;
+
   const map = L.map('map', { zoomControl:false, attributionControl:false, tap:true }).setView([20,0],2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
   L.control.zoom({ position:'topright' }).addTo(map);
@@ -538,8 +548,6 @@
   const postsLayer = L.layerGroup().addTo(map);
   const distMarkersLayer = L.layerGroup().addTo(map);
   const zoneLayers = {};
-
-  let latestDotLatLng = null; // Track absolute latest dot in the campaign
 
   function hideLoader() { loaderOverlay.classList.add('hidden'); }
 
@@ -715,19 +723,33 @@
       const key = `dotPoster:clicks:${userId}`;
       localClicks = JSON.parse(localStorage.getItem(key)) || [];
       localDCount = 0; localPCount = 0;
-      localClicks.forEach(c => { if (c.c === 'orange') localPCount++; else localDCount++; });
+      localClicks.forEach(c => { 
+        if (c.type !== 'pause') {
+            if (c.c === 'orange') localPCount++; else localDCount++; 
+        }
+      });
       renderLocalClicks();
     } catch(e) { localClicks = []; localDCount = 0; localPCount = 0; }
   }
 
   function addLocalClick(color) {
     if (!currentUserId) return;
+    
+    let lastClickTs = localStorage.getItem(`dotPoster:lastClickTs:${currentUserId}`) || Date.now();
+    const now = Date.now();
+    
+    // Check for pause > 30 seconds
+    if (now - lastClickTs > 30000 && localClicks.length > 0) {
+       localClicks.push({ type: 'pause' });
+    }
+    localStorage.setItem(`dotPoster:lastClickTs:${currentUserId}`, now);
+
     let label = '';
     if (color === 'orange') { localPCount++; label = 'p' + localPCount; }
     else { localDCount++; label = 'd' + localDCount; }
     
     localClicks.push({ c: color, l: label });
-    if(localClicks.length > 100) localClicks.shift(); // Keep UI performant
+    if(localClicks.length > 150) localClicks = localClicks.slice(-150); // Keep UI performant
     
     localStorage.setItem(`dotPoster:clicks:${currentUserId}`, JSON.stringify(localClicks));
     renderLocalClicks();
@@ -739,16 +761,24 @@
     localClicks.forEach(c => {
       const item = document.createElement('div');
       item.className = 'cp-item';
-      let bg = '#ef4444';
-      if(c.c==='green') bg='#22c55e';
-      if(c.c==='blue') bg='#3b82f6';
-      if(c.c==='orange') bg='#f97316';
-
-      item.innerHTML = `<div class="cp-dot" style="background:${bg}"></div><div class="cp-label">${c.l}</div>`;
+      
+      if (c.type === 'pause') {
+        item.innerHTML = `<div class="cp-pause">Pause</div>`;
+        bar.appendChild(item);
+        return;
+      }
+      
+      if (c.c === 'orange') {
+        item.innerHTML = `<div class="cp-square"><svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></div><div class="cp-label">${c.l}</div>`;
+      } else {
+        let bg = c.c === 'green' ? '#22c55e' : c.c === 'blue' ? '#3b82f6' : '#ef4444';
+        item.innerHTML = `<div class="cp-dot" style="background:${bg}"></div><div class="cp-label">${c.l}</div>`;
+      }
       bar.appendChild(item);
     });
-    // Auto-scroll to latest
-    setTimeout(() => bar.scrollLeft = bar.scrollWidth, 10);
+    
+    // Smooth scroll to the right
+    setTimeout(() => { bar.scrollTo({ left: bar.scrollWidth, behavior: 'smooth' }); }, 10);
   }
 
   function showToast(text) { toastEl.textContent = text; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 2500); }
@@ -947,13 +977,12 @@
 
     const combineAndProcess = () => {
       hideLoader();
-      latestDotLatLng = null; // Reset before finding
       const allDots = [...normalDots, ...orangeDots].sort((a, b) => a.timestamp - b.timestamp);
       
-      // Absolute latest dot in the campaign globally
-      if (allDots.length > 0) {
-        const absoluteLast = allDots[allDots.length - 1];
-        latestDotLatLng = [absoluteLast.lat, absoluteLast.lng];
+      // Update global dots for reverse history navigation
+      globalAllDots = allDots;
+      if (historyIndex === -1 && globalAllDots.length > 0) {
+        historyIndex = globalAllDots.length - 1; // start at the most recent
       }
 
       let totalTeamDots = 0;
@@ -989,8 +1018,11 @@
     sessionTimerEl.textContent = '00:00:00'; sessionAvgEl.textContent = '—'; sessionTotalEl.textContent = '0'; earnPerHourEl.textContent = '€0.00';
     todayWorkerDotsEl.textContent = '0'; todayWorkerEarningsEl.textContent = '€0.00'; totalWorkerEarningsEl.textContent = '€0.00';
     todayWorkerConnsEl.textContent = '0'; totalWorkerConnsEl.textContent = '0'; cpcValueEl.textContent = '€0.00';
-    latestDotLatLng = null;
+    
+    globalAllDots = []; historyIndex = -1;
+    if (historyMarker) map.removeLayer(historyMarker);
     localClicks = []; renderLocalClicks();
+    
     updateCampaignProgress(0, 0);
   }
   function hideLogin() { loginBackdrop.classList.remove('show'); }
@@ -1063,14 +1095,39 @@
     } catch (e) { proofError.textContent = 'Failed to submit'; } finally { proofSubmitBtn.disabled = false; proofSubmitBtn.textContent = 'Submit'; }
   });
 
-  // Latest Dot navigation
+  // History / Previous Dot navigation
   btnLatestDot.addEventListener('click', () => {
-    if (latestDotLatLng) {
-      map.flyTo(latestDotLatLng, 18, { animate: true, duration: 1 });
-      showToast('Moved to latest campaign dot');
-    } else {
+    if (globalAllDots.length === 0) {
       showToast('No dots posted yet');
+      return;
     }
+    
+    // Wrap around to end if we went past 0
+    if (historyIndex < 0) {
+      historyIndex = globalAllDots.length - 1; 
+    }
+
+    const d = globalAllDots[historyIndex];
+    const latlng = [d.lat, d.lng];
+    map.flyTo(latlng, 18, { animate: true, duration: 1 });
+    
+    // Clean up old marker
+    if (historyMarker) map.removeLayer(historyMarker);
+    
+    // Add exact count label (1-based index)
+    const countLabel = historyIndex + 1;
+    const icon = L.divIcon({
+      className: 'history-marker',
+      html: `<div style="background:#fff;color:#000;padding:3px 6px;border-radius:4px;font-weight:900;font-size:10px;box-shadow:0 3px 6px rgba(0,0,0,0.5);">#${countLabel}</div>`,
+      iconSize: [40, 20],
+      iconAnchor: [20, 30] // Hover above the dot
+    });
+    
+    historyMarker = L.marker(latlng, { icon }).addTo(map);
+    showToast(`Dot #${countLabel}`);
+    
+    // Decrement so next click shows previous one
+    historyIndex--;
   });
 
   function ensureLocMarker(latlng) {
