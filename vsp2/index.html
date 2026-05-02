@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>My Shifts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #f7f8fc;
+      --surface:  #ffffff;
+      --border:   #e8eaf2;
+      --border2:  #d4d8eb;
+      --text:     #1a1d2e;
+      --sub:      #6b7090;
+      --faint:    #9499b5;
+      --accent:   #2563eb;
+      --accent-bg:#eff4ff;
+      --accent-bd:#bfcffd;
+      --green:    #059669;
+      --green-bg: #ecfdf5;
+      --green-bd: #a7f3d0;
+      --amber:    #d97706;
+      --amber-bg: #fffbeb;
+      --amber-bd: #fde68a;
+      --red:      #dc2626;
+      --red-bg:   #fef2f2;
+      --red-bd:   #fecaca;
+      --violet:   #7c3aed;
+      --violet-bg:#f5f3ff;
+      --violet-bd:#ddd6fe;
+      --mono:     'JetBrains Mono', monospace;
+      --sans:     'Sora', sans-serif;
+      --radius:   10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Loader ── */
+    .loader {
+      position: fixed; inset: 0; z-index: 999;
+      background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+      transition: opacity 0.35s ease;
+    }
+    .loader.hidden { opacity: 0; pointer-events: none; }
+    .loader-ring {
+      width: 36px; height: 36px;
+      border: 2.5px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text { font-family: var(--mono); font-size: 10px; color: var(--faint); letter-spacing: 1.5px; text-transform: uppercase; }
+
+    /* ── Layout ── */
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-icon {
+      width: 34px; height: 34px;
+      background: var(--accent);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .header-icon svg { color: #fff; }
+    .header-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.4px;
+    }
+    .header-sub {
+      font-size: 12px;
+      color: var(--faint);
+      font-weight: 400;
+      padding-left: 44px;
+    }
+
+    /* ── Search ── */
+    .search-row {
+      display: flex;
+      gap: 10px;
+    }
+    .search-field {
+      position: relative;
+      flex: 1;
+    }
+    .search-field svg {
+      position: absolute;
+      left: 12px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--faint);
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      height: 42px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 0 14px 0 38px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .search-input::placeholder { color: var(--faint); font-weight: 400; }
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+    }
+
+    /* ── Table card ── */
+    .table-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04), 0 4px 20px rgba(0,0,0,0.04);
+    }
+
+    /* Column head */
+    .col-head {
+      display: grid;
+      grid-template-columns: 2fr 1.2fr 1.1fr 1fr 80px;
+      padding: 10px 20px;
+      border-bottom: 1.5px solid var(--border);
+      background: var(--bg);
+    }
+    .ch {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--faint);
+    }
+    .ch.right { text-align: right; }
+    .ch.center { text-align: center; }
+
+    /* Row */
+    .shift-row {
+      display: grid;
+      grid-template-columns: 2fr 1.2fr 1.1fr 1fr 80px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      transition: background 0.12s;
+      animation: rowIn 0.22s ease both;
+    }
+    .shift-row:last-child { border-bottom: none; }
+    .shift-row:hover { background: #fafbff; }
+    @keyframes rowIn { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+
+    /* Worker + date cell */
+    .cell-main {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .worker-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .shift-date {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--faint);
+    }
+
+    /* Campaign cell */
+    .cell-center { display: flex; align-items: center; justify-content: center; }
+
+    .tag-camp {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--amber-bg);
+      color: var(--amber);
+      border: 1px solid var(--amber-bd);
+      letter-spacing: 0.3px;
+    }
+    .tag-none {
+      font-size: 11px;
+      color: var(--faint);
+      font-style: italic;
+    }
+
+    /* Amount */
+    .cell-amount {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .amount-val {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .amount-zero {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--faint);
+    }
+
+    /* Status type badge */
+    .type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+    }
+    .type-worked  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
+    .type-sched   { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
+    .type-missed  { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red-bd);   }
+    .type-pickup  { background: var(--violet-bg); color: var(--violet); border: 1px solid var(--violet-bd); }
+
+    /* Detail btn */
+    .cell-action { display: flex; align-items: center; justify-content: flex-end; }
+    .btn-detail {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 8px;
+      border: 1.5px solid var(--accent-bd);
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-detail:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 10px rgba(37,99,235,0.2);
+    }
+    .btn-detail:active { transform: none; box-shadow: none; }
+
+    /* Empty */
+    .empty {
+      padding: 56px 20px;
+      text-align: center;
+      color: var(--faint);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .empty-icon { font-size: 32px; opacity: 0.35; }
+    .empty-text { font-size: 13px; font-weight: 500; }
+
+    /* ── Modal ── */
+    .overlay {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(15,17,32,0.45);
+      backdrop-filter: blur(5px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+    .overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      width: 100%;
+      max-width: 400px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.14);
+      transform: scale(0.96) translateY(6px);
+      transition: transform 0.22s ease;
+    }
+    .overlay.open .modal { transform: scale(1) translateY(0); }
+
+    .modal-head {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .modal-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .modal-meta { font-size: 11px; color: var(--faint); margin-top: 3px; }
+
+    .btn-close {
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--faint);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .btn-close:hover { border-color: var(--red); color: var(--red); background: var(--red-bg); }
+
+    .modal-body {
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      gap: 10px;
+    }
+    .info-label { font-size: 12px; font-weight: 600; color: var(--text); }
+    .info-desc  { font-size: 10px; color: var(--faint); margin-top: 2px; }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 11px;
+      border-radius: 7px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .chip-done    { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+    .chip-pending { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
+    .chip-yes     { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd);}
+    .chip-no      { background: var(--bg);        color: var(--faint);  border: 1px solid var(--border2); }
+    .chip-paid    { background: var(--violet-bg); color: var(--violet); border: 1px solid var(--violet-bd);}
+
+    /* Result count */
+    .result-count {
+      font-size: 11px;
+      color: var(--faint);
+      font-weight: 500;
+      padding: 0 2px;
+    }
+    .result-count strong { color: var(--accent); font-weight: 700; }
+
+    /* Responsive */
+    @media (max-width: 560px) {
+      .page { padding: 24px 14px 60px; gap: 20px; }
+      .search-row { flex-direction: column; gap: 8px; }
+      .col-head { display: none; }
+      .shift-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        position: relative;
+        padding: 14px 14px 14px 14px;
+      }
+      .cell-center, .cell-amount { justify-content: flex-start; }
+      .cell-action {
+        justify-content: flex-start;
+        margin-top: 2px;
+      }
+      .btn-detail { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="loader" id="loader">
+  <div class="loader-ring"></div>
+  <div class="loader-text">Loading shifts…</div>
+</div>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-top">
+      <div class="header-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </div>
+      <div class="header-title">My Shifts</div>
+    </div>
+    <div class="header-sub">View your scheduled and completed shifts</div>
+  </div>
+
+  <!-- Search -->
+  <div class="search-row">
+    <div class="search-field">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-input" id="searchWorker" placeholder="Search by worker name…" autocomplete="off">
+    </div>
+    <div class="search-field">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M4 6h16M4 12h10M4 18h6"/></svg>
+      <input class="search-input" id="searchCampaign" placeholder="Search by campaign ID…" autocomplete="off">
+    </div>
+  </div>
+
+  <!-- Count -->
+  <div class="result-count" id="resultCount"></div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="col-head">
+      <div class="ch">Worker / Date</div>
+      <div class="ch center">Campaign</div>
+      <div class="ch center">Status</div>
+      <div class="ch center">Amount</div>
+      <div class="ch right">Details</div>
+    </div>
+    <div id="tableBody">
+      <!-- rows injected -->
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="modalTitle">Shift Details</div>
+        <div class="modal-meta" id="modalMeta"></div>
+      </div>
+      <button class="btn-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="info-row">
+        <div>
+          <div class="info-label">Contract → Amplo</div>
+          <div class="info-desc">Contract data sent to Amplo</div>
+        </div>
+        <div class="status-chip chip-pending" id="chipContractSent">⏳ Pending</div>
+      </div>
+
+      <div class="info-row">
+        <div>
+          <div class="info-label">Visible in Amplo</div>
+          <div class="info-desc">Contract visible in Amplo system</div>
+        </div>
+        <div class="status-chip chip-no" id="chipContractVisible">✗ No</div>
+      </div>
+
+      <div class="info-row">
+        <div>
+          <div class="info-label">Payment Received</div>
+          <div class="info-desc">Has payment been processed?</div>
+        </div>
+        <div class="status-chip chip-pending" id="chipPaymentReceived">⏳ Pending</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const app = initializeApp({
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app"
+  });
+  const db = getDatabase(app);
+
+  let allShifts = [];
+  let payStatuses = {};
+
+  // ── utils ──
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const escA = s => String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+
+  function toDateStr(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function fmtDate(dateStr) {
+    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    });
+  }
+
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function shiftKey(w, c, d) {
+    return `${String(w).toLowerCase().replace(/\s+/g,'_')}_${String(c||'nocampaign').toLowerCase()}_${d}`;
+  }
+
+  // ── Load ──
+  async function load() {
+    try {
+      const [postsSnap, clicksSnap, schedSnap, paySnap] = await Promise.all([
+        get(ref(db, 'userPosts')),
+        get(ref(db, 'userPostClicks')),
+        get(ref(db, 'scheduledShifts')),
+        get(ref(db, 'paymentStatuses'))
+      ]);
+
+      const postsData = postsSnap.val() || {};
+      const clicksData = clicksSnap.val() || {};
+      const scheds = schedSnap.val() || {};
+      payStatuses = paySnap.val() || {};
+
+      const actualsMap = {};
+      const now = new Date();
+
+      // Process both normal posts and post clicks into our actualsMap
+      const processDots = (dataNode) => {
+        Object.keys(dataNode).forEach(campId => {
+          Object.keys(dataNode[campId]).forEach(dk => {
+            const dot = dataNode[campId][dk];
+            if (!dot.timestamp || !dot.workerName) return;
+            
+            const dateStr = toDateStr(dot.timestamp);
+            const w = dot.workerName.trim();
+            const key = `${w.toLowerCase()}_${campId.toLowerCase()}_${dateStr}`;
+            
+            if (!actualsMap[key]) {
+              actualsMap[key] = { 
+                minTs: dot.timestamp, maxTs: dot.timestamp, 
+                worker: w, campaign: campId, date: dateStr, 
+                validDots: 0, isPickup: false 
+              };
+            }
+            if (dot.timestamp < actualsMap[key].minTs) actualsMap[key].minTs = dot.timestamp;
+            if (dot.timestamp > actualsMap[key].maxTs) actualsMap[key].maxTs = dot.timestamp;
+            if (dot.color !== 'orange') actualsMap[key].validDots++;
+          });
+        });
+      };
+
+      processDots(postsData);
+      processDots(clicksData);
+
+      // Merge schedules
+      Object.values(scheds).forEach(s => {
+        if (!s.worker || !s.date) return;
+        const wLow = s.worker.toLowerCase();
+        const dStr = s.date;
+
+        let dispTime = s.time || '';
+        if (s.time && s.time.includes(':')) {
+          const [sh, sm] = s.time.split(':');
+          const eH = (parseInt(sh) + 3) % 24;
+          dispTime = `${s.time} – ${String(eH).padStart(2,'0')}:${sm}`;
+        }
+
+        const matchKey = Object.keys(actualsMap).find(k => k.startsWith(`${wLow}_`) && k.endsWith(`_${dStr}`));
+        if (matchKey) {
+          actualsMap[matchKey].isPickup = s.isPickup === true;
+          actualsMap[matchKey].scheduledTime = dispTime;
+        } else {
+          const isPast = new Date(`${dStr}T${s.time||'00:00'}`) < now;
+          const synKey = `sched_${wLow}_${dStr}_${Math.random()}`;
+          actualsMap[synKey] = {
+            worker: s.worker, campaign: '', date: dStr,
+            type: isPast ? 'missed' : 'scheduled',
+            scheduledTime: dispTime,
+            isPickup: s.isPickup === true,
+            minTs: null, maxTs: null, validDots: 0
+          };
+        }
+      });
+
+      // Flatten
+      allShifts = Object.values(actualsMap).map(a => {
+        if (a.type === 'scheduled' || a.type === 'missed') {
+          return { type: a.type, worker: a.worker, campaign: a.campaign||'', date: a.date, timeStr: a.scheduledTime||'—', earnings: 0, isPickup: a.isPickup };
+        }
+        const timeStr = a.minTs === a.maxTs
+          ? fmtTime(a.minTs)
+          : `${fmtTime(a.minTs)} – ${fmtTime(a.maxTs)}`;
+        return {
+          type: a.isPickup ? 'pickup' : 'actual',
+          worker: a.worker, campaign: a.campaign, date: a.date,
+          timeStr, earnings: a.validDots * 0.036, isPickup: a.isPickup
+        };
+      });
+
+      allShifts.sort((a, b) => b.date.localeCompare(a.date));
+      render();
+    } catch(e) {
+      console.error(e);
+      document.getElementById('tableBody').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load data</div></div>';
+    } finally {
+      document.getElementById('loader').classList.add('hidden');
+    }
+  }
+
+  function render() {
+    const wQ = document.getElementById('searchWorker').value.trim().toLowerCase();
+    const cQ = document.getElementById('searchCampaign').value.trim().toLowerCase();
+    const filtered = allShifts.filter(s =>
+      (!wQ || s.worker.toLowerCase().includes(wQ)) &&
+      (!cQ || s.campaign.toLowerCase().includes(cQ))
+    );
+
+    document.getElementById('resultCount').innerHTML =
+      filtered.length
+        ? `<strong>${filtered.length}</strong> shift${filtered.length !== 1 ? 's' : ''} found`
+        : '';
+
+    if (!filtered.length) {
+      document.getElementById('tableBody').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📋</div>
+          <div class="empty-text">No shifts found</div>
+        </div>`;
+      return;
+    }
+
+    let html = '';
+    filtered.forEach((s, i) => {
+      const key = shiftKey(s.worker, s.campaign, s.date);
+      const typeCls = s.type === 'actual' ? 'type-worked' : s.type === 'scheduled' ? 'type-sched' : s.type === 'pickup' ? 'type-pickup' : 'type-missed';
+      const typeIcon = s.type === 'actual' ? '✓' : s.type === 'scheduled' ? '⏰' : s.type === 'pickup' ? '🚗' : '✗';
+      const typeLabel = s.type === 'actual' ? 'Worked' : s.type === 'scheduled' ? 'Scheduled' : s.type === 'pickup' ? 'Pickup' : 'Missed';
+
+      html += `
+        <div class="shift-row" style="animation-delay:${i * 0.025}s">
+          <div class="cell-main">
+            <div class="worker-name">${esc(s.worker)}</div>
+            <div class="shift-date">${fmtDate(s.date)}</div>
+          </div>
+          <div class="cell-center">
+            ${s.campaign
+              ? `<span class="tag-camp">${esc(s.campaign)}</span>`
+              : `<span class="tag-none">—</span>`}
+          </div>
+          <div class="cell-center">
+            <span class="type-badge ${typeCls}">${typeIcon} ${typeLabel}</span>
+          </div>
+          <div class="cell-amount">
+            ${s.earnings > 0
+              ? `<span class="amount-val">€${s.earnings.toFixed(2)}</span>`
+              : `<span class="amount-zero">—</span>`}
+          </div>
+          <div class="cell-action">
+            <button class="btn-detail" onclick="openModal('${escA(key)}','${escA(s.worker)}','${escA(s.campaign)}','${escA(s.date)}','${escA(s.timeStr)}')">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Details
+            </button>
+          </div>
+        </div>`;
+    });
+
+    document.getElementById('tableBody').innerHTML = html;
+  }
+
+  // ── Modal (read-only) ──
+  window.openModal = function(key, worker, campaign, date, timeStr) {
+    const ps = payStatuses[key] || {};
+
+    document.getElementById('modalTitle').textContent = worker;
+    document.getElementById('modalMeta').textContent =
+      `${fmtDate(date)}${campaign ? '  ·  ' + campaign : ''}${timeStr && timeStr !== '—' ? '  ·  ' + timeStr : ''}`;
+
+    // Contract Sent
+    const cs = ps.contractSent || 'pending';
+    const csEl = document.getElementById('chipContractSent');
+    if (cs === 'done') { csEl.className = 'status-chip chip-done'; csEl.textContent = '✓ Done'; }
+    else               { csEl.className = 'status-chip chip-pending'; csEl.textContent = '⏳ Pending'; }
+
+    // Contract Visible
+    const cv = ps.contractVisible || 'no';
+    const cvEl = document.getElementById('chipContractVisible');
+    if (cv === 'yes') { cvEl.className = 'status-chip chip-yes'; cvEl.textContent = '✓ Yes'; }
+    else              { cvEl.className = 'status-chip chip-no';  cvEl.textContent = '✗ No'; }
+
+    // Payment Received
+    const pr = ps.paymentReceived || 'pending';
+    const prEl = document.getElementById('chipPaymentReceived');
+    if (pr === 'yes') { prEl.className = 'status-chip chip-paid'; prEl.textContent = '✓ Received'; }
+    else              { prEl.className = 'status-chip chip-pending'; prEl.textContent = '⏳ Pending'; }
+
+    document.getElementById('overlay').classList.add('open');
+  };
+
+  window.closeModal = function() {
+    document.getElementById('overlay').classList.remove('open');
+  };
+
+  window.handleOverlayClick = function(e) {
+    if (e.target === document.getElementById('overlay')) closeModal();
+  };
+
+  document.getElementById('searchWorker').addEventListener('input', render);
+  document.getElementById('searchCampaign').addEventListener('input', render);
+
+  load();
+</script>
+</body>
+</html>
