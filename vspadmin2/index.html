@@ -1,0 +1,1191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Worker Shifts Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070810;
+      --surface: #0f1020;
+      --card: #141628;
+      --border: rgba(255,255,255,0.06);
+      --border-hover: rgba(99,179,255,0.25);
+      --text: #e8eeff;
+      --muted: #5a6080;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59,130,246,0.18);
+      --green: #10b981;
+      --green-glow: rgba(16,185,129,0.15);
+      --amber: #f59e0b;
+      --amber-glow: rgba(245,158,11,0.12);
+      --red: #ef4444;
+      --red-glow: rgba(239,68,68,0.12);
+      --pink: #ec4899;
+      --mono: 'Space Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      overflow-x: hidden;
+    }
+
+    /* Starfield bg */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 10%, rgba(59,130,246,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(139,92,246,0.05) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 16px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Loader ── */
+    .loader-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+      transition: opacity 0.4s ease;
+    }
+    .loader-overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid rgba(59,130,246,0.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+
+    /* ── Header ── */
+    .page-header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-title {
+      font-family: var(--mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .title-dot {
+      width: 8px; height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+    .page-subtitle { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+    /* ── Stats Bar ── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: border-color 0.2s;
+    }
+    .stat-card:hover { border-color: var(--border-hover); }
+    .stat-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+    .stat-value { font-family: var(--mono); font-size: 18px; font-weight: 700; color: #fff; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.amber { color: var(--amber); }
+    .stat-value.blue { color: var(--accent); }
+
+    /* ── Search ── */
+    .search-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .search-wrap {
+      position: relative;
+      flex: 1;
+    }
+    .search-icon {
+      position: absolute;
+      left: 11px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      height: 40px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0 12px 0 34px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .search-input::placeholder { color: var(--muted); }
+
+    .filter-pill {
+      height: 40px;
+      padding: 0 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .filter-pill:hover { border-color: var(--accent); color: var(--accent); }
+    .filter-pill.active { border-color: var(--accent); background: var(--accent-glow); color: var(--accent); }
+
+    /* ── Results count ── */
+    .results-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .results-label span { color: var(--accent); }
+
+    /* ── Table ── */
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--card);
+    }
+    .table-head {
+      display: grid;
+      grid-template-columns: 1.8fr 1.2fr 1fr 1fr 1fr 90px;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.025);
+      border-bottom: 1px solid var(--border);
+    }
+    .th {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+    }
+    .th:not(:first-child) { text-align: center; }
+    .th:last-child { text-align: right; }
+
+    .shift-row {
+      display: grid;
+      grid-template-columns: 1.8fr 1.2fr 1fr 1fr 1fr 90px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      transition: background 0.15s;
+      animation: fadeRow 0.25s ease both;
+    }
+    .shift-row:last-child { border-bottom: none; }
+    .shift-row:hover { background: rgba(255,255,255,0.025); }
+    @keyframes fadeRow { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+    .shift-row.type-actual { }
+    .shift-row.type-scheduled { background: rgba(245,158,11,0.04); }
+    .shift-row.type-missed { background: rgba(239,68,68,0.04); }
+
+    /* Worker cell */
+    .cell-worker {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .worker-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .worker-date {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--muted);
+    }
+    .shift-type-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      width: fit-content;
+      margin-top: 1px;
+    }
+    .pill-actual { color: var(--green); background: var(--green-glow); border: 1px solid rgba(16,185,129,0.25); }
+    .pill-scheduled { color: var(--amber); background: var(--amber-glow); border: 1px solid rgba(245,158,11,0.25); }
+    .pill-missed { color: var(--red); background: var(--red-glow); border: 1px solid rgba(239,68,68,0.25); }
+    .pill-pickup { color: var(--pink); background: rgba(236,72,153,0.1); border: 1px solid rgba(236,72,153,0.25); }
+
+    /* Cells */
+    .cell-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .campaign-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: #fcd34d;
+      background: rgba(252,211,77,0.1);
+      border: 1px solid rgba(252,211,77,0.2);
+      padding: 2px 7px;
+      border-radius: 5px;
+    }
+    .no-data { font-size: 10px; color: var(--muted); font-style: italic; }
+
+    .time-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: #93c5fd;
+      background: rgba(59,130,246,0.1);
+      border: 1px solid rgba(59,130,246,0.2);
+      padding: 2px 7px;
+      border-radius: 5px;
+    }
+    .time-tag.amber { color: #fcd34d; background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.25); }
+    .time-tag.green { color: #6ee7b7; background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.25); }
+
+    .earnings-val {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: #fbbf24;
+    }
+    .earnings-val.zero { color: var(--muted); font-weight: 400; }
+
+    /* View Payment Btn */
+    .btn-payment {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 5px;
+      padding: 6px 10px;
+      border-radius: 7px;
+      border: 1px solid rgba(59,130,246,0.3);
+      background: rgba(59,130,246,0.07);
+      color: var(--accent);
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .btn-payment:hover {
+      background: rgba(59,130,246,0.15);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59,130,246,0.2);
+    }
+    .btn-payment:active { transform: none; }
+
+    /* Empty State */
+    .empty-state {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .empty-icon { font-size: 36px; opacity: 0.4; }
+
+    /* ── Modal Overlay ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .modal {
+      background: var(--card);
+      border: 1px solid rgba(59,130,246,0.2);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 420px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(59,130,246,0.1);
+      transform: scale(0.94) translateY(8px);
+      transition: transform 0.25s ease;
+    }
+    .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+
+    .modal-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      background: linear-gradient(180deg, rgba(59,130,246,0.07) 0%, transparent 100%);
+    }
+    .modal-title-group { display: flex; flex-direction: column; gap: 4px; }
+    .modal-title {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .modal-subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .modal-close {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .modal-close:hover { background: var(--red-glow); border-color: var(--red); color: var(--red); }
+
+    .modal-body {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Status rows */
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--border);
+      gap: 12px;
+      transition: border-color 0.2s;
+    }
+    .status-row:hover { border-color: var(--border-hover); }
+    .status-label-group { display: flex; flex-direction: column; gap: 3px; }
+    .status-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .status-desc {
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 7px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.18s;
+      border: 1px solid transparent;
+      flex-shrink: 0;
+    }
+    .badge-done {
+      color: var(--green);
+      background: var(--green-glow);
+      border-color: rgba(16,185,129,0.3);
+    }
+    .badge-pending {
+      color: var(--amber);
+      background: var(--amber-glow);
+      border-color: rgba(245,158,11,0.3);
+    }
+    .badge-yes {
+      color: var(--accent);
+      background: var(--accent-glow);
+      border-color: rgba(59,130,246,0.3);
+    }
+    .badge-no {
+      color: var(--muted);
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.08);
+    }
+    .badge-received {
+      color: #a78bfa;
+      background: rgba(167,139,250,0.1);
+      border-color: rgba(167,139,250,0.3);
+    }
+    .status-badge:hover { transform: scale(1.04); }
+
+    /* Save btn */
+    .modal-footer {
+      padding: 0 20px 18px;
+      display: flex;
+      gap: 8px;
+    }
+    .btn-save {
+      flex: 1;
+      height: 40px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      color: #fff;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 15px rgba(59,130,246,0.25);
+    }
+    .btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.35); }
+    .btn-save:active { transform: none; }
+    .btn-cancel-modal {
+      height: 40px;
+      padding: 0 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-cancel-modal:hover { border-color: var(--muted); color: var(--text); }
+
+    /* Day group header */
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.015);
+      border-bottom: 1px solid var(--border);
+    }
+    .group-date {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .group-count {
+      font-size: 9px;
+      color: var(--muted);
+      padding: 1px 6px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+    .group-earnings {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: #fbbf24;
+      font-weight: 700;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: #1a1d35;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 18px;
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      z-index: 9998;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Mobile responsive */
+    @media (max-width: 600px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .table-head { display: none; }
+      .shift-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        position: relative;
+        padding-right: 16px;
+      }
+      .cell-center { align-items: flex-start; }
+      .btn-payment {
+        position: absolute;
+        top: 13px; right: 16px;
+        padding: 5px 8px;
+        font-size: 9px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loaderOverlay" class="loader-overlay">
+  <div class="spinner"></div>
+  <div class="loader-text">Fetching shift data...</div>
+</div>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-title">
+      <div class="title-dot"></div>
+      Worker Shifts Dashboard
+    </div>
+    <div class="page-subtitle">Real-time overview of all worker shifts, earnings & payment status</div>
+  </div>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-card">
+      <div class="stat-label">Total Shifts</div>
+      <div class="stat-value blue" id="statShifts">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Earnings</div>
+      <div class="stat-value green" id="statEarnings">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Workers</div>
+      <div class="stat-value" id="statWorkers">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Campaigns</div>
+      <div class="stat-value amber" id="statCampaigns">—</div>
+    </div>
+  </div>
+
+  <!-- Search & Filters -->
+  <div class="search-row">
+    <div class="search-wrap">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" class="search-input" id="searchWorker" placeholder="Search worker name..." autocomplete="off">
+    </div>
+    <div class="search-wrap">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <input type="text" class="search-input" id="searchCampaign" placeholder="Search campaign ID..." autocomplete="off">
+    </div>
+    <button class="filter-pill" id="filterActual" onclick="toggleFilter('actual')">✓ Worked</button>
+    <button class="filter-pill" id="filterScheduled" onclick="toggleFilter('scheduled')">⏰ Sched</button>
+    <button class="filter-pill" id="filterMissed" onclick="toggleFilter('missed')">✗ Missed</button>
+  </div>
+
+  <div class="results-label">
+    <div>Showing <span id="resultsCount">0</span> shifts</div>
+    <div id="searchSummary" style="font-size:10px;"></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-head">
+      <div class="th">Worker / Date</div>
+      <div class="th">Campaign ID</div>
+      <div class="th">Work Time</div>
+      <div class="th">Earnings</div>
+      <div class="th">Status</div>
+      <div class="th" style="text-align:right;">Payment</div>
+    </div>
+    <div id="shiftsContainer">
+      <!-- rows rendered by JS -->
+    </div>
+  </div>
+
+</div>
+
+<!-- Payment Status Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-title">💳 Payment Status</div>
+        <div class="modal-subtitle" id="modalSubtitle">—</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Contract sent to Amplo -->
+      <div class="status-row">
+        <div class="status-label-group">
+          <div class="status-label">Contract Data → Amplo</div>
+          <div class="status-desc">Was contract data sent to Amplo?</div>
+        </div>
+        <div class="status-badge badge-pending" id="badgeContractSent" onclick="cycleStatus('contractSent')">
+          <span id="iconContractSent">⏳</span>
+          <span id="textContractSent">Pending</span>
+        </div>
+      </div>
+
+      <!-- Contract visible in Amplo -->
+      <div class="status-row">
+        <div class="status-label-group">
+          <div class="status-label">Contract Visible in Amplo</div>
+          <div class="status-desc">Can the contract be seen in Amplo?</div>
+        </div>
+        <div class="status-badge badge-no" id="badgeContractVisible" onclick="cycleStatus('contractVisible')">
+          <span id="iconContractVisible">✗</span>
+          <span id="textContractVisible">No</span>
+        </div>
+      </div>
+
+      <!-- Payment received -->
+      <div class="status-row">
+        <div class="status-label-group">
+          <div class="status-label">Payment Received</div>
+          <div class="status-desc">Has the worker been paid?</div>
+        </div>
+        <div class="status-badge badge-pending" id="badgePaymentReceived" onclick="cycleStatus('paymentReceived')">
+          <span id="iconPaymentReceived">⏳</span>
+          <span id="textPaymentReceived">Pending</span>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel-modal" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="savePaymentStatus()">💾 Save Status</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // ── State ──
+  let allShifts = [];
+  let paymentStatuses = {};
+  let activeFilters = new Set();
+  let currentModalKey = null;
+
+  // Modal state for current editing
+  let modalState = {
+    contractSent: 'pending',      // 'pending' | 'done'
+    contractVisible: 'no',        // 'no' | 'yes'
+    paymentReceived: 'pending'    // 'pending' | 'yes'
+  };
+
+  // ── Utils ──
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  function formatLocalTime(ts) {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function formatTimeWorked(minTs, maxTs) {
+    const ms = maxTs - minTs;
+    if (ms <= 0) return '< 1m';
+    const totalMins = Math.floor(ms / 60000);
+    const h = Math.floor(totalMins / 60), m = totalMins % 60;
+    if (h === 0) return `${m}m`;
+    return `${h}h ${String(m).padStart(2,'0')}m`;
+  }
+
+  function toDateString(date) {
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  }
+
+  function formatDateLabel(dateStr) {
+    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+  }
+
+  function makeShiftKey(shift) {
+    // Unique key per shift for payment status storage
+    return `${shift.worker.toLowerCase().replace(/\s+/g,'_')}_${(shift.campaign||'nocampaign').toLowerCase()}_${shift.date}`;
+  }
+
+  // ── Load Data ──
+  async function loadData() {
+    document.getElementById('loaderOverlay').classList.remove('hidden');
+    try {
+      const [postsSnap, clicksSnap, schedSnap, paySnap] = await Promise.all([
+        get(ref(db, 'userPosts')),
+        get(ref(db, 'userPostClicks')),
+        get(ref(db, 'scheduledShifts')),
+        get(ref(db, 'paymentStatuses'))
+      ]);
+
+      const postsData = postsSnap.val() || {};
+      const clicksData = clicksSnap.val() || {};
+      const scheduledDataRaw = schedSnap.val() || {};
+      paymentStatuses = paySnap.val() || {};
+
+      const actualsMap = {};
+      const now = new Date();
+
+      // Process dots and post clicks
+      const processDots = (dataNode) => {
+        Object.keys(dataNode).forEach(campaignId => {
+          Object.keys(dataNode[campaignId]).forEach(dotKey => {
+            const dot = dataNode[campaignId][dotKey];
+            if (!dot.timestamp || !dot.workerName) return;
+            const dateStr = toDateString(new Date(dot.timestamp));
+            const workerName = dot.workerName.trim();
+            const key = `${workerName.toLowerCase()}_${campaignId.toLowerCase()}_${dateStr}`;
+            if (!actualsMap[key]) {
+              actualsMap[key] = {
+                minTs: dot.timestamp, maxTs: dot.timestamp,
+                worker: workerName, campaign: campaignId,
+                date: dateStr, validDots: 0,
+                cityScope: null, isPickup: false
+              };
+            }
+            if (dot.timestamp < actualsMap[key].minTs) actualsMap[key].minTs = dot.timestamp;
+            if (dot.timestamp > actualsMap[key].maxTs) actualsMap[key].maxTs = dot.timestamp;
+            if (dot.color !== 'orange') actualsMap[key].validDots++;
+          });
+        });
+      };
+
+      processDots(postsData);
+      processDots(clicksData);
+
+      // Match with scheduled
+      Object.values(scheduledDataRaw).forEach(sched => {
+        if (!sched.worker || !sched.date) return;
+        const dStr = sched.date;
+        const workerLower = sched.worker.toLowerCase();
+        const cityScope = sched.cityWilling === true ? 'all' : 'local';
+        const pickupFlag = sched.isPickup === true;
+
+        let displaySchedTime = sched.time || '';
+        if (sched.time && sched.time.includes(':')) {
+          const [sh, sm] = sched.time.split(':');
+          const endH = (parseInt(sh, 10) + 3) % 24;
+          displaySchedTime = `${sched.time} - ${String(endH).padStart(2,'0')}:${sm}`;
+        }
+
+        // Check if there's an actual for this worker on this date
+        const matchKey = Object.keys(actualsMap).find(k =>
+          k.startsWith(`${workerLower}_`) && k.endsWith(`_${dStr}`)
+        );
+
+        if (matchKey) {
+          actualsMap[matchKey].cityScope = cityScope;
+          actualsMap[matchKey].isPickup = pickupFlag;
+          actualsMap[matchKey].scheduledTime = displaySchedTime;
+        } else {
+          // Pure scheduled or missed
+          const schedDateTime = new Date(`${dStr}T${sched.time || '00:00'}`);
+          const isPast = schedDateTime < now;
+          const syntheticKey = `sched_${workerLower}_${dStr}_${sched.time || ''}`;
+          actualsMap[syntheticKey] = {
+            worker: sched.worker,
+            campaign: '',
+            date: dStr,
+            type: isPast ? 'missed' : 'scheduled',
+            scheduledTime: displaySchedTime,
+            cityScope,
+            isPickup: pickupFlag,
+            minTs: null, maxTs: null, validDots: 0
+          };
+        }
+      });
+
+      // Build final shift list
+      allShifts = Object.values(actualsMap).map(act => {
+        if (act.type === 'scheduled' || act.type === 'missed') {
+          return {
+            type: act.type,
+            worker: act.worker,
+            campaign: act.campaign || '',
+            date: act.date,
+            scheduledTime: act.scheduledTime || '',
+            startTime: null, endTime: null,
+            timeWorkedStr: '—',
+            earnings: 0,
+            cityScope: act.cityScope,
+            isPickup: act.isPickup,
+            isLong: false
+          };
+        }
+        const shiftDurationMs = act.maxTs - act.minTs;
+        return {
+          type: 'actual',
+          worker: act.worker,
+          campaign: act.campaign,
+          date: act.date,
+          scheduledTime: act.scheduledTime || '',
+          startTime: formatLocalTime(act.minTs),
+          endTime: act.minTs === act.maxTs ? null : formatLocalTime(act.maxTs),
+          timeWorkedStr: formatTimeWorked(act.minTs, act.maxTs),
+          earnings: act.validDots * 0.036,
+          cityScope: act.cityScope,
+          isPickup: act.isPickup || false,
+          isLong: shiftDurationMs >= 3600000
+        };
+      });
+
+      // Sort newest first
+      allShifts.sort((a, b) => b.date.localeCompare(a.date));
+
+      updateStats();
+      renderShifts();
+    } catch(e) {
+      console.error(e);
+      showToast('Error loading data');
+    } finally {
+      document.getElementById('loaderOverlay').classList.add('hidden');
+    }
+  }
+
+  function updateStats() {
+    const workers = new Set(allShifts.map(s => s.worker.toLowerCase()));
+    const campaigns = new Set(allShifts.filter(s => s.campaign).map(s => s.campaign.toLowerCase()));
+    const totalEarnings = allShifts.reduce((sum, s) => sum + (s.earnings || 0), 0);
+    document.getElementById('statShifts').textContent = allShifts.length;
+    document.getElementById('statEarnings').textContent = `€${totalEarnings.toFixed(2)}`;
+    document.getElementById('statWorkers').textContent = workers.size;
+    document.getElementById('statCampaigns').textContent = campaigns.size;
+  }
+
+  function getFilteredShifts() {
+    const workerQ = document.getElementById('searchWorker').value.trim().toLowerCase();
+    const campQ = document.getElementById('searchCampaign').value.trim().toLowerCase();
+    return allShifts.filter(s => {
+      const wMatch = !workerQ || s.worker.toLowerCase().includes(workerQ);
+      const cMatch = !campQ || (s.campaign && s.campaign.toLowerCase().includes(campQ));
+      const fMatch = activeFilters.size === 0 || activeFilters.has(s.type);
+      return wMatch && cMatch && fMatch;
+    });
+  }
+
+  function renderShifts() {
+    const container = document.getElementById('shiftsContainer');
+    const filtered = getFilteredShifts();
+    document.getElementById('resultsCount').textContent = filtered.length;
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div>No shifts found matching your search</div></div>`;
+      return;
+    }
+
+    // Group by date
+    const groups = {};
+    filtered.forEach(s => {
+      if (!groups[s.date]) groups[s.date] = [];
+      groups[s.date].push(s);
+    });
+
+    let html = '';
+    const sortedDates = Object.keys(groups).sort().reverse();
+    let rowIdx = 0;
+
+    sortedDates.forEach(dateStr => {
+      const group = groups[dateStr];
+      const groupEarnings = group.reduce((sum, s) => sum + (s.earnings || 0), 0);
+
+      html += `
+        <div class="group-header">
+          <span class="group-date">${formatDateLabel(dateStr)}</span>
+          <span class="group-count">${group.length} shift${group.length !== 1 ? 's' : ''}</span>
+          ${groupEarnings > 0 ? `<span class="group-earnings">€${groupEarnings.toFixed(2)}</span>` : ''}
+        </div>
+      `;
+
+      group.forEach(shift => {
+        const key = makeShiftKey(shift);
+        const ps = paymentStatuses[key] || {};
+
+        // Type pill
+        let pilClass = 'pill-actual', pilIcon = '✓', pilText = 'Worked';
+        if (shift.type === 'scheduled') { pilClass = 'pill-scheduled'; pilIcon = '⏰'; pilText = 'Scheduled'; }
+        if (shift.type === 'missed') { pilClass = 'pill-missed'; pilIcon = '✗'; pilText = 'Missed'; }
+        if (shift.isPickup) { pilClass = 'pill-pickup'; pilIcon = '🚗'; pilText = 'Pickup'; }
+
+        // Time display
+        let timeDisplay = '—';
+        if (shift.type === 'actual' && shift.startTime) {
+          timeDisplay = shift.endTime ? `${shift.startTime} – ${shift.endTime}` : shift.startTime;
+        } else if (shift.scheduledTime) {
+          timeDisplay = shift.scheduledTime;
+        }
+
+        // Earnings
+        const earningsDisplay = shift.earnings > 0
+          ? `<span class="earnings-val">€${shift.earnings.toFixed(2)}</span>`
+          : `<span class="earnings-val zero">—</span>`;
+
+        // Time worked tag class
+        let timeClass = 'time-tag';
+        if (shift.type === 'scheduled') timeClass += ' amber';
+        if (shift.isLong) timeClass += ' green';
+
+        // Payment summary badges (mini)
+        const csIcon = ps.contractSent === 'done' ? '✓' : '⏳';
+        const cvIcon = ps.contractVisible === 'yes' ? '✓' : '✗';
+        const prIcon = ps.paymentReceived === 'yes' ? '✓' : '⏳';
+        const payColor = ps.paymentReceived === 'yes' ? 'color:#a78bfa' : (ps.contractSent === 'done' ? 'color:#f59e0b' : '');
+
+        html += `
+          <div class="shift-row type-${shift.type}" style="animation-delay:${rowIdx * 0.03}s">
+            <div class="cell-worker">
+              <div class="worker-name">${escHtml(shift.worker)}</div>
+              <div class="worker-date">${dateStr}</div>
+              <div class="shift-type-pill ${pilClass}">${pilIcon} ${pilText}</div>
+            </div>
+            <div class="cell-center">
+              ${shift.campaign
+                ? `<span class="campaign-tag">${escHtml(shift.campaign)}</span>`
+                : `<span class="no-data">No campaign</span>`}
+            </div>
+            <div class="cell-center">
+              <span class="${timeClass}">${escHtml(timeDisplay)}</span>
+              ${shift.type === 'actual' && shift.timeWorkedStr !== '—'
+                ? `<span style="font-size:9px;color:var(--muted);">⏱ ${escHtml(shift.timeWorkedStr)}</span>`
+                : ''}
+            </div>
+            <div class="cell-center">
+              ${earningsDisplay}
+            </div>
+            <div class="cell-center" style="font-size:9px;color:var(--muted);gap:3px;flex-direction:row;flex-wrap:wrap;justify-content:center;">
+              <span title="Contract Sent">${csIcon}</span>
+              <span title="Visible in Amplo">${cvIcon}</span>
+              <span title="Payment" style="${payColor}">${prIcon}</span>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <button class="btn-payment" onclick="openModal('${escAttr(key)}','${escAttr(shift.worker)}','${escAttr(shift.campaign||'')}','${escAttr(dateStr)}')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                Status
+              </button>
+            </div>
+          </div>
+        `;
+        rowIdx++;
+      });
+    });
+
+    container.innerHTML = html;
+  }
+
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function escAttr(str) {
+    return String(str || '').replace(/'/g,"\\'").replace(/\\/g,'\\\\');
+  }
+
+  // ── Filter Toggle ──
+  window.toggleFilter = function(type) {
+    const btn = document.getElementById('filter' + type.charAt(0).toUpperCase() + type.slice(1));
+    if (activeFilters.has(type)) {
+      activeFilters.delete(type);
+      btn.classList.remove('active');
+    } else {
+      activeFilters.add(type);
+      btn.classList.add('active');
+    }
+    renderShifts();
+  };
+
+  // ── Search ──
+  document.getElementById('searchWorker').addEventListener('input', renderShifts);
+  document.getElementById('searchCampaign').addEventListener('input', renderShifts);
+
+  // ── Modal ──
+  window.openModal = function(key, worker, campaign, date) {
+    currentModalKey = key;
+    const ps = paymentStatuses[key] || {};
+    modalState = {
+      contractSent: ps.contractSent || 'pending',
+      contractVisible: ps.contractVisible || 'no',
+      paymentReceived: ps.paymentReceived || 'pending'
+    };
+
+    document.getElementById('modalSubtitle').innerHTML =
+      `<strong style="color:var(--text)">${escHtml(worker)}</strong>
+       ${campaign ? `· <span style="color:var(--amber)">${escHtml(campaign)}</span>` : ''}
+       · <span>${escHtml(date)}</span>`;
+
+    applyModalState();
+    document.getElementById('modalOverlay').classList.add('open');
+  };
+
+  window.closeModal = function() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    currentModalKey = null;
+  };
+
+  window.closeModalOnBg = function(e) {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  };
+
+  function applyModalState() {
+    // Contract Sent
+    const csEl = document.getElementById('badgeContractSent');
+    const csText = document.getElementById('textContractSent');
+    const csIcon = document.getElementById('iconContractSent');
+    if (modalState.contractSent === 'done') {
+      csEl.className = 'status-badge badge-done';
+      csIcon.textContent = '✓'; csText.textContent = 'Done';
+    } else {
+      csEl.className = 'status-badge badge-pending';
+      csIcon.textContent = '⏳'; csText.textContent = 'Pending';
+    }
+
+    // Contract Visible
+    const cvEl = document.getElementById('badgeContractVisible');
+    const cvText = document.getElementById('textContractVisible');
+    const cvIcon = document.getElementById('iconContractVisible');
+    if (modalState.contractVisible === 'yes') {
+      cvEl.className = 'status-badge badge-yes';
+      cvIcon.textContent = '✓'; cvText.textContent = 'Yes';
+    } else {
+      cvEl.className = 'status-badge badge-no';
+      cvIcon.textContent = '✗'; cvText.textContent = 'No';
+    }
+
+    // Payment Received
+    const prEl = document.getElementById('badgePaymentReceived');
+    const prText = document.getElementById('textPaymentReceived');
+    const prIcon = document.getElementById('iconPaymentReceived');
+    if (modalState.paymentReceived === 'yes') {
+      prEl.className = 'status-badge badge-received';
+      prIcon.textContent = '✓'; prText.textContent = 'Received';
+    } else {
+      prEl.className = 'status-badge badge-pending';
+      prIcon.textContent = '⏳'; prText.textContent = 'Pending';
+    }
+  }
+
+  window.cycleStatus = function(field) {
+    if (field === 'contractSent') {
+      modalState.contractSent = modalState.contractSent === 'pending' ? 'done' : 'pending';
+    } else if (field === 'contractVisible') {
+      modalState.contractVisible = modalState.contractVisible === 'no' ? 'yes' : 'no';
+    } else if (field === 'paymentReceived') {
+      modalState.paymentReceived = modalState.paymentReceived === 'pending' ? 'yes' : 'pending';
+    }
+    applyModalState();
+  };
+
+  window.savePaymentStatus = async function() {
+    if (!currentModalKey) return;
+    try {
+      await set(ref(db, `paymentStatuses/${currentModalKey}`), { ...modalState, updatedAt: Date.now() });
+      paymentStatuses[currentModalKey] = { ...modalState };
+      showToast('✓ Payment status saved!');
+      renderShifts();
+      closeModal();
+    } catch(e) {
+      console.error(e);
+      showToast('Failed to save — check connection');
+    }
+  };
+
+  loadData();
+</script>
+
+</body>
+</html>
