@@ -26,36 +26,39 @@
             background-color: var(--pak-white);
         }
 
-        /* Floating Header */
-        header {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: rgba(17, 87, 64, 0.95);
-            color: var(--pak-white);
-            padding: 14px 24px;
-            display: flex;
-            justify-content: center; /* Centered for a cleaner app look */
-            align-items: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            z-index: 1000;
-            box-sizing: border-box;
-            backdrop-filter: blur(8px);
-        }
-
-        header h1 {
-            font-size: 1.4rem;
-            margin: 0;
-            font-weight: 700;
-            letter-spacing: 0.8px;
-        }
-
         /* Map Container */
         #map {
             height: 100%;
             width: 100%;
             z-index: 1;
+        }
+
+        /* Floating Random Button */
+        #random-btn {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background-color: var(--pak-green);
+            color: var(--pak-white);
+            border: none;
+            padding: 14px 28px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.25);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        #random-btn:hover, #random-btn:active {
+            background-color: var(--pak-green-hover);
+            transform: translateX(-50%) translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
         }
 
         /* Beautiful Popup Styling */
@@ -94,13 +97,12 @@
             transform: translateY(-1px);
         }
         
-        /* Remove transparent background of custom divIcon */
+        /* Sleek SVG Pin Shadow */
         .transparent-marker {
             background: transparent;
             border: none;
         }
 
-        /* Sleek SVG Pin Shadow */
         .sleek-pin {
             filter: drop-shadow(0px 6px 6px rgba(0,0,0,0.3));
             transition: transform 0.2s ease;
@@ -114,30 +116,25 @@
 </head>
 <body>
 
-    <!-- Overlay Header (Centered, no flags) -->
-    <header>
-        <h1>RotiPani.Net</h1>
-    </header>
-
     <!-- Full Screen Map -->
     <div id="map"></div>
+    
+    <!-- Floating Random Button -->
+    <button id="random-btn">
+        <span style="font-size: 18px;">🎲</span> Random Bite
+    </button>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Main location
-        const centerLat = 31.51673;
-        const centerLng = 74.36465;
-
-        // Initialize map
-        // attributionControl: false hides the Leaflet logo and OSM credits for a totally clean app interface
+        // Initialize map without Leaflet attribution and zoom controls to keep it minimal
         const map = L.map('map', {
             zoomControl: false,
             attributionControl: false 
-        }).setView([centerLat, centerLng], 15);
+        }).setView([31.51673, 74.36465], 15);
 
-        // Move zoom control to bottom right
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        // Move zoom control to bottom right, above the button space
+        L.control.zoom({ position: 'topright' }).addTo(map);
 
         // Sleek Map Tiles (CartoDB Positron)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -158,8 +155,8 @@
             className: 'transparent-marker',
             html: svgPin,
             iconSize: [36, 36],
-            iconAnchor: [18, 36], // Point of the pin is at the bottom center
-            popupAnchor: [0, -38] // Popup opens right above the pin
+            iconAnchor: [18, 36],
+            popupAnchor: [0, -38] 
         });
 
         // Restaurant Data Array
@@ -194,11 +191,14 @@
             }
         ];
 
+        // Store Leaflet marker objects for the random button logic
+        const markerObjects = [];
+
         // Loop through data and add markers
         restaurants.forEach(place => {
             const marker = L.marker([place.lat, place.lng], {icon: elegantIcon}).addTo(map);
             
-            // Create beautiful popup with link (and an external link arrow icon if it's a real link)
+            // Create beautiful popup with link icon
             const linkIcon = place.url !== '#' ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>` : '';
             
             const popupContent = `
@@ -208,13 +208,34 @@
             `;
             
             marker.bindPopup(popupContent, {
-                closeButton: false // hides the small 'x' for a cleaner look
+                closeButton: false
             });
+
+            markerObjects.push(marker);
 
             // Open the main one by default
             if(place.openByDefault) {
                 marker.openPopup();
             }
+        });
+
+        // Logic for "Random Bite" Button
+        document.getElementById('random-btn').addEventListener('click', () => {
+            // Pick a random marker
+            const randomIndex = Math.floor(Math.random() * markerObjects.length);
+            const selectedMarker = markerObjects[randomIndex];
+            const latLng = selectedMarker.getLatLng();
+
+            // Smoothly fly to the random marker's location and zoom in slightly
+            map.flyTo(latLng, 16, {
+                animate: true,
+                duration: 1.5 // Duration in seconds
+            });
+
+            // Wait for fly animation to almost finish before opening popup
+            setTimeout(() => {
+                selectedMarker.openPopup();
+            }, 1200);
         });
     </script>
 </body>
