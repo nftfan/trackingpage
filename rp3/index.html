@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RotiPani.Net</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        /* Pakistani Flag Theme Colors */
+        :root {
+            --pak-green: #115740;
+            --pak-green-hover: #0c3e2e;
+            --pak-white: #ffffff;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            background-color: var(--pak-white);
+        }
+
+        /* Floating Header */
+        header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(17, 87, 64, 0.95);
+            color: var(--pak-white);
+            padding: 14px 24px;
+            display: flex;
+            justify-content: center; /* Centered for a cleaner app look */
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            z-index: 1000;
+            box-sizing: border-box;
+            backdrop-filter: blur(8px);
+        }
+
+        header h1 {
+            font-size: 1.4rem;
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+        }
+
+        /* Map Container */
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* Beautiful Popup Styling */
+        .leaflet-popup-content-wrapper {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 4px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .leaflet-popup-tip {
+            background: #ffffff;
+            box-shadow: none;
+        }
+
+        .leaflet-popup-content {
+            margin: 12px 18px;
+            text-align: center;
+        }
+
+        .restaurant-link {
+            color: var(--pak-green);
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: color 0.2s ease, transform 0.2s ease;
+        }
+
+        .restaurant-link:hover {
+            color: var(--pak-green-hover);
+            transform: translateY(-1px);
+        }
+        
+        /* Remove transparent background of custom divIcon */
+        .transparent-marker {
+            background: transparent;
+            border: none;
+        }
+
+        /* Sleek SVG Pin Shadow */
+        .sleek-pin {
+            filter: drop-shadow(0px 6px 6px rgba(0,0,0,0.3));
+            transition: transform 0.2s ease;
+        }
+        
+        .sleek-pin:hover {
+            transform: scale(1.1) translateY(-2px);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Overlay Header (Centered, no flags) -->
+    <header>
+        <h1>RotiPani.Net</h1>
+    </header>
+
+    <!-- Full Screen Map -->
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Main location
+        const centerLat = 31.51673;
+        const centerLng = 74.36465;
+
+        // Initialize map
+        // attributionControl: false hides the Leaflet logo and OSM credits for a totally clean app interface
+        const map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false 
+        }).setView([centerLat, centerLng], 15);
+
+        // Move zoom control to bottom right
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        // Sleek Map Tiles (CartoDB Positron)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        // Beautiful SVG Map Pin Icon
+        const svgPin = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" class="sleek-pin" style="width: 36px; height: 36px;">
+                <!-- Pin Body -->
+                <path fill="#115740" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
+                <!-- White Center Cutout -->
+                <circle cx="192" cy="192" r="70" fill="#ffffff"/>
+            </svg>
+        `;
+
+        const elegantIcon = L.divIcon({
+            className: 'transparent-marker',
+            html: svgPin,
+            iconSize: [36, 36],
+            iconAnchor: [18, 36], // Point of the pin is at the bottom center
+            popupAnchor: [0, -38] // Popup opens right above the pin
+        });
+
+        // Restaurant Data Array
+        const restaurants = [
+            {
+                title: "Lahori Bites",
+                lat: 31.51673,
+                lng: 74.36465,
+                url: "https://www.leuvenflyers.com/rpt/",
+                openByDefault: true
+            },
+            {
+                title: "Gaddafi Stadium Eatery",
+                lat: 31.52050, 
+                lng: 74.36010,
+                url: "#",
+                openByDefault: false
+            },
+            {
+                title: "Liberty Market Bites",
+                lat: 31.51120, 
+                lng: 74.37050,
+                url: "#",
+                openByDefault: false
+            },
+            {
+                title: "Model Town Chai Dhaba",
+                lat: 31.51400, 
+                lng: 74.35400,
+                url: "#",
+                openByDefault: false
+            }
+        ];
+
+        // Loop through data and add markers
+        restaurants.forEach(place => {
+            const marker = L.marker([place.lat, place.lng], {icon: elegantIcon}).addTo(map);
+            
+            // Create beautiful popup with link (and an external link arrow icon if it's a real link)
+            const linkIcon = place.url !== '#' ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>` : '';
+            
+            const popupContent = `
+                <a href="${place.url}" ${place.url !== '#' ? 'target="_blank"' : ''} class="restaurant-link">
+                    ${place.title} ${linkIcon}
+                </a>
+            `;
+            
+            marker.bindPopup(popupContent, {
+                closeButton: false // hides the small 'x' for a cleaner look
+            });
+
+            // Open the main one by default
+            if(place.openByDefault) {
+                marker.openPopup();
+            }
+        });
+    </script>
+</body>
+</html>
