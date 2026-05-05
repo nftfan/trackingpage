@@ -1,372 +1,535 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RotiPani.Net</title>
-    
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
     <style>
-        /* Pakistani Flag Theme Colors */
         :root {
-            --pak-green: #115740;
-            --pak-green-hover: #0c3e2e;
-            --pak-white: #ffffff;
-            --text-main: #1d1d1f;
-            --text-muted: #6e6e73;
+            --green: #115740;
+            --green-dark: #0c3e2e;
+            --green-light: #e6f0eb;
+            --green-mid: #1a7a58;
+            --white: #ffffff;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --surface: #f9fafb;
+            --radius: 16px;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+            --shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+            --shadow-lg: 0 16px 48px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.08);
         }
+
+        *, *::before, *::after { box-sizing: border-box; }
 
         body, html {
             margin: 0;
             padding: 0;
             height: 100%;
             width: 100%;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'DM Sans', sans-serif;
             overflow: hidden;
-            background-color: var(--pak-white);
+            background: #eee;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Map Container */
+        /* ── Map ── */
         #map {
             height: 100%;
             width: 100%;
             z-index: 1;
         }
 
-        /* Floating Random Button */
-        #random-btn {
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            background-color: var(--pak-green);
-            color: var(--pak-white);
-            border: none;
-            padding: 16px 32px;
-            border-radius: 40px;
-            font-size: 16px;
-            font-weight: 600;
-            box-shadow: 0 8px 24px rgba(17, 87, 64, 0.35);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            backdrop-filter: blur(4px);
+        /* ── Zoom Controls ── */
+        .leaflet-control-zoom {
+            border: none !important;
+            box-shadow: var(--shadow) !important;
+            border-radius: 12px !important;
+            overflow: hidden;
+            margin-top: 16px !important;
+            margin-right: 14px !important;
         }
 
-        #random-btn:hover, #random-btn:active {
-            background-color: var(--pak-green-hover);
-            transform: translateX(-50%) translateY(-4px);
-            box-shadow: 0 12px 28px rgba(17, 87, 64, 0.45);
+        .leaflet-control-zoom-in,
+        .leaflet-control-zoom-out {
+            width: 40px !important;
+            height: 40px !important;
+            line-height: 40px !important;
+            font-size: 20px !important;
+            color: var(--text) !important;
+            background: var(--white) !important;
+            border: none !important;
+            font-weight: 300 !important;
+            transition: background 0.15s, color 0.15s !important;
         }
 
-        /* Beautiful Popup Styling */
+        .leaflet-control-zoom-in:hover,
+        .leaflet-control-zoom-out:hover {
+            background: var(--surface) !important;
+            color: var(--green) !important;
+        }
+
+        .leaflet-control-zoom-in {
+            border-bottom: 1px solid var(--border) !important;
+        }
+
+        /* ── Leaflet Popup ── */
         .leaflet-popup-content-wrapper {
-            background: transparent;
-            border-radius: 16px;
-            padding: 0; 
-            box-shadow: none;
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 0;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid rgba(0,0,0,0.06);
             overflow: hidden;
         }
-        
+
         .leaflet-popup-tip-container {
-            display: none; /* Hide the default tip */
+            margin-top: -1px;
+        }
+
+        .leaflet-popup-tip {
+            background: var(--white);
+            box-shadow: none;
         }
 
         .leaflet-popup-content {
             margin: 0 !important;
-            width: 250px !important; 
-            text-align: left;
+            width: 248px !important;
         }
 
-        /* Modern Card Content Styling */
-        .popup-card {
-            background: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.18);
-            overflow: hidden;
-            border: 1px solid rgba(0,0,0,0.04);
-            transform: translateY(-8px);
+        .leaflet-popup-close-button {
+            display: none !important;
         }
 
-        .popup-banner {
-            width: 100%;
-            height: 110px;
-            display: block;
+        /* ── Popup Card ── */
+        .popup-img-wrap {
             position: relative;
+            width: 100%;
+            height: 100px;
+            overflow: hidden;
         }
 
-        .popup-banner img {
+        .popup-img {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            display: block;
+            transition: transform 0.3s ease;
         }
 
-        .banner-overlay {
+        .popup-img-wrap:hover .popup-img {
+            transform: scale(1.03);
+        }
+
+        .popup-img-overlay {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 40%;
-            background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);
+            bottom: 0; left: 0; right: 0;
+            height: 40px;
+            background: linear-gradient(to top, rgba(0,0,0,0.25), transparent);
         }
 
         .popup-body {
-            padding: 14px 18px 18px;
+            padding: 11px 13px 13px;
         }
 
-        .restaurant-link {
-            color: var(--text-main);
-            text-decoration: none;
-            font-size: 17px;
-            font-weight: 800;
+        .popup-header {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
-            margin-bottom: 12px;
-            transition: color 0.2s ease;
-            line-height: 1.2;
+            gap: 8px;
+            margin-bottom: 9px;
         }
 
-        .restaurant-link:hover {
-            color: var(--pak-green);
+        .popup-name {
+            font-family: 'Fraunces', serif;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.25;
+            text-decoration: none;
+            flex: 1;
+            transition: color 0.15s;
         }
 
-        .restaurant-link .arrow-icon {
-            color: var(--pak-green);
-            background: rgba(17, 87, 64, 0.1);
-            border-radius: 50%;
-            padding: 5px;
+        .popup-name:hover {
+            color: var(--green);
+        }
+
+        .popup-ext {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            background: var(--green-light);
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
+            text-decoration: none;
+            transition: background 0.15s;
         }
 
-        .restaurant-link:hover .arrow-icon {
-            background: var(--pak-green);
-            color: var(--pak-white);
-            transform: translateX(2px) translateY(-2px);
+        .popup-ext:hover {
+            background: #cce3d8;
         }
 
-        .popup-details {
+        .popup-ext .material-icons-round {
+            font-size: 14px;
+            color: var(--green);
+        }
+
+        .popup-info {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 5px;
         }
 
-        .detail-row {
+        .info-row {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 13px;
+            gap: 7px;
+            font-size: 12.5px;
             color: var(--text-muted);
             font-weight: 500;
         }
 
-        .detail-row svg {
-            color: var(--pak-green);
-            opacity: 0.8;
+        .info-row .material-icons-round {
+            font-size: 15px;
+            color: var(--green);
             flex-shrink: 0;
         }
-        
-        /* Sleek SVG Pin */
+
+        .info-row strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .popup-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 9px 0;
+        }
+
+        .popup-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            padding: 9px 12px;
+            background: var(--green);
+            color: var(--white);
+            border: none;
+            border-radius: 10px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            letter-spacing: 0.1px;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+            transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+            box-shadow: 0 2px 10px rgba(17,87,64,0.28);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .popup-action::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .popup-action:hover {
+            background: var(--green-dark);
+            box-shadow: 0 4px 16px rgba(17,87,64,0.38);
+            transform: translateY(-1px);
+        }
+
+        .popup-action:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 6px rgba(17,87,64,0.2);
+        }
+
+        .popup-action,
+        .popup-action:visited,
+        .popup-action:hover,
+        .popup-action:active {
+            color: #ffffff !important;
+        }
+
+        .popup-action .material-icons-round {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        /* ── Marker ── */
         .transparent-marker {
             background: transparent;
             border: none;
         }
 
-        .sleek-pin {
-            filter: drop-shadow(0px 6px 8px rgba(0,0,0,0.35));
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        
-        .sleek-pin:hover {
-            transform: scale(1.15) translateY(-4px);
+        /* ── FAB ── */
+        #random-btn {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: var(--green);
+            color: var(--white);
+            border: none;
+            padding: 0 24px;
+            height: 52px;
+            border-radius: 26px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.1px;
+            box-shadow: 0 4px 20px rgba(17,87,64,0.38), 0 1px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap;
+            transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* ========================================================
-           MOBILE RESPONSIVENESS (Max 11px fonts on mobile)
-           ======================================================== */
-        @media (max-width: 768px) {
-            .leaflet-popup-content {
-                width: 220px !important; /* Make card slightly smaller */
+        #random-btn .material-icons-round {
+            font-size: 19px;
+        }
+
+        #random-btn:active {
+            transform: translateX(-50%) scale(0.95);
+            box-shadow: 0 2px 10px rgba(17,87,64,0.3);
+        }
+
+        @media (hover: hover) {
+            #random-btn:hover {
+                background: var(--green-dark);
+                transform: translateX(-50%) translateY(-2px);
+                box-shadow: 0 8px 28px rgba(17,87,64,0.42), 0 2px 6px rgba(0,0,0,0.12);
             }
-            .restaurant-link {
-                font-size: 11px !important;
-                margin-bottom: 8px;
-            }
-            .detail-row {
-                font-size: 10px !important; /* Kept slightly under 11px for hierarchy */
-            }
-            .detail-row svg {
-                width: 14px;
-                height: 14px;
-            }
-            #random-btn {
-                font-size: 11px !important;
-                padding: 12px 24px;
-                bottom: 30px;
-            }
-            .restaurant-link .arrow-icon svg {
-                width: 12px;
-                height: 12px;
-            }
+        }
+
+        /* ── Attribution ── */
+        .leaflet-control-attribution {
+            display: none;
+        }
+
+        /* ── Animate popup in ── */
+        .leaflet-popup {
+            animation: popIn 0.2s cubic-bezier(0.34,1.56,0.64,1);
+        }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: translateY(6px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
         }
     </style>
 </head>
 <body>
 
-    <!-- Full Screen Map -->
     <div id="map"></div>
-    
-    <!-- Floating Random Button -->
+
+    <!-- Explore FAB -->
     <button id="random-btn">
-        <span>🎲</span> Random Bite
+        <span class="material-icons-round">explore</span>
+        Random Offer
     </button>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialize map
+
+        // ── Map Init ──
         const map = L.map('map', {
             zoomControl: false,
-            attributionControl: false 
+            attributionControl: false
         }).setView([31.51673, 74.36465], 15);
 
-        // Move zoom control
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // Sleek Map Tiles
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19
         }).addTo(map);
 
-        // Beautiful SVG Map Pin Icon
-        const svgPin = `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" class="sleek-pin" style="width: 40px; height: 40px;">
-                <path fill="#115740" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
-                <circle cx="192" cy="192" r="70" fill="#ffffff"/>
-            </svg>
-        `;
+        // ── SVG Pin ──
+        const makePin = (active = false) => `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 54"
+                 style="width:40px;height:54px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.22));display:block;">
+                <path d="M20 0C8.954 0 0 8.954 0 20c0 14.938 18.1 32.16 19.29 33.32a1 1 0 0 0 1.42 0C21.9 52.16 40 34.938 40 20 40 8.954 31.046 0 20 0z"
+                      fill="${active ? '#0c3e2e' : '#115740'}"/>
+                <circle cx="20" cy="20" r="8.5" fill="white" opacity="0.96"/>
+            </svg>`;
 
-        const elegantIcon = L.divIcon({
+        const makeIcon = (active = false) => L.divIcon({
             className: 'transparent-marker',
-            html: svgPin,
-            iconSize: [40, 40],
-            iconAnchor: [20, 40],
-            popupAnchor: [0, -38] 
+            html: makePin(active),
+            iconSize: [40, 54],
+            iconAnchor: [20, 54],
+            popupAnchor: [0, -58]
         });
 
-        // Professional Icons for the details section
-        const clockIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
-        const walletIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>`;
-
-        // The image banner provided
-        const bannerImgUrl = "https://i.postimg.cc/v8h717y3/image.png";
-
-        // Restaurant Data Array
+        // ── Data ──
+        // Add your restaurants here. Set openByDefault: true on one to open it on load.
         const restaurants = [
             {
                 title: "Lahori Bites",
                 lat: 31.51673,
                 lng: 74.36465,
                 url: "https://www.leuvenflyers.com/rpt/",
-                time: "11:00 AM - 1:00 AM",
-                cost: "Rs 1,500 for two",
-                banner: bannerImgUrl,
+                banner: "https://i.postimg.cc/v8h717y3/image.png",
+                time: "11:00 AM – 1:00 AM",
+                food: "Nihari",
+                persons: 2,
+                cost: "Rs 1,500",
                 openByDefault: true
             },
             {
                 title: "Gaddafi Stadium Eatery",
-                lat: 31.52050, 
+                lat: 31.52050,
                 lng: 74.36010,
-                url: "#",
-                time: "1:00 PM - 3:00 AM",
-                cost: "Rs 800 for two",
-                banner: bannerImgUrl,
+                url: "",
+                banner: "https://i.postimg.cc/v8h717y3/image.png",
+                time: "1:00 PM – 3:00 AM",
+                food: "Shawarma",
+                persons: 1,
+                cost: "Rs 800",
                 openByDefault: false
             },
             {
                 title: "Liberty Market Bites",
-                lat: 31.51120, 
+                lat: 31.51120,
                 lng: 74.37050,
-                url: "#",
-                time: "10:00 AM - 11:30 PM",
-                cost: "Rs 1,200 for two",
-                banner: bannerImgUrl,
+                url: "",
+                banner: "https://i.postimg.cc/v8h717y3/image.png",
+                time: "10:00 AM – 11:30 PM",
+                food: "Tikka",
+                persons: 3,
+                cost: "Rs 1,200",
                 openByDefault: false
             },
             {
                 title: "Model Town Chai Dhaba",
-                lat: 31.51400, 
+                lat: 31.51400,
                 lng: 74.35400,
-                url: "#",
-                time: "4:00 PM - 4:00 AM",
-                cost: "Rs 450 for two",
-                banner: bannerImgUrl,
+                url: "",
+                banner: "https://i.postimg.cc/v8h717y3/image.png",
+                time: "4:00 PM – 4:00 AM",
+                food: "Paratha",
+                persons: 1,
+                cost: "Rs 450",
                 openByDefault: false
             }
         ];
 
+        // ── Markers ──
+        let activeIndex = null;
         const markerObjects = [];
 
-        // Loop through data and add markers
-        restaurants.forEach(place => {
-            const marker = L.marker([place.lat, place.lng], {icon: elegantIcon}).addTo(map);
-            
-            // Premium Link Arrow
-            const linkArrow = place.url !== '#' ? `
-                <div class="arrow-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                </div>` : '';
-            
-            // Modern App-Style Card Layout
-            const popupContent = `
-                <div class="popup-card">
-                    <div class="popup-banner">
-                        <img src="${place.banner}" alt="${place.title}">
-                        <div class="banner-overlay"></div>
+        restaurants.forEach((place, i) => {
+            const marker = L.marker([place.lat, place.lng], { icon: makeIcon(false) }).addTo(map);
+            const hasLink = place.url && place.url.length > 0;
+
+            const extBtn = hasLink
+                ? `<a href="${place.url}" target="_blank" rel="noopener" class="popup-ext" title="Open website">
+                       <span class="material-icons-round">open_in_new</span>
+                   </a>`
+                : '';
+
+            const actionBtn = hasLink
+                ? `<a href="${place.url}" target="_blank" rel="noopener" class="popup-action" style="color:#ffffff !important;">
+                       <span class="material-icons-round">storefront</span> Visit Restaurant
+                   </a>`
+                : '';
+
+            const popupHTML = `
+                <div>
+                    <div class="popup-img-wrap">
+                        <img src="${place.banner}" class="popup-img" alt="${place.title}"
+                             onerror="this.parentElement.style.display='none'">
+                        <div class="popup-img-overlay"></div>
                     </div>
                     <div class="popup-body">
-                        <a href="${place.url}" ${place.url !== '#' ? 'target="_blank"' : ''} class="restaurant-link">
-                            <span>${place.title}</span>
-                            ${linkArrow}
-                        </a>
-                        <div class="popup-details">
-                            <div class="detail-row">
-                                ${clockIcon}
+                        <div class="popup-header">
+                            <a href="${hasLink ? place.url : '#'}"
+                               ${hasLink ? 'target="_blank" rel="noopener"' : ''}
+                               class="popup-name">${place.title}</a>
+                            ${extBtn}
+                        </div>
+                        <div class="popup-info">
+                            <div class="info-row">
+                                <span class="material-icons-round">schedule</span>
                                 <span>${place.time}</span>
                             </div>
-                            <div class="detail-row">
-                                ${walletIcon}
-                                <span>${place.cost}</span>
+                            <div class="info-row">
+                                <span class="material-icons-round">restaurant_menu</span>
+                                <span>${place.food}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="material-icons-round">group</span>
+                                <span>For ${place.persons} ${place.persons === 1 ? 'person' : 'persons'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="material-icons-round">payments</span>
+                                <span><strong>${place.cost}</strong></span>
                             </div>
                         </div>
+                        ${actionBtn}
                     </div>
-                </div>
-            `;
-            
-            marker.bindPopup(popupContent, {
+                </div>`;
+
+            marker.bindPopup(popupHTML, {
                 closeButton: false,
-                offset: [0, -10]
+                maxWidth: 248
+            });
+
+            marker.on('click', () => {
+                if (activeIndex !== null && activeIndex !== i) {
+                    markerObjects[activeIndex].setIcon(makeIcon(false));
+                }
+                marker.setIcon(makeIcon(true));
+                activeIndex = i;
+            });
+
+            marker.on('popupclose', () => {
+                marker.setIcon(makeIcon(false));
+                if (activeIndex === i) activeIndex = null;
             });
 
             markerObjects.push(marker);
 
-            if(place.openByDefault) {
+            if (place.openByDefault) {
+                marker.setIcon(makeIcon(true));
+                activeIndex = i;
                 marker.openPopup();
             }
         });
 
-        // Logic for "Random Bite" Button
+        // ── Random Bite ──
         document.getElementById('random-btn').addEventListener('click', () => {
-            const randomIndex = Math.floor(Math.random() * markerObjects.length);
-            const selectedMarker = markerObjects[randomIndex];
-            
-            map.flyTo(selectedMarker.getLatLng(), 15.5, {
-                animate`*
+            const idx = Math.floor(Math.random() * markerObjects.length);
+            const m = markerObjects[idx];
+
+            if (activeIndex !== null) {
+                markerObjects[activeIndex].setIcon(makeIcon(false));
+            }
+            m.setIcon(makeIcon(true));
+            activeIndex = idx;
+
+            map.flyTo(m.getLatLng(), 16, { animate: true, duration: 1.2 });
+            setTimeout(() => m.openPopup(), 1050);
+        });
+
+    </script>
+</body>
+</html>
