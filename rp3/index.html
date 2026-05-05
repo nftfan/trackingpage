@@ -10,6 +10,7 @@
     <style>
         :root {
             --green:       #115740;
+            --green-soft:  #4f8a6d;
             --green-dark:  #0c3e2e;
             --green-light: #e4f0ea;
             --white:       #ffffff;
@@ -22,19 +23,19 @@
         body, html { height: 100%; width: 100%; font-family: 'DM Sans', sans-serif; overflow: hidden; background: #e8e8e8; }
         #map { height: 100%; width: 100%; z-index: 1; }
 
-        /* Title Tooltips */
+        /* Marker Labels (Right Side, Soft Green) */
         .rp-title-tooltip {
-            background: var(--white) !important;
+            background: var(--green-soft) !important;
             border: none !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.12) !important;
-            border-radius: 20px !important;
-            padding: 4px 12px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+            border-radius: 6px !important;
+            padding: 4px 10px !important;
             font-size: 11px !important;
-            font-weight: 700 !important;
-            color: var(--green) !important;
+            font-weight: 600 !important;
+            color: var(--white) !important;
             transition: opacity 0.2s ease;
         }
-        .leaflet-tooltip-top:before { border-top-color: transparent !important; }
+        .leaflet-tooltip-right:before { border-right-color: transparent !important; }
 
         /* Popup Container & Animation */
         .leaflet-popup-content-wrapper {
@@ -45,7 +46,6 @@
             overflow: hidden;
         }
 
-        /* The "Nice" Pop Animation */
         @keyframes popup-pop {
             0% { transform: scale(0.4); opacity: 0; }
             70% { transform: scale(1.05); opacity: 1; }
@@ -57,28 +57,23 @@
             transform-origin: bottom center;
         }
 
-        .leaflet-popup-tip-container { margin-top: -1px; }
         .leaflet-popup-content { margin: 0 !important; width: 235px !important; }
         .leaflet-popup-close-button { display: none !important; }
 
-        /* Card Content Styles */
+        /* Card Elements */
         .pc-img { width: 100%; height: 86px; object-fit: cover; display: block; }
         .pc-body { padding: 12px; }
         .pc-name { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.2; margin-bottom: 6px; display: block; }
         .pc-info-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
         .pc-time { display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--text-muted); font-weight: 500; }
-        .pc-time .material-icons-round { font-size: 14px; }
         .pc-get-btn { flex-shrink: 0; padding: 4px 10px; background: var(--green); color: #fff !important; border-radius: 7px; font-size: 10px; font-weight: 700; text-decoration: none; }
+        
         .pc-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .pc-chip { padding: 8px; border-radius: 10px; display: flex; flex-direction: column; }
         .pc-chip-food { background: var(--green-light); }
         .pc-food-name { font-size: 12px; font-weight: 700; color: var(--green-dark); }
-        .pc-food-desc { font-size: 9px; color: var(--green); opacity: 0.8; line-height: 1.1; }
         .pc-chip-price { background: var(--amber-bg); border: 1px solid #fde68a; }
-        .pc-price-original { font-size: 9px; text-decoration: line-through; color: #9ca3af; }
-        .pc-price-badge { font-size: 8px; background: #ef4444; color: #fff; padding: 1px 4px; border-radius: 4px; margin-left: 4px; }
         .pc-price-offer { font-size: 14px; font-weight: 800; color: #92400e; }
-        .pc-price-persons { font-size: 8px; color: #b45309; }
 
         .rp-marker { background: transparent; border: none; }
 
@@ -89,7 +84,6 @@
             font-family: 'DM Sans', sans-serif; font-weight: 600; cursor: pointer;
             display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        #explore-btn:active { transform: translateX(-50%) scale(0.96); }
     </style>
 </head>
 <body>
@@ -104,14 +98,8 @@ const map = L.map('map', { zoomControl: false, attributionControl: false })
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
 
-const restaurants = [
-    { title: "Anarkali Spice Hub", lat: 31.5700, lng: 74.3100, url: "#", banner: "https://i.postimg.cc/v8h717y3/image.png", time: "12PM–12AM", food: "Biryani", desc: "Aromatic chicken rice", persons: 2, originalCost: 1400, offerCost: 1050 },
-    { title: "MM Alam Grill", lat: 31.52020, lng: 74.34650, url: "#", banner: "https://i.postimg.cc/v8h717y3/image.png", time: "2PM–2AM", food: "Seekh Kebab", desc: "Smoky skewers", persons: 2, originalCost: 1800, offerCost: 1350 },
-    { title: "Johar Town Delights", lat: 31.46850, lng: 74.27280, url: "#", banner: "https://i.postimg.cc/v8h717y3/image.png", time: "11AM–11PM", food: "Karahi", desc: "Spicy chicken karahi", persons: 3, originalCost: 2200, offerCost: 1700 },
-    { title: "Fort Road Foodies", lat: 31.58890, lng: 74.31080, url: "#", banner: "https://i.postimg.cc/v8h717y3/image.png", time: "5PM–2AM", food: "Paye", desc: "Flavorful trotters", persons: 2, originalCost: 1300, offerCost: 950 },
-    { title: "Gulberg Burgers", lat: 31.51490, lng: 74.34410, url: "#", banner: "https://i.postimg.cc/v8h717y3/image.png", time: "1PM–1AM", food: "Zinger", desc: "Crispy burger", persons: 1, originalCost: 900, offerCost: 650 },
-    { title: "Canal View BBQ", lat: 31.54020, lng: 74.37560, url: "#", banner: "https://i.postimg.cc/v8h717y3/image.png", time: "6PM–3AM", food: "BBQ Platter", desc: "Mixed grilled meats", persons: 4, originalCost: 3000, offerCost: 2400 }
-];
+let markers = [];
+let lastIdx = -1;
 
 function makeIcon(active) {
     const fill = active ? '#0c3e2e' : '#115740';
@@ -135,53 +123,69 @@ function buildPopup(p) {
             <div class="pc-chips">
                 <div class="pc-chip pc-chip-food">
                     <span class="pc-food-name">${p.food}</span>
-                    <span class="pc-food-desc">${p.desc}</span>
                 </div>
                 <div class="pc-chip pc-chip-price">
                     <div style="display:flex;align-items:center">
-                        <span class="pc-price-original">Rs ${p.originalCost}</span>
                         <span class="pc-price-badge">${disc}% OFF</span>
                     </div>
                     <span class="pc-price-offer">Rs ${p.offerCost}</span>
-                    <span class="pc-price-persons">for ${p.persons} ${p.persons > 1 ? 'ppl' : 'person'}</span>
                 </div>
             </div>
         </div>`;
 }
 
-const markers = [];
-restaurants.forEach((p) => {
-    // Note the className 'custom-popup-animate' added to the popup options
-    const m = L.marker([p.lat, p.lng], { icon: makeIcon(false) }).addTo(map);
-    m.bindTooltip(p.title, { permanent: true, direction: 'top', className: 'rp-title-tooltip' });
-    m.bindPopup(buildPopup(p), { closeButton: false, className: 'custom-popup-animate' });
-    
-    m.on('click', () => m.setIcon(makeIcon(true)));
-    m.on('popupclose', () => m.setIcon(makeIcon(false)));
-    markers.push(m);
-});
+// Fetch and Initialize Data
+async function initMap() {
+    try {
+        const response = await fetch('https://raw.githubusercontent.com/leuvenfd/rotipani/main/data/restaurants.json');
+        const data = await response.json();
+
+        data.forEach((p) => {
+            const m = L.marker([p.lat, p.lng], { icon: makeIcon(false) }).addTo(map);
+            
+            m.bindTooltip(p.title, { 
+                permanent: true, 
+                direction: 'right', 
+                offset: [15, -19],
+                className: 'rp-title-tooltip' 
+            });
+
+            m.bindPopup(buildPopup(p), { closeButton: false, className: 'custom-popup-animate' });
+            
+            m.on('click', () => m.setIcon(makeIcon(true)));
+            m.on('popupclose', () => m.setIcon(makeIcon(false)));
+            markers.push(m);
+        });
+
+        // Trigger initial visibility check
+        toggleLabels();
+    } catch (error) {
+        console.error('Error loading restaurant data:', error);
+    }
+}
 
 // Explore logic
-let lastIdx = -1;
 document.getElementById('explore-btn').addEventListener('click', () => {
+    if (markers.length === 0) return;
+
     let idx;
-    do { idx = Math.floor(Math.random() * markers.length); } while (idx === lastIdx);
+    do { idx = Math.floor(Math.random() * markers.length); } while (idx === lastIdx && markers.length > 1);
     lastIdx = idx;
 
     const target = markers[idx];
     map.setView(target.getLatLng(), 16, { animate: false });
-    
-    // Slight delay ensures the map is settled before triggering the CSS animation
-    setTimeout(() => {
-        target.openPopup();
-    }, 50);
+    setTimeout(() => { target.openPopup(); }, 50);
 });
 
-// Hide labels on zoom
-map.on('zoomend', () => {
+function toggleLabels() {
     const zoom = map.getZoom();
     markers.forEach(m => m.getTooltip().setOpacity(zoom < 14 ? 0 : 1));
-});
+}
+
+map.on('zoomend', toggleLabels);
+
+// Kick off the loading process
+initMap();
 </script>
 </body>
 </html>
