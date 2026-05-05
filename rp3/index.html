@@ -65,9 +65,10 @@
         .leaflet-popup-content-wrapper {
             background: #ffffff;
             border-radius: 12px;
-            padding: 4px;
+            padding: 0; /* Removed padding to let image touch edges nicely */
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
             border: 1px solid rgba(0,0,0,0.05);
+            overflow: hidden;
         }
         
         .leaflet-popup-tip {
@@ -76,25 +77,58 @@
         }
 
         .leaflet-popup-content {
-            margin: 12px 18px;
+            margin: 0 !important; /* Reset leaflet margin */
+            width: 220px !important; /* Fixed width for card consistency */
             text-align: center;
+        }
+
+        /* Card Content Styling */
+        .popup-banner {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .popup-body {
+            padding: 12px 16px 16px;
         }
 
         .restaurant-link {
             color: var(--pak-green);
             text-decoration: none;
-            font-size: 16px;
-            font-weight: 700;
+            font-size: 17px;
+            font-weight: 800;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
+            margin-bottom: 8px;
             transition: color 0.2s ease, transform 0.2s ease;
         }
 
         .restaurant-link:hover {
             color: var(--pak-green-hover);
             transform: translateY(-1px);
+        }
+
+        .popup-details {
+            font-size: 13px;
+            color: #444;
+            line-height: 1.5;
+            text-align: left;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .popup-details span {
+            display: block;
+        }
+
+        .popup-details strong {
+            color: #222;
         }
         
         /* Sleek SVG Pin Shadow */
@@ -127,16 +161,16 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialize map without Leaflet attribution and zoom controls to keep it minimal
+        // Initialize map
         const map = L.map('map', {
             zoomControl: false,
             attributionControl: false 
         }).setView([31.51673, 74.36465], 15);
 
-        // Move zoom control to bottom right, above the button space
+        // Move zoom control
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // Sleek Map Tiles (CartoDB Positron)
+        // Sleek Map Tiles
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19
         }).addTo(map);
@@ -144,9 +178,7 @@
         // Beautiful SVG Map Pin Icon
         const svgPin = `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" class="sleek-pin" style="width: 36px; height: 36px;">
-                <!-- Pin Body -->
                 <path fill="#115740" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
-                <!-- White Center Cutout -->
                 <circle cx="192" cy="192" r="70" fill="#ffffff"/>
             </svg>
         `;
@@ -159,13 +191,19 @@
             popupAnchor: [0, -38] 
         });
 
-        // Restaurant Data Array
+        // Default Banner Image provided
+        const defaultBanner = "https://i.postimg.cc/v8h717y3/image.png";
+
+        // Restaurant Data Array with Time and Cost added
         const restaurants = [
             {
                 title: "Lahori Bites",
                 lat: 31.51673,
                 lng: 74.36465,
                 url: "https://www.leuvenflyers.com/rpt/",
+                banner: defaultBanner,
+                time: "11:00 AM - 1:00 AM",
+                cost: "Rs 1,500",
                 openByDefault: true
             },
             {
@@ -173,6 +211,9 @@
                 lat: 31.52050, 
                 lng: 74.36010,
                 url: "#",
+                banner: defaultBanner,
+                time: "1:00 PM - 3:00 AM",
+                cost: "Rs 800",
                 openByDefault: false
             },
             {
@@ -180,6 +221,9 @@
                 lat: 31.51120, 
                 lng: 74.37050,
                 url: "#",
+                banner: defaultBanner,
+                time: "10:00 AM - 11:30 PM",
+                cost: "Rs 1,200",
                 openByDefault: false
             },
             {
@@ -187,24 +231,36 @@
                 lat: 31.51400, 
                 lng: 74.35400,
                 url: "#",
+                banner: defaultBanner,
+                time: "4:00 PM - 4:00 AM",
+                cost: "Rs 450",
                 openByDefault: false
             }
         ];
 
-        // Store Leaflet marker objects for the random button logic
         const markerObjects = [];
 
         // Loop through data and add markers
         restaurants.forEach(place => {
             const marker = L.marker([place.lat, place.lng], {icon: elegantIcon}).addTo(map);
             
-            // Create beautiful popup with link icon
-            const linkIcon = place.url !== '#' ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>` : '';
+            // Link icon logic
+            const linkIcon = place.url !== '#' ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>` : '';
             
+            // Modern Card Layout for Popup
             const popupContent = `
-                <a href="${place.url}" ${place.url !== '#' ? 'target="_blank"' : ''} class="restaurant-link">
-                    ${place.title} ${linkIcon}
-                </a>
+                <div class="popup-card">
+                    <img src="${place.banner}" class="popup-banner" alt="${place.title}">
+                    <div class="popup-body">
+                        <a href="${place.url}" ${place.url !== '#' ? 'target="_blank"' : ''} class="restaurant-link">
+                            ${place.title} ${linkIcon}
+                        </a>
+                        <div class="popup-details">
+                            <span><strong>Opening Time:</strong><br>${place.time}</span>
+                            <span style="margin-top: 6px;"><strong>Avg Cost:</strong> ${place.cost}</span>
+                        </div>
+                    </div>
+                </div>
             `;
             
             marker.bindPopup(popupContent, {
@@ -213,7 +269,6 @@
 
             markerObjects.push(marker);
 
-            // Open the main one by default
             if(place.openByDefault) {
                 marker.openPopup();
             }
@@ -221,18 +276,14 @@
 
         // Logic for "Random Bite" Button
         document.getElementById('random-btn').addEventListener('click', () => {
-            // Pick a random marker
             const randomIndex = Math.floor(Math.random() * markerObjects.length);
             const selectedMarker = markerObjects[randomIndex];
-            const latLng = selectedMarker.getLatLng();
-
-            // Smoothly fly to the random marker's location and zoom in slightly
-            map.flyTo(latLng, 16, {
+            
+            map.flyTo(selectedMarker.getLatLng(), 16, {
                 animate: true,
-                duration: 1.5 // Duration in seconds
+                duration: 1.5
             });
 
-            // Wait for fly animation to almost finish before opening popup
             setTimeout(() => {
                 selectedMarker.openPopup();
             }, 1200);
@@ -240,3 +291,4 @@
     </script>
 </body>
 </html>
+```*
