@@ -1,0 +1,1061 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Smart Analytics - Timeline & Error Logs (LIVE)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <style>
+    :root { --bg:#0b0b0e; --panel:#141419; --muted:#8b8b95; --text:#f2f2f7; --border:rgba(255,255,255,0.08); }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; padding: 20px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    
+    .header { margin-bottom: 15px; display: flex; flex-direction: column; gap: 15px; flex-shrink: 0; }
+    h1 { font-size: 20px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
+    .live-indicator { display: none; width: 10px; height: 10px; background: #ef4444; border-radius: 50%; box-shadow: 0 0 8px #ef4444; animation: pulse-live 1.5s infinite; }
+    @keyframes pulse-live { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+    
+    .controls-panel { background: var(--panel); padding: 15px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; }
+    .filters { display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+    .filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
+    .filter-group label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .filter-group input[type="text"] { 
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: #fff; 
+      padding: 10px 12px; border-radius: 8px; font-family: 'Inter', sans-serif; outline: none;
+    }
+    .filter-group input[type="text"]:focus { border-color: #4f8cff; }
+
+    .btn {
+      background: #4f8cff; color: #fff; border: none; padding: 10px 20px; border-radius: 8px;
+      font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s, transform 0.1s;
+      height: 38px; display: flex; align-items: center; justify-content: center;
+    }
+    .btn:hover { background: #3b76e5; }
+    .btn:active { transform: scale(0.96); }
+    .btn:disabled { background: #333; color: #777; cursor: not-allowed; }
+    .btn-secondary { background: rgba(255,255,255,0.1); }
+    .btn-secondary:hover { background: rgba(255,255,255,0.15); }
+
+    .color-toggles { display: flex; gap: 15px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--border); align-items: center; }
+    .toggle-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .toggle-label input { width: 16px; height: 16px; accent-color: #4f8cff; cursor: pointer; }
+    
+    .dot-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .dot-green { background: #22c55e; border: 2px solid rgba(34,197,94,0.4); }
+    .dot-red { background: #ef4444; border: 2px solid rgba(239,68,68,0.4); }
+    .dot-blue { background: #3b82f6; border: 2px solid rgba(59,130,246,0.4); }
+    .dot-orange { background: #f97316; border: 2px solid rgba(249,115,22,0.4); }
+
+    .playback-controls {
+      display: flex; gap: 8px; align-items: center; padding: 8px 10px; background: rgba(79, 140, 255, 0.1); 
+      border: 1px solid rgba(79, 140, 255, 0.3); border-radius: 8px; margin-left: auto; flex-wrap: wrap;
+    }
+    .playback-status { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #aab7ff; min-width: 120px; text-align: center; }
+    
+    .speed-select {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(79, 140, 255, 0.4); color: #fff; 
+      padding: 6px 10px; border-radius: 6px; font-family: 'Inter', sans-serif; font-size: 12px; 
+      font-weight: 600; outline: none; cursor: pointer; height: 38px;
+    }
+    .speed-select option { background: var(--panel); color: #fff; }
+
+    .timeline-wrapper {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 20px; margin-bottom: 15px; overflow-x: auto; flex-shrink: 0;
+      position: relative; min-height: 120px; display: flex; align-items: center;
+      scroll-behavior: smooth;
+    }
+    .timeline-container { display: flex; align-items: center; padding: 0 40px 0 20px; min-width: max-content; }
+    .timeline-empty { position: absolute; left: 50%; transform: translateX(-50%); color: var(--muted); font-size: 14px; }
+    
+    .timeline-item { display: flex; align-items: center; }
+    .timeline-dot-btn {
+      width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+      position: relative; z-index: 2; transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .timeline-dot-btn:hover { transform: scale(1.3); }
+    .timeline-dot-btn.active { transform: scale(1.5); box-shadow: 0 0 0 4px rgba(255,255,255,0.3); }
+    
+    .timeline-segment {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-width: 100px; padding: 0 10px; position: relative;
+    }
+    .timeline-line {
+      width: 100%; height: 2px; border-radius: 1px; position: absolute; top: 50%; 
+      transform: translateY(-50%); z-index: 1; border-top: 2px dashed #3b82f6;
+    }
+    .timeline-time-label {
+      background: rgba(15, 15, 18, 0.95); padding: 4px 8px; border-radius: 6px; border: 1px solid #4f8cff;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #fff;
+      position: relative; z-index: 2; margin-top: -35px; white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.8);
+    }
+
+    /* Bottom Section */
+    .bottom-section { display: flex; gap: 10px; flex: 1; min-height: 0; }
+
+    /* Map — smaller width */
+    .map-box { flex: 1.2; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; background: #0f0f12; position: relative; min-width: 0; }
+    #map { width: 100%; height: 100%; z-index: 1; }
+    
+    .pulse-marker {
+      width: 100%; height: 100%; border-radius: 50%; border: 2px solid #fff;
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.8); animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.8); }
+      70% { box-shadow: 0 0 0 20px rgba(255, 255, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+    }
+    
+    .leaflet-popup-content-wrapper { background: #1a1a22; color: #f2f2f7; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+    .leaflet-popup-tip { background: #1a1a22; }
+
+    /* Error Logs Panel */
+    .error-box {
+      flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; min-width: 300px; max-width: 340px;
+    }
+    .error-header { 
+      font-size: 16px; font-weight: 600; border-bottom: 1px solid var(--border); 
+      padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    .error-count { background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+    
+    .error-summary-tabs {
+      display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .err-tab {
+      font-size: 10px; font-weight: 600; padding: 4px 8px; border-radius: 6px; 
+      display: flex; align-items: center; gap: 6px; color: #fff; cursor: pointer;
+      transition: opacity 0.2s, outline 0.2s;
+    }
+    .err-tab:hover { filter: brightness(1.2); }
+    .err-tab-danger { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.5); }
+    .err-tab-warning { background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); }
+    .err-tab-info { background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.5); }
+    .err-tab-muted { background: rgba(139,139,149,0.2); border: 1px solid rgba(139,139,149,0.5); }
+    .err-tab .count { background: rgba(0,0,0,0.4); padding: 1px 5px; border-radius: 10px; }
+
+    .error-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px; }
+    
+    .error-item {
+      padding: 8px 12px; border-radius: 0 6px 6px 0; font-size: 10px; line-height: 1.4;
+      cursor: pointer; transition: transform 0.2s, background 0.2s;
+    }
+    .error-item:hover { transform: translateX(3px); filter: brightness(1.2); }
+    
+    .err-danger { background: rgba(239, 68, 68, 0.08); border-left: 3px solid #ef4444; }
+    .err-danger .err-type { color: #ef4444; }
+    .err-warning { background: rgba(234, 179, 8, 0.08); border-left: 3px solid #eab308; }
+    .err-warning .err-type { color: #eab308; }
+    .err-info { background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; }
+    .err-info .err-type { color: #3b82f6; }
+    .err-muted { background: rgba(139, 139, 149, 0.08); border-left: 3px solid #8b8b95; }
+    .err-muted .err-type { color: #a1a1aa; }
+
+    .err-time { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8b8b95; margin-bottom: 3px; display: block; }
+    .err-type { font-weight: 700; margin-bottom: 2px; font-size: 11px; text-transform: uppercase;}
+    .err-detail { color: #d1d5db; font-size: 10px; }
+
+    .panel-tabs { display: flex; gap: 0; flex-shrink: 0; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+    .panel-tab {
+      flex: 1; text-align: center; padding: 8px 10px; font-size: 12px; font-weight: 600;
+      cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent;
+      transition: color 0.2s, border-color 0.2s; user-select: none;
+    }
+    .panel-tab.active { color: #fff; border-bottom-color: #4f8cff; }
+    .panel-tab:hover:not(.active) { color: #ccc; }
+
+    @keyframes flashIn {
+      0%   { background: rgba(239,68,68,0.35); }
+      100% { background: transparent; }
+    }
+    .error-item.flash-new { animation: flashIn 1.2s ease-out forwards; }
+
+    #loadingOverlay {
+      position: absolute; inset: 0; background: rgba(11,11,14,0.85); z-index: 1000;
+      display: none; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; color: var(--text);
+    }
+
+    /* ===== SHIFTS PANEL ===== */
+    .shifts-box {
+      flex: 1.3; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; min-width: 0;
+    }
+    .shifts-header {
+      font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--border);
+      padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    .shifts-count { background: #4f8cff; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+    .shifts-scroll { flex: 1; overflow-y: auto; overflow-x: auto; }
+
+    .shifts-table {
+      width: 100%; border-collapse: collapse; font-size: 9px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .shifts-table th {
+      color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+      padding: 4px 6px; text-align: right; border-bottom: 1px solid var(--border);
+      white-space: nowrap; position: sticky; top: 0; background: var(--panel); z-index: 2;
+      font-size: 8px;
+    }
+    .shifts-table th:first-child { text-align: left; }
+    .shifts-table td {
+      padding: 3px 6px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.04);
+      white-space: nowrap; vertical-align: middle;
+    }
+    .shifts-table td:first-child { text-align: left; }
+    .shifts-table tr:hover td { background: rgba(79,140,255,0.07); }
+
+    .worker-link {
+      color: #7dd3fc; cursor: pointer; font-weight: 700; text-decoration: none;
+      transition: color 0.15s;
+    }
+    .worker-link:hover { color: #38bdf8; text-decoration: underline; }
+    .worker-link.active-worker { color: #4ade80; }
+
+    .shift-earnings { color: #4ade80; font-weight: 700; }
+    .shift-dots-total { color: #f2f2f7; }
+    .shift-green { color: #22c55e; }
+    .shift-red { color: #ef4444; }
+    .shift-blue { color: #3b82f6; }
+    .shift-orange { color: #f97316; }
+    .shift-time { color: #a78bfa; }
+    .shift-date { color: var(--muted); font-size: 8px; }
+
+    .shifts-empty { color: var(--muted); font-size: 12px; text-align: center; padding: 30px 0; }
+
+    /* Scrollbar styling */
+    .shifts-scroll::-webkit-scrollbar,
+    .error-list::-webkit-scrollbar { width: 4px; height: 4px; }
+    .shifts-scroll::-webkit-scrollbar-track,
+    .error-list::-webkit-scrollbar-track { background: transparent; }
+    .shifts-scroll::-webkit-scrollbar-thumb,
+    .error-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Timeline View & Map Playback <div class="live-indicator" id="liveIndicator" title="Live data synced"></div></h1>
+    <div class="controls-panel">
+      <div class="filters">
+        <!-- Single campaign search bar -->
+        <div class="filter-group" style="max-width:300px;">
+          <label>Campaign (User ID)</label>
+          <input type="text" id="searchCampaign" placeholder="e.g. FF993 (Leave blank for all)">
+        </div>
+        <button id="btnSearch" class="btn" style="min-width: 120px;">Fetch Data</button>
+      </div>
+      <div class="color-toggles">
+        <label class="toggle-label"><input type="checkbox" id="chkGreen" checked><div class="dot-indicator dot-green"></div> Green</label>
+        <label class="toggle-label"><input type="checkbox" id="chkRed" checked><div class="dot-indicator dot-red"></div> Red</label>
+        <label class="toggle-label"><input type="checkbox" id="chkBlue" checked><div class="dot-indicator dot-blue"></div> Blue</label>
+        <label class="toggle-label"><input type="checkbox" id="chkOrange" checked><div class="dot-indicator dot-orange"></div> Orange</label>
+        
+        <div class="playback-controls" id="playbackPanel" style="display:none;">
+          <select id="selSpeed" class="speed-select" title="Playback Speed">
+            <option value="4000">0.5x Speed</option>
+            <option value="2000" selected>1x Speed</option>
+            <option value="1000">2x Speed</option>
+            <option value="500">4x Speed</option>
+            <option value="250">8x Speed</option>
+          </select>
+          <button id="btnPrev" class="btn btn-secondary">⏪ Prev</button>
+          <button id="btnPlay" class="btn btn-secondary">▶ Play</button>
+          <button id="btnPause" class="btn btn-secondary" style="display:none;">⏸ Pause</button>
+          <button id="btnStop" class="btn btn-secondary">⏹ Stop</button>
+          <button id="btnNext" class="btn btn-secondary">Next ⏩</button>
+          <div class="playback-status" id="playbackStatus">Ready</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline-wrapper" id="timelineWrapper">
+    <div id="loadingOverlay">Fetching data...</div>
+    <div class="timeline-empty" id="timelineEmpty">Search to display timeline data.</div>
+    <div class="timeline-container" id="timelineContainer"></div>
+  </div>
+
+  <div class="bottom-section">
+    <!-- MAP -->
+    <div class="map-box">
+      <div id="map"></div>
+    </div>
+    
+    <!-- ERROR LOGS -->
+    <div class="error-box" id="errorBox">
+      <div class="error-header">
+        Error Logs
+        <span class="error-count" id="totalErrorsCount">0</span>
+      </div>
+
+      <div class="panel-tabs">
+        <div class="panel-tab active" id="tabLive" onclick="switchTab('live')">⚡ Live</div>
+        <div class="panel-tab" id="tabFull" onclick="switchTab('full')">📋 Full Log</div>
+      </div>
+
+      <!-- LIVE TAB -->
+      <div id="liveTabContent" style="display:flex; flex-direction:column; gap:8px; flex:1; min-height:0; overflow:hidden;">
+        <div style="color: var(--muted); font-size: 11px; text-align: center; margin-top: 40px;" id="emptyLive">
+          Press ▶ Play to stream live errors.
+        </div>
+        <div class="error-list" id="liveErrorList"></div>
+      </div>
+
+      <!-- FULL LOG TAB -->
+      <div id="fullTabContent" style="display:none; flex-direction:column; gap:8px; flex:1; min-height:0; overflow:hidden;">
+        <div class="error-summary-tabs" id="errorSummaryTabs" style="display:none;"></div>
+        <div style="color: var(--muted); font-size: 11px; text-align: center; margin-top: 40px;" id="emptyErrors">
+          No errors detected yet.
+        </div>
+        <div class="error-list" id="errorList"></div>
+      </div>
+    </div>
+
+    <!-- SHIFTS PANEL -->
+    <div class="shifts-box" id="shiftsBox">
+      <div class="shifts-header">
+        Shifts
+        <span class="shifts-count" id="shiftsCount">0</span>
+      </div>
+      <div class="shifts-scroll">
+        <div class="shifts-empty" id="shiftsEmpty">Fetch data to view shifts.</div>
+        <table class="shifts-table" id="shiftsTable" style="display:none;">
+          <thead>
+            <tr>
+              <th>Worker</th>
+              <th>Earnings €</th>
+              <th>Total</th>
+              <th style="color:#22c55e;">🟢</th>
+              <th style="color:#ef4444;">🔴</th>
+              <th style="color:#3b82f6;">🔵</th>
+              <th style="color:#f97316;">🟠</th>
+              <th>Duration</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="shiftsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  let masterData = [];
+  let currentFilteredData = [];
+  let dotElements = [];
+  let generatedErrors = [];
+  let currentErrorFilter = null;
+  
+  let livePostsRaw = {};
+  let liveClicksRaw = {};
+  let activeListeners = [];
+
+  let playbackTimer = null;
+  let playbackIndex = -1;
+  let currentSpeedMs = 2000;
+
+  // Active worker filter for shifts click
+  let activeWorkerFilter = null;
+
+  // Map Initialization
+  const map = L.map('map', { zoomControl: true }).setView([20, 0], 2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  const pathLayer = L.layerGroup().addTo(map);
+  const markerLayer = L.layerGroup().addTo(map);
+  const highlightLayer = L.layerGroup().addTo(map);
+  const savedSegmentsLayer = L.layerGroup().addTo(map);
+
+  // Load Saved Segments
+  const segmentsRef = ref(db, 'segments');
+  onValue(segmentsRef, (snap) => {
+    savedSegmentsLayer.clearLayers();
+    const raw = snap.val();
+    if (!raw) return;
+    for (const key in raw) {
+      try {
+        const seg = raw[key];
+        const coords = Array.isArray(seg) ? seg : Object.values(seg);
+        const cleanCoords = coords.map(c => {
+          if (c && typeof c.lat === 'number' && typeof c.lng === 'number') return [c.lat, c.lng];
+          if (Array.isArray(c) && c.length >= 2) return [c[0], c[1]];
+          return null;
+        }).filter(c => c !== null);
+        if (cleanCoords.length > 1) {
+          L.polyline(cleanCoords, { color: '#9c27b0', weight: 4, opacity: 0.8 }).addTo(savedSegmentsLayer);
+        }
+      } catch (err) {
+        console.error(`Failed to parse segment ${key}:`, err);
+      }
+    }
+  });
+
+  // Helper Functions
+  function formatTime(ts) { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second:'2-digit' }); }
+  function formatDateTime(ts) { return new Date(ts).toLocaleString([], { month:'short', day:'numeric', hour: '2-digit', minute: '2-digit', second:'2-digit' }); }
+  function formatDateShort(ts) {
+    const d = new Date(ts);
+    return d.toLocaleDateString([], { month:'short', day:'numeric' });
+  }
+  function formatTimeDiffShort(ms) {
+    if (ms < 0) ms = 0;
+    const sec = Math.floor(ms / 1000);
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    const remSec = sec % 60;
+    if (min < 60) return `${min}m ${remSec}s`;
+    return `${Math.floor(min / 60)}h ${min % 60}m`;
+  }
+  function getDistanceInMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371e3, φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180, Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  }
+  function formatDistance(meters) { return meters < 1000 ? `${Math.round(meters)}m` : `${(meters / 1000).toFixed(2)}km`; }
+  function getColorProps(color) {
+    if(color === 'green') return { border: '#16a34a', fill: '#22c55e', dotClass: 'dot-green' };
+    if(color === 'red') return { border: '#b91c1c', fill: '#ef4444', dotClass: 'dot-red' };
+    if(color === 'blue') return { border: '#1d4ed8', fill: '#3b82f6', dotClass: 'dot-blue' };
+    if(color === 'orange') return { border: '#c2410c', fill: '#f97316', dotClass: 'dot-orange' };
+    return { border: '#ffffff', fill: '#ffffff', dotClass: '' };
+  }
+
+  // ===== SHIFTS RENDERING =====
+  function renderShifts(dataToUse) {
+    const tbody = document.getElementById('shiftsTableBody');
+    const empty = document.getElementById('shiftsEmpty');
+    const table = document.getElementById('shiftsTable');
+    const countEl = document.getElementById('shiftsCount');
+
+    tbody.innerHTML = '';
+
+    // Group by worker (campaignId + workerName = key)
+    const workerGroups = {};
+    dataToUse.forEach(dot => {
+      const key = `${dot.campaignId || 'Unknown'}_${dot.workerName || 'Unknown'}`;
+      if (!workerGroups[key]) workerGroups[key] = [];
+      workerGroups[key].push(dot);
+    });
+
+    // Build shifts: each unique worker = one "shift" entry
+    // A shift = group of consecutive dots for that worker.
+    // We detect shifts by large time gaps (>60min gap = new shift).
+    const shifts = [];
+    for (const key in workerGroups) {
+      const workerName = key.split('_').slice(1).join('_') || 'Unknown';
+      const dots = [...workerGroups[key]].sort((a, b) => a.timestamp - b.timestamp);
+
+      let shiftStart = 0;
+      for (let i = 0; i <= dots.length; i++) {
+        const isLast = i === dots.length;
+        const bigGap = !isLast && i > 0 && (dots[i].timestamp - dots[i-1].timestamp) > 3600000;
+        if (isLast || bigGap) {
+          const shiftDots = dots.slice(shiftStart, i);
+          if (shiftDots.length === 0) { shiftStart = i; continue; }
+
+          const green = shiftDots.filter(d => d.color === 'green').length;
+          const red = shiftDots.filter(d => d.color === 'red').length;
+          const blue = shiftDots.filter(d => d.color === 'blue').length;
+          const orange = shiftDots.filter(d => d.color === 'orange').length;
+          const totalDots = green + red + blue;
+          const earnings = (totalDots * 0.036).toFixed(2);
+          const firstTs = shiftDots[0].timestamp;
+          const lastTs = shiftDots[shiftDots.length - 1].timestamp;
+          const duration = lastTs - firstTs;
+
+          shifts.push({ workerName, key, green, red, blue, orange, totalDots, earnings, duration, date: firstTs });
+          shiftStart = i;
+        }
+      }
+    }
+
+    // Sort by date descending (newest shift first)
+    shifts.sort((a, b) => b.date - a.date);
+
+    countEl.textContent = shifts.length;
+
+    if (shifts.length === 0) {
+      empty.style.display = 'block';
+      table.style.display = 'none';
+      return;
+    }
+
+    empty.style.display = 'none';
+    table.style.display = 'table';
+
+    shifts.forEach(s => {
+      const tr = document.createElement('tr');
+      const isActive = activeWorkerFilter === s.workerName;
+      tr.innerHTML = `
+        <td><span class="worker-link${isActive ? ' active-worker' : ''}" data-worker="${s.workerName}" title="Click to filter map & logs to ${s.workerName}">${s.workerName}</span></td>
+        <td class="shift-earnings">${s.earnings}</td>
+        <td class="shift-dots-total">${s.totalDots}</td>
+        <td class="shift-green">${s.green}</td>
+        <td class="shift-red">${s.red}</td>
+        <td class="shift-blue">${s.blue}</td>
+        <td class="shift-orange">${s.orange}</td>
+        <td class="shift-time">${formatTimeDiffShort(s.duration)}</td>
+        <td class="shift-date">${formatDateShort(s.date)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Click worker name to filter map & logs
+    tbody.querySelectorAll('.worker-link').forEach(el => {
+      el.addEventListener('click', () => {
+        const wName = el.dataset.worker;
+        if (activeWorkerFilter === wName) {
+          // Toggle off
+          activeWorkerFilter = null;
+        } else {
+          activeWorkerFilter = wName;
+        }
+        renderAll(true);
+        renderShifts(masterData);
+      });
+    });
+  }
+
+  function applyFilters() {
+    const sg = document.getElementById('chkGreen').checked;
+    const sr = document.getElementById('chkRed').checked;
+    const sb = document.getElementById('chkBlue').checked;
+    const so = document.getElementById('chkOrange').checked;
+    currentFilteredData = masterData.filter(d =>
+      ((d.color==='green'&&sg)||(d.color==='red'&&sr)||(d.color==='blue'&&sb)||(d.color==='orange'&&so)) &&
+      typeof d.lat === 'number' && typeof d.lng === 'number' &&
+      (!activeWorkerFilter || d.workerName === activeWorkerFilter)
+    );
+  }
+
+  function renderAll(maintainSelection = true) {
+    applyFilters();
+    
+    const container = document.getElementById('timelineContainer');
+    const emptyMsg = document.getElementById('timelineEmpty');
+    container.innerHTML = '';
+    dotElements = [];
+    markerLayer.clearLayers();
+    pathLayer.clearLayers();
+    highlightLayer.clearLayers();
+
+    if (currentFilteredData.length === 0) {
+      emptyMsg.style.display = 'block';
+      document.getElementById('playbackPanel').style.display = 'none';
+      return;
+    }
+    
+    emptyMsg.style.display = 'none';
+    document.getElementById('playbackPanel').style.display = 'flex';
+    document.getElementById('playbackStatus').textContent = `Ready: ${currentFilteredData.length} dots`;
+
+    let bounds = L.latLngBounds();
+    const workerGroups = {};
+
+    currentFilteredData.forEach((dot, index) => {
+      let prevDot = index > 0 ? currentFilteredData[index - 1] : null;
+      let timeDiffMs = prevDot ? (dot.timestamp - prevDot.timestamp) : 0;
+      
+      const itemContainer = document.createElement('div');
+      itemContainer.className = 'timeline-item';
+
+      if (prevDot) {
+        const segment = document.createElement('div');
+        segment.className = 'timeline-segment';
+        segment.style.minWidth = `${100 + Math.min((timeDiffMs / 1000 / 60) * 2, 200)}px`;
+        segment.innerHTML = `<div class="timeline-line"></div><div class="timeline-time-label">${formatTimeDiffShort(timeDiffMs)}</div>`;
+        itemContainer.appendChild(segment);
+      }
+
+      const colors = getColorProps(dot.color);
+      const dotEl = document.createElement('div');
+      dotEl.className = `timeline-dot-btn ${colors.dotClass}`;
+      dotEl.title = `Worker: ${dot.workerName || 'Unknown'} | Time: ${formatTime(dot.timestamp)}`;
+      dotEl.addEventListener('click', () => { pause(); selectDot(index); });
+      
+      dotElements.push(dotEl);
+      itemContainer.appendChild(dotEl);
+      container.appendChild(itemContainer);
+
+      const marker = L.circleMarker([dot.lat, dot.lng], { radius: 5, color: colors.border, weight: 1.5, fillColor: colors.fill, fillOpacity: 0.6 });
+      marker.bindPopup(`<b>${dot.workerName || 'Unknown'}</b><br>${formatTime(dot.timestamp)}`);
+      markerLayer.addLayer(marker);
+      bounds.extend([dot.lat, dot.lng]);
+
+      const wName = dot.workerName || 'Unknown';
+      if (!workerGroups[wName]) workerGroups[wName] = [];
+      workerGroups[wName].push(dot);
+    });
+
+    for (const w in workerGroups) {
+      const wDots = workerGroups[w];
+      for (let i = 0; i < wDots.length - 1; i++) {
+        L.polyline([[wDots[i].lat, wDots[i].lng], [wDots[i+1].lat, wDots[i+1].lng]], { color: '#3b82f6', weight: 1.5, dashArray: '4, 6', opacity: 0.5 }).addTo(pathLayer);
+      }
+    }
+
+    if(playbackIndex === -1 && !maintainSelection) {
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 18 });
+    }
+
+    if (maintainSelection) {
+      if (playbackIndex === -1 || playbackIndex >= currentFilteredData.length - 2) {
+        selectDot(currentFilteredData.length - 1, false);
+        setTimeout(() => {
+          if (dotElements.length > 0) {
+            dotElements[dotElements.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }, 100);
+      } else {
+        selectDot(playbackIndex, false);
+      }
+    }
+  }
+
+  function selectDot(index, panMap = true) {
+    if (index < 0 || index >= currentFilteredData.length) return;
+    playbackIndex = index;
+    const dot = currentFilteredData[index];
+    const colors = getColorProps(dot.color);
+
+    dotElements.forEach(el => el.classList.remove('active'));
+    dotElements[index].classList.add('active');
+    dotElements[index].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+    highlightLayer.clearLayers();
+    const iconHtml = `<div class="pulse-marker" style="background: ${colors.fill};"></div>`;
+    const pulseIcon = L.divIcon({ className: '', html: iconHtml, iconSize: [32, 32], iconAnchor: [16, 16] });
+    L.marker([dot.lat, dot.lng], { icon: pulseIcon, zIndexOffset: 1000 })
+      .addTo(highlightLayer)
+      .bindPopup(`<b>Selected</b><br>${formatTime(dot.timestamp)}`, { autoClose: false }).openPopup();
+
+    if(panMap) {
+      const shouldAnimate = currentSpeedMs >= 1000;
+      map.flyTo([dot.lat, dot.lng], 18, { animate: shouldAnimate, duration: 0.5 });
+    }
+    
+    document.getElementById('playbackStatus').textContent = `Showing: ${index + 1} / ${currentFilteredData.length}`;
+
+    if (dot && dot.timestamp) {
+      pushLiveErrors(dot.timestamp);
+    }
+  }
+
+  function goToErrorOnMap(timestamp, workerKey) {
+    pause();
+    const targetIdx = currentFilteredData.findIndex(d =>
+      d.timestamp === timestamp &&
+      `${d.campaignId || 'Unknown'}_${d.workerName || 'Unknown'}` === workerKey
+    );
+
+    if (targetIdx !== -1) {
+      selectDot(targetIdx, true);
+    } else {
+      alert("This point is currently hidden by your active color filters. Please enable the required filters to view it.");
+    }
+  }
+
+  function getErrorCategory(type) {
+    const danger = ['MISSING_ORANGE_DOT', 'DOT_SPAM_TOO_FAST', 'UNREALISTIC_SPEED', 'EXCESSIVE_RED_DOTS'];
+    const warning = ['TIME_LIMIT_EXCEEDED', 'DISTANCE_TOO_LARGE', 'STATIONARY_SPAM'];
+    const info = ['EXCESSIVE_BLUE_DOTS', 'ORPHANED_ORANGE'];
+    if (danger.includes(type)) return 'danger';
+    if (warning.includes(type)) return 'warning';
+    if (info.includes(type)) return 'info';
+    return 'muted';
+  }
+
+  // ERROR EVALUATION
+  function evaluateErrorsAndSave(allData) {
+    generatedErrors = [];
+    const workerGroups = {};
+
+    allData.forEach(dot => {
+      const key = `${dot.campaignId || 'Unknown'}_${dot.workerName || 'Unknown'}`;
+      if (!workerGroups[key]) workerGroups[key] = [];
+      workerGroups[key].push(dot);
+    });
+
+    for (const key in workerGroups) {
+      const dots = workerGroups[key];
+      dots.sort((a, b) => a.timestamp - b.timestamp);
+
+      let consecutiveBlue = 0;
+      let consecutiveRed = 0;
+      let consecutiveStationary = 0;
+
+      for (let i = 0; i < dots.length; i++) {
+        const dot = dots[i];
+        const prevDot = i > 0 ? dots[i-1] : null;
+
+        if (dot.color === 'blue') {
+          consecutiveBlue++;
+          if (consecutiveBlue > 3) pushError(key, "EXCESSIVE_BLUE_DOTS", `Blue dot clicked ${consecutiveBlue} times in a row.`, dot.timestamp);
+        } else { consecutiveBlue = 0; }
+
+        if (dot.color === 'red') {
+          consecutiveRed++;
+          if (consecutiveRed > 4) pushError(key, "EXCESSIVE_RED_DOTS", `Red dot clicked ${consecutiveRed} times in a row.`, dot.timestamp);
+        } else { consecutiveRed = 0; }
+
+        if (prevDot) {
+          const timeDiffMs = dot.timestamp - prevDot.timestamp;
+          const timeDiffSec = timeDiffMs / 1000;
+          const distMeters = getDistanceInMeters(prevDot.lat, prevDot.lng, dot.lat, dot.lng);
+          const speedMs = timeDiffSec > 0 ? distMeters / timeDiffSec : 0;
+
+          if (timeDiffSec < 2) {
+            pushError(key, "DOT_SPAM_TOO_FAST", `Dots placed too fast: ${timeDiffSec.toFixed(1)}s apart.`, dot.timestamp);
+          } else if (timeDiffSec > 900) {
+            pushError(key, "LONG_IDLE_TIME", `Worker idle for ${formatTimeDiffShort(timeDiffMs)}.`, dot.timestamp);
+          } else if (timeDiffSec > 30) {
+            pushError(key, "TIME_LIMIT_EXCEEDED", `Time between dots was ${formatTimeDiffShort(timeDiffMs)} (> 30s).`, dot.timestamp);
+          }
+
+          if (distMeters > 500) {
+            pushError(key, "DISTANCE_TOO_LARGE", `Distance between points is very large: ${formatDistance(distMeters)}.`, dot.timestamp);
+          }
+          if (speedMs > 8.33) {
+            const kmh = (speedMs * 3.6).toFixed(1);
+            pushError(key, "UNREALISTIC_SPEED", `Unrealistic movement speed detected: ${kmh} km/h.`, dot.timestamp);
+          }
+
+          if (distMeters < 5) {
+            consecutiveStationary++;
+            if (consecutiveStationary > 3) pushError(key, "STATIONARY_SPAM", `Dropped ${consecutiveStationary} dots without moving.`, dot.timestamp);
+          } else { consecutiveStationary = 0; }
+
+          if (prevDot.color === 'green' && dot.color !== 'orange') {
+            pushError(key, "MISSING_ORANGE_DOT", "A green dot was posted but NOT followed by an orange dot.", prevDot.timestamp);
+          }
+
+          if (prevDot.color === 'orange' && dot.color === 'orange') {
+            pushError(key, "ORPHANED_ORANGE", "Two orange dots posted consecutively without status dots between.", dot.timestamp);
+          }
+        }
+      }
+      
+      const lastDot = dots[dots.length - 1];
+      if (lastDot && lastDot.color === 'green') {
+        pushError(key, "MISSING_ORANGE_DOT", "A green dot was posted but no dots followed.", lastDot.timestamp);
+      }
+    }
+
+    generatedErrors.sort((a, b) => b.timestamp - a.timestamp);
+    renderErrors();
+    
+    const dbErrorsRef = ref(db, 'workerErrors');
+    const payload = {};
+    for (const key in workerGroups) {
+      payload[key] = {
+        lastUpdated: Date.now(),
+        errors: generatedErrors.filter(e => e.workerKey === key)
+      };
+    }
+    set(dbErrorsRef, payload).catch(err => console.error("Failed to save errors:", err));
+  }
+
+  function pushError(workerKey, type, detail, timestamp) {
+    const exists = generatedErrors.find(e => e.workerKey === workerKey && e.type === type && e.timestamp === timestamp);
+    if (!exists) {
+      generatedErrors.push({ workerKey, type, detail, timestamp });
+    }
+  }
+
+  function renderErrors() {
+    const listEl = document.getElementById('errorList');
+    const emptyEl = document.getElementById('emptyErrors');
+    const countEl = document.getElementById('totalErrorsCount');
+    const tabsEl = document.getElementById('errorSummaryTabs');
+    
+    listEl.innerHTML = '';
+    tabsEl.innerHTML = '';
+    
+    if (generatedErrors.length === 0) {
+      countEl.textContent = '0';
+      emptyEl.style.display = 'block';
+      tabsEl.style.display = 'none';
+      return;
+    }
+    
+    emptyEl.style.display = 'none';
+    tabsEl.style.display = 'flex';
+
+    const filteredList = currentErrorFilter
+      ? generatedErrors.filter(e => e.type === currentErrorFilter)
+      : generatedErrors;
+
+    countEl.textContent = filteredList.length;
+
+    const typeCounts = {};
+    generatedErrors.forEach(err => {
+      typeCounts[err.type] = (typeCounts[err.type] || 0) + 1;
+    });
+
+    const allChip = document.createElement('div');
+    allChip.className = 'err-tab';
+    allChip.style.cssText = currentErrorFilter === null
+      ? 'background:rgba(79,140,255,0.2);border:1px solid rgba(79,140,255,0.6);outline:2px solid rgba(255,255,255,0.8);'
+      : 'background:rgba(79,140,255,0.2);border:1px solid rgba(79,140,255,0.6);';
+    allChip.innerHTML = `All <span class="count">${generatedErrors.length}</span>`;
+    allChip.addEventListener('click', () => { currentErrorFilter = null; renderErrors(); });
+    tabsEl.appendChild(allChip);
+
+    for (const [type, count] of Object.entries(typeCounts)) {
+      const cat = getErrorCategory(type);
+      const chip = document.createElement('div');
+      let activeStyle = '';
+      if (currentErrorFilter && currentErrorFilter !== type) {
+        activeStyle = 'opacity: 0.4; outline: none;';
+      } else if (currentErrorFilter === type) {
+        activeStyle = 'outline: 2px solid rgba(255,255,255,0.8);';
+      }
+      chip.className = `err-tab err-tab-${cat}`;
+      chip.style = activeStyle;
+      chip.innerHTML = `${type.replace(/_/g, ' ')} <span class="count">${count}</span>`;
+      chip.addEventListener('click', () => {
+        if (currentErrorFilter === type) currentErrorFilter = null;
+        else currentErrorFilter = type;
+        renderErrors();
+      });
+      tabsEl.appendChild(chip);
+    }
+
+    // Errors already sorted newest first by evaluateErrorsAndSave
+    filteredList.forEach(err => {
+      const el = document.createElement('div');
+      const cat = getErrorCategory(err.type);
+      el.className = `error-item err-${cat}`;
+      const workerNameStr = err.workerKey.split('_')[1] || 'Unknown';
+      el.innerHTML = `
+        <span class="err-time">${formatDateTime(err.timestamp)} - Worker: ${workerNameStr}</span>
+        <div class="err-type">${err.type.replace(/_/g, ' ')}</div>
+        <div class="err-detail">${err.detail}</div>
+      `;
+      el.addEventListener('click', () => goToErrorOnMap(err.timestamp, err.workerKey));
+      listEl.appendChild(el);
+    });
+  }
+
+  // PLAYBACK LOGIC
+  const btnPlay = document.getElementById('btnPlay'), btnPause = document.getElementById('btnPause'), btnStop = document.getElementById('btnStop');
+  const btnNext = document.getElementById('btnNext'), btnPrev = document.getElementById('btnPrev'), selSpeed = document.getElementById('selSpeed');
+
+  function startInterval() {
+    playbackTimer = setInterval(() => {
+      let nIdx = playbackIndex + 1;
+      if (nIdx >= currentFilteredData.length) stopPlayback();
+      else selectDot(nIdx);
+    }, currentSpeedMs);
+  }
+
+  function play() {
+    if (currentFilteredData.length === 0) return;
+    btnPlay.style.display = 'none'; btnPause.style.display = 'block';
+    let nextIdx = playbackIndex + 1;
+    if (nextIdx >= currentFilteredData.length) nextIdx = 0;
+    selectDot(nextIdx);
+    startInterval();
+  }
+
+  function pause() {
+    if(playbackTimer) clearInterval(playbackTimer);
+    playbackTimer = null;
+    btnPause.style.display = 'none'; btnPlay.style.display = 'block';
+    if(playbackIndex >= 0) document.getElementById('playbackStatus').textContent = `Paused at ${playbackIndex + 1} / ${currentFilteredData.length}`;
+  }
+
+  function stopPlayback() {
+    if(playbackTimer) clearInterval(playbackTimer);
+    playbackTimer = null;
+    playbackIndex = -1;
+    highlightLayer.clearLayers();
+    dotElements.forEach(el => el.classList.remove('active'));
+    btnPause.style.display = 'none'; btnPlay.style.display = 'block';
+    if(currentFilteredData.length > 0) document.getElementById('playbackStatus').textContent = `Ready: ${currentFilteredData.length} dots`;
+    resetLiveErrors();
+  }
+
+  function nextDot() {
+    if (currentFilteredData.length === 0) return;
+    pause();
+    let nextIdx = playbackIndex + 1;
+    if (nextIdx >= currentFilteredData.length) nextIdx = 0;
+    selectDot(nextIdx);
+  }
+
+  function prevDot() {
+    if (currentFilteredData.length === 0) return;
+    pause();
+    let prevIdx = playbackIndex - 1;
+    if (prevIdx < 0) prevIdx = currentFilteredData.length - 1;
+    selectDot(prevIdx);
+  }
+
+  selSpeed.addEventListener('change', (e) => {
+    currentSpeedMs = parseInt(e.target.value);
+    if (playbackTimer !== null) { clearInterval(playbackTimer); startInterval(); }
+  });
+
+  btnPlay.addEventListener('click', play);
+  btnPause.addEventListener('click', pause);
+  btnStop.addEventListener('click', stopPlayback);
+  btnNext.addEventListener('click', nextDot);
+  btnPrev.addEventListener('click', prevDot);
+  
+  ['chkGreen', 'chkRed', 'chkBlue', 'chkOrange'].forEach(id =>
+    document.getElementById(id).addEventListener('change', () => renderAll(true))
+  );
+
+  // LIVE DATA FETCHING
+  function clearListeners() {
+    activeListeners.forEach(unsub => unsub());
+    activeListeners = [];
+    document.getElementById('liveIndicator').style.display = 'none';
+  }
+
+  function processAndRenderLive() {
+    const campFilter = document.getElementById('searchCampaign').value.trim().toUpperCase();
+
+    let rawData = [];
+    
+    if (campFilter) {
+      for (const pushId in livePostsRaw) { const d = livePostsRaw[pushId]; d.campaignId = campFilter; rawData.push(d); }
+    } else {
+      for (const campId in livePostsRaw) {
+        for (const pushId in livePostsRaw[campId]) { const d = livePostsRaw[campId][pushId]; d.campaignId = campId; rawData.push(d); }
+      }
+    }
+
+    if (campFilter) {
+      for (const pushId in liveClicksRaw) { const d = liveClicksRaw[pushId]; d.campaignId = campFilter; d.color = 'orange'; rawData.push(d); }
+    } else {
+      for (const campId in liveClicksRaw) {
+        for (const pushId in liveClicksRaw[campId]) { const d = liveClicksRaw[campId][pushId]; d.campaignId = campId; d.color = 'orange'; rawData.push(d); }
+      }
+    }
+
+    masterData = [...rawData].sort((a, b) => a.timestamp - b.timestamp);
+    
+    evaluateErrorsAndSave(masterData);
+    renderShifts(masterData);
+    renderAll(true);
+  }
+
+  document.getElementById('btnSearch').addEventListener('click', () => {
+    const campFilter = document.getElementById('searchCampaign').value.trim().toUpperCase();
+    const btn = document.getElementById('btnSearch'), overlay = document.getElementById('loadingOverlay');
+
+    btn.disabled = true; overlay.style.display = 'flex';
+    clearListeners();
+    playbackIndex = -1;
+    activeWorkerFilter = null;
+    resetLiveErrors();
+
+    const postsRef = campFilter ? ref(db, `userPosts/${campFilter}`) : ref(db, 'userPosts');
+    const clicksRef = campFilter ? ref(db, `userPostClicks/${campFilter}`) : ref(db, 'userPostClicks');
+
+    const unsubPosts = onValue(postsRef, (snap) => {
+      livePostsRaw = snap.val() || {};
+      processAndRenderLive();
+      overlay.style.display = 'none';
+      btn.disabled = false;
+      document.getElementById('liveIndicator').style.display = 'block';
+      setTimeout(() => map.invalidateSize(), 100);
+    });
+
+    const unsubClicks = onValue(clicksRef, (snap) => {
+      liveClicksRaw = snap.val() || {};
+      processAndRenderLive();
+    });
+
+    activeListeners.push(unsubPosts, unsubClicks);
+  });
+
+  // TAB SWITCHING
+  let currentTab = 'live';
+  window.switchTab = function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabLive').classList.toggle('active', tab === 'live');
+    document.getElementById('tabFull').classList.toggle('active', tab === 'full');
+    document.getElementById('liveTabContent').style.display  = tab === 'live' ? 'flex' : 'none';
+    document.getElementById('fullTabContent').style.display  = tab === 'full' ? 'flex' : 'none';
+    if (tab === 'full') document.getElementById('fullTabContent').style.flexDirection = 'column';
+  }
+
+  // LIVE ERROR STREAMING
+  let liveShownErrorIds = new Set();
+  let livePlaybackTs = -Infinity;
+
+  function resetLiveErrors() {
+    liveShownErrorIds.clear();
+    livePlaybackTs = -Infinity;
+    const list = document.getElementById('liveErrorList');
+    if (list) list.innerHTML = '';
+    const emp = document.getElementById('emptyLive');
+    if (emp) emp.style.display = 'block';
+  }
+
+  function pushLiveErrors(upToTimestamp) {
+    const newErrors = generatedErrors.filter(err => {
+      const id = err.workerKey + '|' + err.type + '|' + err.timestamp;
+      return err.timestamp <= upToTimestamp && !liveShownErrorIds.has(id);
+    });
+
+    if (newErrors.length === 0) return;
+
+    const list   = document.getElementById('liveErrorList');
+    const empMsg = document.getElementById('emptyLive');
+    empMsg.style.display = 'none';
+
+    // Sort newest on top
+    newErrors.sort((a, b) => b.timestamp - a.timestamp);
+
+    newErrors.forEach(err => {
+      const id = err.workerKey + '|' + err.type + '|' + err.timestamp;
+      liveShownErrorIds.add(id);
+
+      const cat        = getErrorCategory(err.type);
+      const workerName = err.workerKey.split('_')[1] || 'Unknown';
+      const el         = document.createElement('div');
+      el.className     = `error-item err-${cat} flash-new`;
+      el.innerHTML     = `
+        <span class="err-time">${formatDateTime(err.timestamp)} · ${workerName}</span>
+        <div class="err-type">${err.type.replace(/_/g,' ')}</div>
+        <div class="err-detail">${err.detail}</div>
+      `;
+      el.addEventListener('click', () => goToErrorOnMap(err.timestamp, err.workerKey));
+      // Prepend = latest on top
+      list.insertBefore(el, list.firstChild);
+    });
+
+    if (currentTab !== 'live') {
+      const tabEl = document.getElementById('tabLive');
+      tabEl.style.color = '#ef4444';
+      setTimeout(() => { tabEl.style.color = ''; }, 800);
+    }
+  }
+
+</script>
+</body>
+</html>
