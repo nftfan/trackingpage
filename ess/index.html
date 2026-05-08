@@ -24,6 +24,10 @@
             cursor: pointer;
         }
 
+        button:hover {
+            background: #1f4fbf;
+        }
+
         #status {
             margin-top: 10px;
             font-weight: bold;
@@ -33,6 +37,7 @@
             margin-top: 20px;
             background: #f4f4f4;
             padding: 10px;
+            border-radius: 6px;
         }
 
         .email {
@@ -46,6 +51,8 @@
 <body>
 
 <h2>🚀 Email Scraper Control Panel</h2>
+
+<p>Paste up to 100 websites (one per line):</p>
 
 <textarea id="urls" placeholder="https://example.com
 https://example.org"></textarea>
@@ -66,32 +73,49 @@ https://example.org"></textarea>
 
 <script>
 
-// 🔥 YOUR CORRECT RAILWAY API
-const API_URL = "https://allbe-production.up.railway.app/";
+// 🔥 YOUR RAILWAY API (IMPORTANT)
+const API_URL = "https://allbe-production.up.railway.app/scrape";
 
-// 🔥 FIREBASE
+// 🔥 FIREBASE URL
 const FIREBASE_URL = "https://trackingclients-default-rtdb.firebaseio.com/emails.json";
 
+
+// ---------------- START SCRAPING ----------------
 async function startScraping() {
     let urls = document.getElementById("urls").value
         .split("\n")
         .map(u => u.trim())
-        .filter(u => u)
+        .filter(u => u.length > 0)
         .slice(0, 100);
 
-    document.getElementById("status").innerText = "⏳ Scraping...";
+    if (urls.length === 0) {
+        alert("Please enter at least 1 website");
+        return;
+    }
+
+    document.getElementById("status").innerText = "⏳ Scraping started...";
 
     try {
         let res = await fetch(API_URL, {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({urls})
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ urls })
         });
 
-        let data = await res.json();
+        // 🔥 FIX: handle non-JSON responses safely
+        const text = await res.text();
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            throw new Error("Server returned invalid response: " + text);
+        }
 
         document.getElementById("status").innerText =
-            "✅ Done! Emails: " + data.total_emails;
+            "✅ Done! Emails found: " + data.total_emails;
 
         loadEmails();
 
@@ -101,23 +125,34 @@ async function startScraping() {
     }
 }
 
+
+// ---------------- LOAD FIREBASE EMAILS ----------------
 async function loadEmails() {
-    let res = await fetch(FIREBASE_URL);
-    let data = await res.json();
+    document.getElementById("emails").innerText = "Loading...";
 
-    let list = [];
+    try {
+        let res = await fetch(FIREBASE_URL);
+        let data = await res.json();
 
-    for (let key in data) {
-        if (data[key].email) {
-            list.push(data[key].email);
+        let list = [];
+
+        for (let key in data) {
+            if (data[key].email) {
+                list.push(data[key].email);
+            }
         }
-    }
 
-    document.getElementById("emails").innerHTML =
-        "<b>Total:</b> " + list.length + "<br><br>" +
-        list.map(e => `<div class="email">${e}</div>`).join("");
+        document.getElementById("emails").innerHTML =
+            "<b>Total Emails:</b> " + list.length + "<br><br>" +
+            list.map(e => `<div class="email">${e}</div>`).join("");
+
+    } catch (err) {
+        document.getElementById("emails").innerHTML =
+            "❌ Error loading emails: " + err.message;
+    }
 }
 
+// auto load on open
 loadEmails();
 
 </script>
