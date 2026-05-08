@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -553,33 +554,48 @@
   // ── Load ──
   async function load() {
     try {
-      const [dotsSnap, schedSnap, paySnap] = await Promise.all([
-        get(ref(db, 'dotColors')),
+      const [postsSnap, clicksSnap, schedSnap, paySnap] = await Promise.all([
+        get(ref(db, 'userPosts')),
+        get(ref(db, 'userPostClicks')),
         get(ref(db, 'scheduledShifts')),
         get(ref(db, 'paymentStatuses'))
       ]);
 
-      const dots = dotsSnap.val() || {};
+      const postsData = postsSnap.val() || {};
+      const clicksData = clicksSnap.val() || {};
       const scheds = schedSnap.val() || {};
       payStatuses = paySnap.val() || {};
 
       const actualsMap = {};
       const now = new Date();
 
-      // Build actuals
-      Object.keys(dots).forEach(campId => {
-        Object.keys(dots[campId]).forEach(dk => {
-          const dot = dots[campId][dk];
-          if (!dot.timestamp || !dot.workerName) return;
-          const dateStr = toDateStr(dot.timestamp);
-          const w = dot.workerName.trim();
-          const key = `${w.toLowerCase()}_${campId.toLowerCase()}_${dateStr}`;
-          if (!actualsMap[key]) actualsMap[key] = { minTs: dot.timestamp, maxTs: dot.timestamp, worker: w, campaign: campId, date: dateStr, validDots: 0, isPickup: false };
-          if (dot.timestamp < actualsMap[key].minTs) actualsMap[key].minTs = dot.timestamp;
-          if (dot.timestamp > actualsMap[key].maxTs) actualsMap[key].maxTs = dot.timestamp;
-          if (dot.color !== 'orange') actualsMap[key].validDots++;
+      // Process both normal posts and post clicks into our actualsMap
+      const processDots = (dataNode) => {
+        Object.keys(dataNode).forEach(campId => {
+          Object.keys(dataNode[campId]).forEach(dk => {
+            const dot = dataNode[campId][dk];
+            if (!dot.timestamp || !dot.workerName) return;
+            
+            const dateStr = toDateStr(dot.timestamp);
+            const w = dot.workerName.trim();
+            const key = `${w.toLowerCase()}_${campId.toLowerCase()}_${dateStr}`;
+            
+            if (!actualsMap[key]) {
+              actualsMap[key] = { 
+                minTs: dot.timestamp, maxTs: dot.timestamp, 
+                worker: w, campaign: campId, date: dateStr, 
+                validDots: 0, isPickup: false 
+              };
+            }
+            if (dot.timestamp < actualsMap[key].minTs) actualsMap[key].minTs = dot.timestamp;
+            if (dot.timestamp > actualsMap[key].maxTs) actualsMap[key].maxTs = dot.timestamp;
+            if (dot.color !== 'orange') actualsMap[key].validDots++;
+          });
         });
-      });
+      };
+
+      processDots(postsData);
+      processDots(clicksData);
 
       // Merge schedules
       Object.values(scheds).forEach(s => {
