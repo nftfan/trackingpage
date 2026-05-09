@@ -1,0 +1,986 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WebVault — Website Manager</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #00f5a0;
+    --accent2: #7b61ff;
+    --danger: #ff4d6d;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,245,160,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,160,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,15,.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .logo {
+    font-family: var(--sans);
+    font-size: 22px; font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    white-space: nowrap;
+  }
+  .logo span { color: var(--accent2); }
+
+  #statusBadge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: var(--surface);
+    transition: .3s;
+  }
+  #statusBadge.connected { border-color: var(--accent); color: var(--accent); }
+  #statusBadge.error     { border-color: var(--danger); color: var(--danger); }
+
+  .header-stats {
+    margin-left: auto;
+    display: flex; gap: 20px; align-items: center;
+  }
+  .stat {
+    font-family: var(--mono);
+    font-size: 12px; color: var(--muted);
+    text-align: center;
+  }
+  .stat strong { display: block; color: var(--text); font-size: 18px; }
+
+  /* ── Layout ── */
+  .layout {
+    position: relative; z-index: 1;
+    max-width: 1400px; margin: 0 auto;
+    padding: 28px 24px;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+  }
+  @media(max-width:900px){
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600; font-size: 13px;
+    letter-spacing: .05em; text-transform: uppercase;
+    color: var(--muted);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .panel-header .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* ── Form ── */
+  .form-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  label {
+    font-size: 11px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 5px; display: block;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,245,160,.1);
+  }
+  textarea { resize: vertical; min-height: 70px; font-size: 12px; }
+  select option { background: var(--surface2); }
+
+  /* Tags input */
+  .tags-wrap {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    cursor: text;
+    transition: border-color .2s;
+    min-height: 44px;
+  }
+  .tags-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,245,160,.1);
+  }
+  .tag-chip {
+    background: rgba(123,97,255,.25);
+    color: var(--accent2);
+    border-radius: 5px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: var(--mono);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .tag-chip button {
+    background: none; border: none; color: inherit;
+    cursor: pointer; font-size: 13px; padding: 0; line-height: 1;
+    opacity: .7;
+  }
+  .tag-chip button:hover { opacity: 1; }
+  #tagInput {
+    background: none; border: none; box-shadow: none;
+    padding: 2px 4px; width: auto; min-width: 80px; flex: 1;
+    font-size: 12px;
+  }
+  #tagInput:focus { box-shadow: none; }
+
+  /* Buttons */
+  .btn {
+    padding: 11px 20px;
+    border-radius: 9px;
+    border: none;
+    font-family: var(--sans);
+    font-weight: 700; font-size: 13px;
+    cursor: pointer;
+    transition: all .2s;
+    letter-spacing: .03em;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    box-shadow: 0 0 20px rgba(0,245,160,.25);
+  }
+  .btn-primary:hover {
+    background: #00ffaa;
+    box-shadow: 0 0 30px rgba(0,245,160,.4);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled {
+    background: var(--muted); box-shadow: none;
+    cursor: not-allowed; transform: none;
+  }
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 6px 12px; font-size: 11px;
+  }
+  .btn-danger:hover { background: rgba(255,77,109,.1); }
+  .btn-ghost {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn-sm { padding: 6px 12px; font-size: 11px; border-radius: 6px; }
+
+  /* Progress bar */
+  #progressWrap {
+    display: none;
+    flex-direction: column; gap: 6px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .progress-bar-bg {
+    width: 100%; height: 6px;
+    background: var(--surface2);
+    border-radius: 10px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    width: 0%;
+    transition: width .3s;
+  }
+  #progressLabel {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted); text-align: right;
+  }
+
+  /* Bulk import */
+  .bulk-section {
+    padding: 0 20px 20px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    padding-top: 16px;
+  }
+  .bulk-section h3 {
+    font-size: 11px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+  }
+  .batch-info {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted); margin-top: 8px;
+  }
+  .batch-info span { color: var(--accent); }
+
+  /* ── Right panel ── */
+  .right-panel { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Search / filter bar */
+  .filter-bar {
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .search-wrap { position: relative; flex: 1; min-width: 200px; }
+  .search-wrap input { padding-left: 36px; }
+  .search-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 14px; pointer-events: none;
+  }
+
+  #categoryFilter {
+    width: auto; min-width: 140px;
+  }
+
+  /* Website list */
+  #siteList {
+    display: flex; flex-direction: column; gap: 0;
+  }
+
+  .site-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background .15s;
+    animation: fadeSlide .25s ease;
+  }
+  .site-item:last-child { border-bottom: none; }
+  .site-item:hover { background: var(--surface2); }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .site-favicon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .site-favicon img { width: 100%; height: 100%; object-fit: cover; border-radius: 7px; }
+
+  .site-info { flex: 1; min-width: 0; }
+  .site-title {
+    font-weight: 700; font-size: 14px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+  .site-url {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .site-url a { color: var(--muted); text-decoration: none; }
+  .site-url a:hover { color: var(--accent); }
+
+  .site-meta {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0;
+  }
+  .site-cat {
+    font-size: 10px; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; padding: 3px 8px;
+    border-radius: 5px;
+    background: rgba(123,97,255,.2); color: var(--accent2);
+  }
+  .site-tags {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end;
+  }
+  .site-tag {
+    font-size: 9px; font-family: var(--mono);
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 1px 6px; border-radius: 4px;
+  }
+
+  /* Pagination */
+  .pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+  }
+  .page-btns { display: flex; gap: 8px; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 28px; right: 28px;
+    z-index: 9999;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    display: flex; align-items: center; gap: 10px;
+    transform: translateY(80px); opacity: 0;
+    transition: all .3s cubic-bezier(.34,1.56,.64,1);
+    max-width: 360px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-color: var(--accent); }
+  #toast.error   { border-color: var(--danger); }
+  #toast.info    { border-color: var(--accent2); }
+
+  /* Loading spinner */
+  .spinner {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Empty state */
+  .empty-state {
+    padding: 60px 20px; text-align: center;
+    color: var(--muted); font-size: 14px;
+  }
+  .empty-state .big { font-size: 40px; margin-bottom: 12px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">Web<span>Vault</span></div>
+  <div id="statusBadge">⬤ Connecting…</div>
+  <div class="header-stats">
+    <div class="stat"><strong id="totalCount">—</strong>Saved</div>
+    <div class="stat"><strong id="todayCount">—</strong>Today</div>
+    <div class="stat"><strong id="catCount">—</strong>Categories</div>
+  </div>
+</header>
+
+<!-- ── Main Layout ── -->
+<div class="layout">
+
+  <!-- Left: Add Site Panel -->
+  <aside>
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> Add Website</div>
+      <div class="form-body">
+        <div>
+          <label>URL *</label>
+          <input id="urlInput" type="url" placeholder="https://example.com" />
+        </div>
+        <div>
+          <label>Title</label>
+          <input id="titleInput" type="text" placeholder="Auto-detected or custom" />
+        </div>
+        <div>
+          <label>Category</label>
+          <select id="categoryInput">
+            <option value="">— Select —</option>
+            <option>Technology</option>
+            <option>News</option>
+            <option>Design</option>
+            <option>Development</option>
+            <option>Science</option>
+            <option>Finance</option>
+            <option>Education</option>
+            <option>Entertainment</option>
+            <option>Health</option>
+            <option>Sports</option>
+            <option>Shopping</option>
+            <option>Social</option>
+            <option>Tools</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <label>Notes</label>
+          <textarea id="notesInput" placeholder="Optional description…"></textarea>
+        </div>
+        <div>
+          <label>Tags (press Enter to add)</label>
+          <div class="tags-wrap" id="tagsWrap">
+            <input id="tagInput" type="text" placeholder="add tag…" />
+          </div>
+        </div>
+        <button class="btn btn-primary" id="saveBtn" onclick="saveSite()">
+          ＋ Save Website
+        </button>
+      </div>
+
+      <!-- Progress -->
+      <div id="progressWrap">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:0 0 4px">
+          <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">Bulk importing…</span>
+          <span id="progressLabel" style="font-size:11px;font-family:var(--mono);color:var(--accent)">0%</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px" id="progressDetail"></div>
+      </div>
+
+      <!-- Bulk Import -->
+      <div class="bulk-section">
+        <h3>⚡ Bulk Import</h3>
+        <div>
+          <label>Paste URLs (one per line)</label>
+          <textarea id="bulkInput" placeholder="https://site1.com&#10;https://site2.com&#10;…up to 100 000 URLs" style="min-height:90px"></textarea>
+        </div>
+        <div class="batch-info" id="bulkCount">0 URLs detected</div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="importBulk()">Import All</button>
+          <button class="btn btn-danger btn-sm" onclick="clearBulk()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="panel" style="margin-top:16px">
+      <div class="panel-header"><span class="dot" style="background:var(--accent2);box-shadow:0 0 8px var(--accent2)"></span> Category Breakdown</div>
+      <div id="categoryBreakdown" style="padding:16px 20px;font-family:var(--mono);font-size:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="color:var(--muted)">Loading…</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Right: Site List -->
+  <div class="right-panel">
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input id="searchInput" type="text" placeholder="Search titles, URLs, tags…" oninput="filterSites()" />
+      </div>
+      <select id="categoryFilter" onchange="filterSites()">
+        <option value="">All Categories</option>
+        <option>Technology</option><option>News</option><option>Design</option>
+        <option>Development</option><option>Science</option><option>Finance</option>
+        <option>Education</option><option>Entertainment</option><option>Health</option>
+        <option>Sports</option><option>Shopping</option><option>Social</option>
+        <option>Tools</option><option>Other</option>
+      </select>
+      <button class="btn btn-danger btn-sm" onclick="confirmClearAll()">🗑 Clear All</button>
+    </div>
+
+    <!-- List panel -->
+    <div class="panel" style="overflow:hidden">
+      <div id="siteList">
+        <div class="empty-state">
+          <div class="big">🌐</div>
+          Loading websites from Firebase…
+        </div>
+      </div>
+      <div class="pagination" id="pagination" style="display:none">
+        <span id="pageInfo"></span>
+        <div class="page-btns">
+          <button class="btn btn-ghost btn-sm" id="prevBtn" onclick="changePage(-1)">← Prev</button>
+          <button class="btn btn-ghost btn-sm" id="nextBtn" onclick="changePage(1)">Next →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ── Firebase & App Logic ── -->
+<!-- Firebase SDK v9 compat (global) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════
+//  Firebase Init
+// ═══════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyA6w6auszWRniQfZCjb4nXE_bq9Mzt9dOs",
+  authDomain: "betbtc-6d881.firebaseapp.com",
+  databaseURL: "https://betbtc-6d881-default-rtdb.firebaseio.com",
+  projectId: "betbtc-6d881",
+  storageBucket: "betbtc-6d881.firebasestorage.app",
+  messagingSenderId: "962176232122",
+  appId: "1:962176232122:web:a277d922543c3378033083",
+  measurementId: "G-V4XNB7K1E0"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const sitesRef = db.ref('webbe');
+
+// ═══════════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════════
+let allSites = [];      // [{id, url, title, category, notes, tags, timestamp}]
+let filtered  = [];
+let tags = [];
+
+const PAGE_SIZE = 50;
+let currentPage = 0;
+let todayCount = 0;
+
+// ═══════════════════════════════════════════════
+//  Status badge
+// ═══════════════════════════════════════════════
+function setStatus(state, text) {
+  const el = document.getElementById('statusBadge');
+  el.className = state;
+  el.textContent = '⬤ ' + text;
+}
+
+// ═══════════════════════════════════════════════
+//  Toast
+// ═══════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type = 'success', icon = '') {
+  const t = document.getElementById('toast');
+  t.className = type;
+  t.innerHTML = `<div class="spinner" style="display:${type==='info'?'block':'none'}"></div>
+    <span style="font-size:15px">${icon||{success:'✅',error:'❌',info:''}[type]||''}</span>
+    <span>${msg}</span>`;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  if (type !== 'info') {
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+  }
+}
+function hideToast() {
+  document.getElementById('toast').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════
+//  Tags input
+// ═══════════════════════════════════════════════
+document.getElementById('tagsWrap').addEventListener('click', () =>
+  document.getElementById('tagInput').focus());
+
+document.getElementById('tagInput').addEventListener('keydown', e => {
+  const val = e.target.value.trim();
+  if ((e.key === 'Enter' || e.key === ',') && val) {
+    e.preventDefault();
+    if (!tags.includes(val)) { tags.push(val); renderTagChips(); }
+    e.target.value = '';
+  } else if (e.key === 'Backspace' && !val && tags.length) {
+    tags.pop(); renderTagChips();
+  }
+});
+
+function renderTagChips() {
+  const wrap = document.getElementById('tagsWrap');
+  wrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
+  tags.forEach((t, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.innerHTML = `${t}<button onclick="removeTag(${i})">×</button>`;
+    wrap.insertBefore(chip, document.getElementById('tagInput'));
+  });
+}
+function removeTag(i) { tags.splice(i, 1); renderTagChips(); }
+
+// ═══════════════════════════════════════════════
+//  Bulk textarea counter
+// ═══════════════════════════════════════════════
+document.getElementById('bulkInput').addEventListener('input', function() {
+  const urls = parseURLs(this.value);
+  document.getElementById('bulkCount').innerHTML =
+    `<span>${urls.length.toLocaleString()}</span> URLs detected`;
+});
+
+function parseURLs(text) {
+  return text.split(/\n|,|\r/)
+    .map(u => u.trim())
+    .filter(u => u.length > 0)
+    .map(u => {
+      // Already has a protocol
+      if (/^https?:\/\//i.test(u)) return u;
+      // Bare domain like infinimentpetit.be or sub.domain.com
+      return 'https://' + u;
+    })
+    .filter(u => {
+      try { new URL(u); return true; } catch { return false; }
+    });
+}
+
+// ═══════════════════════════════════════════════
+//  Domain → favicon
+// ═══════════════════════════════════════════════
+function faviconURL(url) {
+  try {
+    const domain = new URL(url).hostname;
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+  } catch { return ''; }
+}
+function domainEmoji(url) {
+  const emojis = ['🌐','💻','📡','🔗','🌍','⚡','🔧'];
+  let hash = 0;
+  for (let c of url) hash = (hash * 31 + c.charCodeAt(0)) | 0;
+  return emojis[Math.abs(hash) % emojis.length];
+}
+
+// ═══════════════════════════════════════════════
+//  Save single site
+// ═══════════════════════════════════════════════
+async function saveSite() {
+  let url        = document.getElementById('urlInput').value.trim();
+  const title    = document.getElementById('titleInput').value.trim();
+  const category = document.getElementById('categoryInput').value;
+  const notes    = document.getElementById('notesInput').value.trim();
+
+  if (!url) { showToast('Please enter a URL', 'error'); return; }
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  try { new URL(url); } catch { showToast('Invalid URL format', 'error'); return; }
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const site = {
+    url,
+    title: title || extractDomain(url),
+    category: category || 'Other',
+    notes,
+    tags: [...tags],
+    timestamp: Date.now(),
+    date: new Date().toISOString().split('T')[0]
+  };
+
+  try {
+    await sitesRef.push(site);
+    showToast(`Saved: ${site.title}`, 'success');
+    // Reset form
+    document.getElementById('urlInput').value = '';
+    document.getElementById('titleInput').value = '';
+    document.getElementById('notesInput').value = '';
+    document.getElementById('categoryInput').value = '';
+    tags = []; renderTagChips();
+  } catch (err) {
+    showToast('Save failed: ' + err.message, 'error');
+  }
+
+  btn.disabled = false; btn.textContent = '＋ Save Website';
+}
+
+function extractDomain(url) {
+  try { return new URL(url).hostname.replace('www.',''); } catch { return url; }
+}
+
+// ═══════════════════════════════════════════════
+//  Bulk Import — chunked batching for 100k URLs
+//  Firebase RTDB has no hard write limit per
+//  request, but we chunk to avoid timeout/memory.
+// ═══════════════════════════════════════════════
+let importAborted = false;
+
+async function importBulk() {
+  const urls = parseURLs(document.getElementById('bulkInput').value);
+  if (!urls.length) { showToast('No valid URLs found', 'error'); return; }
+
+  const CHUNK = 200; // writes per batch
+  const today = new Date().toISOString().split('T')[0];
+  const category = document.getElementById('categoryInput').value || 'Other';
+
+  const progressWrap = document.getElementById('progressWrap');
+  const fill         = document.getElementById('progressFill');
+  const label        = document.getElementById('progressLabel');
+  const detail       = document.getElementById('progressDetail');
+
+  progressWrap.style.display = 'flex';
+  importAborted = false;
+  showToast(`Starting import of ${urls.length.toLocaleString()} URLs…`, 'info');
+
+  let done = 0;
+  const total = urls.length;
+
+  for (let i = 0; i < total; i += CHUNK) {
+    if (importAborted) break;
+    const chunk = urls.slice(i, i + CHUNK);
+
+    // Build a multi-path update object — one roundtrip per chunk
+    const updates = {};
+    for (const url of chunk) {
+      const key = sitesRef.push().key;   // generate offline key
+      updates[key] = {
+        url,
+        title: extractDomain(url),
+        category,
+        notes: '',
+        tags: [],
+        timestamp: Date.now(),
+        date: today
+      };
+    }
+
+    try {
+      await sitesRef.update(updates);
+    } catch (err) {
+      showToast(`Chunk error at ${i}: ${err.message}`, 'error');
+      // Retry once after short delay
+      await sleep(500);
+      try { await sitesRef.update(updates); }
+      catch (e2) { console.error('Retry failed', e2); }
+    }
+
+    done += chunk.length;
+    const pct = Math.round((done / total) * 100);
+    fill.style.width  = pct + '%';
+    label.textContent = pct + '%';
+    detail.textContent= `${done.toLocaleString()} / ${total.toLocaleString()} written`;
+
+    // Yield to browser each chunk
+    await sleep(0);
+  }
+
+  hideToast();
+  progressWrap.style.display = 'none';
+  showToast(`✅ Imported ${done.toLocaleString()} websites`, 'success');
+  document.getElementById('bulkInput').value = '';
+  document.getElementById('bulkCount').innerHTML = '0 URLs detected';
+}
+
+function clearBulk() {
+  document.getElementById('bulkInput').value = '';
+  document.getElementById('bulkCount').innerHTML = '0 URLs detected';
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════════════════════════════════════
+//  Real-time listener — paginated, max fetch 1000
+//  For very large datasets we use limitToLast.
+//  Full list is maintained in allSites[].
+// ═══════════════════════════════════════════════
+setStatus('', 'Connecting…');
+
+sitesRef.on('value',
+  snapshot => {
+    setStatus('connected', 'Connected');
+    const data = snapshot.val();
+    if (!data) { allSites = []; renderList(); updateStats(); return; }
+
+    allSites = Object.entries(data).map(([id, v]) => ({ id, ...v }));
+    // Sort newest first
+    allSites.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    filterSites();
+    updateStats();
+    updateCategoryBreakdown();
+  },
+  err => {
+    setStatus('error', 'Disconnected');
+    showToast('Firebase error: ' + err.message, 'error');
+  }
+);
+
+// ═══════════════════════════════════════════════
+//  Filter / search
+// ═══════════════════════════════════════════════
+function filterSites() {
+  const q   = document.getElementById('searchInput').value.toLowerCase();
+  const cat = document.getElementById('categoryFilter').value;
+
+  filtered = allSites.filter(s => {
+    const matchCat = !cat || s.category === cat;
+    const haystack = `${s.url} ${s.title} ${(s.tags||[]).join(' ')} ${s.notes||''}`.toLowerCase();
+    const matchQ   = !q || haystack.includes(q);
+    return matchCat && matchQ;
+  });
+
+  currentPage = 0;
+  renderList();
+}
+
+// ═══════════════════════════════════════════════
+//  Render paginated list
+// ═══════════════════════════════════════════════
+function renderList() {
+  const list = document.getElementById('siteList');
+  const pg   = document.getElementById('pagination');
+  const start = currentPage * PAGE_SIZE;
+  const page  = filtered.slice(start, start + PAGE_SIZE);
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="big">🔍</div>
+      ${allSites.length ? 'No matches found.' : 'No websites saved yet.'}
+    </div>`;
+    pg.style.display = 'none';
+    return;
+  }
+
+  list.innerHTML = '';
+  page.forEach(site => {
+    const el = document.createElement('div');
+    el.className = 'site-item';
+    const fav = faviconURL(site.url);
+    el.innerHTML = `
+      <div class="site-favicon">
+        <img src="${fav}" alt="" onerror="this.parentNode.textContent='${domainEmoji(site.url)}'" />
+      </div>
+      <div class="site-info">
+        <div class="site-title">${escHtml(site.title || extractDomain(site.url))}</div>
+        <div class="site-url"><a href="${escHtml(site.url)}" target="_blank" rel="noopener">${escHtml(site.url)}</a></div>
+      </div>
+      <div class="site-meta">
+        <span class="site-cat">${escHtml(site.category||'Other')}</span>
+        ${site.tags&&site.tags.length
+          ? `<div class="site-tags">${site.tags.map(t=>`<span class="site-tag">${escHtml(t)}</span>`).join('')}</div>`
+          : ''}
+        <button class="btn btn-danger btn-sm" onclick="deleteSite('${site.id}')">✕</button>
+      </div>`;
+    list.appendChild(el);
+  });
+
+  // Pagination controls
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  document.getElementById('pageInfo').textContent =
+    `${(start+1).toLocaleString()}–${Math.min(start+PAGE_SIZE, filtered.length).toLocaleString()} of ${filtered.length.toLocaleString()}`;
+  document.getElementById('prevBtn').disabled = currentPage === 0;
+  document.getElementById('nextBtn').disabled = currentPage >= totalPages - 1;
+  pg.style.display = 'flex';
+}
+
+function changePage(dir) {
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  currentPage = Math.max(0, Math.min(currentPage + dir, totalPages - 1));
+  renderList();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ═══════════════════════════════════════════════
+//  Delete
+// ═══════════════════════════════════════════════
+async function deleteSite(id) {
+  try {
+    await sitesRef.child(id).remove();
+    showToast('Website removed', 'success', '🗑');
+  } catch (err) {
+    showToast('Delete failed: ' + err.message, 'error');
+  }
+}
+
+function confirmClearAll() {
+  if (!allSites.length) return;
+  const ok = confirm(`⚠️  Delete ALL ${allSites.length.toLocaleString()} websites? This cannot be undone.`);
+  if (ok) clearAll();
+}
+
+async function clearAll() {
+  try {
+    await sitesRef.remove();
+    showToast('All websites cleared', 'success', '🗑');
+  } catch (err) {
+    showToast('Clear failed: ' + err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  Stats
+// ═══════════════════════════════════════════════
+function updateStats() {
+  const today = new Date().toISOString().split('T')[0];
+  todayCount = allSites.filter(s => s.date === today).length;
+  const cats = new Set(allSites.map(s => s.category).filter(Boolean));
+
+  document.getElementById('totalCount').textContent = allSites.length.toLocaleString();
+  document.getElementById('todayCount').textContent = todayCount.toLocaleString();
+  document.getElementById('catCount').textContent   = cats.size;
+}
+
+function updateCategoryBreakdown() {
+  const counts = {};
+  allSites.forEach(s => { const c = s.category||'Other'; counts[c] = (counts[c]||0)+1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const total  = allSites.length || 1;
+
+  const el = document.getElementById('categoryBreakdown');
+  if (!sorted.length) { el.innerHTML = '<div style="color:var(--muted)">No data yet</div>'; return; }
+
+  el.innerHTML = sorted.map(([cat,n]) => {
+    const pct = Math.round(n/total*100);
+    return `<div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="color:var(--text)">${escHtml(cat)}</span>
+        <span style="color:var(--muted)">${n.toLocaleString()} <span style="color:var(--accent)">${pct}%</span></span>
+      </div>
+      <div class="progress-bar-bg" style="height:4px">
+        <div class="progress-bar-fill" style="width:${pct}%;background:var(--accent2)"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Enter key on URL input
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveSite();
+});
+</script>
+</body>
+</html>
