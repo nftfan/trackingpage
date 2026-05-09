@@ -1,161 +1,813 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Email Scraper Dashboard</title>
-    <style>
-        body {
-            font-family: Arial;
-            max-width: 900px;
-            margin: 40px auto;
-        }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Email Scraper — WebVault</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        textarea {
-            width: 100%;
-            height: 200px;
-            padding: 10px;
-        }
+  :root {
+    --bg: #0f1117;
+    --bg2: #181c27;
+    --bg3: #1e2336;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf2;
+    --text2: #8b90a8;
+    --text3: #555b72;
+    --blue: #4f8ef7;
+    --blue-bg: rgba(79,142,247,0.12);
+    --blue-border: rgba(79,142,247,0.3);
+    --green: #34d399;
+    --green-bg: rgba(52,211,153,0.1);
+    --green-border: rgba(52,211,153,0.28);
+    --amber: #f59e0b;
+    --amber-bg: rgba(245,158,11,0.1);
+    --amber-border: rgba(245,158,11,0.28);
+    --red: #f87171;
+    --red-bg: rgba(248,113,113,0.1);
+    --red-border: rgba(248,113,113,0.28);
+    --purple: #a78bfa;
+    --purple-bg: rgba(167,139,250,0.1);
+    --purple-border: rgba(167,139,250,0.3);
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
 
-        button {
-            padding: 12px 18px;
-            margin-top: 10px;
-            background: #2d6cdf;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 36px 20px 60px;
+  }
 
-        button:hover {
-            background: #1f4fbf;
-        }
+  .container { max-width: 920px; margin: 0 auto; }
 
-        #status {
-            margin-top: 10px;
-            font-weight: bold;
-        }
+  /* ── Header ── */
+  .header { margin-bottom: 28px; }
+  .header h1 {
+    font-size: 22px; font-weight: 600; color: #fff;
+    display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+  }
+  .badge {
+    font-size: 11px; font-weight: 500; padding: 3px 8px;
+    border-radius: 20px; letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .badge-blue { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+  .badge-green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .badge-purple { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-border); }
+  .header p { font-size: 14px; color: var(--text2); line-height: 1.6; }
 
-        .box {
-            margin-top: 20px;
-            background: #f4f4f4;
-            padding: 10px;
-            border-radius: 6px;
-        }
+  /* ── Queue card ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+    margin-bottom: 16px;
+  }
+  .card-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.8px;
+    text-transform: uppercase; color: var(--text3); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
 
-        .email {
-            padding: 5px;
-            border-bottom: 1px solid #ddd;
-            font-family: monospace;
-        }
-    </style>
+  /* Queue info row */
+  .queue-info {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 14px 16px;
+    background: var(--bg3);
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    margin-bottom: 14px;
+    font-size: 13px; color: var(--text2);
+  }
+  .queue-info .q-item { display: flex; align-items: center; gap: 6px; }
+  .q-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .q-dot.pending  { background: var(--blue); box-shadow: 0 0 6px var(--blue); }
+  .q-dot.scraped  { background: var(--green); }
+  .q-dot.total    { background: var(--text3); }
+  .q-num { font-weight: 600; color: #fff; font-size: 18px; }
+
+  /* Buttons */
+  .btn-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  button {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    border-radius: var(--radius); transition: all 0.15s;
+    border: none; outline: none;
+  }
+  .btn-primary {
+    background: var(--blue); color: #fff; padding: 10px 22px;
+  }
+  .btn-primary:hover:not(:disabled) { background: #3a7ae8; }
+  .btn-primary:disabled { background: #2a3a5e; color: #4a5a7e; cursor: not-allowed; }
+
+  .btn-green {
+    background: var(--green); color: #000; padding: 10px 22px; font-weight: 600;
+  }
+  .btn-green:hover:not(:disabled) { background: #22c487; }
+  .btn-green:disabled { background: #1a4a38; color: #2a6a58; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent; color: var(--text2);
+    border: 1px solid var(--border2); padding: 9px 16px;
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
+  .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-sm { font-size: 12px; padding: 6px 13px; }
+
+  /* Progress */
+  .progress-bar-wrap {
+    background: var(--bg3); border-radius: 4px; height: 5px;
+    overflow: hidden; margin-top: 16px; margin-bottom: 5px;
+  }
+  .progress-bar-fill {
+    height: 100%; border-radius: 4px; width: 0%;
+    transition: width 0.4s ease;
+    background: linear-gradient(90deg, var(--blue), var(--purple));
+  }
+  .progress-label {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--text3);
+  }
+
+  /* Stats */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media(max-width:680px){ .stats-grid { grid-template-columns: repeat(3,1fr); } }
+
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .stat-label { font-size: 11px; color: var(--text3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.6px; }
+  .stat-value { font-size: 26px; font-weight: 600; color: #fff; }
+  .stat-value.blue   { color: var(--blue); }
+  .stat-value.green  { color: var(--green); }
+  .stat-value.amber  { color: var(--amber); }
+  .stat-value.red    { color: var(--red); }
+  .stat-value.purple { color: var(--purple); }
+
+  /* Status bar */
+  .status-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); }
+
+  /* Log */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-title { font-size: 13px; font-weight: 500; color: var(--text2); }
+
+  .log-box {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+    max-height: 380px; overflow-y: auto;
+  }
+  .log-box::-webkit-scrollbar { width: 4px; }
+  .log-box::-webkit-scrollbar-track { background: transparent; }
+  .log-box::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  .log-empty {
+    padding: 36px; text-align: center;
+    color: var(--text3); font-size: 14px; line-height: 1.7;
+  }
+
+  .log-row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    font-size: 13px; animation: fadeIn 0.2s ease;
+  }
+  .log-row:last-child { border-bottom: none; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+  .log-icon {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; flex-shrink: 0; margin-top: 1px;
+  }
+  .icon-running { background: var(--blue-bg);   color: var(--blue); }
+  .icon-success { background: var(--green-bg);  color: var(--green); }
+  .icon-error   { background: var(--red-bg);    color: var(--red); }
+  .icon-skip    { background: var(--amber-bg);  color: var(--amber); }
+
+  .log-url { font-family: 'SF Mono', monospace; color: var(--text2); font-size: 12px; flex: 1; word-break: break-all; padding-top: 2px; }
+  .log-url strong { color: var(--text); font-weight: 500; }
+
+  .log-badge {
+    font-size: 11px; font-weight: 500; padding: 2px 8px;
+    border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+  }
+  .badge-running { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue-border); }
+  .badge-found   { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-border); }
+  .badge-none    { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-border); }
+  .badge-error   { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-border); }
+
+  .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
+
+  /* Email list */
+  .email-list-box {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .email-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 16px; border-bottom: 1px solid var(--border);
+    font-size: 13px; animation: fadeIn 0.2s ease;
+  }
+  .email-row:last-child { border-bottom: none; }
+  .email-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .email-addr { font-family: 'SF Mono', monospace; color: var(--green); flex: 1; }
+  .email-source { font-size: 11px; color: var(--text3); }
+
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Firebase status pill */
+  .fb-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; padding: 4px 10px;
+    border-radius: 20px; border: 1px solid var(--border2);
+    background: var(--bg3); color: var(--text3);
+    transition: .3s;
+  }
+  .fb-status.ok   { border-color: var(--green-border); color: var(--green); }
+  .fb-status.err  { border-color: var(--red-border);   color: var(--red);   }
+
+  /* Batch size selector */
+  select {
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius); color: var(--text);
+    font-size: 13px; padding: 9px 12px; outline: none;
+    cursor: pointer; transition: border-color .2s;
+  }
+  select:focus { border-color: var(--blue); }
+  select option { background: var(--bg3); }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* Concurrency slider */
+  input[type=range] {
+    -webkit-appearance: none; height: 4px; border-radius: 4px;
+    background: var(--bg3); outline: none; cursor: pointer; width: 120px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--blue); cursor: pointer;
+  }
+
+  .controls-row {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 16px; background: var(--bg3);
+    border-radius: var(--radius); border: 1px solid var(--border2);
+    margin-bottom: 14px; font-size: 13px; color: var(--text2);
+  }
+  .controls-row label { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .controls-row strong { color: #fff; }
+</style>
 </head>
-
 <body>
+<div class="container">
 
-<h2>🚀 Email Scraper Control Panel</h2>
+  <!-- Header -->
+  <div class="header">
+    <h1>
+      Email Scraper
+      <span class="badge badge-blue">WebVault</span>
+      <span id="fbStatus" class="fb-status">⬤ Connecting…</span>
+    </h1>
+    <p>Pulls <strong>500 unscraped</strong> websites per run from your Firebase <code>webbe</code> database.
+       Each site is marked <em>scraped</em> immediately — re-clicking Start never repeats a site.<br>
+       Emails found are <strong style="color:#34d399">automatically saved to trackingclients Firebase</strong> in real-time.</p>
+  </div>
 
-<p>Paste up to 100 websites (one per line):</p>
+  <!-- Queue card -->
+  <div class="card">
+    <div class="card-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      Firebase Queue — webbe/
+    </div>
 
-<textarea id="urls" placeholder="https://example.com
-https://example.org"></textarea>
+    <div class="queue-info" id="queueInfo">
+      <div class="q-item"><div class="q-dot pending"></div><span>Pending&nbsp;<span class="q-num" id="qPending">…</span></span></div>
+      <div class="q-item"><div class="q-dot scraped"></div><span>Scraped&nbsp;<span class="q-num" id="qScraped">…</span></span></div>
+      <div class="q-item"><div class="q-dot total"></div><span>Total&nbsp;<span class="q-num" id="qTotal">…</span></span></div>
+    </div>
 
-<br>
+    <!-- Controls -->
+    <div class="controls-row">
+      <label>
+        Batch size:
+        <select id="batchSize">
+          <option value="100">100 sites</option>
+          <option value="250">250 sites</option>
+          <option value="500" selected>500 sites</option>
+          <option value="1000">1 000 sites</option>
+        </select>
+      </label>
+      <label>
+        Concurrency:
+        <input type="range" id="concurrency" min="1" max="10" value="3" oninput="document.getElementById('concVal').textContent=this.value" />
+        <strong id="concVal">3</strong> parallel
+      </label>
+    </div>
 
-<button onclick="startScraping()">Start Scraping</button>
+    <div class="btn-row">
+      <button class="btn-green" onclick="startScraping()" id="scrapeBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Start Scraping
+      </button>
+      <button class="btn-ghost" onclick="stopScraping()" id="stopBtn" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Stop
+      </button>
+      <button class="btn-ghost btn-sm" onclick="resetQueue()" id="resetBtn" title="Mark ALL sites as unscraped again">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Reset queue
+      </button>
+      <div class="status-bar" id="statusBar"></div>
+    </div>
 
-<div id="status"></div>
+    <div id="progressWrap" style="display:none;margin-top:14px">
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill"></div></div>
+      <div class="progress-label">
+        <span id="progressLeft">0 / 0 processed</span>
+        <span id="progressPct">0%</span>
+      </div>
+    </div>
+  </div>
 
-<hr>
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">This run</div><div class="stat-value blue" id="statProcessed">0</div></div>
+    <div class="stat-card"><div class="stat-label">Emails found</div><div class="stat-value green" id="statEmails">0</div></div>
+    <div class="stat-card"><div class="stat-label">No emails</div><div class="stat-value amber" id="statEmpty">0</div></div>
+    <div class="stat-card"><div class="stat-label">Errors</div><div class="stat-value red" id="statErrors">0</div></div>
+    <div class="stat-card"><div class="stat-label">Skipped (dup)</div><div class="stat-value purple" id="statDups">0</div></div>
+  </div>
 
-<h3>📧 Firebase Emails</h3>
+  <!-- Scrape log -->
+  <div style="margin-bottom:16px">
+    <div class="section-header">
+      <span class="section-title">Scrape log</span>
+      <span id="logCount" style="font-size:12px;color:var(--text3)">—</span>
+    </div>
+    <div class="log-box" id="logBox">
+      <div class="log-empty">
+        Click <strong>Start Scraping</strong> — this session will pull the next 500 unscraped sites from Firebase automatically.
+      </div>
+    </div>
+  </div>
 
-<button onclick="loadEmails()">Refresh Emails</button>
+  <!-- Emails found -->
+  <div id="emailsSection" style="display:none;margin-bottom:16px">
+    <div class="section-header">
+      <span class="section-title">New emails found this session</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn-ghost btn-sm" onclick="saveEmailsToFirebase()" id="saveEmailsBtn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Re-save to trackingclients
+        </button>
+        <button class="btn-ghost btn-sm" onclick="copyEmails()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          <span id="copyBtnLabel">Copy all</span>
+        </button>
+      </div>
+    </div>
+    <div class="email-list-box" id="emailListBox"></div>
+  </div>
 
-<div id="emails" class="box"></div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <script>
+// ═══════════════════════════════════
+//  Firebase App 1 — betbtc (website queue)
+// ═══════════════════════════════════
+const webbeConfig = {
+  apiKey: "AIzaSyA6w6auszWRniQfZCjb4nXE_bq9Mzt9dOs",
+  authDomain: "betbtc-6d881.firebaseapp.com",
+  databaseURL: "https://betbtc-6d881-default-rtdb.firebaseio.com",
+  projectId: "betbtc-6d881",
+  storageBucket: "betbtc-6d881.firebasestorage.app",
+  messagingSenderId: "962176232122",
+  appId: "1:962176232122:web:a277d922543c3378033083",
+  measurementId: "G-V4XNB7K1E0"
+};
+const webbeApp = firebase.initializeApp(webbeConfig, 'webbeApp');
+const webbeDb  = webbeApp.database();
+const webbeRef = webbeDb.ref('webbe');
 
-// 🔥 YOUR RAILWAY API (IMPORTANT)
+// ═══════════════════════════════════
+//  Firebase App 2 — trackingclients (email results)
+//  Emails push here AUTOMATICALLY as they are found
+// ═══════════════════════════════════
+const trackingConfig = {
+  apiKey: "AIzaSyA6w6auszWRniQfZCjb4nXE_bq9Mzt9dOs",
+  databaseURL: "https://trackingclients-default-rtdb.firebaseio.com",
+  projectId: "trackingclients"
+};
+const trackingApp = firebase.initializeApp(trackingConfig, 'trackingApp');
+const trackingDb  = trackingApp.database();
+const emailsRef   = trackingDb.ref('emails');
+
+// Scraper API
 const API_URL = "https://allbe-production.up.railway.app/scrape";
 
-// 🔥 FIREBASE URL
-const FIREBASE_URL = "https://trackingclients-default-rtdb.firebaseio.com/emails.json";
+// ═══════════════════════════════════
+//  State
+// ═══════════════════════════════════
+let running = false;
+let stopRequested = false;
+let sessionEmails = [];
+let processed = 0, errCount = 0, emptyCount = 0, dupCount = 0;
+let totalBatch = 0;
+let queueSnapshot = {};   // { firebaseKey: siteObject }
 
+// ═══════════════════════════════════
+//  Firebase status & queue monitor
+// ═══════════════════════════════════
+function setFbStatus(state, text) {
+  const el = document.getElementById('fbStatus');
+  el.className = 'fb-status ' + state;
+  el.textContent = '⬤ ' + text;
+}
 
-// ---------------- START SCRAPING ----------------
+// Live queue counts
+webbeRef.on('value', snap => {
+  setFbStatus('ok', 'Connected');
+  const data = snap.val() || {};
+  const entries = Object.values(data);
+  const total   = entries.length;
+  const scraped = entries.filter(e => e.scraped).length;
+  const pending = total - scraped;
+
+  document.getElementById('qTotal').textContent   = total.toLocaleString();
+  document.getElementById('qScraped').textContent = scraped.toLocaleString();
+  document.getElementById('qPending').textContent = pending.toLocaleString();
+
+  // Keep local snapshot for batch picking
+  queueSnapshot = Object.entries(data).reduce((acc, [k, v]) => {
+    acc[k] = v; return acc;
+  }, {});
+}, err => {
+  setFbStatus('err', 'Disconnected');
+});
+
+// ═══════════════════════════════════
+//  Pick next N unscraped sites
+// ═══════════════════════════════════
+function pickBatch(n) {
+  return Object.entries(queueSnapshot)
+    .filter(([, v]) => !v.scraped)
+    .slice(0, n)
+    .map(([key, v]) => ({ key, url: normalizeUrl(v.url) }));
+}
+
+function normalizeUrl(u) {
+  if (!u) return '';
+  u = u.trim();
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  return u;
+}
+
+// ═══════════════════════════════════
+//  Mark a site as scraped in Firebase
+// ═══════════════════════════════════
+async function markScraped(key) {
+  try {
+    await webbeRef.child(key).update({ scraped: true, scrapedAt: Date.now() });
+  } catch (e) {
+    console.warn('markScraped failed for', key, e);
+  }
+}
+
+// ═══════════════════════════════════
+//  UI helpers
+// ═══════════════════════════════════
+function setStatus(html) {
+  document.getElementById('statusBar').innerHTML = html;
+}
+
+function updateStats() {
+  document.getElementById('statProcessed').textContent = processed;
+  document.getElementById('statEmails').textContent    = sessionEmails.length;
+  document.getElementById('statErrors').textContent    = errCount;
+  document.getElementById('statEmpty').textContent     = emptyCount;
+  document.getElementById('statDups').textContent      = dupCount;
+}
+
+function updateProgress() {
+  const pct = totalBatch ? Math.round((processed / totalBatch) * 100) : 0;
+  document.getElementById('progressFill').style.width   = pct + '%';
+  document.getElementById('progressLeft').textContent   = processed + ' / ' + totalBatch + ' processed';
+  document.getElementById('progressPct').textContent    = pct + '%';
+  document.getElementById('logCount').textContent       = processed + ' of ' + totalBatch + ' done';
+}
+
+function addLogRow(url, status) {
+  const box = document.getElementById('logBox');
+  // Remove empty placeholder
+  const ph = box.querySelector('.log-empty');
+  if (ph) ph.remove();
+
+  const short = url.replace(/^https?:\/\/(www\.)?/, '');
+  const id = 'lr-' + Math.random().toString(36).slice(2, 10);
+
+  let iconClass, iconHtml, badgeClass, badgeText;
+  if (status === 'running') {
+    iconClass = 'icon-running'; iconHtml = '<span class="pulse"></span>';
+    badgeClass = 'badge-running'; badgeText = 'Scanning…';
+  }
+
+  const row = document.createElement('div');
+  row.className = 'log-row';
+  row.id = id;
+  row.innerHTML = `
+    <div class="log-icon ${iconClass}">${iconHtml}</div>
+    <div class="log-url"><strong>${escHtml(short)}</strong></div>
+    <span class="log-badge ${badgeClass}">${badgeText}</span>
+  `;
+  box.appendChild(row);
+  box.scrollTop = box.scrollHeight;
+  return id;
+}
+
+function updateLogRow(rowId, status, count) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  let iconClass, iconHtml, badgeClass, badgeText;
+  switch (status) {
+    case 'success':
+      iconClass = 'icon-success'; iconHtml = '✓';
+      badgeClass = 'badge-found'; badgeText = '+' + count + ' email' + (count !== 1 ? 's' : '');
+      break;
+    case 'none':
+      iconClass = 'icon-skip'; iconHtml = '–';
+      badgeClass = 'badge-none'; badgeText = 'No emails';
+      break;
+    case 'error':
+      iconClass = 'icon-error'; iconHtml = '✕';
+      badgeClass = 'badge-error'; badgeText = 'Error';
+      break;
+  }
+  row.querySelector('.log-icon').className = 'log-icon ' + iconClass;
+  row.querySelector('.log-icon').innerHTML = iconHtml;
+  const badge = row.querySelector('.log-badge');
+  badge.className = 'log-badge ' + badgeClass;
+  badge.textContent = badgeText;
+}
+
+function addEmailRow(email, source) {
+  const box = document.getElementById('emailListBox');
+  const short = source.replace(/^https?:\/\/(www\.)?/, '');
+  const row = document.createElement('div');
+  row.className = 'email-row';
+  row.innerHTML = `
+    <div class="email-dot"></div>
+    <div class="email-addr">${escHtml(email)}</div>
+    <div class="email-source">${escHtml(short)}</div>
+  `;
+  box.appendChild(row);
+  document.getElementById('emailsSection').style.display = 'block';
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════
+//  Scrape one URL
+// ═══════════════════════════════════
+async function scrapeOne(key, url, existingEmails) {
+  // Mark scraped FIRST so parallel runs never double-pick
+  await markScraped(key);
+
+  const rowId = addLogRow(url, 'running');
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: [url] }),
+      signal: AbortSignal.timeout(20000)   // 20 s per site
+    });
+
+    let data;
+    try { data = await res.json(); } catch { throw new Error('Bad JSON'); }
+
+    const found = [];
+    const emails = data.emails || data.data || [];
+    for (const e of (Array.isArray(emails) ? emails : [])) {
+      const addr = (typeof e === 'string' ? e : e.email || '').toLowerCase().trim();
+      if (addr && !existingEmails.has(addr)) {
+        found.push(addr);
+        existingEmails.add(addr);
+      } else if (addr) {
+        dupCount++;
+      }
+    }
+
+    if (found.length > 0) {
+      sessionEmails.push(...found.map(e => ({ email: e, source: url })));
+      found.forEach(e => addEmailRow(e, url));
+      // AUTO-PUSH to trackingclients Firebase immediately
+      autopushEmails(found, url);
+      updateLogRow(rowId, 'success', found.length);
+    } else {
+      emptyCount++;
+      updateLogRow(rowId, 'none', 0);
+    }
+  } catch (err) {
+    errCount++;
+    updateLogRow(rowId, 'error', 0);
+  }
+
+  processed++;
+  updateProgress();
+  updateStats();
+}
+
+// ═══════════════════════════════════
+//  Concurrency pool runner
+// ═══════════════════════════════════
+async function runWithConcurrency(items, concurrency, existingEmails) {
+  const queue = [...items];
+  const workers = Array.from({ length: concurrency }, async () => {
+    while (queue.length && !stopRequested) {
+      const item = queue.shift();
+      if (!item) break;
+      await scrapeOne(item.key, item.url, existingEmails);
+    }
+  });
+  await Promise.all(workers);
+}
+
+// ═══════════════════════════════════
+//  Load existing emails (dedup guard)
+// ═══════════════════════════════════
+async function loadExistingEmails() {
+  const set = new Set();
+  try {
+    const snap = await emailsRef.once('value');
+    const data = snap.val() || {};
+    for (const v of Object.values(data)) {
+      if (v && v.email) set.add(v.email.toLowerCase().trim());
+    }
+  } catch (e) { console.warn('Could not load existing emails', e); }
+  return set;
+}
+
+// ═══════════════════════════════════
+//  Main: Start
+// ═══════════════════════════════════
 async function startScraping() {
-    let urls = document.getElementById("urls").value
-        .split("\n")
-        .map(u => u.trim())
-        .filter(u => u.length > 0)
-        .slice(0, 100);
+  if (running) return;
 
-    if (urls.length === 0) {
-        alert("Please enter at least 1 website");
-        return;
-    }
+  const batchSize  = parseInt(document.getElementById('batchSize').value);
+  const concurrency = parseInt(document.getElementById('concurrency').value);
 
-    document.getElementById("status").innerText = "⏳ Scraping started...";
+  const batch = pickBatch(batchSize);
+  if (!batch.length) {
+    alert('🎉 No unscraped websites left in the queue!\nUse "Reset queue" to start over, or import more sites.');
+    return;
+  }
 
-    try {
-        let res = await fetch(API_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ urls })
-        });
+  // Reset session state
+  running = true; stopRequested = false;
+  sessionEmails = []; processed = 0; errCount = 0; emptyCount = 0; dupCount = 0;
+  totalBatch = batch.length;
 
-        // 🔥 FIX: handle non-JSON responses safely
-        const text = await res.text();
+  // Clear UI
+  document.getElementById('logBox').innerHTML = '';
+  document.getElementById('emailListBox').innerHTML = '';
+  document.getElementById('emailsSection').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('scrapeBtn').disabled = true;
+  document.getElementById('stopBtn').disabled = false;
+  document.getElementById('resetBtn').disabled = true;
+  document.getElementById('scrapeBtn').innerHTML = '<span class="spinner"></span> Running…';
 
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch (e) {
-            throw new Error("Server returned invalid response: " + text);
-        }
+  updateStats(); updateProgress();
+  setStatus(`<span class="pulse"></span>&nbsp;Scraping ${batch.length.toLocaleString()} sites with ${concurrency} parallel workers…`);
 
-        document.getElementById("status").innerText =
-            "✅ Done! Emails found: " + data.total_emails;
+  const existingEmails = await loadExistingEmails();
 
-        loadEmails();
+  await runWithConcurrency(batch, concurrency, existingEmails);
 
-    } catch (err) {
-        document.getElementById("status").innerText =
-            "❌ Error: " + err.message;
-    }
+  // Done
+  running = false;
+  document.getElementById('scrapeBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('resetBtn').disabled = false;
+  document.getElementById('scrapeBtn').innerHTML =
+    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Scraping';
+
+  const stopped = stopRequested ? ' (stopped early)' : '';
+  if (sessionEmails.length > 0) {
+    setStatus(`<span style="color:#34d399">✓ Done${stopped} — ${sessionEmails.length} new email${sessionEmails.length!==1?'s':''} found</span>`);
+  } else {
+    setStatus(`<span style="color:#f59e0b">✓ Done${stopped} — no new emails found</span>`);
+  }
 }
 
-
-// ---------------- LOAD FIREBASE EMAILS ----------------
-async function loadEmails() {
-    document.getElementById("emails").innerText = "Loading...";
-
-    try {
-        let res = await fetch(FIREBASE_URL);
-        let data = await res.json();
-
-        let list = [];
-
-        for (let key in data) {
-            if (data[key].email) {
-                list.push(data[key].email);
-            }
-        }
-
-        document.getElementById("emails").innerHTML =
-            "<b>Total Emails:</b> " + list.length + "<br><br>" +
-            list.map(e => `<div class="email">${e}</div>`).join("");
-
-    } catch (err) {
-        document.getElementById("emails").innerHTML =
-            "❌ Error loading emails: " + err.message;
-    }
+// ═══════════════════════════════════
+//  Stop
+// ═══════════════════════════════════
+function stopScraping() {
+  stopRequested = true;
+  document.getElementById('stopBtn').disabled = true;
+  setStatus('<span style="color:var(--amber)">⏹ Stopping after current batch…</span>');
 }
 
-// auto load on open
-loadEmails();
+// ═══════════════════════════════════
+//  Reset queue (unmark all scraped)
+// ═══════════════════════════════════
+async function resetQueue() {
+  if (running) return;
+  const count = Object.keys(queueSnapshot).length;
+  if (!confirm(`Reset ALL ${count.toLocaleString()} sites to unscraped?\nThis lets you re-scrape everything from scratch.`)) return;
 
+  const updates = {};
+  for (const key of Object.keys(queueSnapshot)) {
+    updates[key + '/scraped']   = null;
+    updates[key + '/scrapedAt'] = null;
+  }
+  try {
+    await webbeRef.update(updates);
+    setStatus('<span style="color:var(--green)">✓ Queue reset — all sites marked as unscraped</span>');
+  } catch (e) {
+    setStatus('<span style="color:var(--red)">✕ Reset failed: ' + e.message + '</span>');
+  }
+}
+
+// ═══════════════════════════════════
+//  AUTO-PUSH emails to trackingclients as found
+// ═══════════════════════════════════
+async function autopushEmails(emailList, sourceUrl) {
+  try {
+    const updates = {};
+    for (const email of emailList) {
+      const key = emailsRef.push().key;
+      updates[key] = { email, source: sourceUrl, savedAt: Date.now() };
+    }
+    await emailsRef.update(updates);
+  } catch (e) {
+    console.warn('Auto-push to trackingclients failed:', e.message);
+  }
+}
+
+// ═══════════════════════════════════
+//  Manual re-save button (backup)
+// ═══════════════════════════════════
+async function saveEmailsToFirebase() {
+  if (!sessionEmails.length) return;
+  const btn = document.getElementById('saveEmailsBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+  try {
+    const updates = {};
+    for (const { email, source } of sessionEmails) {
+      const key = emailsRef.push().key;
+      updates[key] = { email, source, savedAt: Date.now() };
+    }
+    await emailsRef.update(updates);
+    btn.innerHTML = '✓ Saved ' + sessionEmails.length + ' emails';
+  } catch (e) {
+    btn.innerHTML = '✕ Failed';
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════
+//  Copy emails
+// ═══════════════════════════════════
+async function copyEmails() {
+  if (!sessionEmails.length) return;
+  await navigator.clipboard.writeText(sessionEmails.map(e => e.email).join('\n'));
+  const lbl = document.getElementById('copyBtnLabel');
+  lbl.textContent = 'Copied!';
+  setTimeout(() => { lbl.textContent = 'Copy all'; }, 2000);
+}
 </script>
-
 </body>
 </html>
