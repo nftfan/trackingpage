@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -132,6 +131,13 @@
   .count-tab.ct-handouts .ct-value { color: #b45309; }
   .count-tab.ct-cars { border-color: #fecdd3; background: #fff1f2; }
   .count-tab.ct-cars .ct-value { color: #be123c; }
+  /* Today sub-label inside each tab */
+  .count-tab .ct-today { font-size: 8px; font-weight: 700; letter-spacing: .2px; opacity: .7; }
+  .count-tab.ct-mailboxes .ct-today { color: #7c3aed; }
+  .count-tab.ct-posters   .ct-today { color: var(--brand); }
+  .count-tab.ct-b2b       .ct-today { color: #15803d; }
+  .count-tab.ct-handouts  .ct-today { color: #b45309; }
+  .count-tab.ct-cars      .ct-today { color: #be123c; }
 
   /* Panels */
   .notifications, .chat-panel {
@@ -906,33 +912,71 @@
   });
 
   /* ── Firebase Count Tabs ── */
+  // Count entries in a snapshot; also track how many were added today
+  function countSnapEntries(snap) {
+    if (!snap.exists()) return { total: 0, today: 0 };
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const todayTs = todayStart.getTime();
+    let total = 0, today = 0;
+    snap.forEach(child => {
+      const v = child.val();
+      total++;
+      const ts = (v && typeof v.timestamp === 'number') ? v.timestamp : 0;
+      if (ts >= todayTs) today++;
+    });
+    return { total, today };
+  }
+
+  // Write total into the value el and show "+N today" sub-label on the tab
+  function updateTabEl(el, total, today) {
+    el.textContent = total.toLocaleString();
+    const tab = el.closest('.count-tab');
+    if (!tab) return;
+    let todayEl = tab.querySelector('.ct-today');
+    if (today > 0) {
+      if (!todayEl) {
+        todayEl = document.createElement('span');
+        todayEl.className = 'ct-today';
+        todayEl.style.cssText = 'font-size:8px;font-weight:700;opacity:.65;letter-spacing:.2px;';
+        tab.appendChild(todayEl);
+      }
+      todayEl.textContent = '+' + today + ' today';
+    } else if (todayEl) {
+      todayEl.textContent = '';
+    }
+  }
+
   function listenCountTabs(){
+    // Mailboxes — reads from the 'mailboxes' folder written by the dot-poster app
+    onValue(ref(polygonsDb, 'mailboxes'), snap => {
+      const { total, today } = countSnapEntries(snap);
+      updateTabEl(mailboxCountEl, total, today);
+    });
+    // Posters
     onValue(ref(polygonsDb, 'posters'), snap => {
-      const count = snap.exists() ? Object.keys(snap.val() || {}).length : 0;
-      posCountEl.textContent = count.toLocaleString();
+      const { total, today } = countSnapEntries(snap);
+      updateTabEl(posCountEl, total, today);
     });
+    // B2B
     onValue(ref(polygonsDb, 'b2b'), snap => {
-      const count = snap.exists() ? Object.keys(snap.val() || {}).length : 0;
-      bisCountEl.textContent = count.toLocaleString();
+      const { total, today } = countSnapEntries(snap);
+      updateTabEl(bisCountEl, total, today);
     });
+    // Handouts
     onValue(ref(polygonsDb, 'handouts'), snap => {
-      const count = snap.exists() ? Object.keys(snap.val() || {}).length : 0;
-      hanCountEl.textContent = count.toLocaleString();
+      const { total, today } = countSnapEntries(snap);
+      updateTabEl(hanCountEl, total, today);
     });
+    // Cars
     onValue(ref(polygonsDb, 'cars'), snap => {
-      const count = snap.exists() ? Object.keys(snap.val() || {}).length : 0;
-      carCountEl.textContent = count.toLocaleString();
+      const { total, today } = countSnapEntries(snap);
+      updateTabEl(carCountEl, total, today);
     });
   }
 
-  /* ── Update Mailboxes count (= sum of flyers in completed zones) ── */
+  /* ── Mailboxes count — now driven by listenCountTabs() from Firebase folder ── */
   function updateMailboxesCount(){
-    let total = 0;
-    zoneStatusByZone.forEach(z => {
-      if(z.status === 'completed') total += safeInt(z.flyers);
-    });
-    mailboxesTotal = total;
-    mailboxCountEl.textContent = total.toLocaleString();
+    // No-op: mailboxes tab is live-updated by the onValue listener above.
   }
 
   /* ── Load Polygons ── */
