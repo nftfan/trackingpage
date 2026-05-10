@@ -1,0 +1,582 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Student Contract Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0f;--surface:#141417;--card:#1a1a1f;--border:#2a2a32;--border-hi:#3d3d4a;
+  --accent:#7c6af7;--accent-lo:rgba(124,106,247,.13);--accent-hi:#a89ffa;
+  --green:#3ddc84;--green-lo:rgba(61,220,132,.1);--amber:#f5a623;--amber-lo:rgba(245,166,35,.1);
+  --red:#ff5c5c;--text:#e8e8f0;--muted:#6b6b80;--label:#9898ae;--locked:#1e1e26;
+}
+body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;padding:28px 16px 100px}
+
+/* ── Header ── */
+.hdr{max-width:920px;margin:0 auto 28px}
+.hdr-eye{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.hdr h1{font-family:'Syne',sans-serif;font-size:clamp(24px,4vw,40px);font-weight:800;letter-spacing:-.02em;
+  background:linear-gradient(135deg,#e8e8f0 30%,var(--accent-hi));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hdr p{margin-top:6px;font-size:12px;color:var(--muted)}
+
+/* ── Mode switcher ── */
+.mode-bar{max-width:920px;margin:0 auto 24px;display:flex;gap:0;background:var(--card);
+  border:1px solid var(--border);border-radius:12px;padding:5px;overflow:hidden}
+.mode-btn{flex:1;padding:11px 16px;border:none;background:none;color:var(--muted);
+  font-family:'DM Mono',monospace;font-size:13px;border-radius:9px;cursor:pointer;transition:all .2s;text-align:center}
+.mode-btn.active{background:var(--accent);color:#fff;font-weight:500}
+.mode-btn:not(.active):hover{background:var(--accent-lo);color:var(--accent-hi)}
+
+/* ── Container ── */
+.wrap{max-width:920px;margin:0 auto}
+.pane{display:none}.pane.active{display:block}
+
+/* ── Card ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px 28px;margin-bottom:18px;transition:border-color .2s}
+.card:focus-within{border-color:var(--border-hi)}
+.card-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:18px;display:flex;align-items:center;gap:10px}
+.card-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── Grids ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.s2{grid-column:span 2}.s3{grid-column:span 3}
+
+/* ── Fields ── */
+.field{display:flex;flex-direction:column;gap:5px}
+label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--label);font-weight:500}
+input[type=text],input[type=email],input[type=number],input[type=date],select{
+  background:var(--surface);border:1px solid var(--border);border-radius:9px;
+  color:var(--text);font-family:'DM Mono',monospace;font-size:14px;
+  padding:11px 14px;transition:border-color .2s,box-shadow .2s;outline:none;width:100%;
+  -webkit-appearance:none;appearance:none}
+input::placeholder{color:var(--muted)}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-lo)}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(55%) sepia(30%) saturate(600%) hue-rotate(210deg);cursor:pointer}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+input[type=number]{-moz-appearance:textfield}
+.sel-wrap{position:relative}
+.sel-wrap::after{content:'▾';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;font-size:13px}
+.sel-wrap select{padding-right:30px;cursor:pointer}
+select option{background:#1a1a2e;color:var(--text)}
+.pfx-wrap{position:relative}
+.pfx-wrap .pfx{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none}
+.pfx-wrap input{padding-left:25px}
+
+/* ── Badges ── */
+.role-badge{background:var(--locked);border:1px solid var(--border);border-radius:9px;
+  color:var(--accent-hi);font-size:14px;padding:11px 14px;display:flex;align-items:center;gap:8px;user-select:none}
+.lock{font-size:11px;opacity:.45}
+.hours-display{background:var(--locked);border:1px solid var(--border);border-radius:9px;
+  color:var(--green);font-size:14px;padding:11px 14px;display:flex;align-items:center;justify-content:space-between}
+.hrs-val{font-weight:500}
+.hrs-lbl{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+
+/* ── Student card ── */
+.stu-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:20px;margin-bottom:12px;transition:border-color .2s}
+.stu-card:focus-within{border-color:var(--border-hi)}
+.stu-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.stu-badge{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--accent);background:var(--accent-lo);border:1px solid rgba(124,106,247,.25);padding:4px 12px;border-radius:20px}
+
+/* ── Schedule ── */
+.sched-lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--label);font-weight:500;margin:16px 0 5px}
+.sched-cols{display:grid;grid-template-columns:148px 126px 126px 86px 34px;gap:7px;margin-bottom:3px}
+.sched-cols span{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.sched-row{display:grid;grid-template-columns:148px 126px 126px 86px 34px;gap:7px;align-items:center;margin-bottom:7px}
+.sched-row input,.sched-row select{font-size:13px;padding:9px 10px}
+.sched-row .sel-wrap select{padding:9px 26px 9px 10px}
+.hrs-cell{background:var(--locked);border:1px solid var(--border);border-radius:9px;
+  color:var(--green);font-size:13px;padding:9px 10px;text-align:center;white-space:nowrap}
+.del-row{background:none;border:1px solid var(--border);color:var(--muted);width:34px;height:34px;
+  border-radius:7px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;
+  padding:0;transition:all .2s;flex-shrink:0}
+.del-row:hover{background:rgba(255,92,92,.15);border-color:var(--red);color:var(--red)}
+.summary-row{display:flex;align-items:center;justify-content:space-between;
+  background:var(--green-lo);border:1px solid rgba(61,220,132,.2);border-radius:9px;
+  padding:9px 14px;margin-top:9px;font-size:13px}
+.summary-row .s-label{color:var(--muted)}
+.summary-row .s-val{color:var(--green);font-weight:500}
+
+/* ── Buttons ── */
+button{cursor:pointer;font-family:'DM Mono',monospace}
+.btn-add-row{background:none;border:1px dashed var(--border-hi);color:var(--muted);font-size:12px;
+  padding:7px 13px;border-radius:8px;transition:all .2s;margin-top:2px}
+.btn-add-row:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-lo)}
+.btn-del-stu{background:none;border:1px solid rgba(255,92,92,.3);color:var(--red);font-size:12px;
+  padding:6px 11px;border-radius:7px;transition:all .2s}
+.btn-del-stu:hover{background:rgba(255,92,92,.1);border-color:var(--red)}
+.actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.btn-add-stu{background:var(--accent-lo);border:1px solid rgba(124,106,247,.35);color:var(--accent-hi);
+  font-size:13px;padding:12px 18px;border-radius:10px;transition:all .2s;flex:1;min-width:140px}
+.btn-add-stu:hover{background:rgba(124,106,247,.22);border-color:var(--accent)}
+.btn-gen{background:linear-gradient(135deg,var(--accent),#5e4fe0);border:none;color:#fff;
+  font-size:13px;font-weight:500;padding:12px 24px;border-radius:10px;transition:all .2s;flex:2;letter-spacing:.04em;min-width:160px}
+.btn-gen:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 8px 24px rgba(124,106,247,.35)}
+.btn-gen:active{transform:translateY(0)}
+.btn-client-en{background:linear-gradient(135deg,#3ddc84,#28a665);border:none;color:#0d0d0f;
+  font-size:13px;font-weight:500;padding:12px 20px;border-radius:10px;transition:all .2s;flex:1;min-width:140px}
+.btn-client-en:hover{opacity:.9;transform:translateY(-1px)}
+.btn-client-nl{background:linear-gradient(135deg,#f5a623,#d4891a);border:none;color:#0d0d0f;
+  font-size:13px;font-weight:500;padding:12px 20px;border-radius:10px;transition:all .2s;flex:1;min-width:140px}
+.btn-client-nl:hover{opacity:.9;transform:translateY(-1px)}
+.btn-save-client{background:none;border:1px solid rgba(61,220,132,.35);color:var(--green);
+  font-size:12px;padding:7px 13px;border-radius:8px;transition:all .2s;display:inline-block;margin-top:14px}
+.btn-save-client:hover{background:var(--green-lo)}
+
+/* ── Client invoice preview card ── */
+.invoice-preview{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:20px;margin-top:16px}
+.inv-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+.inv-table th{background:var(--locked);color:var(--label);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;padding:9px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.inv-table td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text)}
+.inv-table tr:last-child td{border-bottom:none}
+.inv-table .total-row td{background:var(--locked);font-weight:500;color:var(--green)}
+.inv-table .grand-row td{background:rgba(61,220,132,.12);font-weight:500;color:var(--green);border-top:2px solid rgba(61,220,132,.4)}
+
+/* ── tip ── */
+.tip{font-size:11px;color:var(--muted);margin-top:12px;padding:9px 13px;background:var(--accent-lo);border-radius:8px;border-left:2px solid var(--accent)}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--green);color:#0d0d0f;
+  font-family:'Syne',sans-serif;font-weight:700;font-size:13px;padding:10px 18px;border-radius:10px;
+  opacity:0;transform:translateY(10px);transition:opacity .3s,transform .3s;pointer-events:none;z-index:999}
+.toast.show{opacity:1;transform:translateY(0)}
+
+@media(max-width:680px){
+  .g2,.g3{grid-template-columns:1fr}.s2,.s3{grid-column:span 1}
+  .sched-cols{display:none}
+  .sched-row{grid-template-columns:1fr 1fr;gap:6px}
+  .sched-row>*:nth-child(1){grid-column:span 2}
+  .sched-row>*:nth-child(4),.sched-row>*:nth-child(5){grid-column:span 1}
+  .mode-btn{font-size:11px;padding:9px 8px}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <p class="hdr-eye">Document Builder</p>
+  <h1>Student Contract Generator</h1>
+  <p>Two modes: internal contracts for students, and a clean invoice to send to your client.</p>
+</div>
+
+<!-- Mode switcher -->
+<div class="mode-bar">
+  <button class="mode-btn active" onclick="switchMode('internal')">📋 Internal Contracts</button>
+  <button class="mode-btn" onclick="switchMode('client')">📤 Client Invoice</button>
+</div>
+
+<div class="wrap">
+
+  <!-- ══════════════════════════════════════════
+       SHARED: Client Details (shown in both modes)
+  ══════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">Client Details</div>
+    <div class="g2">
+      <div class="field s2"><label>Company</label><input type="text" id="company" placeholder="Alfa Vastgoed" autocomplete="organization"></div>
+      <div class="field s2"><label>Address</label><input type="text" id="address" placeholder="Rijweg 86, 3020 Herent" autocomplete="street-address"></div>
+      <div class="field"><label>VAT Number</label><input type="text" id="vat" placeholder="BE0798.243.781"></div>
+      <div class="field"><label>Contact Person</label><input type="text" id="contact" placeholder="Elizabeth Hamels" autocomplete="name"></div>
+      <div class="field s2"><label>Email</label><input type="email" id="email" placeholder="elizabeth@alfavastgoed.be" autocomplete="email"></div>
+    </div>
+    <button class="btn-save-client" onclick="saveClient()">💾 Save client info</button>
+    <div class="tip">💡 Save once — auto-fills every time you open this page.</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PANE A: Internal Contracts
+  ══════════════════════════════════════════ -->
+  <div class="pane active" id="pane-internal">
+    <div class="card">
+      <div class="card-title">Students / Promoters</div>
+      <div id="studentsContainer"></div>
+      <div class="actions">
+        <button class="btn-add-stu" onclick="addStudent()">+ Add Student</button>
+        <button class="btn-gen" onclick="generateInternalPDF()">⬇ Download Internal PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PANE B: Client Invoice
+  ══════════════════════════════════════════ -->
+  <div class="pane" id="pane-client">
+    <div class="card">
+      <div class="card-title">Client Invoice — Promoters Summary</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+        This reads the promoters and amounts you entered in the Internal Contracts tab. Fill those in first, then come here to download the client copy.
+      </p>
+
+      <!-- Live preview table -->
+      <div class="invoice-preview" id="invoicePreview">
+        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--label);margin-bottom:6px">Preview</div>
+        <table class="inv-table" id="invTable">
+          <thead>
+            <tr>
+              <th>#</th><th>Promoter</th><th>Excl. VAT</th><th>VAT 21%</th><th>Incl. VAT</th>
+            </tr>
+          </thead>
+          <tbody id="invBody"></tbody>
+          <tfoot id="invFoot"></tfoot>
+        </table>
+      </div>
+
+      <div class="actions" style="margin-top:18px">
+        <button class="btn-client-en" onclick="generateClientPDF('en')">⬇ Client PDF — English</button>
+        <button class="btn-client-nl" onclick="generateClientPDF('nl')">⬇ Klant PDF — Nederlands</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const VAT = 0.21;
+
+// ── Time slots ────────────────────────────────────────────────────────
+const TIMES = [];
+for(let h=6;h<=22;h++){
+  TIMES.push(String(h).padStart(2,'0')+':00');
+  if(h<22) TIMES.push(String(h).padStart(2,'0')+':30');
+}
+function timeOpts(sel){return TIMES.map(t=>`<option${t===sel?' selected':''}>${t}</option>`).join('')}
+function calcH(s,e){
+  if(!s||!e) return 0;
+  const [sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);
+  const d=(eh*60+em)-(sh*60+sm); return d>0?d/60:0;
+}
+function hStr(h){return h<=0?'—':(h%1===0?h+' h':h.toFixed(1)+' h')}
+function eur(n){return '€ '+n.toFixed(2)}
+
+// ── Mode switch ───────────────────────────────────────────────────────
+function switchMode(m){
+  document.querySelectorAll('.mode-btn').forEach((b,i)=>b.classList.toggle('active',
+    (m==='internal'&&i===0)||(m==='client'&&i===1)));
+  document.getElementById('pane-internal').classList.toggle('active',m==='internal');
+  document.getElementById('pane-client').classList.toggle('active',m==='client');
+  if(m==='client') buildInvoicePreview();
+}
+
+// ── Save / load client ────────────────────────────────────────────────
+function saveClient(){
+  try{localStorage.setItem('alfa_client',JSON.stringify({
+    company:v('company'),address:v('address'),vat:v('vat'),contact:v('contact'),email:v('email')
+  }));}catch(e){}
+  toast('✓ Client info saved!');
+}
+function loadClient(){
+  try{const d=JSON.parse(localStorage.getItem('alfa_client')||'null');
+    if(!d)return;
+    ['company','address','vat','contact','email'].forEach(k=>{if(d[k])document.getElementById(k).value=d[k];});
+  }catch(e){}
+}
+function v(id){return document.getElementById(id).value.trim()}
+
+// ── Students ──────────────────────────────────────────────────────────
+let stuCount=0;
+function addStudent(){
+  stuCount++;
+  const id=stuCount;
+  const div=document.createElement('div');
+  div.className='stu-card'; div.id=`stu-${id}`;
+  div.innerHTML=`
+    <div class="stu-hdr">
+      <span class="stu-badge">Promoter ${id}</span>
+      <button class="btn-del-stu" onclick="removeStu(${id})">✕ Remove</button>
+    </div>
+    <div class="g3">
+      <div class="field"><label>First Name</label>
+        <input type="text" class="s-first" placeholder="Giang" autocomplete="given-name"></div>
+      <div class="field"><label>Last Name</label>
+        <input type="text" class="s-last" placeholder="Nguyen" autocomplete="family-name"></div>
+      <div class="field"><label>Belgian ID</label>
+        <input type="text" class="s-id" placeholder="03.10.28-524.59" maxlength="15" oninput="fmtID(this)"></div>
+      <div class="field"><label>Role</label>
+        <div class="role-badge"><span class="lock">🔒</span>Promoter</div></div>
+      <div class="field"><label>Total Hours (auto)</label>
+        <div class="hours-display" id="thrs-${id}"><span class="hrs-lbl">from schedule</span><span class="hrs-val">—</span></div></div>
+      <div class="field"><label>Amount Excl. VAT</label>
+        <div class="pfx-wrap"><span class="pfx">€</span>
+        <input type="number" class="s-amount" placeholder="133.01" min="0" step="0.01" oninput="onAmountChange()"></div></div>
+    </div>
+    <div class="sched-lbl">Schedule</div>
+    <div class="sched-cols"><span>Date</span><span>Start</span><span>End</span><span>Hours</span><span></span></div>
+    <div class="sched-container" id="sched-${id}"></div>
+    <button class="btn-add-row" onclick="addRow(${id})">+ Add Day</button>
+    <div class="summary-row"><span class="s-label">Total from schedule</span><span class="s-val" id="stot-${id}">0 h</span></div>
+  `;
+  document.getElementById('studentsContainer').appendChild(div);
+  addRow(id);
+  div.querySelector('.s-first').focus();
+}
+
+function addRow(sid){
+  const c=document.getElementById(`sched-${sid}`);
+  const row=document.createElement('div');
+  row.className='sched-row';
+  row.innerHTML=`
+    <input type="date" class="r-date">
+    <div class="sel-wrap"><select class="r-start" onchange="recalc(${sid})">${timeOpts('09:00')}</select></div>
+    <div class="sel-wrap"><select class="r-end" onchange="recalc(${sid})">${timeOpts('15:00')}</select></div>
+    <div class="hrs-cell r-hrs">6 h</div>
+    <button class="del-row" onclick="delRow(this,${sid})">×</button>
+  `;
+  c.appendChild(row);
+  recalc(sid);
+}
+
+function delRow(btn,sid){btn.closest('.sched-row').remove();recalc(sid);}
+function removeStu(id){document.getElementById(`stu-${id}`).remove();}
+
+function recalc(sid){
+  let tot=0;
+  document.querySelectorAll(`#sched-${sid} .sched-row`).forEach(r=>{
+    const h=calcH(r.querySelector('.r-start').value,r.querySelector('.r-end').value);
+    const cell=r.querySelector('.r-hrs');
+    cell.textContent=hStr(h); cell.style.color=h>0?'var(--green)':'var(--muted)';
+    tot+=h;
+  });
+  const te=document.getElementById(`stot-${sid}`);
+  const he=document.getElementById(`thrs-${sid}`);
+  if(te) te.textContent=tot>0?hStr(tot):'0 h';
+  if(he) he.querySelector('.hrs-val').textContent=tot>0?hStr(tot):'—';
+}
+
+function onAmountChange(){/* rebuilds preview if on client tab */
+  if(document.getElementById('pane-client').classList.contains('active')) buildInvoicePreview();
+}
+
+function fmtID(input){
+  let v=input.value.replace(/\D/g,''),o='';
+  if(v.length>0) o+=v.substring(0,Math.min(2,v.length));
+  if(v.length>2) o+='.'+v.substring(2,Math.min(4,v.length));
+  if(v.length>4) o+='.'+v.substring(4,Math.min(6,v.length));
+  if(v.length>6) o+='-'+v.substring(6,Math.min(9,v.length));
+  if(v.length>9) o+='.'+v.substring(9,Math.min(11,v.length));
+  input.value=o;
+}
+
+// ── Invoice preview ───────────────────────────────────────────────────
+function getPromoters(){
+  return Array.from(document.querySelectorAll('.stu-card')).map((stu,i)=>{
+    const first=stu.querySelector('.s-first').value.trim();
+    const last=stu.querySelector('.s-last').value.trim();
+    const amtRaw=parseFloat(stu.querySelector('.s-amount').value)||0;
+    return {num:i+1, name:(first+' '+last).trim()||'—', exVat:amtRaw, vat:amtRaw*VAT, incVat:amtRaw*(1+VAT)};
+  });
+}
+
+function buildInvoicePreview(){
+  const ps=getPromoters();
+  const tbody=document.getElementById('invBody');
+  const tfoot=document.getElementById('invFoot');
+  tbody.innerHTML='';
+  ps.forEach(p=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>Promoter ${p.num}</td><td>${p.name}</td><td>${eur(p.exVat)}</td><td>${eur(p.vat)}</td><td>${eur(p.incVat)}</td>`;
+    tbody.appendChild(tr);
+  });
+  const totEx=ps.reduce((a,p)=>a+p.exVat,0);
+  const totVat=totEx*VAT;
+  const totInc=totEx*(1+VAT);
+  tfoot.innerHTML=`
+    <tr class="grand-row">
+      <td colspan="2"><strong>Total</strong></td>
+      <td><strong>${eur(totEx)}</strong></td>
+      <td><strong>${eur(totVat)}</strong></td>
+      <td><strong>${eur(totInc)}</strong></td>
+    </tr>`;
+}
+
+// ── Utility ───────────────────────────────────────────────────────────
+function fmtDate(v){if(!v)return'—';const[y,m,d]=v.split('-');return`${d}/${m}/${y}`}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
+
+// ── Internal PDF ──────────────────────────────────────────────────────
+async function generateInternalPDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  let y=20;
+  const tx=(text,x,sz=10,bold=false)=>{doc.setFontSize(sz);doc.setFont('helvetica',bold?'bold':'normal');doc.text(String(text),x,y)};
+  const hl=()=>{doc.setDrawColor(200);doc.line(20,y,190,y);y+=5};
+
+  doc.setFillColor(18,18,35);doc.rect(0,0,210,32,'F');
+  doc.setTextColor(255,255,255);tx('Student Contracts',20,18,true);
+  doc.setTextColor(140,140,190);y+=7;tx('Internal Copy — '+new Date().toLocaleDateString('en-GB'),20,8);
+  y=42;doc.setTextColor(20,20,20);
+
+  tx('CLIENT DETAILS',20,9,true);y+=5;hl();
+  [['Company',v('company')],['Address',v('address')],['VAT Number',v('vat')],['Contact Person',v('contact')],['Email',v('email')]].forEach(([l,val])=>{
+    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text(l+':',20,y);
+    doc.setFont('helvetica','normal');doc.text(val||'—',58,y);y+=6;
+  });
+  y+=6;
+
+  document.querySelectorAll('.stu-card').forEach((stu,idx)=>{
+    if(y>225){doc.addPage();y=20;}
+    doc.setFillColor(228,228,248);doc.rect(18,y-4,174,10,'F');
+    tx(`STUDENT ${idx+1}`,20,10,true);y+=9;hl();
+    const first=stu.querySelector('.s-first').value||'—';
+    const last=stu.querySelector('.s-last').value||'—';
+    const sid=stu.querySelector('.s-id').value||'—';
+    const amt=stu.querySelector('.s-amount').value;
+    let totH=0;
+    stu.querySelectorAll('.sched-row').forEach(r=>{totH+=calcH(r.querySelector('.r-start').value,r.querySelector('.r-end').value);});
+    [['First Name',first],['Last Name',last],['Role','Promoter'],['Belgian ID',sid],
+     ['Total Hours',hStr(totH)],['Amount (Excl. VAT)',amt?eur(parseFloat(amt)):'—']
+    ].forEach(([l,val])=>{
+      if(y>275){doc.addPage();y=20;}
+      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text(l+':',20,y);
+      doc.setFont('helvetica','normal');doc.text(String(val),62,y);y+=6;
+    });
+    y+=4;tx('Schedule',20,9,true);y+=6;
+    doc.setFillColor(208,208,235);doc.rect(20,y-4,170,8,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(8);
+    doc.text('Date',22,y);doc.text('Start',72,y);doc.text('End',108,y);doc.text('Hours',155,y);y+=8;
+    stu.querySelectorAll('.sched-row').forEach((row,ri)=>{
+      if(y>278){doc.addPage();y=20;}
+      if(ri%2===0){doc.setFillColor(243,243,250);doc.rect(20,y-4,170,8,'F');}
+      doc.setFont('helvetica','normal');doc.setFontSize(8);
+      const s=row.querySelector('.r-start').value,e=row.querySelector('.r-end').value;
+      doc.text(fmtDate(row.querySelector('.r-date').value),22,y);
+      doc.text(s||'—',72,y);doc.text(e||'—',108,y);
+      const h=calcH(s,e);doc.text(hStr(h),155,y);y+=8;
+    });
+    y+=12;
+  });
+
+  const pg=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pg;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(150);
+    doc.text('Generated '+new Date().toLocaleDateString('en-GB'),20,287);
+    doc.text(`Page ${i} / ${pg}`,185,287,{align:'right'});}
+  doc.save('student_contracts_internal.pdf');
+  toast('✓ Internal PDF saved!');
+}
+
+// ── Client Invoice PDF ────────────────────────────────────────────────
+async function generateClientPDF(lang){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  const ps=getPromoters();
+  const nl=lang==='nl';
+
+  const L={
+    title:       nl?'Factuur – Promoters Overzicht':'Invoice – Promoters Summary',
+    date:        nl?'Datum':'Date',
+    to:          nl?'Aan':'To',
+    company:     nl?'Bedrijf':'Company',
+    address:     nl?'Adres':'Address',
+    vat:         nl?'BTW-nummer':'VAT Number',
+    contact:     nl?'Contactpersoon':'Contact Person',
+    promoter:    nl?'Promoter':'Promoter',
+    name:        nl?'Naam':'Name',
+    exvat:       nl?'Excl. BTW':'Excl. VAT',
+    vatcol:      nl?'BTW 21%':'VAT 21%',
+    incvat:      nl?'Incl. BTW':'Incl. VAT',
+    total:       nl?'Totaal':'Total',
+    totalExVat:  nl?'Totaal excl. BTW':'Total excl. VAT',
+    totalVat:    nl?'Totaal BTW (21%)':'Total VAT (21%)',
+    totalIncVat: nl?'Totaal incl. BTW':'Total incl. VAT',
+    footer:      nl?'Gegenereerd op':'Generated on',
+    thankyou:    nl?'Bedankt voor uw samenwerking.':'Thank you for your business.',
+  };
+
+  let y=20;
+  const tx=(text,x,sz=10,bold=false,color=[20,20,20])=>{
+    doc.setFontSize(sz);doc.setFont('helvetica',bold?'bold':'normal');
+    doc.setTextColor(...color);doc.text(String(text),x,y);
+  };
+
+  // ── Header band ──
+  doc.setFillColor(18,18,35);doc.rect(0,0,210,38,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(20);doc.setFont('helvetica','bold');
+  doc.text(L.title,20,22);
+  doc.setTextColor(140,140,190);doc.setFontSize(8);doc.setFont('helvetica','normal');
+  doc.text(`${L.date}: ${new Date().toLocaleDateString(nl?'nl-BE':'en-GB')}`,20,31);
+
+  y=50;
+
+  // ── Client block ──
+  doc.setFillColor(240,240,248);doc.rect(18,y-6,174,38,'F');
+  doc.setDrawColor(200,200,220);doc.rect(18,y-6,174,38);
+  tx(L.to+':',20,8,true,[80,80,120]);y+=6;
+  [[L.company,v('company')],[L.address,v('address')],[L.vat,v('vat')],[L.contact,v('contact')]].forEach(([l,val])=>{
+    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(60,60,80);doc.text(l+':',22,y);
+    doc.setFont('helvetica','normal');doc.setTextColor(20,20,20);doc.text(val||'—',70,y);y+=6;
+  });
+  y+=10;
+
+  // ── Table header ──
+  const cols={num:20,name:40,exv:110,vat:142,inc:170};
+  doc.setFillColor(18,18,35);doc.rect(18,y-5,174,10,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(180,180,220);
+  doc.text('#',cols.num,y);doc.text(L.name,cols.name,y);
+  doc.text(L.exvat,cols.exv,y);doc.text(L.vatcol,cols.vat,y);doc.text(L.incvat,cols.inc,y);
+  y+=10;
+
+  // ── Rows ──
+  ps.forEach((p,i)=>{
+    if(y>260){doc.addPage();y=20;}
+    if(i%2===0){doc.setFillColor(246,246,252);doc.rect(18,y-5,174,9,'F');}
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(100,80,200);
+    doc.text(`${L.promoter} ${p.num}`,cols.num,y);
+    doc.setFont('helvetica','normal');doc.setTextColor(20,20,20);
+    doc.text(p.name,cols.name,y);
+    doc.text(eur(p.exVat),cols.exv,y);
+    doc.text(eur(p.vat),cols.vat,y);
+    doc.text(eur(p.incVat),cols.inc,y);
+    y+=9;
+  });
+
+  // ── Totals ──
+  y+=4;
+  const totEx=ps.reduce((a,p)=>a+p.exVat,0);
+  const totVat=totEx*VAT, totInc=totEx*(1+VAT);
+
+  // separator line
+  doc.setDrawColor(180,180,200);doc.line(18,y,192,y);y+=6;
+
+  [[L.totalExVat, eur(totEx)],[L.totalVat, eur(totVat)],[L.totalIncVat, eur(totInc)]].forEach(([l,val],i)=>{
+    const isLast=i===2;
+    if(isLast){doc.setFillColor(18,18,35);doc.rect(18,y-5,174,10,'F');}
+    else{doc.setFillColor(235,235,248);doc.rect(18,y-5,174,9,'F');}
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(isLast?10:9);
+    doc.setTextColor(isLast?61:60,isLast?220:60,isLast?132:80);
+    doc.text(l+':',22,y);
+    doc.setTextColor(isLast?61:20,isLast?220:20,isLast?132:20);
+    doc.text(val,cols.inc,y);
+    y+=isLast?10:9;
+  });
+
+  y+=10;
+  doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(100,100,120);
+  doc.text(L.thankyou,20,y);
+
+  // Footer
+  const pg=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pg;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(150);
+    doc.text(`${L.footer} ${new Date().toLocaleDateString(nl?'nl-BE':'en-GB')}`,20,287);
+    doc.text(`Page ${i} / ${pg}`,185,287,{align:'right'});}
+
+  doc.save(`client_invoice_${lang}.pdf`);
+  toast(nl?'✓ Klant PDF opgeslagen!':'✓ Client PDF saved!');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+loadClient();
+addStudent();
+</script>
+</body>
+</html>
