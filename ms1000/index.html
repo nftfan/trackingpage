@@ -1,3 +1,5 @@
+
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -93,13 +95,31 @@
     .icon-bar-select { width: 44px; height: 28px; border-radius: 7px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.07); color: var(--text); font-weight: 700; font-size: 12px; text-align: center; padding: 0 4px; outline: none; }
     .icon-bar-select option { background: #141419; color: #f2f2f7; }
 
-    /* Click Pattern Bar */
+    /* Click Pattern Bar — continuous ticker */
     .click-pattern-bar {
-      display: flex; align-items: center; gap: 8px; overflow-x: auto;
+      overflow: hidden;
       background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 8px; padding: 6px 8px; height: 42px; margin-bottom: -2px; scroll-behavior: smooth;
+      border-radius: 8px; height: 42px; margin-bottom: -2px;
+      position: relative;
     }
-    .click-pattern-bar::-webkit-scrollbar { display: none; }
+    .click-pattern-bar::before,
+    .click-pattern-bar::after {
+      content: ''; position: absolute; top: 0; bottom: 0; width: 28px; z-index: 2; pointer-events: none;
+    }
+    .click-pattern-bar::before { left: 0; background: linear-gradient(to right, rgba(11,11,14,1), transparent); }
+    .click-pattern-bar::after  { right: 0; background: linear-gradient(to left, rgba(11,11,14,1), transparent); }
+    .click-pattern-track {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; height: 42px;
+      white-space: nowrap;
+      animation: ticker-slide 12s linear infinite;
+      width: max-content;
+    }
+    .click-pattern-track.paused { animation-play-state: paused; }
+    @keyframes ticker-slide {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
     .cp-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; flex-shrink: 0; min-width: 14px; }
     .cp-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
     .cp-square { width: 14px; height: 14px; border-radius: 3px; background: linear-gradient(135deg, #fb923c, #f97316); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; }
@@ -290,7 +310,14 @@
         <option value="" disabled selected>—</option>
       </select>
     </div>
-  </div>
+    <div class="icon-bar-divider"></div>
+    <div class="icon-bar-select-group">
+      <span class="icon-bar-label" style="color:#a78bfa;">⇌</span>
+      <select id="shiftSelect" class="icon-bar-select" style="width:80px;color:#c4b5fd;font-size:10px;">
+        <option value="" disabled selected>Shift</option>
+      </select>
+    </div>
+  </div><!-- /.icon-bar -->
 
   <!-- hidden btnLatestDot kept for JS compatibility, non-visible -->
   <button id="btnLatestDot" style="display:none;"></button>
@@ -299,12 +326,13 @@
   <div class="app-inner">
 
   <header>
-    <div class="logo" aria-hidden="true">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" stroke="white" stroke-opacity=".9" stroke-width="1.6"/>
-        <circle cx="12" cy="12" r="3.2" fill="white"/>
+    <button id="btnDotNav" class="logo" aria-label="Navigate to last dot" title="View last dot (click again for previous)" style="cursor:pointer;border:0;outline:none;transition:box-shadow 0.2s,transform 0.15s;position:relative;" >
+      <svg id="dotNavIcon" width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="7" fill="white" fill-opacity=".9"/>
+        <circle cx="12" cy="12" r="3.5" fill="#4f8cff"/>
       </svg>
-    </div>
+      <span id="dotNavPulse" style="position:absolute;inset:-3px;border-radius:9px;border:2px solid rgba(79,140,255,0);pointer-events:none;transition:border-color 0.3s;"></span>
+    </button>
     <button id="btnStartWorker" class="btn-start-worker">Start</button>
     <div class="header-title"></div>
     <div id="userPill" class="user-pill">
@@ -367,11 +395,11 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
         Campaign Dots
       </span>
-      <span class="camp-percent" id="campPercent">0%</span>
+      <span class="camp-percent" id="campPercent" style="display:flex;align-items:center;gap:5px;"></span>
     </div>
     <div class="prog-bar-container"><div class="prog-bar" id="campBar"></div></div>
     <div class="camp-footer">
-      <span>Target: 15,000 dots</span>
+      <span>Target: <b id="campDotsFraction" style="color:#34d399;font-family:Menlo,monospace;">0 / 15,000</b></span>
       <span id="campRem">100% Remaining</span>
     </div>
     
@@ -448,6 +476,97 @@
       <input id="chatInput" class="input chat-input" type="text" placeholder="Type a message..." autocomplete="off">
       <button id="chatSendBtn" class="btn-chat-send">Send</button>
     </div>
+  </div>
+</div>
+
+<div id="shiftDashBackdrop" class="modal-backdrop" aria-modal="true" role="dialog" style="align-items:flex-end;padding:0;">
+  <div id="shiftDashModal" style="
+    width:100%;max-width:480px;background:#0e0e14;border:1px solid rgba(255,255,255,.1);
+    border-radius:20px 20px 0 0;padding:20px;max-height:88vh;overflow-y:auto;
+    box-shadow:0 -8px 40px rgba(0,0,0,.6);
+  ">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Shift Report</div>
+        <div id="sdShiftName" style="font-size:18px;font-weight:900;color:#f0f0ff;font-family:Menlo,monospace;"></div>
+      </div>
+      <button id="closeShiftDash" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#aab7ff;cursor:pointer;font-size:18px;line-height:1;padding:6px 10px;border-radius:8px;outline:none;">&times;</button>
+    </div>
+
+    <!-- Date & Time Worked -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px;">
+        <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">📅 Date</div>
+        <div id="sdDate" style="font-size:13px;font-weight:800;color:#f2f2f7;font-family:Menlo,monospace;"></div>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px;">
+        <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">⏱ Time Worked</div>
+        <div id="sdTimeWorked" style="font-size:13px;font-weight:800;color:#34d399;font-family:Menlo,monospace;"></div>
+      </div>
+    </div>
+
+    <!-- Dot Stats Grid -->
+    <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Dot Breakdown</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:10px;display:flex;align-items:center;gap:10px;">
+        <div style="width:14px;height:14px;background:#22c55e;border-radius:50%;flex-shrink:0;box-shadow:0 0 8px #22c55e;"></div>
+        <div>
+          <div style="font-size:9px;color:#22c55e;font-weight:700;text-transform:uppercase;">Yes (Green)</div>
+          <div id="sdGreen" style="font-size:20px;font-weight:900;color:#4ade80;font-family:Menlo,monospace;">0</div>
+        </div>
+      </div>
+      <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px;display:flex;align-items:center;gap:10px;">
+        <div style="width:14px;height:14px;background:#ef4444;border-radius:50%;flex-shrink:0;box-shadow:0 0 8px #ef4444;"></div>
+        <div>
+          <div style="font-size:9px;color:#ef4444;font-weight:700;text-transform:uppercase;">No (Red)</div>
+          <div id="sdRed" style="font-size:20px;font-weight:900;color:#f87171;font-family:Menlo,monospace;">0</div>
+        </div>
+      </div>
+      <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:10px;padding:10px;display:flex;align-items:center;gap:10px;">
+        <div style="width:14px;height:14px;background:#3b82f6;border-radius:50%;flex-shrink:0;box-shadow:0 0 8px #3b82f6;"></div>
+        <div>
+          <div style="font-size:9px;color:#60a5fa;font-weight:700;text-transform:uppercase;">Bonus (Blue)</div>
+          <div id="sdBlue" style="font-size:20px;font-weight:900;color:#93c5fd;font-family:Menlo,monospace;">0</div>
+        </div>
+      </div>
+      <div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);border-radius:10px;padding:10px;display:flex;align-items:center;gap:10px;">
+        <div style="width:14px;height:14px;background:#f97316;border-radius:3px;flex-shrink:0;box-shadow:0 0 8px #f97316;"></div>
+        <div>
+          <div style="font-size:9px;color:#fb923c;font-weight:700;text-transform:uppercase;">Posts (Orange)</div>
+          <div id="sdOrange" style="font-size:20px;font-weight:900;color:#fdba74;font-family:Menlo,monospace;">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CPC & Earnings -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+      <div style="background:rgba(250,204,21,.07);border:1px solid rgba(250,204,21,.2);border-radius:10px;padding:10px;">
+        <div style="font-size:9px;font-weight:700;color:#a16207;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">💰 Earned</div>
+        <div id="sdEarned" style="font-size:16px;font-weight:900;color:#fcd34d;font-family:Menlo,monospace;">€0.00</div>
+      </div>
+      <div style="background:rgba(249,115,22,.07);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:10px;">
+        <div style="font-size:9px;font-weight:700;color:#9a3412;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">📬 CPC</div>
+        <div id="sdCPC" style="font-size:16px;font-weight:900;color:#fb923c;font-family:Menlo,monospace;">—</div>
+      </div>
+    </div>
+
+    <!-- Shift Quality (Blue vs Orange ratio) -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;margin-bottom:8px;">
+      <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Shift Quality</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:11px;color:#c4b5fd;">
+          <span style="color:#93c5fd;">Bonus (Blue)</span> vs <span style="color:#fdba74;">Posts (Orange)</span>
+        </div>
+        <div id="sdStars" style="font-size:18px;letter-spacing:1px;"></div>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;">
+        <div style="flex:1;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;">
+          <div id="sdQualityBar" style="height:100%;border-radius:3px;transition:width 0.5s ease;"></div>
+        </div>
+      </div>
+      <div id="sdQualityLabel" style="font-size:11px;font-weight:700;text-align:center;padding:6px 10px;border-radius:8px;"></div>
+    </div>
+
   </div>
 </div>
 
@@ -790,38 +909,26 @@
 
   function renderLocalClicks() {
     const bar = document.getElementById('clickPatternBar');
-    bar.innerHTML = '';
-    localClicks.forEach(c => {
-      const item = document.createElement('div');
-      item.className = 'cp-item';
-      
-      if (c.type === 'pause') {
-        item.innerHTML = `<div class="cp-pause">${c.mins}m Pause</div>`;
-        bar.appendChild(item);
-        return;
-      }
-      if (c.type === 'upload') {
-        item.innerHTML = `<div class="cp-upload">Upload Photo</div>`;
-        bar.appendChild(item);
-        return;
-      }
-      if (c.type === 'trophy') {
-        item.innerHTML = `<div class="cp-trophy">🏆</div>`;
-        bar.appendChild(item);
-        return;
-      }
-      
-      if (c.c === 'orange') {
-        item.innerHTML = `<div class="cp-square"><svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></div>`;
-      } else {
-        let bg = c.c === 'green' ? '#22c55e' : c.c === 'blue' ? '#3b82f6' : '#ef4444';
-        item.innerHTML = `<div class="cp-dot" style="background:${bg}"></div>`;
-      }
-      bar.appendChild(item);
-    });
-    
-    // Smooth scroll to the right
-    setTimeout(() => { bar.scrollTo({ left: bar.scrollWidth, behavior: 'smooth' }); }, 10);
+    // Build items HTML once, then duplicate for seamless loop
+    function buildItems(clicks) {
+      if (!clicks.length) return '<div class="cp-item" style="color:rgba(255,255,255,.2);font-size:10px;padding:0 8px;">No activity yet</div>';
+      return clicks.map(c => {
+        if (c.type === 'pause') return `<div class="cp-item"><div class="cp-pause">${c.mins}m</div></div>`;
+        if (c.type === 'upload') return `<div class="cp-item"><div class="cp-upload">📷</div></div>`;
+        if (c.type === 'trophy') return `<div class="cp-item"><div class="cp-trophy">🏆</div></div>`;
+        if (c.c === 'orange') return `<div class="cp-item"><div class="cp-square"><svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></div></div>`;
+        const bg = c.c === 'green' ? '#22c55e' : c.c === 'blue' ? '#3b82f6' : '#ef4444';
+        return `<div class="cp-item"><div class="cp-dot" style="background:${bg}"></div></div>`;
+      }).join('');
+    }
+    const half = buildItems(localClicks);
+    bar.innerHTML = `<div class="click-pattern-track" id="cpTrack">${half}${half}</div>`;
+    // Adjust animation duration based on item count so speed stays consistent
+    const track = bar.querySelector('.click-pattern-track');
+    if (track) {
+      const dur = Math.max(5, localClicks.length * 0.5);
+      track.style.animationDuration = dur + 's';
+    }
   }
 
   function showToast(text) { toastEl.textContent = text; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 2500); }
@@ -973,9 +1080,15 @@
     const percentage = Math.min(100, (totalTeamDots / TARGET) * 100);
     const remaining = Math.max(0, 100 - percentage);
 
-    campPercentEl.textContent = percentage.toFixed(1) + '%';
+    // Show dot count + small percentage badge instead of just %
+    const campPercentEl = document.getElementById('campPercent');
+    if (campPercentEl) {
+      campPercentEl.innerHTML = `<span style="font-size:15px;font-weight:900;color:#34d399;font-family:Menlo,monospace;">${totalTeamDots.toLocaleString()}</span><span style="font-size:9px;color:#6b7280;margin-left:4px;">${percentage.toFixed(1)}%</span>`;
+    }
     campBarEl.style.width = percentage + '%';
     campRemEl.textContent = remaining.toFixed(1) + '% Remaining';
+    const fracEl = document.getElementById('campDotsFraction');
+    if (fracEl) fracEl.textContent = `${totalTeamDots.toLocaleString()} / 15,000`;
 
     // Team Connections
     connCountEl.textContent = totalTeamPosts;
@@ -1034,6 +1147,8 @@
       rebuildMapLayer(allDots);
       updateSessionAndEarningsDisplay(allDots);
       updateCampaignProgress(totalTeamDots, totalTeamPosts);
+      // Refresh shifts dropdown
+      if (typeof populateShiftSelect === 'function') populateShiftSelect(allDots);
     };
 
     const normalHandler = snap => { normalDots = []; snap.forEach(child => { const v = child.val(); if (v && typeof v.lat === 'number') normalDots.push(v); }); combineAndProcess(); };
@@ -1079,6 +1194,7 @@
     currentUserId = id; localStorage.setItem(LS_KEY, id); userPillText.textContent = id; userPill.style.display = 'flex';
     loadLocalClicks(id);
     attachMyPostsListener(id); attachChatListener(id);
+    loadShiftRegistry(id);
     setPostEnabled(!!currentLatLng); goToCurrentLocation({ focus: true });
   }
 
@@ -1134,39 +1250,183 @@
     } catch (e) { proofError.textContent = 'Failed to submit'; } finally { proofSubmitBtn.disabled = false; proofSubmitBtn.textContent = 'Submit'; }
   });
 
-  // History / Previous Dot navigation
-  btnLatestDot.addEventListener('click', () => {
-    if (globalAllDots.length === 0) {
-      showToast('No dots posted yet');
-      return;
-    }
-    
-    // Wrap around to end if we went past 0
-    if (historyIndex < 0) {
-      historyIndex = globalAllDots.length - 1; 
-    }
+  // Dot history navigation via header dot icon
+  const btnDotNav = document.getElementById('btnDotNav');
+  const dotNavPulse = document.getElementById('dotNavPulse');
+  let dotNavActive = false;
 
+  function navigateDotHistory() {
+    if (globalAllDots.length === 0) { showToast('No dots posted yet'); return; }
+    if (historyIndex < 0) historyIndex = globalAllDots.length - 1;
     const d = globalAllDots[historyIndex];
     const latlng = [d.lat, d.lng];
     map.flyTo(latlng, 18, { animate: true, duration: 1 });
-    
-    // Clean up old marker
     if (historyMarker) map.removeLayer(historyMarker);
-    
-    // Make the viewed dot bigger instead of showing white count label
     let bgColor = d.color === 'green' ? '#22c55e' : d.color === 'blue' ? '#3b82f6' : d.color === 'orange' ? '#f97316' : '#ef4444';
     const icon = L.divIcon({
       className: 'history-marker',
-      html: `<div style="width:20px;height:20px;background:${bgColor};border:3px solid white;border-radius:50%;box-shadow:0 0 10px ${bgColor};"></div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10] 
+      html: `<div style="width:20px;height:20px;background:${bgColor};border:3px solid white;border-radius:50%;box-shadow:0 0 12px ${bgColor},0 0 24px ${bgColor}66;animation:none;"></div>`,
+      iconSize: [20, 20], iconAnchor: [10, 10]
     });
-    
     historyMarker = L.marker(latlng, { icon }).addTo(map);
-    
-    // Decrement so next click shows previous one
+    showToast(`Dot ${historyIndex + 1} of ${globalAllDots.length}`);
+    dotNavActive = true;
+    if (dotNavPulse) dotNavPulse.style.borderColor = bgColor;
     historyIndex--;
+  }
+
+  btnDotNav.addEventListener('click', navigateDotHistory);
+  // Keep old hidden button compatible
+  btnLatestDot.addEventListener('click', navigateDotHistory);
+
+  // ── Shifts System — Firebase-driven ──────────────────────────────────────
+  const shiftSelect = document.getElementById('shiftSelect');
+  const shiftDashBackdrop = document.getElementById('shiftDashBackdrop');
+  const closeShiftDash = document.getElementById('closeShiftDash');
+
+  // shiftRegistry: { workerName -> { firstName, lastActiveAt } } from Firebase
+  let shiftRegistry = {};
+
+  // Load all workers (shifts) for this user from Firebase
+  function loadShiftRegistry(userId) {
+    const workersRef = ref(db, `users/${userId}/workers`);
+    onValue(workersRef, snap => {
+      shiftRegistry = {};
+      snap.forEach(child => {
+        const w = child.val();
+        // key is the safe (lowercased) name, value has firstName & lastActiveAt
+        shiftRegistry[child.key] = w;
+      });
+      // Re-populate shift select with real names once registry is loaded
+      if (globalAllDots.length) populateShiftSelect(globalAllDots);
+    });
+  }
+
+  // Group all dots by workerName — each unique workerName = one shift
+  function computeShifts(allDots) {
+    if (!allDots || !allDots.length) return [];
+    const byWorker = {};
+    allDots.forEach(d => {
+      const name = (d.workerName || 'Unknown').trim();
+      if (!byWorker[name]) byWorker[name] = [];
+      byWorker[name].push(d);
+    });
+
+    // Convert to array of shift objects, sorted by first dot timestamp (oldest first for numbering)
+    const shifts = Object.entries(byWorker).map(([workerName, dots]) => {
+      const sorted = dots.slice().sort((a, b) => a.timestamp - b.timestamp);
+      return { workerName, dots: sorted, firstTs: sorted[0].timestamp, lastTs: sorted[sorted.length - 1].timestamp };
+    }).sort((a, b) => a.firstTs - b.firstTs); // chronological order
+
+    return shifts.reverse(); // most recent first in dropdown
+  }
+
+  function populateShiftSelect(allDots) {
+    const shifts = computeShifts(allDots);
+    const prevVal = shiftSelect.value;
+    shiftSelect.innerHTML = '<option value="" disabled selected>Shift</option>';
+    shifts.forEach((s, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      // Use the actual worker name from Firebase as the shift name
+      const safeKey = s.workerName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const regEntry = shiftRegistry[safeKey];
+      const displayName = regEntry?.firstName || s.workerName;
+      const d = new Date(s.firstTs);
+      const dateStr = d.toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+      const timeStr = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      opt.textContent = `${displayName} · ${dateStr} ${timeStr}`;
+      opt._shiftData = s;
+      opt._displayName = displayName;
+      shiftSelect.appendChild(opt);
+    });
+    shiftSelect._shifts = shifts;
+    // Restore selection if still valid
+    if (prevVal !== '' && shiftSelect.querySelector(`option[value="${prevVal}"]`)) {
+      shiftSelect.value = prevVal;
+    }
+  }
+
+  function openShiftDashboard(shift) {
+    const dots = shift.dots;
+    const green  = dots.filter(d => d.color === 'green').length;
+    const red    = dots.filter(d => d.color === 'red').length;
+    const blue   = dots.filter(d => d.color === 'blue').length;
+    const orange = dots.filter(d => d.color === 'orange').length;
+    const totalConnDots = green + red + blue;
+    const earned = totalConnDots * 0.036;
+    const cpc = orange > 0 ? (earned / orange) : null;
+
+    // Time worked = last dot - first dot
+    const durationMs = Math.max(0, shift.lastTs - shift.firstTs);
+    const hrs = Math.floor(durationMs / 3600000);
+    const mins = Math.floor((durationMs % 3600000) / 60000);
+    const timeWorked = `${String(hrs).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`;
+
+    const dateStr = new Date(shift.firstTs).toLocaleDateString('en-GB', {
+      weekday:'long', day:'2-digit', month:'long', year:'numeric'
+    });
+
+    // Shift name = actual workerName from Firebase
+    const safeKey = shift.workerName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const regEntry = shiftRegistry[safeKey];
+    const displayName = regEntry?.firstName || shift.workerName;
+
+    document.getElementById('sdShiftName').textContent = displayName;
+    document.getElementById('sdDate').textContent = dateStr;
+    document.getElementById('sdTimeWorked').textContent = timeWorked;
+    document.getElementById('sdGreen').textContent = green;
+    document.getElementById('sdRed').textContent = red;
+    document.getElementById('sdBlue').textContent = blue;
+    document.getElementById('sdOrange').textContent = orange;
+    document.getElementById('sdEarned').textContent = '€' + earned.toFixed(2);
+    document.getElementById('sdCPC').textContent = cpc !== null ? '€' + cpc.toFixed(2) : '—';
+
+    // Quality: ratio blue:orange — fewer bonus (blue) vs posts (orange) = higher quality
+    const qualBar = document.getElementById('sdQualityBar');
+    const qualLabel = document.getElementById('sdQualityLabel');
+    const starsEl = document.getElementById('sdStars');
+
+    let stars, qualText, qualColor, qualBg, barColor, barPct;
+    if (orange === 0 && blue === 0) {
+      stars = '☆☆☆☆☆'; qualText = 'No data yet'; qualColor = '#6b7280'; qualBg = 'rgba(107,114,128,.12)'; barColor = '#4b5563'; barPct = 0;
+    } else {
+      const ratio = orange > 0 ? (blue / orange) : 99;
+      if (ratio <= 0.15) {
+        stars = '★★★★★'; qualText = '🔥 Excellent — Very few bonus dots vs posts'; qualColor = '#34d399'; qualBg = 'rgba(52,211,153,.1)'; barColor = '#22c55e'; barPct = 100;
+      } else if (ratio <= 0.30) {
+        stars = '★★★★☆'; qualText = '✅ Great shift quality'; qualColor = '#4ade80'; qualBg = 'rgba(74,222,128,.08)'; barColor = '#22c55e'; barPct = 80;
+      } else if (ratio <= 0.50) {
+        stars = '★★★☆☆'; qualText = '👍 Average — room to improve'; qualColor = '#fcd34d'; qualBg = 'rgba(252,211,77,.08)'; barColor = '#eab308'; barPct = 60;
+      } else if (ratio <= 0.80) {
+        stars = '★★☆☆☆'; qualText = '⚠️ Below average — too many bonus dots'; qualColor = '#fb923c'; qualBg = 'rgba(251,146,60,.08)'; barColor = '#f97316'; barPct = 35;
+      } else {
+        stars = '★☆☆☆☆'; qualText = '🔴 Low quality — bonus dots exceed posts'; qualColor = '#ef4444'; qualBg = 'rgba(239,68,68,.08)'; barColor = '#ef4444'; barPct = 15;
+      }
+    }
+    starsEl.textContent = stars;
+    starsEl.style.color = qualColor;
+    qualBar.style.width = barPct + '%';
+    qualBar.style.background = barColor;
+    qualLabel.textContent = qualText;
+    qualLabel.style.color = qualColor;
+    qualLabel.style.background = qualBg;
+    qualLabel.style.border = `1px solid ${qualColor}40`;
+
+    shiftDashBackdrop.classList.add('show');
+  }
+
+  shiftSelect.addEventListener('change', () => {
+    const idx = parseInt(shiftSelect.value, 10);
+    const shifts = shiftSelect._shifts || [];
+    if (!shifts[idx]) return;
+    openShiftDashboard(shifts[idx]);
   });
+
+  closeShiftDash.addEventListener('click', () => shiftDashBackdrop.classList.remove('show'));
+  shiftDashBackdrop.addEventListener('click', e => { if (e.target === shiftDashBackdrop) shiftDashBackdrop.classList.remove('show'); });
+
+
 
   function ensureLocMarker(latlng) {
     if (!currentMarker) currentMarker = L.marker(latlng, { icon: makePurplePinIcon() }).addTo(map);
