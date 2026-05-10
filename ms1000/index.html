@@ -95,32 +95,22 @@
     .icon-bar-select { width: 44px; height: 28px; border-radius: 7px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.07); color: var(--text); font-weight: 700; font-size: 12px; text-align: center; padding: 0 4px; outline: none; }
     .icon-bar-select option { background: #141419; color: #f2f2f7; }
 
-    /* Click Pattern Bar — continuous ticker */
+    /* Click Pattern Bar */
     .click-pattern-bar {
-      overflow: hidden;
+      display: flex; align-items: center; gap: 8px; overflow-x: auto;
       background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 8px; height: 42px; margin-bottom: -2px;
-      position: relative;
+      border-radius: 8px; padding: 6px 8px; height: 42px; margin-bottom: -2px;
     }
-    .click-pattern-bar::before,
-    .click-pattern-bar::after {
-      content: ''; position: absolute; top: 0; bottom: 0; width: 28px; z-index: 2; pointer-events: none;
+    .click-pattern-bar::-webkit-scrollbar { display: none; }
+    .cp-item {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; flex-shrink: 0; min-width: 14px;
+      animation: cp-slide-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
-    .click-pattern-bar::before { left: 0; background: linear-gradient(to right, rgba(11,11,14,1), transparent); }
-    .click-pattern-bar::after  { right: 0; background: linear-gradient(to left, rgba(11,11,14,1), transparent); }
-    .click-pattern-track {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 8px; height: 42px;
-      white-space: nowrap;
-      animation: ticker-slide 12s linear infinite;
-      width: max-content;
+    @keyframes cp-slide-in {
+      from { opacity: 0; transform: translateX(18px) scale(0.7); }
+      to   { opacity: 1; transform: translateX(0) scale(1); }
     }
-    .click-pattern-track.paused { animation-play-state: paused; }
-    @keyframes ticker-slide {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-50%); }
-    }
-    .cp-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; flex-shrink: 0; min-width: 14px; }
     .cp-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
     .cp-square { width: 14px; height: 14px; border-radius: 3px; background: linear-gradient(135deg, #fb923c, #f97316); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; }
     .cp-pause { background: #facc15; color: #451a03; font-size: 8px; font-weight: 800; padding: 2px 4px; border-radius: 4px; text-transform: uppercase; margin: 0 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
@@ -312,7 +302,7 @@
     </div>
     <div class="icon-bar-divider"></div>
     <div class="icon-bar-select-group">
-      <span class="icon-bar-label" style="color:#a78bfa;">⇌</span>
+      <span class="icon-bar-label">S</span>
       <select id="shiftSelect" class="icon-bar-select" style="width:80px;color:#c4b5fd;font-size:10px;">
         <option value="" disabled selected>Shift</option>
       </select>
@@ -909,26 +899,26 @@
 
   function renderLocalClicks() {
     const bar = document.getElementById('clickPatternBar');
-    // Build items HTML once, then duplicate for seamless loop
-    function buildItems(clicks) {
-      if (!clicks.length) return '<div class="cp-item" style="color:rgba(255,255,255,.2);font-size:10px;padding:0 8px;">No activity yet</div>';
-      return clicks.map(c => {
-        if (c.type === 'pause') return `<div class="cp-item"><div class="cp-pause">${c.mins}m</div></div>`;
-        if (c.type === 'upload') return `<div class="cp-item"><div class="cp-upload">📷</div></div>`;
-        if (c.type === 'trophy') return `<div class="cp-item"><div class="cp-trophy">🏆</div></div>`;
-        if (c.c === 'orange') return `<div class="cp-item"><div class="cp-square"><svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></div></div>`;
+    bar.innerHTML = '';
+    localClicks.forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'cp-item';
+      if (c.type === 'pause') {
+        item.innerHTML = `<div class="cp-pause">${c.mins}m</div>`;
+      } else if (c.type === 'upload') {
+        item.innerHTML = `<div class="cp-upload">📷</div>`;
+      } else if (c.type === 'trophy') {
+        item.innerHTML = `<div class="cp-trophy">🏆</div>`;
+      } else if (c.c === 'orange') {
+        item.innerHTML = `<div class="cp-square"><svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></div>`;
+      } else {
         const bg = c.c === 'green' ? '#22c55e' : c.c === 'blue' ? '#3b82f6' : '#ef4444';
-        return `<div class="cp-item"><div class="cp-dot" style="background:${bg}"></div></div>`;
-      }).join('');
-    }
-    const half = buildItems(localClicks);
-    bar.innerHTML = `<div class="click-pattern-track" id="cpTrack">${half}${half}</div>`;
-    // Adjust animation duration based on item count so speed stays consistent
-    const track = bar.querySelector('.click-pattern-track');
-    if (track) {
-      const dur = Math.max(5, localClicks.length * 0.5);
-      track.style.animationDuration = dur + 's';
-    }
+        item.innerHTML = `<div class="cp-dot" style="background:${bg}"></div>`;
+      }
+      bar.appendChild(item);
+    });
+    // Smooth scroll to show latest dot on the right
+    setTimeout(() => { bar.scrollTo({ left: bar.scrollWidth, behavior: 'smooth' }); }, 10);
   }
 
   function showToast(text) { toastEl.textContent = text; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 2500); }
