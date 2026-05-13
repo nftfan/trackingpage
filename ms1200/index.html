@@ -66,20 +66,17 @@
     .ml-pin-head{width:24px;height:24px;background:linear-gradient(135deg,#c084fc,#7e22ce);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:1.5px solid rgba(255,255,255,0.9);}
     .ml-pin-dot{position:absolute;top:8px;width:8px;height:8px;background:#ffffff;border-radius:50%;}
     .ml-name-label{font-size:7px;font-weight:600;color:#f8fafc;background:rgba(15,23,42,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.15);border-radius:999px;padding:3px 6px;white-space:nowrap;letter-spacing:0.05em;text-transform:uppercase;pointer-events:none;}
-    .ml-zone-label{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:rgba(239,68,68,.7);border:1px solid rgba(239,68,68,.9);font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.03em;white-space:nowrap;pointer-events:none;}
+    /* Removed .ml-zone-label styles since zones are hidden */
     .ml-seg-label{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;font-size:8px;font-weight:800;color:#000;font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.02em;white-space:nowrap;pointer-events:none;}
     .ml-seg-label.start{background:#facc15;border:1px solid #eab308;}
     .ml-seg-label.end{background:#60a5fa;border:1px solid #3b82f6;color:#0f172a;}
     .ml-dist-marker{width:18px;height:18px;background:#7a5cff;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;}
     .ml-dist-text{transform:rotate(45deg);font-family:Menlo,monospace;font-size:9px;font-weight:800;color:#fff;line-height:1;}
 
-    .zone-nav{display:flex;align-items:center;gap:6px;padding:6px 11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;overflow-x:auto;}
-    .zone-nav::-webkit-scrollbar{display:none;}
-    .zone-nav-label{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;}
-    .zone-nav-input{width:auto;min-width:60px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:13px;text-align:center;padding:0 6px;transition:transform 0.2s cubic-bezier(0.4,0,0.2,1);}
-    .zone-nav-input:focus{outline:none;border-color:rgba(255,255,255,.14);transform:scale(1.03);}
-    .zone-nav-input option{background:#141419;color:#f2f2f7;}
-    .divider-v{width:1px;height:20px;background:rgba(255,255,255,.1);margin:0 2px;}
+    /* Segment start/end square markers */
+    .ml-seg-sq{width:12px;height:12px;border:2px solid rgba(255,255,255,0.9);border-radius:2px;cursor:pointer;pointer-events:all;}
+    .ml-seg-sq.start-sq{background:#ef4444;}
+    .ml-seg-sq.end-sq{background:#22c55e;}
 
     .icon-bar{display:flex;align-items:center;justify-content:space-evenly;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius-md);padding:6px;flex-shrink:0;gap:2px;}
     .icon-btn{position:relative;background:transparent;border:0;color:#aab7ff;cursor:pointer;padding:6px 10px;display:flex;align-items:center;justify-content:center;transition:color 0.2s,transform 0.2s cubic-bezier(0.4,0,0.2,1);outline:none;border-radius:6px;}
@@ -214,10 +211,6 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
     </button>
     <div class="icon-bar-divider"></div>
-    <div class="icon-bar-select-group">
-      <span class="icon-bar-label">Z</span>
-      <select id="zoneSelect" class="icon-bar-select"><option value="" disabled selected>—</option></select>
-    </div>
     <div class="icon-bar-select-group">
       <span class="icon-bar-label">S</span>
       <select id="segSelect" class="icon-bar-select"><option value="" disabled selected>—</option></select>
@@ -455,7 +448,6 @@
   const sessionAvgEl     = document.getElementById('sessionAvg');
   const sessionTotalEl   = document.getElementById('sessionTotal');
   const earnPerHourEl    = document.getElementById('earnPerHour');
-  const zoneSelect       = document.getElementById('zoneSelect');
   const segSelect        = document.getElementById('segSelect');
   const btnStartWorker   = document.getElementById('btnStartWorker');
   const workerBackdrop   = document.getElementById('workerBackdrop');
@@ -493,7 +485,7 @@
   let myPostsUnsub = null, chatUnsub = null, lastReadChatTs = 0;
   let shiftRegistry = {};
   let segments = [];
-  let zoneBounds = {};
+  // REMOVED: zoneBounds - no zone dropdown needed
   let segLiveDotSelected = false;
   const SEG_SNAP_KM = 0.25;
 
@@ -533,14 +525,15 @@
   // Marker arrays (DOM markers we manage manually)
   let locationMarker = null;
   const dotMarkers  = [];
-  const segMarkers  = [];
+  const segMarkers  = [];   // segment end-point square markers + dist markers
   const distMarkers = [];
-  const zoneMarkers = [];  // zone label markers
+  // REMOVED: zoneMarkers array — zone labels are not shown
 
   // ── Map load: register all sources & layers ───────────────────────────────
   map.on('load', () => {
 
-    // Zone polygons — fill + outline
+    // Zone polygons — we still load the outlines (optional visual reference),
+    // but we do NOT draw any zone number labels on the map.
     map.addSource('zones', { type: 'geojson', data: fc() });
     map.addLayer({
       id: 'zones-fill', type: 'fill', source: 'zones',
@@ -551,7 +544,7 @@
       paint: { 'line-color': '#ef4444', 'line-width': 1.5, 'line-opacity': 0.7 }
     });
 
-    // Segments — thin purple line
+    // Segments — thin purple line (hidden at load; shown only on selection)
     map.addSource('segments', { type: 'geojson', data: fc() });
     map.addLayer({
       id: 'segments-line', type: 'line', source: 'segments',
@@ -622,21 +615,21 @@
     });
 
     // After style is ready, load Firebase data
+    // Load polygons (zone outlines only, no labels)
     loadAndDrawPolygons();
     loadSegments();
   });
 
-  // ── Zone polygon loading ──────────────────────────────────────────────────
+  // ── Zone polygon loading — NO zone labels drawn on map ────────────────────
   function loadAndDrawPolygons() {
     get(ref(polyDb, 'polygons')).then(snapshot => {
       const features = [];
       let idx = 1;
-      zoneSelect.innerHTML = '<option value="" disabled selected>—</option>';
+      // NOTE: No zone dropdown, no zoneMarkers, no zone labels on map.
 
       snapshot.forEach(child => {
         const raw = child.val();
 
-        // Support both array-of-objects and keyed objects
         let coords = [];
         const keys = Object.keys(raw).filter(k => !isNaN(Number(k)));
         if (keys.length > 0) {
@@ -648,40 +641,21 @@
 
         if (coords.length < 3) { idx++; return; }
 
-        // Close the ring
         const ring = [...coords];
         if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
           ring.push(ring[0]);
         }
 
         features.push(feat('Polygon', [ring], { zoneIdx: idx }));
-        zoneBounds[String(idx)] = coords;
-
-        const opt = document.createElement('option');
-        opt.value = String(idx);
-        opt.textContent = String(idx);
-        zoneSelect.appendChild(opt);
-
-        // Zone centroid label
-        const lats = coords.map(c => c[1]);
-        const lngs = coords.map(c => c[0]);
-        const clat = (Math.min(...lats) + Math.max(...lats)) / 2;
-        const clng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
-        const el = document.createElement('div');
-        el.className = 'ml-zone-label';
-        el.textContent = `Z${idx}`;
-        const m = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([clng, clat]).addTo(map);
-        zoneMarkers.push(m);
-
+        // REMOVED: zoneBounds storage, zone centroid label marker
         idx++;
       });
 
-      // Set GeoJSON data — map is loaded so sources exist
       if (map.getSource('zones')) {
         map.getSource('zones').setData(fc(features));
       }
 
-      console.log(`Loaded ${features.length} zone polygon(s)`);
+      console.log(`Loaded ${features.length} zone polygon(s) (no labels)`);
     }).catch(err => console.error('Polygon load error:', err));
   }
 
@@ -725,19 +699,67 @@
     return { point: best, distKm: bestD };
   }
 
-  function buildSegmentFeatures(segs) {
-    return segs.map(s => feat('LineString', s.coords.map(c => [c.lng, c.lat]), { id: s.id }));
+  // ── Segment start/end square markers ─────────────────────────────────────
+  // Creates a small red square at start, green square at end of a segment.
+  // Clicking either square focuses that segment.
+  function addSegmentEndpointSquares(s) {
+    const start = s.coords[0];
+    const end   = s.coords[s.coords.length - 1];
+
+    // Red square — START
+    const startEl = document.createElement('div');
+    startEl.className = 'ml-seg-sq start-sq';
+    startEl.title = `S#${s.id} Start`;
+    const startM = new maplibregl.Marker({ element: startEl, anchor: 'center' })
+      .setLngLat([start.lng, start.lat])
+      .addTo(map);
+    startEl.style.pointerEvents = 'all';
+    startEl.addEventListener('click', e => {
+      e.stopPropagation();
+      segSelect.value = String(s.id);
+      segLiveDotSelected = true;
+      isolateSegment(s.id);
+      updateSegLiveDot(currentLatLng);
+      showToast(`Focused Segment #${s.id}`);
+    });
+    segMarkers.push(startM);
+
+    // Green square — END
+    const endEl = document.createElement('div');
+    endEl.className = 'ml-seg-sq end-sq';
+    endEl.title = `S#${s.id} End`;
+    const endM = new maplibregl.Marker({ element: endEl, anchor: 'center' })
+      .setLngLat([end.lng, end.lat])
+      .addTo(map);
+    endEl.style.pointerEvents = 'all';
+    endEl.addEventListener('click', e => {
+      e.stopPropagation();
+      segSelect.value = String(s.id);
+      segLiveDotSelected = true;
+      isolateSegment(s.id);
+      updateSegLiveDot(currentLatLng);
+      showToast(`Focused Segment #${s.id}`);
+    });
+    segMarkers.push(endM);
   }
 
-  function renderAllSegments() {
-    if (!map.getSource('segments')) return;
-    map.getSource('segments').setData(fc(buildSegmentFeatures(segments)));
+  // ── Render ALL segment endpoint squares (no lines drawn) ─────────────────
+  // Called once after segments load. Shows only the red/green squares on the
+  // map — no segment polylines, no text labels, no dist markers until a
+  // segment is selected from the dropdown.
+  function renderAllSegmentEndpoints() {
     segMarkers.forEach(m => m.remove()); segMarkers.length = 0;
     distMarkers.forEach(m => m.remove()); distMarkers.length = 0;
-    segments.forEach(s => addSegmentEndMarkers(s));
+
+    // Keep segment source empty — lines shown only on selection
+    if (map.getSource('segments')) map.getSource('segments').setData(fc());
+
+    // Draw only start/end squares for every segment
+    segments.forEach(s => addSegmentEndpointSquares(s));
   }
 
-  function addSegmentEndMarkers(s) {
+  function addSegmentDetailMarkers(s) {
+    // Add text label markers (start/end) for the focused segment
     const km = pathLengthKm(s.coords);
     const start = s.coords[0], end = s.coords[s.coords.length - 1];
 
@@ -747,18 +769,13 @@
       el.textContent = text;
       const m = new maplibregl.Marker({ element: el, anchor: 'bottom-left' }).setLngLat([coord.lng, coord.lat]).addTo(map);
       segMarkers.push(m);
-      m.getElement().addEventListener('click', e => {
-        e.stopPropagation();
-        segSelect.value = String(s.id);
-        segLiveDotSelected = true;
-        isolateSegment(s.id);
-        updateSegLiveDot(currentLatLng);
-        showToast(`Focused Segment #${s.id}`);
-      });
     };
 
     mkLabel(`S#${s.id} · ${km.toFixed(2)} km`, 'start', start);
     mkLabel(`E#${s.id}`, 'end', end);
+
+    // Also keep the red/green squares for the focused segment
+    addSegmentEndpointSquares(s);
   }
 
   function isolateSegment(id) {
@@ -766,11 +783,16 @@
     if (!s) return false;
 
     if (!map.getSource('segments')) return false;
-    map.getSource('segments').setData(fc([feat('LineString', s.coords.map(c => [c.lng, c.lat]), { id: s.id })]));
 
+    // Clear previous markers
     segMarkers.forEach(m => m.remove()); segMarkers.length = 0;
     distMarkers.forEach(m => m.remove()); distMarkers.length = 0;
-    addSegmentEndMarkers(s);
+
+    // Draw only the selected segment line
+    map.getSource('segments').setData(fc([feat('LineString', s.coords.map(c => [c.lng, c.lat]), { id: s.id })]));
+
+    // Add detail markers (labels + squares) for the selected segment
+    addSegmentDetailMarkers(s);
 
     // Distance km markers every 0.5 km
     const totalLen = pathLengthKm(s.coords);
@@ -818,8 +840,9 @@
         idx++;
       });
 
-      renderAllSegments();
-      console.log(`Loaded ${segments.length} segment(s)`);
+      // On load: show only start/end squares, no segment lines
+      renderAllSegmentEndpoints();
+      console.log(`Loaded ${segments.length} segment(s) — endpoint squares only`);
     }).catch(err => console.error('Segment load error:', err));
   }
 
@@ -846,14 +869,6 @@
     map.getSource('livesegdot').setData(fc([feat('Point', [snapPoint.lng, snapPoint.lat], { selected: segLiveDotSelected })]));
   }
 
-  zoneSelect.addEventListener('change', e => {
-    const n = e.target.value;
-    if (!n || !zoneBounds[n]) { showToast('Invalid zone'); return; }
-    const coords = zoneBounds[n];
-    const lngs = coords.map(c => c[0]), lats = coords.map(c => c[1]);
-    map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 28, maxZoom: 17, duration: 900 });
-  });
-
   segSelect.addEventListener('change', e => {
     const n = parseInt(e.target.value, 10);
     segLiveDotSelected = true;
@@ -862,9 +877,10 @@
     updateSegLiveDot(currentLatLng);
   });
 
+  // When clicking on blank map area: reset to endpoint-squares-only view
   map.on('click', () => {
     segLiveDotSelected = false;
-    renderAllSegments();
+    renderAllSegmentEndpoints();
     updateSegLiveDot(currentLatLng);
   });
 
