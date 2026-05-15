@@ -1,468 +1,918 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Segment Saver - Flyer Edition (with Zones)</title>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-  <!-- Material Icons -->
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <title>Segment Saver</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    html, body { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; font-family: 'Roboto', Arial, sans-serif; background: #f5f5f7; }
-    #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; height: 100%; width: 100%; background: #e9ecef; }
-    
-    /* Action Bar */
-    .action-bar { position: fixed; bottom: 18px; right: 10px; z-index: 1001; display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,0.98); border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.12); padding: 10px 8px; }
-    .action-btn { outline: none; border: none; border-radius: 8px; background: #fff; color: #444; font-size: 11px; padding: 6px 10px 6px 8px; display: flex; align-items: center; gap: 4px; cursor: pointer; box-shadow: 0 1px 5px rgba(0,0,0,0.08); transition: background 0.18s; width: 100%; font-weight: 500; letter-spacing: 0.03em; }
-    .action-btn:active, .action-btn.selected { background: #e3e8fd; color: #0060df; }
-    .action-btn:disabled { opacity: 0.5; cursor: default; }
-    
-    .action-btn.delete { color: #e53935; }
-    .action-btn.save { color: #007bff; }
-    .action-btn.start { color: #ff9800; }
-    .action-btn.undo { color: #9c27b0; }
-    .action-btn.cancel { color: #666; background: #f0f0f0; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;overflow:hidden;background:#0e1014;
+      font-family:'Inter',system-ui,sans-serif;color:#e2e4f0}
 
-    .material-icons { font-size: 14px; margin-right: 3px; vertical-align: middle; }
-    
-    /* Clean Start/End Segment Markers */
-    .seg-endpoint { background: transparent!important; border: none!important; pointer-events: none; }
-    .seg-circle {
-      width: 24px; height: 24px;
-      border-radius: 50%;
-      border: 2px solid #fff;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: bold;
-    }
-    .seg-circle.start { background-color: #fdd835; color: #333; } /* Yellow */
-    .seg-circle.end { background-color: #1e88e5; color: #fff; } /* Blue */
+    /* ── Map ── */
+    #map{position:fixed;inset:0}
 
-    /* Resume Marker Dot */
-    .resume-marker-icon {
-      background-color: #ff9800;
-      border: 2px solid #fff;
-      border-radius: 50%;
-      box-shadow: 0 0 6px rgba(0,0,0,0.6);
-      cursor: pointer;
-      transition: transform 0.1s;
+    /* ── Draw canvas — overlays map, pointer-events controlled ── */
+    #dc{
+      position:fixed;inset:0;z-index:20;
+      pointer-events:none;      /* off by default */
+      cursor:crosshair;
     }
-    .resume-marker-icon:hover {
-      transform: scale(1.3);
-      background-color: #4caf50;
+    body.drawing #dc{pointer-events:all}
+    /* While drawing: LEFT button draws, right/middle still pan via map underneath.
+       We let right-click and middle-click fall through by not calling preventDefault on them */
+
+    /* ── MapLibre tweaks ── */
+    .maplibregl-ctrl-attrib{display:none!important}
+    .maplibregl-ctrl-group{
+      background:rgba(14,16,20,.9)!important;
+      border:1px solid rgba(255,255,255,.12)!important;
+      border-radius:9px!important;
+      box-shadow:0 4px 16px rgba(0,0,0,.55)!important;
+    }
+    .maplibregl-ctrl-group button{background:transparent!important;color:#7788bb!important}
+    .maplibregl-ctrl-group button:hover{background:rgba(255,255,255,.07)!important}
+
+    /* ── Left sidebar panel ── */
+    #sidebar{
+      position:fixed;top:0;left:0;bottom:0;width:220px;
+      background:rgba(14,16,20,.97);
+      border-right:1px solid rgba(255,255,255,.09);
+      z-index:100;
+      display:flex;flex-direction:column;
+      box-shadow:4px 0 24px rgba(0,0,0,.4);
     }
 
-    /* Edit Handles (Blue Dots) */
-    .leaflet-editing-icon {
-        background-color: #fff;
-        border: 2px solid #007bff;
-        border-radius: 50%;
+    .sb-head{
+      padding:16px 16px 10px;
+      border-bottom:1px solid rgba(255,255,255,.07);
+    }
+    .sb-title{font-size:14px;font-weight:700;color:#dde0ff;letter-spacing:.01em}
+    .sb-sub{font-size:10px;color:#4a5580;margin-top:2px;font-weight:500}
+
+    /* Mode badge */
+    #modeBadge{
+      margin:10px 16px 0;
+      padding:5px 10px;border-radius:7px;
+      font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+      display:none;align-items:center;gap:6px;
+    }
+    #modeBadge.draw{background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.28);color:#fde68a;display:flex}
+    #modeBadge.edit{background:rgba(239,68,68,.13);border:1px solid rgba(239,68,68,.26);color:#fca5a5;display:flex}
+    #modeDot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    #modeBadge.draw #modeDot{background:#fbbf24}
+    #modeBadge.edit #modeDot{background:#ef4444;animation:blink 1.2s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+    /* ── Buttons ── */
+    .sb-section{
+      padding:12px 12px 6px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .sb-section-label{
+      font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+      color:#3a4466;margin-bottom:7px;padding-left:2px;
     }
 
-    @media (max-width: 600px) { 
-      .action-bar { right: 0; left: 0; bottom: 0; border-radius: 11px 11px 0 0; flex-direction: row; gap: 8px; justify-content: center; padding: 10px; } 
-      .action-btn { font-size: 11px; padding: 8px 12px; border-radius: 8px; width: auto; flex: 1; justify-content: center;} 
+    .btn{
+      width:100%;padding:9px 12px;
+      border-radius:8px;border:1px solid rgba(255,255,255,.09);
+      background:rgba(255,255,255,.04);
+      color:#c0c8f0;font-family:'Inter',sans-serif;
+      font-size:11px;font-weight:600;
+      display:flex;align-items:center;gap:7px;
+      cursor:pointer;margin-bottom:5px;
+      transition:background .12s,transform .07s,opacity .12s;
+      outline:none;text-align:left;
     }
+    .btn:last-child{margin-bottom:0}
+    .btn:hover{background:rgba(255,255,255,.09);color:#fff}
+    .btn:active{transform:scale(.96)}
+    .btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
+    .btn.hidden{display:none}
+
+    .btn.b-draw  {border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.1);color:#fde68a}
+    .btn.b-draw:hover{background:rgba(251,191,36,.18)}
+    .btn.b-save  {border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.1);color:#86efac}
+    .btn.b-save:hover{background:rgba(34,197,94,.18)}
+    .btn.b-undo  {border-color:rgba(192,132,252,.22);background:rgba(192,132,252,.09);color:#d8b4fe}
+    .btn.b-undo:hover{background:rgba(192,132,252,.16)}
+    .btn.b-del   {border-color:rgba(239,68,68,.22);background:rgba(239,68,68,.09);color:#fca5a5}
+    .btn.b-del:hover{background:rgba(239,68,68,.17)}
+    .btn.b-cancel{border-color:rgba(255,255,255,.07);color:#6b7280}
+    .btn.b-cancel:hover{background:rgba(255,255,255,.07);color:#9ca3af}
+
+    .btn svg{width:14px;height:14px;flex-shrink:0;stroke:currentColor;fill:none;
+             stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+    .btn-label{flex:1}
+
+    /* Kbd hint */
+    .kbd{
+      margin-left:auto;font-size:9px;font-weight:700;
+      background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+      border-radius:4px;padding:1px 5px;color:#5566aa;font-family:monospace;
+    }
+
+    /* ── Segment list ── */
+    .sb-list{flex:1;overflow-y:auto;padding:8px 12px;scrollbar-width:thin;scrollbar-color:#222530 transparent}
+    .sb-list::-webkit-scrollbar{width:4px}
+    .sb-list::-webkit-scrollbar-thumb{background:#222530;border-radius:4px}
+
+    .seg-item{
+      display:flex;align-items:center;gap:8px;
+      padding:6px 8px;border-radius:7px;
+      border:1px solid transparent;
+      cursor:pointer;margin-bottom:3px;
+      transition:background .1s,border-color .1s;
+    }
+    .seg-item:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.07)}
+    .seg-item.active{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.25)}
+    .seg-num{
+      width:20px;height:20px;border-radius:50%;
+      background:#1e2230;border:1.5px solid #3a4466;
+      display:flex;align-items:center;justify-content:center;
+      font-size:9px;font-weight:700;color:#5566aa;flex-shrink:0;
+    }
+    .seg-item.active .seg-num{background:rgba(239,68,68,.2);border-color:#ef4444;color:#fca5a5}
+    .seg-name{font-size:11px;font-weight:500;color:#8899cc;flex:1}
+    .seg-item.active .seg-name{color:#fca5a5}
+    .seg-pts{font-size:9px;color:#3a4466;font-variant-numeric:tabular-nums}
+
+    /* ── Status bar ── */
+    #statusBar{
+      padding:8px 14px;border-top:1px solid rgba(255,255,255,.07);
+      font-size:10px;color:#3a4466;font-weight:500;
+      display:flex;align-items:center;gap:6px;
+    }
+    #statusDot{width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0}
+
+    /* ── Help tooltip strip ── */
+    #helpBar{
+      position:fixed;bottom:0;left:220px;right:0;
+      background:rgba(14,16,20,.88);
+      border-top:1px solid rgba(255,255,255,.07);
+      padding:6px 16px;z-index:90;
+      display:flex;align-items:center;gap:18px;
+      font-size:10px;color:#3a4466;font-weight:500;
+      backdrop-filter:blur(4px);
+    }
+    .help-item{display:flex;align-items:center;gap:5px}
+    .help-key{
+      background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+      border-radius:4px;padding:1px 5px;font-size:9px;
+      font-family:monospace;color:#5566aa;white-space:nowrap;
+    }
+
+    /* ── Toast ── */
+    #toast{
+      position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-4px);
+      background:rgba(14,16,20,.95);border:1px solid rgba(255,255,255,.12);
+      color:#dde0ff;padding:7px 16px;border-radius:20px;
+      font-size:11px;font-weight:500;z-index:500;
+      pointer-events:none;backdrop-filter:blur(8px);
+      white-space:nowrap;max-width:600px;
+      opacity:0;transition:opacity .18s,transform .18s;
+    }
+    #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+    /* ── Segment endpoint markers ── */
+    .ep{
+      width:20px;height:20px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:9px;font-weight:700;
+      border:2px solid rgba(255,255,255,.8);
+      box-shadow:0 2px 6px rgba(0,0,0,.6);
+      pointer-events:none;
+    }
+    .ep.s{background:#fbbf24;color:#1a1000}
+    .ep.e{background:#3b82f6;color:#fff}
+
+    /* ── Edit handle dots ── */
+    .hdl{
+      width:12px;height:12px;border-radius:50%;
+      background:#fff;border:2px solid #3b82f6;
+      box-shadow:0 1px 5px rgba(0,0,0,.6);
+      cursor:grab;
+    }
+    .hdl:hover{background:#bfdbfe;transform:scale(1.4)}
+    .hdl.drag{cursor:grabbing;background:#bfdbfe;transform:scale(1.5)}
+
+    /* ── Loader ── */
+    #loader{position:fixed;inset:0;z-index:999;background:#0e1014;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+    #loader.gone{display:none}
+    .spin{width:28px;height:28px;border-radius:50%;
+      border:3px solid rgba(255,255,255,.08);border-top-color:#3b82f6;
+      animation:spin .75s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #loader p{font-size:11px;color:#3a4466;font-weight:500}
   </style>
 </head>
 <body>
-  <div id="map"></div>
-  
-  <div class="action-bar">
-    <button id="start-draw" class="action-btn start">
-      <span class="material-icons">edit</span> Draw
-    </button>
-    <button id="undo-draw" class="action-btn undo" style="display:none;">
-      <span class="material-icons">undo</span> Undo Fix
-    </button>
-    <button id="cancel-draw" class="action-btn cancel" style="display:none;">
-      <span class="material-icons">close</span> Cancel
-    </button>
-    <button id="save-segment" class="action-btn save" style="display:none;">
-      <span class="material-icons">save</span> Save
-    </button>
-    <button id="delete-selected" class="action-btn delete" style="display:none;">
-      <span class="material-icons">delete</span> Delete
+
+<div id="loader"><div class="spin"></div><p>Loading…</p></div>
+<div id="map"></div>
+<canvas id="dc"></canvas>
+
+<!-- ── Sidebar ── -->
+<div id="sidebar">
+  <div class="sb-head">
+    <div class="sb-title">Segment Saver</div>
+    <div class="sb-sub" id="sbSub">0 segments loaded</div>
+  </div>
+
+  <div id="modeBadge"><div id="modeDot"></div><span id="modeText">Drawing</span></div>
+
+  <!-- Draw section -->
+  <div class="sb-section" id="secIdle">
+    <div class="sb-section-label">New Segment</div>
+    <button class="btn b-draw" id="bDraw">
+      <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4z"/></svg>
+      <span class="btn-label">Start Drawing</span>
+      <span class="kbd">D</span>
     </button>
   </div>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-  <!-- Leaflet and Leaflet Draw -->
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <div class="sb-section hidden" id="secDraw">
+    <div class="sb-section-label">Drawing</div>
+    <button class="btn b-save" id="bSaveNew">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      <span class="btn-label">Save Segment</span>
+      <span class="kbd">S</span>
+    </button>
+    <button class="btn b-undo" id="bUndo">
+      <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 100-6.88"/></svg>
+      <span class="btn-label">Undo Last</span>
+      <span class="kbd">Z</span>
+    </button>
+    <button class="btn b-cancel" id="bCancelDraw">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <span class="btn-label">Cancel</span>
+      <span class="kbd">Esc</span>
+    </button>
+  </div>
 
-  <script>
-    // Prevent map clicks when interacting with the action bar buttons
-    L.DomEvent.disableClickPropagation(document.querySelector('.action-bar'));
+  <div class="sb-section hidden" id="secEdit">
+    <div class="sb-section-label">Editing Segment</div>
+    <button class="btn b-save" id="bSaveEdit">
+      <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      <span class="btn-label">Save Changes</span>
+      <span class="kbd">S</span>
+    </button>
+    <button class="btn b-del" id="bDelete">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+      <span class="btn-label">Delete</span>
+      <span class="kbd">Del</span>
+    </button>
+    <button class="btn b-cancel" id="bCancelEdit">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <span class="btn-label">Cancel</span>
+      <span class="kbd">Esc</span>
+    </button>
+  </div>
 
-    // 1. Firebase Configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
-      authDomain: "leuvenflyers-23584.firebaseapp.com",
-      databaseURL: "https://leuvenflyers-23584-default-rtdb.firebaseio.com",
-      projectId: "leuvenflyers-23584",
-      storageBucket: "leuvenflyers-23584.firebasestorage.app",
-      messagingSenderId: "1077790950414",
-      appId: "1:1077790950414:web:036fafe06df86f41ed285f"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+  <!-- Segment list -->
+  <div class="sb-section" style="padding-bottom:6px">
+    <div class="sb-section-label">All Segments</div>
+  </div>
+  <div class="sb-list" id="segList"></div>
 
-    // 2. Map Setup
-    const map = L.map('map', { zoomControl: false }).setView([50.8503, 4.3517], 13);
-    
-    // Light Map Tile Layer (CartoDB Voyager)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { 
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-    }).addTo(map);
+  <div id="statusBar">
+    <div id="statusDot"></div>
+    <span id="statusTxt">Ready</span>
+  </div>
+</div>
 
-    // LAYERS
-    const polygonLayer = new L.FeatureGroup().addTo(map); // Layer for polygons
-    const drawnItems = new L.FeatureGroup().addTo(map);   // Layer for segments
-    const markersLayer = new L.FeatureGroup().addTo(map); // Layer for start/end markers
+<!-- Help bar -->
+<div id="helpBar">
+  <div class="help-item"><span class="help-key">Click map</span> Start / pause drawing</div>
+  <div class="help-item"><span class="help-key">Hover</span> Draw line continuously</div>
+  <div class="help-item"><span class="help-key">Click+drag</span> Pan map (when paused)</div>
+  <div class="help-item"><span class="help-key">Scroll</span> Zoom</div>
+  <div class="help-item"><span class="help-key">Click seg</span> Edit points</div>
+  <div class="help-item"><span class="help-key">S</span> Save</div>
+  <div class="help-item"><span class="help-key">Z</span> Undo</div>
+  <div class="help-item"><span class="help-key">Esc</span> Cancel</div>
+</div>
 
-    // Ensure polygons stay behind lines
-    map.on('overlayadd', () => { polygonLayer.bringToBack(); });
+<div id="toast"></div>
 
-    // 3. Styles
-    const baseLineStyle = { color: '#000000', weight: 4, opacity: 0.8 }; 
-    const selectedStyle = { color: '#ef4444', weight: 6, opacity: 1.0 };
-    const drawingLineStyle = { color: '#ff9800', weight: 4, opacity: 0.8, dashArray: '10, 10' };
-    
-    // Light Grey transparent polygons for visibility
-    const polygonStyle = { 
-        color: '#888888', 
-        weight: 1.5, 
-        fillColor: '#9e9e9e', 
-        fillOpacity: 0.15,
-        interactive: false 
-    };
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+'use strict';
 
-    // 4. State Variables
-    let segments = {}; 
-    let segmentKeys = [];
-    let selectedId = null; 
-    
-    // Custom Freehand Drawing State Variables
-    let pendingPolyline = null; 
-    let isFreehandActive = false; 
-    let freehandCoords = [];
-    let resumeMarker = null; 
+// ═══════════════════════════════════════════
+//  FIREBASE
+// ═══════════════════════════════════════════
+firebase.initializeApp({
+  apiKey:"AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+  authDomain:"leuvenflyers-23584.firebaseapp.com",
+  databaseURL:"https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+  projectId:"leuvenflyers-23584",
+  storageBucket:"leuvenflyers-23584.firebasestorage.app",
+  messagingSenderId:"1077790950414",
+  appId:"1:1077790950414:web:036fafe06df86f41ed285f"
+});
+const DB = firebase.database();
 
-    // 5. Helpers
-    function showToast(msg) {
-      const existing = document.querySelector('.toast-msg');
-      if(existing) existing.remove();
-      const t = document.createElement('div');
-      t.className = 'toast-msg';
-      t.innerText = msg;
-      Object.assign(t.style, {
-        position:'fixed', bottom:'70px', left:'50%', transform:'translateX(-50%)',
-        background:'#333', color:'#fff', padding:'8px 16px', borderRadius:'20px',
-        fontSize:'12px', zIndex: 9999, boxShadow:'0 2px 6px rgba(0,0,0,0.3)',
-        pointerEvents: 'none'
-      });
-      document.body.appendChild(t);
-      setTimeout(() => { if(t.parentElement) t.remove() }, 3000);
-    }
+// ═══════════════════════════════════════════
+//  MAP  — same tile config as app #1
+// ═══════════════════════════════════════════
+const map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8,
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    sources: { osm: {
+      type: 'raster', tileSize: 256,
+      tiles: [
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+      ]
+    }},
+    layers: [{ id:'osm', type:'raster', source:'osm',
+               paint:{ 'raster-fade-duration': 0 } }]
+  },
+  center: [4.3517, 50.8503],
+  zoom: 13, maxZoom: 19,
+  attributionControl: false,
+  fadeDuration: 0,
+  // Allow right-click drag to pan even when canvas is on top
+  dragRotate: false
+});
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
-    // 6. Rendering Functions
-    function createEndpointMarker(latlng, type, segNum) {
-      const typeClass = type === 'start' ? 'start' : 'end';
-      return L.marker(latlng, {
-        icon: L.divIcon({
-          className: 'seg-endpoint',
-          html: `<div class="seg-circle ${typeClass}">${segNum}</div>`,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14]
-        }),
-        interactive: false,
-        zIndexOffset: 1000 
-      });
-    }
+// Push map to the right of the sidebar
+map.getContainer().style.left = '220px';
+map.getContainer().style.width = 'calc(100% - 220px)';
 
-    function generateMarkersForSegment(coords, segNum) {
-        const ms = [];
-        if (!coords || coords.length === 0) return ms;
-        
-        // Start Marker (Yellow)
-        ms.push(createEndpointMarker(coords[0], 'start', segNum));
-        
-        // End Marker (Blue)
-        if (coords.length > 1) {
-            ms.push(createEndpointMarker(coords[coords.length-1], 'end', segNum));
-        }
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+const segs    = {};       // fbKey → { coords:[[lng,lat]], endMarkers:[] }
+let   segKeys = [];
 
-        return ms;
-    }
+// mode: 'idle' | 'drawing' | 'editing'
+let mode       = 'idle';
+let drawCoords = [];      // [[lng,lat]] accumulated strokes
+let selKey     = null;
+let editCoords = [];
+let editHdls   = [];
 
-    function refreshAllMarkers() {
-        Object.values(segments).forEach(seg => {
-            seg.markers.forEach(m => markersLayer.removeLayer(m));
-            const rawLatLngs = seg.layer.getLatLngs();
-            const flatCoords = Array.isArray(rawLatLngs[0]) ? rawLatLngs.flat() : rawLatLngs;
-            const cleanCoords = flatCoords.map(p => ({ lat: p.lat, lng: p.lng }));
-            const segNum = segmentKeys.indexOf(seg.key) + 1;
-            const newMarkers = generateMarkersForSegment(cleanCoords, segNum);
-            newMarkers.forEach(m => markersLayer.addLayer(m));
-            seg.markers = newMarkers;
-        });
-    }
+// Canvas drawing state
+const cvs = document.getElementById('dc');
+const ctx = cvs.getContext('2d');
 
-    // 7. Interaction Logic
-    function updateUI() {
-      document.getElementById('start-draw').style.display = (isFreehandActive || pendingPolyline) ? 'none' : 'inline-flex';
-      document.getElementById('cancel-draw').style.display = (isFreehandActive || pendingPolyline) ? 'inline-flex' : 'none';
-      document.getElementById('undo-draw').style.display = (!isFreehandActive && pendingPolyline) ? 'inline-flex' : 'none';
-      
-      const hasSelection = selectedId !== null;
-      document.getElementById('delete-selected').style.display = (hasSelection && !isFreehandActive && !pendingPolyline) ? 'inline-flex' : 'none';
-      
-      if (pendingPolyline && !isFreehandActive) {
-        document.getElementById('save-segment').style.display = 'inline-flex';
-        document.getElementById('save-segment').innerText = "Save New";
-      } else if (hasSelection && !pendingPolyline) {
-        document.getElementById('save-segment').style.display = 'inline-flex';
-        document.getElementById('save-segment').innerText = "Save Changes";
-      } else {
-        document.getElementById('save-segment').style.display = 'none';
-      }
-    }
+// ═══════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════
+const fc   = (fs=[]) => ({ type:'FeatureCollection', features:fs });
+const feat = (t,c,p={}) => ({ type:'Feature', properties:p, geometry:{ type:t, coordinates:c } });
 
-    function deselectAll() {
-      if (resumeMarker) { map.removeLayer(resumeMarker); resumeMarker = null; }
-      if (pendingPolyline) {
-        drawnItems.removeLayer(pendingPolyline);
-        pendingPolyline = null;
-      }
-      if (selectedId && segments[selectedId]) {
-        const seg = segments[selectedId];
-        seg.layer.setStyle(baseLineStyle);
-        if(seg.editing) seg.editing.disable();
-      }
-      selectedId = null;
-      updateUI();
-    }
+function parseCoords(raw) {
+  const arr = Array.isArray(raw)
+    ? raw
+    : Object.keys(raw).filter(k=>!isNaN(+k)).sort((a,b)=>+a-+b).map(k=>raw[k]);
+  return arr.map(p => [ +(p.lng??p[1]), +(p.lat??p[0]) ]);
+}
+function toFB(coords) { return coords.map(([lng,lat])=>({lat,lng})); }
 
-    function selectSegment(id) {
-      if (isFreehandActive || pendingPolyline) return;
-      if (selectedId === id) return;
-      deselectAll(); 
-      selectedId = id;
-      if (segments[id]) {
-        const seg = segments[id];
-        seg.layer.setStyle(selectedStyle);
-        seg.layer.bringToFront();
-        if (!seg.editing) seg.editing = new L.Edit.Poly(seg.layer);
-        seg.editing.enable();
-      }
-      updateUI();
-      showToast('Drag blue/white dots to move points. Click Save when done.');
-    }
+let _tt;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.classList.remove('show'), 2600);
+}
 
-    // 8. Buttons & Events
-    document.getElementById('start-draw').onclick = () => { 
-      deselectAll(); 
-      isFreehandActive = true; 
-      freehandCoords = [];
-      document.getElementById('map').style.cursor = 'crosshair';
-      updateUI(); 
-      showToast('Click once to start drawing, move cursor to draw, click again to pause.'); 
-    };
+function setStatus(txt, ok=true) {
+  document.getElementById('statusTxt').textContent = txt;
+  document.getElementById('statusDot').style.background = ok ? '#22c55e' : '#f59e0b';
+}
 
-    // UNDO FIX LOGIC (Removes ~5 points from the end when clicked)
-    document.getElementById('undo-draw').onclick = () => {
-      if (pendingPolyline && !isFreehandActive && freehandCoords.length > 1) {
-        const removeCount = Math.min(5, freehandCoords.length - 1);
-        freehandCoords.splice(-removeCount, removeCount);
-        pendingPolyline.setLatLngs(freehandCoords);
-        
-        if (resumeMarker && freehandCoords.length > 0) {
-            resumeMarker.setLatLng(freehandCoords[freehandCoords.length - 1]);
-        }
-      }
-    };
+// ═══════════════════════════════════════════
+//  CANVAS — resize + redraw
+// ═══════════════════════════════════════════
+function resizeCvs() {
+  const dpr = devicePixelRatio || 1;
+  // Canvas covers only the map area (right of sidebar)
+  const W = window.innerWidth - 220;
+  const H = window.innerHeight;
+  cvs.style.left   = '220px';
+  cvs.style.width  = W + 'px';
+  cvs.style.height = H + 'px';
+  cvs.width  = W * dpr;
+  cvs.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  redrawCvs();
+}
+window.addEventListener('resize', resizeCvs);
+// Redraw canvas whenever map moves (pan/zoom) so line stays aligned
+map.on('move', () => { if (mode === 'drawing') redrawCvs(); });
+map.on('zoom', () => { if (mode === 'drawing') redrawCvs(); });
 
-    document.getElementById('cancel-draw').onclick = () => { 
-      if (isFreehandActive) {
-        isFreehandActive = false;
-        document.getElementById('map').style.cursor = '';
-      }
-      deselectAll(); 
-      showToast('Cancelled');
-    };
+function redrawCvs() {
+  const W = window.innerWidth - 220;
+  const H = window.innerHeight;
+  ctx.clearRect(0, 0, W, H);
+  if (drawCoords.length < 2) return;
 
-    document.getElementById('save-segment').onclick = () => {
-      if (resumeMarker) { map.removeLayer(resumeMarker); resumeMarker = null; }
-      
-      if (pendingPolyline) {
-        const rawLatLngs = pendingPolyline.getLatLngs();
-        const latLngs = Array.isArray(rawLatLngs[0]) ? rawLatLngs.flat() : rawLatLngs;
-        const coords = latLngs.map(p => ({ lat: p.lat, lng: p.lng }));
-        if (coords.length < 2) { showToast('Too short.'); return; }
-        db.ref('segments').push(coords, (error) => {
-          if (!error) { showToast('New Segment Saved!'); drawnItems.removeLayer(pendingPolyline); pendingPolyline = null; updateUI(); }
-        });
-      } else if (selectedId && segments[selectedId]) {
-        const seg = segments[selectedId];
-        const rawLatLngs = seg.layer.getLatLngs();
-        const latLngs = Array.isArray(rawLatLngs[0]) ? rawLatLngs.flat() : rawLatLngs;
-        const coords = latLngs.map(p => ({ lat: p.lat, lng: p.lng }));
-        db.ref('segments/' + seg.key).set(coords, (error) => {
-          if (!error) { showToast('Changes Saved!'); deselectAll(); } else { showToast('Error saving changes'); }
-        });
-      }
-    };
+  // Project all points — offset by sidebar width so canvas coords are correct
+  const pts = drawCoords.map(([lng,lat]) => {
+    const p = map.project([lng,lat]);
+    // map.project returns pixel relative to map container; canvas starts at same x
+    return { x: p.x, y: p.y };
+  });
 
-    document.getElementById('delete-selected').onclick = () => {
-      if (!selectedId || !segments[selectedId]) return;
-      if (!confirm('Delete this segment?')) return;
-      const key = segments[selectedId].key;
-      db.ref('segments/' + key).remove().then(() => { showToast('Deleted.'); });
-    };
+  // Draw glow / shadow
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle = 'rgba(251,191,36,0.35)';
+  ctx.lineWidth   = 8;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.stroke();
 
-    // Freehand Drawing Logic: Click & Hover
-    map.on('click', (e) => {
-      if (isFreehandActive) {
-        if (!pendingPolyline) {
-          freehandCoords = [e.latlng];
-          pendingPolyline = L.polyline(freehandCoords, drawingLineStyle).addTo(drawnItems);
-          showToast('Move cursor to draw line. Click again to pause.');
-          updateUI();
-        } else {
-          isFreehandActive = false;
-          document.getElementById('map').style.cursor = '';
-          pendingPolyline.setStyle(selectedStyle);
+  // Draw main line
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth   = 3;
+  ctx.stroke();
 
-          const lastPt = freehandCoords[freehandCoords.length - 1];
-          resumeMarker = L.marker(lastPt, {
-              icon: L.divIcon({ className: 'resume-marker-icon', iconSize: [18, 18], iconAnchor: [9, 9] })
-          }).addTo(map);
+  // Start dot (green)
+  ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, 6, 0, Math.PI*2);
+  ctx.fillStyle = '#22c55e'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
 
-          resumeMarker.on('click', (ev) => {
-              L.DomEvent.stopPropagation(ev); 
-              isFreehandActive = true;
-              map.removeLayer(resumeMarker);
-              resumeMarker = null;
-              document.getElementById('map').style.cursor = 'crosshair';
-              pendingPolyline.setStyle(drawingLineStyle); 
-              showToast('Resumed. Move cursor to draw, click map to pause.');
-              updateUI();
-          });
+  // End dot (orange)
+  const ep = pts[pts.length-1];
+  ctx.beginPath(); ctx.arc(ep.x, ep.y, 5, 0, Math.PI*2);
+  ctx.fillStyle = '#f97316'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+}
 
-          showToast('Click orange dot to continue drawing, Undo Fix, or Save.');
-          updateUI();
-        }
-      } else {
-        if (!pendingPolyline) deselectAll();
-      }
+// ═══════════════════════════════════════════
+//  CANVAS EVENTS — click-to-toggle draw model
+//
+//  DRAWING STATES:
+//    drawActive = false  → mouse moves pan the map normally (canvas transparent)
+//    drawActive = true   → mouse moves record points on canvas
+//
+//  CLICK behaviour in draw mode:
+//    • Click while drawActive=false  → START tracing (set drawActive=true)
+//    • Click while drawActive=true   → PAUSE tracing  (set drawActive=false, re-enable map pan)
+//    • Moving mouse while drawActive → record point every 4px
+//
+//  MAP PAN: when drawActive=false the canvas has pointer-events:none so every
+//  mouse event reaches MapLibre directly — normal left-click-drag pan works.
+// ═══════════════════════════════════════════
+
+let drawActive = false;   // true = actively tracing; false = map-pan mode (within drawing mode)
+let lastPx2    = null;    // last recorded screen pixel {x,y}
+
+// Helper: convert canvas client coords → map lnglat
+function clientToLL(e) {
+  // cvs offsetX/Y is relative to canvas; canvas left = 220px (sidebar)
+  const x = e.clientX - 220;
+  const y = e.clientY;
+  return map.unproject([x, y]);
+}
+
+// Helper: record a point, throttled by 4px screen distance
+function recordPoint(e) {
+  const x = e.clientX - 220, y = e.clientY;
+  if (lastPx2) {
+    const dx = x - lastPx2.x, dy = y - lastPx2.y;
+    if (dx*dx + dy*dy < 16) return; // < 4px → skip
+  }
+  const ll = map.unproject([x, y]);
+  drawCoords.push([ll.lng, ll.lat]);
+  lastPx2 = { x, y };
+  redrawCvs();
+  setStatus(`Drawing… ${drawCoords.length} pts`);
+}
+
+// When draw mode is entered, canvas covers map but pointer-events start OFF
+// so the user can still pan. We flip pointer-events only when drawActive=true.
+
+function setDrawActive(active) {
+  drawActive = active;
+  if (active) {
+    // Capture mouse → record points; disable map drag so cursor moves don't pan
+    cvs.style.pointerEvents = 'all';
+    cvs.style.cursor = 'crosshair';
+    map.dragPan.disable();
+    map.getCanvas().style.cursor = 'crosshair';
+    setStatus(`Tracing… move mouse to draw. Click to pause.`);
+    toast('Move mouse to trace the route. Click to pause.');
+  } else {
+    // Release canvas → map pan works normally again
+    cvs.style.pointerEvents = 'none';
+    cvs.style.cursor = 'default';
+    map.dragPan.enable();
+    map.getCanvas().style.cursor = '';
+    if (drawCoords.length > 0)
+      setStatus(`Paused — ${drawCoords.length} pts. Click map to resume.`);
+    else
+      setStatus('Click on map to start tracing');
+  }
+}
+
+// Click on the MAP canvas while in drawing mode (drawActive=false) → start tracing
+// We listen on the map's own canvas element so we get clicks when pointer-events:none on cvs
+map.on('click', e => {
+  if (mode !== 'drawing') return;
+  if (drawActive) return; // handled by cvs click below
+  e.preventDefault();
+  // Start a new trace from this click position
+  const x = e.point.x, y = e.point.y;
+  const ll = map.unproject([x, y]);
+  // If we already have points, just resume (append); otherwise start fresh
+  drawCoords.push([ll.lng, ll.lat]);
+  lastPx2 = { x, y };
+  redrawCvs();
+  setDrawActive(true);
+});
+
+// Click on CANVAS while drawActive=true → pause tracing
+cvs.addEventListener('click', e => {
+  if (mode !== 'drawing' || !drawActive) return;
+  e.preventDefault();
+  e.stopPropagation();
+  setDrawActive(false);
+});
+
+// Mouse move on CANVAS while drawActive=true → record point
+cvs.addEventListener('mousemove', e => {
+  if (mode !== 'drawing' || !drawActive) return;
+  recordPoint(e);
+});
+
+// Block context menu on canvas while drawing
+cvs.addEventListener('contextmenu', e => { e.preventDefault(); });
+
+// ═══════════════════════════════════════════
+//  MAP SOURCES + LAYERS
+// ═══════════════════════════════════════════
+map.on('load', () => {
+
+  // ── Zone polygons — PROMINENT borders ──
+  map.addSource('zones', { type:'geojson', data: fc() });
+  // Solid fill
+  map.addLayer({ id:'zones-fill', type:'fill', source:'zones',
+    paint:{ 'fill-color':'#e63946', 'fill-opacity': 0.08 }
+  });
+  // Thick outer glow (blurred wide line)
+  map.addLayer({ id:'zones-glow', type:'line', source:'zones',
+    paint:{ 'line-color':'#e63946', 'line-width': 8, 'line-opacity': 0.18, 'line-blur': 4 },
+    layout:{ 'line-cap':'round', 'line-join':'round' }
+  });
+  // Main border
+  map.addLayer({ id:'zones-line', type:'line', source:'zones',
+    paint:{ 'line-color':'#e63946', 'line-width': 2.5, 'line-opacity': 0.85 },
+    layout:{ 'line-cap':'round', 'line-join':'round' }
+  });
+  // Inner highlight
+  map.addLayer({ id:'zones-inner', type:'line', source:'zones',
+    paint:{ 'line-color':'#ff6b7a', 'line-width': 1, 'line-opacity': 0.5 },
+    layout:{ 'line-cap':'round', 'line-join':'round' }
+  });
+
+  // ── Segments ──
+  map.addSource('segs', { type:'geojson', data: fc() });
+  // Shadow
+  map.addLayer({ id:'segs-shadow', type:'line', source:'segs',
+    paint:{
+      'line-color': 'rgba(0,0,0,0.55)',
+      'line-width': ['case',['get','sel'],10,7],
+      'line-blur': 5, 'line-offset': 2
+    }, layout:{ 'line-cap':'round', 'line-join':'round' }
+  });
+  // Main line
+  map.addLayer({ id:'segs-line', type:'line', source:'segs',
+    paint:{
+      'line-color': ['case',['get','sel'],'#ef4444','#111827'],
+      'line-width': ['case',['get','sel'],5,3.5],
+      'line-opacity':['case',['get','sel'],1,0.9]
+    }, layout:{ 'line-cap':'round', 'line-join':'round' }
+  });
+  // White highlight on top
+  map.addLayer({ id:'segs-hi', type:'line', source:'segs',
+    paint:{
+      'line-color': ['case',['get','sel'],'rgba(255,255,255,0.35)','rgba(255,255,255,0.15)'],
+      'line-width': 1,
+      'line-opacity': 0.8
+    }, layout:{ 'line-cap':'round', 'line-join':'round' }
+  });
+
+  // ── Edit line ──
+  map.addSource('editLine', { type:'geojson', data: fc() });
+  map.addLayer({ id:'edit-line', type:'line', source:'editLine',
+    paint:{ 'line-color':'#ef4444', 'line-width':5, 'line-opacity':1 },
+    layout:{ 'line-cap':'round', 'line-join':'round' }
+  });
+
+  // Click segment to edit
+  map.on('click', 'segs-line', e => {
+    if (mode !== 'idle') return;
+    e.preventDefault();
+    enterEdit(e.features[0].properties.key);
+  });
+  map.on('mouseenter','segs-line', ()=>{ if (mode==='idle') map.getCanvas().style.cursor='pointer'; });
+  map.on('mouseleave','segs-line', ()=>{ if (mode==='idle') map.getCanvas().style.cursor=''; });
+  // Click blank map → deselect
+  map.on('click', e => { if (!e.defaultPrevented && mode==='editing') exitEdit(false); });
+
+  resizeCvs();
+  loadZones();
+  loadSegments();
+  document.getElementById('loader').classList.add('gone');
+  syncUI();
+});
+
+// ═══════════════════════════════════════════
+//  SEGMENTS SOURCE
+// ═══════════════════════════════════════════
+function refreshSegs() {
+  if (!map.getSource('segs')) return;
+  map.getSource('segs').setData(fc(
+    segKeys.map((key,i) => {
+      const s = segs[key];
+      if (!s || s.coords.length < 2) return null;
+      return feat('LineString', s.coords, { key, sel: key===selKey, idx: i+1 });
+    }).filter(Boolean)
+  ));
+  const n = segKeys.length;
+  document.getElementById('sbSub').textContent = n + ' segment' + (n!==1?'s':'') + ' loaded';
+  renderSegList();
+}
+
+// ═══════════════════════════════════════════
+//  SEGMENT LIST in sidebar
+// ═══════════════════════════════════════════
+function renderSegList() {
+  const list = document.getElementById('segList');
+  list.innerHTML = '';
+  if (!segKeys.length) {
+    list.innerHTML = '<div style="font-size:10px;color:#2a3050;padding:4px 2px">No segments yet</div>';
+    return;
+  }
+  segKeys.forEach((key,i) => {
+    const s = segs[key];
+    if (!s) return;
+    const el = document.createElement('div');
+    el.className = 'seg-item' + (key===selKey?' active':'');
+    el.innerHTML = `
+      <div class="seg-num">${i+1}</div>
+      <div class="seg-name">Segment ${i+1}</div>
+      <div class="seg-pts">${s.coords.length}pts</div>`;
+    el.addEventListener('click', () => {
+      if (mode==='drawing') return;
+      if (key===selKey) exitEdit(false);
+      else enterEdit(key);
     });
+    list.appendChild(el);
+  });
+}
 
-    map.on('mousemove', (e) => {
-      if (isFreehandActive && pendingPolyline) {
-        const lastPoint = freehandCoords[freehandCoords.length - 1];
-        
-        // HIGHER THRESHOLD (25) = LESS POINTS RECORDED = LESS BLUE DOTS!
-        if (map.distance(lastPoint, e.latlng) > 2) {
-          freehandCoords.push(e.latlng);
-          pendingPolyline.setLatLngs(freehandCoords);
-        }
-      }
-    });
+// ═══════════════════════════════════════════
+//  ENDPOINT MARKERS
+// ═══════════════════════════════════════════
+function addEndpts(key) {
+  const s = segs[key]; if (!s || !s.coords.length) return;
+  const n = segKeys.indexOf(key)+1;
+  const mk = (coord, cls) => {
+    const el = document.createElement('div');
+    el.className = 'ep ' + cls; el.textContent = n;
+    return new maplibregl.Marker({ element:el, anchor:'center' })
+      .setLngLat(coord).addTo(map);
+  };
+  s.endMarkers = [ mk(s.coords[0], 's') ];
+  if (s.coords.length > 1)
+    s.endMarkers.push(mk(s.coords[s.coords.length-1], 'e'));
+}
+function remEndpts(key) {
+  const s = segs[key]; if (!s) return;
+  s.endMarkers.forEach(m=>m.remove()); s.endMarkers=[];
+}
+function renumber() { segKeys.forEach(k=>{ remEndpts(k); addEndpts(k); }); }
 
-    // 10. Data Loading (Segments)
-    function renderSegment(key, coords) {
-      const layer = L.polyline(coords, baseLineStyle);
-      const localId = L.Util.stamp(layer);
-      
-      layer.on('click', (e) => {
-        L.DomEvent.stopPropagation(e);
-        selectSegment(localId);
-      });
-      
-      drawnItems.addLayer(layer);
-      const segNum = segmentKeys.indexOf(key) + 1;
-      const segMarkers = generateMarkersForSegment(coords, segNum);
-      segMarkers.forEach(m => markersLayer.addLayer(m));
-      
-      segments[localId] = { key, layer, markers: segMarkers };
+// ═══════════════════════════════════════════
+//  EDIT MODE
+// ═══════════════════════════════════════════
+function enterEdit(key) {
+  if (mode==='editing') exitEdit(false);
+  selKey = key; mode = 'editing';
+  editCoords = segs[key].coords.map(c=>[...c]);
+  remEndpts(key);
+  buildHdls();
+  refreshSegs(); updateEditLine();
+  syncUI();
+  setStatus('Editing segment ' + (segKeys.indexOf(key)+1), true);
+  toast('Drag blue dots to adjust points. Press S to save.');
+}
 
-      layer.on('edit', () => {
-         segments[localId].markers.forEach(m => markersLayer.removeLayer(m));
-         const newCoords = layer.getLatLngs(); 
-         const flatCoords = Array.isArray(newCoords[0]) ? newCoords.flat() : newCoords; 
-         const cleanCoords = flatCoords.map(p => ({ lat: p.lat, lng: p.lng }));
-         const currentSegNum = segmentKeys.indexOf(key) + 1;
-         const newMarkers = generateMarkersForSegment(cleanCoords, currentSegNum);
-         newMarkers.forEach(m => markersLayer.addLayer(m));
-         segments[localId].markers = newMarkers;
-      });
-      return localId;
+function exitEdit(save) {
+  clearHdls();
+  if (selKey) {
+    if (save) {
+      segs[selKey].coords = editCoords.map(c=>[...c]);
+      DB.ref('segments/'+selKey).set(toFB(editCoords))
+        .then(()=>toast('✓ Saved!')).catch(()=>toast('Save failed.'));
     }
+    addEndpts(selKey);
+  }
+  selKey=null; editCoords=[]; mode='idle';
+  if (map.getSource('editLine')) map.getSource('editLine').setData(fc());
+  refreshSegs(); syncUI();
+  setStatus('Ready');
+}
 
-    // 11. Firebase Sync - SEGMENTS
-    db.ref('segments').on('child_added', (snapshot) => {
-      const raw = snapshot.val();
-      if (!raw) return;
-      segmentKeys.push(snapshot.key);
-      const coords = Array.isArray(raw) ? raw : Object.keys(raw).sort((a,b) => a - b).map(k => raw[k]);
-      const cleanCoords = coords.map(c => ({ lat: c.lat, lng: c.lng }));
-      renderSegment(snapshot.key, cleanCoords);
+function buildHdls() {
+  clearHdls();
+  editCoords.forEach((coord,i) => {
+    const el = document.createElement('div'); el.className='hdl';
+    const m = new maplibregl.Marker({ element:el, anchor:'center', draggable:true })
+      .setLngLat(coord).addTo(map);
+    m.on('drag', ()=>{ const ll=m.getLngLat(); editCoords[i]=[ll.lng,ll.lat]; updateEditLine(); });
+    m.on('dragstart', ()=>el.classList.add('drag'));
+    m.on('dragend',   ()=>el.classList.remove('drag'));
+    editHdls.push(m);
+  });
+}
+function clearHdls() { editHdls.forEach(m=>m.remove()); editHdls=[]; }
+function updateEditLine() {
+  if (!map.getSource('editLine') || editCoords.length<2) return;
+  map.getSource('editLine').setData(fc([feat('LineString',editCoords)]));
+}
+
+// ═══════════════════════════════════════════
+//  DRAW MODE
+// ═══════════════════════════════════════════
+function enterDraw() {
+  if (mode==='editing') exitEdit(false);
+  drawCoords=[]; drawActive=false; lastPx2=null; mode='drawing';
+  document.body.classList.add('drawing');
+  // Canvas starts transparent — map pan works until user clicks
+  cvs.style.pointerEvents = 'none';
+  map.dragPan.enable();
+  resizeCvs();
+  syncUI();
+  setStatus('Click on map to start tracing');
+  toast('Click anywhere on the map to start drawing your segment.');
+}
+
+function cancelDraw() {
+  drawCoords=[]; drawActive=false; lastPx2=null; mode='idle';
+  document.body.classList.remove('drawing');
+  // Restore canvas and map to idle state
+  cvs.style.pointerEvents = 'none';
+  cvs.style.cursor = 'default';
+  map.dragPan.enable();
+  map.getCanvas().style.cursor = '';
+  const W = window.innerWidth-220, H = window.innerHeight;
+  ctx.clearRect(0, 0, W, H);
+  syncUI(); setStatus('Ready');
+  toast('Cancelled.');
+}
+
+function saveNewSeg() {
+  if (drawCoords.length < 2) { toast('Draw more points first.'); return; }
+  DB.ref('segments').push(toFB(drawCoords))
+    .then(()=>toast('✓ Segment saved!'))
+    .catch(()=>toast('Save failed.'));
+  cancelDraw();
+}
+
+function undoDraw() {
+  if (drawCoords.length < 2) return;
+  // Remove last ~8% of points, min 1
+  const n = Math.max(1, Math.floor(drawCoords.length*0.08));
+  drawCoords.splice(-n, n);
+  redrawCvs();
+  toast(`Undid ~${n} points. ${drawCoords.length} remaining.`);
+}
+
+function deleteSelected() {
+  if (!selKey) return;
+  if (!confirm('Delete this segment?')) return;
+  const k = selKey; exitEdit(false);
+  DB.ref('segments/'+k).remove()
+    .then(()=>toast('Deleted.')).catch(()=>toast('Delete failed.'));
+}
+
+// ═══════════════════════════════════════════
+//  UI SYNC
+// ═══════════════════════════════════════════
+function syncUI() {
+  const s = (id,vis) => {
+    const el=document.getElementById(id);
+    if(el) el.classList.toggle('hidden',!vis);
+  };
+  s('secIdle',  mode==='idle');
+  s('secDraw',  mode==='drawing');
+  s('secEdit',  mode==='editing');
+
+  const mb = document.getElementById('modeBadge');
+  if (mode==='drawing') {
+    mb.className='strip-mode draw'; mb.style.display='flex';
+    document.getElementById('modeText').textContent = drawActive ? 'Tracing…' : 'Draw Mode';
+  } else if (mode==='editing') {
+    mb.className='strip-mode edit'; mb.style.display='flex';
+    document.getElementById('modeText').textContent='Editing Mode';
+  } else {
+    mb.style.display='none';
+  }
+  renderSegList();
+}
+
+// ═══════════════════════════════════════════
+//  BUTTON WIRING
+// ═══════════════════════════════════════════
+document.getElementById('bDraw')      .onclick = enterDraw;
+document.getElementById('bSaveNew')   .onclick = saveNewSeg;
+document.getElementById('bUndo')      .onclick = undoDraw;
+document.getElementById('bCancelDraw').onclick = cancelDraw;
+document.getElementById('bSaveEdit')  .onclick = ()=>exitEdit(true);
+document.getElementById('bDelete')    .onclick = deleteSelected;
+document.getElementById('bCancelEdit').onclick = ()=>exitEdit(false);
+
+// Stop sidebar events from reaching map
+document.getElementById('sidebar').addEventListener('mousedown', e=>e.stopPropagation());
+
+// ═══════════════════════════════════════════
+//  KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  // Don't fire if typing in an input
+  if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  if (e.key==='d'||e.key==='D') { if (mode==='idle') enterDraw(); }
+  if (e.key==='s'||e.key==='S') {
+    if (mode==='drawing') saveNewSeg();
+    else if (mode==='editing') exitEdit(true);
+  }
+  if ((e.key==='z'||e.key==='Z') && mode==='drawing') undoDraw();
+  if (e.key==='Escape') {
+    if (mode==='drawing') cancelDraw();
+    else if (mode==='editing') exitEdit(false);
+  }
+  if (e.key==='Delete' && mode==='editing') deleteSelected();
+});
+
+// ═══════════════════════════════════════════
+//  FIREBASE — SEGMENTS
+// ═══════════════════════════════════════════
+function loadSegments() {
+  DB.ref('segments').on('child_added', snap => {
+    const c = parseCoords(snap.val()); if (c.length<2) return;
+    segs[snap.key] = { coords:c, endMarkers:[] };
+    segKeys.push(snap.key);
+    addEndpts(snap.key);
+    refreshSegs();
+  });
+  DB.ref('segments').on('child_changed', snap => {
+    if (!segs[snap.key]) return;
+    remEndpts(snap.key);
+    segs[snap.key].coords = parseCoords(snap.val());
+    if (snap.key===selKey) {
+      editCoords = segs[snap.key].coords.map(c=>[...c]);
+      buildHdls(); updateEditLine();
+    } else { addEndpts(snap.key); }
+    refreshSegs();
+  });
+  DB.ref('segments').on('child_removed', snap => {
+    remEndpts(snap.key); delete segs[snap.key];
+    segKeys = segKeys.filter(k=>k!==snap.key);
+    if (selKey===snap.key) { clearHdls(); selKey=null; mode='idle'; syncUI(); }
+    renumber(); refreshSegs();
+  });
+}
+
+// ═══════════════════════════════════════════
+//  FIREBASE — ZONES
+// ═══════════════════════════════════════════
+function loadZones() {
+  DB.ref('polygons').once('value', snap => {
+    const fs = [];
+    snap.forEach(child => {
+      const raw = child.val(); if (!raw||typeof raw!=='object') return;
+      const ring = Object.keys(raw)
+        .filter(k=>!isNaN(+k)).sort((a,b)=>+a-+b)
+        .map(k => { const p=raw[k]; return Array.isArray(p)?[+p[1],+p[0]]:[+(p.lng||0),+(p.lat||0)]; });
+      if (ring.length<3) return;
+      if (ring[0][0]!==ring[ring.length-1][0]||ring[0][1]!==ring[ring.length-1][1]) ring.push([...ring[0]]);
+      fs.push(feat('Polygon',[ring]));
     });
-
-    db.ref('segments').on('child_changed', (snapshot) => {
-       const key = snapshot.key;
-       const entry = Object.entries(segments).find(([id, data]) => data.key === key);
-       if (entry) {
-         const [oldId, data] = entry;
-         drawnItems.removeLayer(data.layer);
-         data.markers.forEach(m => markersLayer.removeLayer(m));
-         delete segments[oldId];
-         const raw = snapshot.val();
-         const coords = Array.isArray(raw) ? raw : Object.keys(raw).sort((a,b) => a - b).map(k => raw[k]);
-         const cleanCoords = coords.map(c => ({ lat: c.lat, lng: c.lng }));
-         renderSegment(key, cleanCoords);
-       }
-    });
-
-    db.ref('segments').on('child_removed', (snapshot) => {
-      const key = snapshot.key;
-      segmentKeys = segmentKeys.filter(k => k !== key);
-      const entry = Object.entries(segments).find(([id, data]) => data.key === key);
-      if (entry) {
-        const [id, data] = entry;
-        drawnItems.removeLayer(data.layer);
-        data.markers.forEach(m => markersLayer.removeLayer(m));
-        delete segments[id];
-        if (selectedId == id) { selectedId = null; updateUI(); }
-      }
-      refreshAllMarkers();
-    });
-
-    // 12. Firebase Sync - POLYGONS (Light Grey transparent)
-    db.ref('polygons').on('child_added', (snapshot) => {
-      const raw = snapshot.val();
-      if (!raw) return;
-      
-      const coordsArr = Array.isArray(raw) 
-        ? raw.map(p => [p.lat, p.lng]) 
-        : Object.keys(raw)
-            .filter(k => !isNaN(Number(k))) 
-            .sort((a,b) => Number(a) - Number(b))
-            .map(k => [raw[k].lat, raw[k].lng]);
-
-      if (coordsArr.length === 0) return;
-
-      const polygon = L.polygon(coordsArr, polygonStyle);
-      polygonLayer.addLayer(polygon);
-      polygonLayer.bringToBack(); 
-    });
-
-  </script>
+    if (map.getSource('zones')) map.getSource('zones').setData(fc(fs));
+  });
+}
+</script>
 </body>
 </html>
