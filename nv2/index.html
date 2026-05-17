@@ -1,0 +1,1274 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>Dispatch — Headlines One at a Time</title>
+
+    <meta name="theme-color" content="#0a0a0a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Dispatch">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,800;9..144,900&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --bg-elev: #141414;
+            --paper: #f5f1e8;
+            --paper-shadow: #e8e0cf;
+            --ink: #181513;
+            --ink-soft: #3a342e;
+            --ink-faint: #6b6259;
+            --rule: #d8cfb9;
+            --accent: #d94f2c;
+            --accent-glow: rgba(217, 79, 44, 0.25);
+            --gold: #c89b3c;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        html, body {
+            height: 100dvh;
+            width: 100%;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--paper);
+            font-family: 'Inter', -apple-system, sans-serif;
+            overscroll-behavior: none;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.04;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        .app {
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            padding-top: var(--safe-top);
+            padding-bottom: var(--safe-bottom);
+            position: relative;
+        }
+
+        .config-banner {
+            background: var(--accent);
+            color: var(--paper);
+            padding: 10px 18px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-align: center;
+            display: none;
+            cursor: pointer;
+        }
+        .config-banner.show { display: block; }
+        .config-banner b { font-weight: 700; }
+
+        .masthead {
+            padding: 14px 18px 10px;
+            border-bottom: 1px solid rgba(245, 241, 232, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg);
+            position: relative;
+            z-index: 5;
+        }
+
+        .brand { display: flex; flex-direction: column; line-height: 1; }
+
+        .brand-name {
+            font-family: 'Fraunces', serif;
+            font-weight: 900;
+            font-size: 26px;
+            letter-spacing: -0.02em;
+            color: var(--paper);
+            font-variation-settings: "opsz" 144;
+            cursor: pointer;
+        }
+        .brand-name .dot { color: var(--accent); }
+
+        .brand-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8px;
+            font-weight: 500;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: var(--ink-faint);
+            margin-top: 4px;
+        }
+
+        .masthead-meta {
+            text-align: right;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--ink-faint);
+            letter-spacing: 0.15em;
+            line-height: 1.5;
+            text-transform: uppercase;
+        }
+
+        .masthead-meta .live {
+            color: var(--accent);
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .pulse-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+
+        .topics-strip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 18px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            border-bottom: 1px solid rgba(245, 241, 232, 0.08);
+            background: var(--bg);
+            position: relative;
+            z-index: 4;
+        }
+        .topics-strip::-webkit-scrollbar { display: none; }
+
+        .topic-pill {
+            flex-shrink: 0;
+            padding: 7px 14px;
+            border: 1px solid rgba(245, 241, 232, 0.15);
+            border-radius: 100px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--ink-faint);
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .topic-pill:hover { color: var(--paper); border-color: rgba(245, 241, 232, 0.35); }
+        .topic-pill.active {
+            background: var(--paper);
+            color: var(--ink);
+            border-color: var(--paper);
+            font-weight: 700;
+        }
+        .topic-pill .remove-x { font-size: 12px; opacity: 0.5; margin-left: 2px; }
+        .topic-pill .remove-x:hover { opacity: 1; }
+        .topic-pill.add-btn {
+            color: var(--accent);
+            border-color: var(--accent);
+            border-style: dashed;
+        }
+        .topic-pill.add-btn:hover {
+            background: var(--accent);
+            color: var(--paper);
+            border-style: solid;
+        }
+
+        .loading-bar-track {
+            height: 2px;
+            width: 100%;
+            background: rgba(245, 241, 232, 0.06);
+            position: relative;
+            overflow: hidden;
+        }
+        .loading-bar-fill {
+            position: absolute;
+            inset: 0 100% 0 0;
+            background: linear-gradient(90deg, var(--accent), var(--gold), var(--accent));
+            background-size: 200% 100%;
+            transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .loading-bar-fill.indeterminate {
+            inset: 0;
+            right: 0;
+            transform: translateX(-100%);
+            animation: indeterminate 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite, shimmer 2s linear infinite;
+        }
+        @keyframes indeterminate {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        @keyframes shimmer {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 200% 0%; }
+        }
+
+        .stage {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            padding: 16px 18px 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-counter {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            color: var(--ink-faint);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-counter .topic-label { color: var(--accent); font-weight: 700; }
+
+        .card-wrap { flex: 1; position: relative; perspective: 1500px; }
+
+        .card {
+            position: absolute;
+            inset: 0;
+            background: var(--paper);
+            color: var(--ink);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow:
+                0 1px 0 rgba(245, 241, 232, 0.04),
+                0 20px 40px -10px rgba(0, 0, 0, 0.6),
+                0 8px 16px -4px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-hero {
+            position: relative;
+            width: 100%;
+            height: 38%;
+            min-height: 140px;
+            max-height: 220px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #2a2520 0%, #1a1614 100%);
+            flex-shrink: 0;
+        }
+
+        .card-hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .card-hero img.loaded { opacity: 1; }
+
+        .card-hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent 50%, rgba(245, 241, 232, 0.12) 100%);
+            pointer-events: none;
+        }
+
+        .card-hero.no-image {
+            background:
+                repeating-linear-gradient(45deg, transparent, transparent 12px, rgba(245, 241, 232, 0.03) 12px, rgba(245, 241, 232, 0.03) 13px),
+                linear-gradient(135deg, var(--ink) 0%, #2a2520 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card-hero.no-image .fallback-mark {
+            font-family: 'Fraunces', serif;
+            font-weight: 900;
+            font-size: 88px;
+            color: var(--accent);
+            opacity: 0.5;
+            line-height: 1;
+            letter-spacing: -0.05em;
+        }
+
+        .hero-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--paper);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            opacity: 0.5;
+        }
+        .hero-loading::before {
+            content: '';
+            width: 24px;
+            height: 24px;
+            border: 2px solid rgba(245, 241, 232, 0.15);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .card-body {
+            flex: 1;
+            padding: 20px 22px 22px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .card-body::after {
+            content: '';
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 22px;
+            height: 22px;
+            border-top: 1.5px solid var(--rule);
+            border-right: 1.5px solid var(--rule);
+            pointer-events: none;
+        }
+
+        .card.entering { animation: cardEnter 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        .card.exiting { animation: cardExit 0.4s cubic-bezier(0.6, 0, 0.8, 0.3) forwards; pointer-events: none; }
+
+        @keyframes cardEnter {
+            from { opacity: 0; transform: translateY(40px) rotateX(8deg) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) rotateX(0) scale(1); }
+        }
+        @keyframes cardExit {
+            from { opacity: 1; transform: translateY(0) rotateX(0) scale(1); }
+            to { opacity: 0; transform: translateY(-30px) rotateX(-6deg) scale(0.97); }
+        }
+
+        .card-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .section-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: var(--accent);
+            padding: 4px 8px;
+            border: 1px solid var(--accent);
+            border-radius: 2px;
+        }
+
+        .section-meta {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--ink-faint);
+            flex: 1;
+            text-align: right;
+        }
+
+        .headline-rule {
+            height: 3px;
+            background: var(--ink);
+            width: 36px;
+            margin-bottom: 12px;
+        }
+
+        .headline {
+            font-family: 'Fraunces', serif;
+            font-weight: 800;
+            font-size: 22px;
+            line-height: 1.12;
+            color: var(--ink);
+            letter-spacing: -0.025em;
+            margin-bottom: 10px;
+            font-variation-settings: "opsz" 144;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .headline.long { font-size: 19px; -webkit-line-clamp: 5; }
+        .headline.very-long { font-size: 17px; -webkit-line-clamp: 6; }
+
+        .description {
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--ink-soft);
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .source-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: auto;
+            padding-top: 12px;
+            border-top: 1px solid var(--rule);
+        }
+
+        .source-name {
+            font-family: 'Fraunces', serif;
+            font-style: italic;
+            font-weight: 600;
+            font-size: 12px;
+            color: var(--ink-soft);
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .source-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--ink-faint);
+            letter-spacing: 0.1em;
+            white-space: nowrap;
+        }
+
+        .read-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 10px 14px;
+            background: var(--ink);
+            color: var(--paper);
+            border-radius: 2px;
+            text-decoration: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            transition: transform 0.2s ease, background 0.2s ease;
+            align-self: flex-start;
+        }
+        .read-link:hover { background: var(--accent); }
+        .read-link:active { transform: scale(0.97); }
+        .read-link .material-icons { font-size: 14px; }
+
+        .controls {
+            padding: 12px 18px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg);
+            border-top: 1px solid rgba(245, 241, 232, 0.08);
+        }
+
+        .ctrl-btn {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: 1px solid rgba(245, 241, 232, 0.15);
+            background: transparent;
+            color: var(--paper);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+        .ctrl-btn:hover { border-color: var(--paper); background: rgba(245, 241, 232, 0.05); }
+        .ctrl-btn:active { transform: scale(0.94); }
+        .ctrl-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+        .ctrl-btn .material-icons { font-size: 22px; }
+
+        .next-btn {
+            flex: 1;
+            height: 46px;
+            border-radius: 100px;
+            border: none;
+            background: var(--paper);
+            color: var(--ink);
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .next-btn:hover { background: var(--accent); color: var(--paper); }
+        .next-btn:active { transform: scale(0.98); }
+        .next-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .next-btn .material-icons { font-size: 18px; transition: transform 0.3s ease; }
+        .next-btn:hover .material-icons { transform: translateX(4px); }
+
+        .next-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(217, 79, 44, 0.5), transparent 60%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .next-btn.firing::after { opacity: 1; animation: ripple 0.6s ease-out; }
+        @keyframes ripple {
+            0% { transform: scale(0.3); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        .state-card {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            color: var(--ink-faint);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            padding: 30px;
+            text-align: center;
+        }
+        .state-card .icon {
+            font-family: 'Fraunces', serif;
+            font-size: 56px;
+            color: var(--accent);
+            opacity: 0.7;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .state-card .msg {
+            font-family: 'Fraunces', serif;
+            font-style: italic;
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--paper);
+            text-transform: none;
+            letter-spacing: 0;
+            opacity: 0.85;
+            max-width: 280px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(245, 241, 232, 0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .modal-bg {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 24px;
+        }
+        .modal-bg.open { display: flex; animation: fadeIn 0.25s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .modal {
+            width: 100%;
+            max-width: 380px;
+            background: var(--bg-elev);
+            border: 1px solid rgba(245, 241, 232, 0.1);
+            border-radius: 8px;
+            padding: 24px;
+            animation: modalIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        @keyframes modalIn {
+            from { transform: translateY(20px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        .modal h3 {
+            font-family: 'Fraunces', serif;
+            font-weight: 800;
+            font-size: 22px;
+            color: var(--paper);
+            margin-bottom: 4px;
+            letter-spacing: -0.02em;
+        }
+        .modal .sub {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--ink-faint);
+            margin-bottom: 18px;
+        }
+
+        .modal input {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid rgba(245, 241, 232, 0.15);
+            color: var(--paper);
+            padding: 12px 14px;
+            border-radius: 4px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+        .modal input:focus { border-color: var(--accent); }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid rgba(245, 241, 232, 0.15);
+            background: transparent;
+            color: var(--paper);
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .modal-btn:hover { background: rgba(245, 241, 232, 0.05); }
+        .modal-btn.primary { background: var(--accent); border-color: var(--accent); }
+        .modal-btn.primary:hover { background: #c8421e; }
+
+        .modal .field-label {
+            display: block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--ink-faint);
+            margin: 14px 0 6px;
+        }
+
+        @media (max-width: 360px) {
+            .headline { font-size: 19px; }
+            .headline.long { font-size: 17px; }
+            .headline.very-long { font-size: 15px; }
+            .brand-name { font-size: 22px; }
+            .card-body { padding: 16px 16px 18px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="config-banner" id="config-banner">
+            <b>Tap the logo</b> to set your Railway server URL and unlock article images.
+        </div>
+
+        <header class="masthead">
+            <div class="brand">
+                <div class="brand-name" id="brand-name">Dispatch<span class="dot">.</span></div>
+                <div class="brand-tag">Vol I — One headline at a time</div>
+            </div>
+            <div class="masthead-meta">
+                <div id="date-text">—</div>
+                <div class="live"><span class="pulse-dot"></span><span id="clock-text">—</span></div>
+            </div>
+        </header>
+
+        <div class="topics-strip" id="topics-strip"></div>
+
+        <div class="loading-bar-track">
+            <div class="loading-bar-fill" id="loading-bar"></div>
+        </div>
+
+        <main class="stage">
+            <div class="card-counter">
+                <span><span class="topic-label" id="counter-topic">TOP</span> · <span id="counter-pos">— / —</span></span>
+                <span id="counter-source">Live feed</span>
+            </div>
+            <div class="card-wrap" id="card-wrap">
+                <div class="state-card" id="state-card">
+                    <div class="spinner"></div>
+                    <div class="msg">Gathering today's headlines…</div>
+                </div>
+            </div>
+        </main>
+
+        <div class="controls">
+            <button class="ctrl-btn" id="btn-prev" title="Previous" disabled>
+                <span class="material-icons">arrow_back</span>
+            </button>
+            <button class="next-btn" id="btn-next">
+                <span>Next Headline</span>
+                <span class="material-icons">arrow_forward</span>
+            </button>
+            <button class="ctrl-btn" id="btn-shuffle" title="Shuffle">
+                <span class="material-icons">shuffle</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="modal-bg" id="modal-bg">
+        <div class="modal">
+            <h3>Add a topic</h3>
+            <div class="sub">A new lens on the news</div>
+            <input type="text" id="topic-input" placeholder="e.g. Climate, Markets, AI…" maxlength="24">
+            <div class="modal-actions">
+                <button class="modal-btn" id="btn-cancel-topic">Cancel</button>
+                <button class="modal-btn primary" id="btn-save-topic">Add Topic</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-bg" id="server-modal-bg">
+        <div class="modal">
+            <h3>Server URL</h3>
+            <div class="sub">Your Railway deployment</div>
+            <label class="field-label">Base URL (no trailing slash)</label>
+            <input type="text" id="server-input" placeholder="https://your-app.up.railway.app" autocomplete="off" autocapitalize="off">
+            <div class="modal-actions">
+                <button class="modal-btn" id="btn-clear-server">Clear</button>
+                <button class="modal-btn primary" id="btn-save-server">Save & Reload</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  CONFIG — paste your Railway URL here, OR set it in the app
+        //  by tapping the "Dispatch." logo
+        // ============================================================
+        const DEFAULT_SERVER_URL = ''; // e.g. 'https://dispatch-server-production.up.railway.app'
+        // ============================================================
+
+        const SERVER_STORAGE_KEY = 'dispatch_server_url_v1';
+        let SERVER_URL = localStorage.getItem(SERVER_STORAGE_KEY) || DEFAULT_SERVER_URL;
+
+        const DEFAULT_TOPICS = [
+            { id: 'top',      name: 'Top',      url: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en', removable: false },
+            { id: 'world',    name: 'World',    url: 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en', removable: false },
+            { id: 'tech',     name: 'Tech',     url: 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en', removable: false },
+            { id: 'business', name: 'Business', url: 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en', removable: false },
+            { id: 'science',  name: 'Science',  url: 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en', removable: false }
+        ];
+
+        const TOPICS_KEY = 'dispatch_custom_topics_v1';
+        let customTopics = loadCustomTopics();
+        let allTopics = [...DEFAULT_TOPICS, ...customTopics];
+        let activeTopicId = 'top';
+        let headlines = [];
+        let currentIdx = 0;
+        let isLoading = false;
+        let isTransitioning = false;
+
+        const sessionMetaCache = new Map();
+
+        const topicsStrip = document.getElementById('topics-strip');
+        const cardWrap = document.getElementById('card-wrap');
+        const loadingBar = document.getElementById('loading-bar');
+        const counterPos = document.getElementById('counter-pos');
+        const counterTopic = document.getElementById('counter-topic');
+        const counterSource = document.getElementById('counter-source');
+        const btnNext = document.getElementById('btn-next');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnShuffle = document.getElementById('btn-shuffle');
+        const dateText = document.getElementById('date-text');
+        const clockText = document.getElementById('clock-text');
+        const modalBg = document.getElementById('modal-bg');
+        const topicInput = document.getElementById('topic-input');
+        const configBanner = document.getElementById('config-banner');
+        const brandName = document.getElementById('brand-name');
+        const serverModalBg = document.getElementById('server-modal-bg');
+        const serverInput = document.getElementById('server-input');
+
+        if (!SERVER_URL) configBanner.classList.add('show');
+
+        function loadCustomTopics() {
+            try {
+                const s = localStorage.getItem(TOPICS_KEY);
+                return s ? JSON.parse(s) : [];
+            } catch { return []; }
+        }
+        function saveCustomTopics() {
+            try { localStorage.setItem(TOPICS_KEY, JSON.stringify(customTopics)); } catch {}
+        }
+
+        // ---------- SERVER CONFIG ----------
+        brandName.addEventListener('click', openServerModal);
+        configBanner.addEventListener('click', openServerModal);
+        function openServerModal() {
+            serverInput.value = SERVER_URL;
+            serverModalBg.classList.add('open');
+            setTimeout(() => serverInput.focus(), 100);
+        }
+        document.getElementById('btn-save-server').addEventListener('click', () => {
+            const val = serverInput.value.trim().replace(/\/+$/, '');
+            if (val) localStorage.setItem(SERVER_STORAGE_KEY, val);
+            else localStorage.removeItem(SERVER_STORAGE_KEY);
+            location.reload();
+        });
+        document.getElementById('btn-clear-server').addEventListener('click', () => {
+            serverInput.value = '';
+        });
+        serverModalBg.addEventListener('click', (e) => {
+            if (e.target === serverModalBg) serverModalBg.classList.remove('open');
+        });
+
+        // ---------- LOADING BAR ----------
+        function startLoadingBar() {
+            loadingBar.classList.add('indeterminate');
+            loadingBar.style.right = '';
+        }
+        function finishLoadingBar() {
+            loadingBar.classList.remove('indeterminate');
+            loadingBar.style.right = '0%';
+            setTimeout(() => { loadingBar.style.right = '100%'; }, 350);
+        }
+        function progressLoadingBar(pct) {
+            loadingBar.classList.remove('indeterminate');
+            loadingBar.style.right = (100 - pct) + '%';
+        }
+
+        // ---------- CLOCK ----------
+        function updateClock() {
+            const now = new Date();
+            dateText.innerText = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }).toUpperCase();
+            clockText.innerText = now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+        }
+        updateClock();
+        setInterval(updateClock, 1000 * 30);
+
+        // ---------- TOPICS ----------
+        function renderTopics() {
+            topicsStrip.innerHTML = '';
+            allTopics.forEach(t => {
+                const pill = document.createElement('button');
+                pill.className = 'topic-pill' + (t.id === activeTopicId ? ' active' : '');
+                pill.dataset.id = t.id;
+                pill.innerHTML = `<span>${escapeHtml(t.name)}</span>${t.removable ? '<span class="remove-x" data-remove="1">×</span>' : ''}`;
+                pill.addEventListener('click', (e) => {
+                    if (e.target.dataset.remove) {
+                        e.stopPropagation();
+                        removeTopic(t.id);
+                        return;
+                    }
+                    if (t.id !== activeTopicId) {
+                        activeTopicId = t.id;
+                        renderTopics();
+                        fetchHeadlines();
+                    }
+                });
+                topicsStrip.appendChild(pill);
+            });
+            const addBtn = document.createElement('button');
+            addBtn.className = 'topic-pill add-btn';
+            addBtn.innerHTML = '<span class="material-icons" style="font-size:13px;">add</span> ADD TOPIC';
+            addBtn.addEventListener('click', openTopicModal);
+            topicsStrip.appendChild(addBtn);
+        }
+
+        function removeTopic(id) {
+            customTopics = customTopics.filter(t => t.id !== id);
+            saveCustomTopics();
+            allTopics = [...DEFAULT_TOPICS, ...customTopics];
+            if (activeTopicId === id) {
+                activeTopicId = 'top';
+                renderTopics();
+                fetchHeadlines();
+            } else {
+                renderTopics();
+            }
+        }
+
+        function openTopicModal() {
+            modalBg.classList.add('open');
+            setTimeout(() => topicInput.focus(), 100);
+        }
+        function closeTopicModal() {
+            modalBg.classList.remove('open');
+            topicInput.value = '';
+        }
+        document.getElementById('btn-cancel-topic').addEventListener('click', closeTopicModal);
+        modalBg.addEventListener('click', (e) => { if (e.target === modalBg) closeTopicModal(); });
+        document.getElementById('btn-save-topic').addEventListener('click', () => {
+            const name = topicInput.value.trim();
+            if (!name) return;
+            const id = 'c_' + Date.now();
+            const url = `https://news.google.com/rss/search?q=${encodeURIComponent(name)}&hl=en-US&gl=US&ceid=US:en`;
+            customTopics.push({ id, name, url, removable: true });
+            saveCustomTopics();
+            allTopics = [...DEFAULT_TOPICS, ...customTopics];
+            activeTopicId = id;
+            closeTopicModal();
+            renderTopics();
+            fetchHeadlines();
+        });
+        topicInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') document.getElementById('btn-save-topic').click();
+        });
+
+        // ---------- FETCH HEADLINES ----------
+        async function fetchHeadlines() {
+            if (isLoading) return;
+            isLoading = true;
+            btnNext.disabled = true;
+            btnPrev.disabled = true;
+            const topic = allTopics.find(t => t.id === activeTopicId);
+            if (!topic) { isLoading = false; return; }
+
+            counterTopic.innerText = topic.name.toUpperCase();
+            counterPos.innerText = '— / —';
+            counterSource.innerText = 'Loading…';
+
+            showStateCard('spinner', 'Gathering today\'s headlines…');
+            startLoadingBar();
+
+            try {
+                let items = [];
+                if (SERVER_URL) {
+                    const res = await fetch(`${SERVER_URL}/feed?url=${encodeURIComponent(topic.url)}`);
+                    const data = await res.json();
+                    if (data.items) items = data.items;
+                } else {
+                    // Fallback when no server is configured
+                    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(topic.url)}`;
+                    const res = await fetch(apiUrl);
+                    const data = await res.json();
+                    if (data.status === 'ok' && Array.isArray(data.items)) {
+                        items = data.items.map(it => ({
+                            title: cleanTitle(it.title),
+                            link: it.link,
+                            pubDate: it.pubDate,
+                            source: extractSource(it),
+                            description: stripTags(it.description || '')
+                        }));
+                    }
+                }
+
+                if (items.length > 0) {
+                    headlines = items.slice(0, 30);
+                    currentIdx = 0;
+                    sessionMetaCache.clear();
+                    finishLoadingBar();
+                    renderCurrentCard(true);
+                    prefetchMeta(1);
+                    prefetchMeta(2);
+                } else {
+                    headlines = [];
+                    finishLoadingBar();
+                    showStateCard('!', 'No headlines found for this topic.');
+                    counterPos.innerText = '0 / 0';
+                    counterSource.innerText = 'No results';
+                }
+            } catch (err) {
+                console.error(err);
+                headlines = [];
+                finishLoadingBar();
+                showStateCard('!', 'Couldn\'t reach the wire. Check your connection or server URL.');
+                counterPos.innerText = '— / —';
+                counterSource.innerText = 'Offline';
+            } finally {
+                isLoading = false;
+                updateControls();
+            }
+        }
+
+        async function fetchMeta(idx) {
+            if (idx < 0 || idx >= headlines.length) return null;
+            const h = headlines[idx];
+            if (!h || !h.link) return null;
+            if (sessionMetaCache.has(h.link)) return sessionMetaCache.get(h.link);
+            if (!SERVER_URL) {
+                const fallback = { image: '', description: h.description || '', resolvedUrl: h.link };
+                sessionMetaCache.set(h.link, fallback);
+                return fallback;
+            }
+            try {
+                const res = await fetch(`${SERVER_URL}/meta?url=${encodeURIComponent(h.link)}`);
+                const data = await res.json();
+                const meta = {
+                    image: data.image || '',
+                    description: data.description || h.description || '',
+                    resolvedUrl: data.resolvedUrl || h.link,
+                    siteName: data.siteName || ''
+                };
+                sessionMetaCache.set(h.link, meta);
+                return meta;
+            } catch (err) {
+                console.warn('Meta fetch failed:', err);
+                const fallback = { image: '', description: h.description || '', resolvedUrl: h.link };
+                sessionMetaCache.set(h.link, fallback);
+                return fallback;
+            }
+        }
+
+        function prefetchMeta(idx) {
+            fetchMeta(idx).catch(() => {});
+        }
+
+        function cleanTitle(title) {
+            return title.replace(/\s+-\s+[^-]+$/, '').trim();
+        }
+        function extractSource(item) {
+            const m = item.title.match(/\s-\s([^-]+)$/);
+            if (m) return m[1].trim();
+            if (item.source && typeof item.source === 'string') return item.source;
+            if (item.author) return item.author;
+            return 'Google News';
+        }
+        function stripTags(s) { return s.replace(/<[^>]+>/g, '').trim(); }
+
+        function timeAgo(dateStr) {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '';
+            const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+            if (diff < 60) return 'just now';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            return Math.floor(diff / 86400) + 'd ago';
+        }
+
+        // ---------- CARD RENDERING ----------
+        function showStateCard(icon, msg) {
+            cardWrap.innerHTML = `
+                <div class="state-card">
+                    ${icon === 'spinner' ? '<div class="spinner"></div>' : `<div class="icon">${icon}</div>`}
+                    <div class="msg">${escapeHtml(msg)}</div>
+                </div>
+            `;
+        }
+
+        function renderCurrentCard(isFirst = false) {
+            if (headlines.length === 0) return;
+            const h = headlines[currentIdx];
+            if (!h) return;
+
+            const topic = allTopics.find(t => t.id === activeTopicId);
+            counterTopic.innerText = topic.name.toUpperCase();
+            counterPos.innerText = `${String(currentIdx + 1).padStart(2,'0')} / ${String(headlines.length).padStart(2,'0')}`;
+            counterSource.innerText = h.source || 'Wire';
+
+            const titleLen = h.title.length;
+            let headlineClass = '';
+            if (titleLen > 120) headlineClass = 'very-long';
+            else if (titleLen > 75) headlineClass = 'long';
+
+            const initialLetter = (h.title || 'D').trim().charAt(0).toUpperCase();
+            const fallbackUrl = escapeAttr(h.link);
+
+            const heroHTML = SERVER_URL
+                ? `<div class="card-hero" data-idx="${currentIdx}">
+                       <div class="hero-loading">Loading photo</div>
+                   </div>`
+                : `<div class="card-hero no-image">
+                       <div class="fallback-mark">${escapeHtml(initialLetter)}</div>
+                   </div>`;
+
+            const cardHTML = `
+                <article class="card entering">
+                    ${heroHTML}
+                    <div class="card-body">
+                        <div class="card-section">
+                            <div class="section-tag">${escapeHtml(topic.name)}</div>
+                            <div class="section-meta">№ ${String(currentIdx + 1).padStart(3, '0')}</div>
+                        </div>
+                        <div class="headline-rule"></div>
+                        <h1 class="headline ${headlineClass}">${escapeHtml(h.title)}</h1>
+                        <p class="description" id="card-description"></p>
+                        <a href="${fallbackUrl}" target="_blank" rel="noopener noreferrer" class="read-link" id="card-read-link">
+                            <span>Read the story</span>
+                            <span class="material-icons">north_east</span>
+                        </a>
+                        <div class="source-row">
+                            <div class="source-name">— ${escapeHtml(h.source || 'Wire')}</div>
+                            <div class="source-time">${timeAgo(h.pubDate)}</div>
+                        </div>
+                    </div>
+                </article>
+            `;
+
+            if (isFirst) {
+                cardWrap.innerHTML = cardHTML;
+                hydrateCardMeta(currentIdx, initialLetter);
+            } else {
+                const old = cardWrap.querySelector('.card');
+                if (old) {
+                    old.classList.remove('entering');
+                    old.classList.add('exiting');
+                    setTimeout(() => {
+                        cardWrap.innerHTML = cardHTML;
+                        hydrateCardMeta(currentIdx, initialLetter);
+                    }, 250);
+                } else {
+                    cardWrap.innerHTML = cardHTML;
+                    hydrateCardMeta(currentIdx, initialLetter);
+                }
+            }
+        }
+
+        async function hydrateCardMeta(idx, initialLetter) {
+            if (!SERVER_URL) return;
+            const meta = await fetchMeta(idx);
+            if (currentIdx !== idx) return;
+
+            const heroEl = cardWrap.querySelector('.card-hero');
+            const descEl = document.getElementById('card-description');
+            const linkEl = document.getElementById('card-read-link');
+
+            if (descEl) {
+                if (meta.description) descEl.innerText = meta.description;
+                else descEl.style.display = 'none';
+            }
+            if (linkEl && meta.resolvedUrl) linkEl.href = meta.resolvedUrl;
+
+            if (heroEl) {
+                if (meta.image) {
+                    heroEl.innerHTML = `<img src="${escapeAttr(meta.image)}" alt="" referrerpolicy="no-referrer">`;
+                    const img = heroEl.querySelector('img');
+                    img.onload = () => img.classList.add('loaded');
+                    img.onerror = () => {
+                        heroEl.classList.add('no-image');
+                        heroEl.innerHTML = `<div class="fallback-mark">${escapeHtml(initialLetter)}</div>`;
+                    };
+                } else {
+                    heroEl.classList.add('no-image');
+                    heroEl.innerHTML = `<div class="fallback-mark">${escapeHtml(initialLetter)}</div>`;
+                }
+            }
+            prefetchMeta(idx + 1);
+        }
+
+        function nextHeadline() {
+            if (headlines.length === 0 || isTransitioning) return;
+            isTransitioning = true;
+            btnNext.classList.add('firing');
+            setTimeout(() => btnNext.classList.remove('firing'), 600);
+
+            progressLoadingBar(0);
+            setTimeout(() => progressLoadingBar(40), 50);
+            setTimeout(() => progressLoadingBar(85), 200);
+            setTimeout(() => {
+                currentIdx = (currentIdx + 1) % headlines.length;
+                renderCurrentCard(false);
+                finishLoadingBar();
+                isTransitioning = false;
+                updateControls();
+            }, 350);
+        }
+
+        function prevHeadline() {
+            if (headlines.length === 0 || isTransitioning || currentIdx === 0) return;
+            isTransitioning = true;
+            progressLoadingBar(0);
+            setTimeout(() => progressLoadingBar(70), 100);
+            setTimeout(() => {
+                currentIdx = currentIdx - 1;
+                renderCurrentCard(false);
+                finishLoadingBar();
+                isTransitioning = false;
+                updateControls();
+            }, 300);
+        }
+
+        function shuffleHeadline() {
+            if (headlines.length < 2 || isTransitioning) return;
+            isTransitioning = true;
+            progressLoadingBar(0);
+            setTimeout(() => progressLoadingBar(50), 50);
+            setTimeout(() => progressLoadingBar(90), 180);
+            setTimeout(() => {
+                let next;
+                do { next = Math.floor(Math.random() * headlines.length); }
+                while (next === currentIdx && headlines.length > 1);
+                currentIdx = next;
+                renderCurrentCard(false);
+                finishLoadingBar();
+                isTransitioning = false;
+                updateControls();
+            }, 350);
+        }
+
+        function updateControls() {
+            btnNext.disabled = headlines.length === 0;
+            btnPrev.disabled = headlines.length === 0 || currentIdx === 0;
+            btnShuffle.disabled = headlines.length < 2;
+        }
+
+        btnNext.addEventListener('click', nextHeadline);
+        btnPrev.addEventListener('click', prevHeadline);
+        btnShuffle.addEventListener('click', shuffleHeadline);
+
+        document.addEventListener('keydown', (e) => {
+            if (modalBg.classList.contains('open') || serverModalBg.classList.contains('open')) return;
+            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextHeadline(); }
+            if (e.key === 'ArrowLeft') prevHeadline();
+        });
+
+        let touchStartX = 0;
+        cardWrap.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+        cardWrap.addEventListener('touchend', (e) => {
+            const dx = e.changedTouches[0].screenX - touchStartX;
+            if (Math.abs(dx) > 60) {
+                if (dx < 0) nextHeadline();
+                else prevHeadline();
+            }
+        }, { passive: true });
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        function escapeAttr(s) { return escapeHtml(s); }
+
+        renderTopics();
+        fetchHeadlines();
+    </script>
+</body>
+</html>
