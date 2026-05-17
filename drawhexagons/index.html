@@ -1,0 +1,722 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Polygon Saver</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;width:100%;overflow:hidden;font-family:'Roboto',Arial,sans-serif}
+    #map{position:absolute;inset:0}
+
+    #sc{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:1200;width:min(430px,92vw)}
+    #sw{display:flex;align-items:center;background:#fff;border-radius:10px;box-shadow:0 2px 16px rgba(0,0,0,.2);padding:0 10px 0 13px;gap:6px}
+    #sw .mi{color:#999;font-size:18px;flex-shrink:0}
+    #si{flex:1;border:none;outline:none;font-size:14px;padding:10px 4px;background:transparent;color:#222}
+    #sx{background:none;border:none;cursor:pointer;padding:4px;display:none;color:#bbb;line-height:1}
+    #sr{background:#fff;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.13);margin-top:5px;display:none;max-height:260px;overflow-y:auto}
+    .sri{padding:9px 14px;font-size:13px;color:#333;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f2f2f2}
+    .sri:last-child{border-bottom:none}.sri:hover{background:#f5f7ff}
+    .sri .mi{font-size:15px;color:#999;flex-shrink:0}
+    .srm{padding:12px;font-size:13px;color:#bbb;text-align:center}
+
+    #zc{position:fixed;right:12px;top:50%;transform:translateY(-50%);z-index:1001;display:flex;flex-direction:column;gap:5px}
+    .zb{width:36px;height:36px;background:#fff;border:none;border-radius:8px;box-shadow:0 1px 8px rgba(0,0,0,.14);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#444;font-size:22px;transition:background .1s,transform .08s;user-select:none}
+    .zb:hover{background:#f0f4ff}.zb:active{transform:scale(.9);background:#e3e8fd}
+
+    #ab{position:fixed;bottom:18px;right:12px;z-index:1001;display:flex;flex-direction:column;gap:7px;background:rgba(255,255,255,.97);border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.13);padding:10px 8px;min-width:130px}
+    .ab{outline:none;border:none;border-radius:8px;background:#fff;font-size:11px;padding:6px 10px 6px 8px;display:none;align-items:center;gap:4px;cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,.08);transition:background .1s;width:100%;font-weight:500;white-space:nowrap}
+    .ab.on{display:inline-flex}.ab:active{background:#e3e8fd}
+    .ab.dr{color:#7c3aed}.ab.fi{color:#059669}.ab.ca{color:#d97706}
+    .ab.sv{color:#007bff}.ab.cp{color:#43a047}.ab.dl{color:#e53935}.ab.sa{color:#6c757d}
+    .ab.zn{color:#0891b2}
+    .mi{font-size:14px;vertical-align:middle;font-family:'Material Icons'}
+
+    body.drawing #map{cursor:crosshair!important}
+    #dh{position:fixed;bottom:18px;left:12px;background:rgba(20,20,20,.82);color:#fff;font-size:12px;border-radius:8px;padding:7px 16px;z-index:1100;pointer-events:none;display:none}
+
+    #pb{position:fixed;inset:0;background:rgba(0,0,0,.22);display:none;align-items:center;justify-content:center;z-index:3000}
+    #pp{background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.18);padding:24px 22px 18px;min-width:260px;text-align:center}
+    #pp h3{margin:0 0 12px;font-size:16px;font-weight:500}
+    #pp input{font-size:15px;padding:8px 14px;border-radius:8px;border:1.5px solid #ddd;width:80%;text-align:center;letter-spacing:.2em;outline:none;margin:0 auto 14px;display:block}
+    #pp input:focus{border-color:#007bff}
+    #pe{color:#d32f2f;font-size:11px;margin-bottom:10px;display:none}
+    .pbs{display:flex;gap:8px;justify-content:center}
+    .pbs button{padding:8px 18px;border-radius:8px;border:none;font-size:13px;font-weight:500;cursor:pointer}
+    #pok{background:#007bff;color:#fff}#pca{background:#f0f0f0;color:#333}
+
+    /* Zone modal */
+    #zb-modal{position:fixed;inset:0;background:rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;z-index:3000}
+    #zb-modal.on{display:flex}
+    #zb-card{background:#fff;border-radius:14px;box-shadow:0 6px 30px rgba(0,0,0,.2);padding:22px 24px 18px;min-width:300px;max-width:340px}
+    #zb-card h3{margin:0 0 6px;font-size:16px;font-weight:600;color:#222}
+    #zb-card .sub{font-size:12px;color:#888;margin-bottom:14px;line-height:1.4}
+    .zb-opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #eee;border-radius:9px;cursor:pointer;margin-bottom:8px;transition:all .12s;background:#fafafa}
+    .zb-opt:hover{border-color:#0891b2;background:#f0fafc}
+    .zb-opt.sel{border-color:#0891b2;background:#e0f7fa}
+    .zb-opt .mi{font-size:20px;color:#0891b2;flex-shrink:0}
+    .zb-opt .t{font-size:13px;font-weight:500;color:#333}
+    .zb-opt .d{font-size:11px;color:#888;margin-top:2px}
+    #zb-grid-opt{display:none}
+    #zb-grid-opt.on{display:block}
+    #zb-grid-opt label{font-size:12px;color:#555;display:block;margin:10px 0 4px}
+    #zb-grid-input{width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;outline:none}
+    #zb-grid-input:focus{border-color:#0891b2}
+    .zb-act{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+    .zb-act button{padding:8px 16px;border-radius:8px;border:none;font-size:13px;font-weight:500;cursor:pointer}
+    #zb-go{background:#0891b2;color:#fff}#zb-go:disabled{background:#ccc;cursor:not-allowed}
+    #zb-cancel{background:#f0f0f0;color:#333}
+
+    .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-size:12px;border-radius:8px;padding:8px 20px;z-index:9999;pointer-events:none;animation:ta 1.7s forwards}
+    @keyframes ta{0%{opacity:0;transform:translateX(-50%) translateY(6px)}12%{opacity:1;transform:translateX(-50%) translateY(0)}80%{opacity:1}100%{opacity:0}}
+
+    #clear-search-hl{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:1200;display:none;align-items:center;gap:6px;background:#007bff;color:#fff;border:none;border-radius:20px;padding:5px 14px 5px 10px;font-size:12px;font-weight:500;cursor:pointer;box-shadow:0 2px 10px rgba(0,123,255,.35);transition:background .15s}
+    #clear-search-hl:hover{background:#0056c7}
+    #clear-search-hl.on{display:flex}
+
+    @media(max-width:600px){
+      #ab{right:0;left:0;bottom:0;border-radius:14px 14px 0 0;flex-direction:row;flex-wrap:wrap;gap:2px;justify-content:space-around;padding:8px 4px 6px;min-width:0}
+      .ab{font-size:10px;padding:6px 7px;border-radius:7px;width:auto;flex:1 1 28%}
+      #zc{right:8px;top:auto;bottom:90px;transform:none}
+      #dh{bottom:90px;left:50%;transform:translateX(-50%)}
+      #clear-search-hl{top:56px}
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="sc">
+  <div id="sw">
+    <span class="material-icons mi">search</span>
+    <input id="si" type="text" placeholder="Search or click a place on the map…" autocomplete="off"/>
+    <button id="sx"><span class="material-icons" style="font-size:17px;vertical-align:middle">close</span></button>
+  </div>
+  <div id="sr"></div>
+</div>
+
+<button id="clear-search-hl">
+  <span class="material-icons" style="font-size:15px;vertical-align:middle">highlight_off</span>
+  Clear highlight
+</button>
+
+<div id="zc">
+  <button class="zb" id="zi">+</button>
+  <button class="zb" id="zo">−</button>
+</div>
+
+<div id="ab">
+  <button id="bdr" class="ab dr"><span class="material-icons mi">edit</span> Draw</button>
+  <button id="bzn" class="ab zn"><span class="material-icons mi">add_location</span> Save Area</button>
+  <button id="bsp" class="ab zn"><span class="material-icons mi">grid_view</span> Split</button>
+  <button id="bfi" class="ab fi"><span class="material-icons mi">check_circle</span> Finish</button>
+  <button id="bca" class="ab ca"><span class="material-icons mi">cancel</span> Cancel</button>
+  <button id="bsv" class="ab sv"><span class="material-icons mi">save</span> Save</button>
+  <button id="bcp" class="ab cp"><span class="material-icons mi">content_copy</span> Copy</button>
+  <button id="bdl" class="ab dl"><span class="material-icons mi">delete</span> Delete</button>
+  <button id="bsa" class="ab sa"><span class="material-icons mi">done_all</span> Select All</button>
+</div>
+
+<div id="dh">Click to add points · Double-click or Finish to close</div>
+
+<!-- Split modal -->
+<div id="zb-modal">
+  <div id="zb-card">
+    <h3>Split into Hexagons</h3>
+    <div class="sub" id="zb-sub">Fill the selected polygon with a hexagon grid.</div>
+    <div id="zb-grid-opt" class="on">
+      <label id="zb-grid-label">Approximate number of hexagons</label>
+      <input id="zb-grid-input" type="number" min="2" max="500" value="20"/>
+    </div>
+    <div class="zb-act">
+      <button id="zb-cancel">Cancel</button>
+      <button id="zb-go">Split</button>
+    </div>
+  </div>
+</div>
+
+<div id="pb">
+  <div id="pp">
+    <h3>Enter PIN to Delete</h3>
+    <input id="pi" type="password" maxlength="6" autocomplete="off" placeholder="PIN"/>
+    <div id="pe">Incorrect PIN.</div>
+    <div class="pbs"><button id="pok">Confirm</button><button id="pca">Cancel</button></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+  authDomain:"leuvenflyers-23584.firebaseapp.com",
+  databaseURL:"https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+  projectId:"leuvenflyers-23584",
+  storageBucket:"leuvenflyers-23584.firebasestorage.app",
+  messagingSenderId:"1077790950414",
+  appId:"1:1077790950414:web:036fafe06df86f41ed285f"
+});
+const db = firebase.database();
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8,
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    sources: {
+      osm: {
+        type: 'raster',
+        tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png','https://b.tile.openstreetmap.org/{z}/{x}/{y}.png','https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '© OpenStreetMap contributors'
+      }
+    },
+    layers: [{ id:'osm', type:'raster', source:'osm', paint:{'raster-fade-duration':0} }]
+  },
+  center: [4.3517, 50.8503],
+  zoom: 8,
+  maxZoom: 19,
+  attributionControl: false,
+  fadeDuration: 0
+});
+map.addControl(new maplibregl.AttributionControl({compact:true}), 'bottom-left');
+
+document.getElementById('zi').onclick = () => map.zoomIn({duration:220});
+document.getElementById('zo').onclick = () => map.zoomOut({duration:220});
+
+let allPolygons = {};
+let selected    = new Set();
+let drawing     = false;
+let drawPts     = [];
+let pending     = null;
+let sMarker     = null;
+
+// Holds the last search result's boundary geometry (Polygon or MultiPolygon)
+// and its display name — used by the "Create Zone" button.
+let lastSearchGeo  = null;
+let lastSearchName = null;
+
+map.on('load', () => {
+  map.addSource('search-hl', { type:'geojson', data:fc([]) });
+  map.addLayer({ id:'search-hl-fill', type:'fill', source:'search-hl', paint:{
+    'fill-color': '#007bff',
+    'fill-opacity': 0.12
+  }});
+  map.addLayer({ id:'search-hl-line', type:'line', source:'search-hl', paint:{
+    'line-color': '#007bff',
+    'line-width': 2.5,
+    'line-dasharray': [4, 2],
+    'line-opacity': 0.75
+  }});
+
+  map.addSource('polys', { type:'geojson', data:fc([]), generateId:true });
+  map.addLayer({ id:'poly-fill', type:'fill', source:'polys', paint:{
+    'fill-color': ['case', ['==',['get','sel'],1], '#43a047', '#d32f2f'],
+    'fill-opacity': ['case', ['==',['get','sel'],1], 0.22, 0.13]
+  }});
+  map.addLayer({ id:'poly-line', type:'line', source:'polys', paint:{
+    'line-color': ['case', ['==',['get','sel'],1], '#43a047', '#d32f2f'],
+    'line-width': ['case', ['==',['get','sel'],1], 4, 2]
+  }});
+
+  map.on('click', 'poly-fill', e => {
+    e.preventDefault();
+    const id = e.features[0].properties.id;
+    if (!id) return;
+    selected.has(id) ? selected.delete(id) : selected.add(id);
+    flushPolys(); upd();
+  });
+  map.on('mouseenter','poly-fill',() => { if(!drawing) map.getCanvas().style.cursor='pointer'; });
+  map.on('mouseleave','poly-fill',() => { map.getCanvas().style.cursor=''; });
+
+  // General map-click handler: reverse-geocode the clicked point and highlight
+  // the place's boundary. Skipped when drawing, when a saved polygon was just
+  // clicked (preventDefault above), or when search results are open.
+  map.on('click', async e => {
+    if (e.defaultPrevented) return;        // a polygon handled it
+    if (drawing) return;                    // drawing consumes clicks separately
+    if (SR.style.display === 'block') return; // search dropdown is open
+    handleMapPlaceClick(e.lngLat.lng, e.lngLat.lat);
+  });
+
+  map.addSource('pre', { type:'geojson', data:fc([]) });
+  map.addLayer({ id:'pre-fill', type:'fill',   source:'pre', filter:['==','$type','Polygon'],    paint:{'fill-color':'#7c3aed','fill-opacity':.18} });
+  map.addLayer({ id:'pre-line', type:'line',   source:'pre', filter:['==','$type','LineString'], paint:{'line-color':'#7c3aed','line-width':2,'line-dasharray':[5,3]} });
+  map.addLayer({ id:'pre-dot',  type:'circle', source:'pre', filter:['==','$type','Point'],      paint:{'circle-radius':5,'circle-color':'#7c3aed','circle-stroke-color':'#fff','circle-stroke-width':2} });
+
+  loadAll();
+  upd();
+});
+
+function flushPolys() {
+  const features = Object.values(allPolygons).map(p => ({
+    type: 'Feature',
+    properties: { id: p.id, sel: selected.has(p.id) ? 1 : 0 },
+    geometry: { type:'Polygon', coordinates: [p.coords.map(c => [c.lng, c.lat]).concat([[p.coords[0].lng, p.coords[0].lat]])] }
+  }));
+  map.getSource('polys').setData(fc(features));
+}
+
+function loadAll() {
+  allPolygons = {}; selected.clear();
+  db.ref('polygons').once('value', snap => {
+    snap.forEach(ch => {
+      const raw = ch.val();
+      const coords = Object.keys(raw).filter(k=>!isNaN(+k)).sort((a,b)=>+a-+b)
+        .map(k => ({ lat: raw[k].lat, lng: raw[k].lng }));
+      if (coords.length >= 3) allPolygons[ch.key] = { id: ch.key, fbKey: ch.key, coords };
+    });
+    flushPolys(); upd();
+  });
+}
+
+// ── Draw ──────────────────────────────────────────────────────────────────────
+const dh = document.getElementById('dh');
+
+map.on('mousemove', e => { if (drawing) renderPreview(e.lngLat.lng, e.lngLat.lat); });
+map.on('click', e => {
+  if (!drawing) return;
+  drawPts.push([e.lngLat.lng, e.lngLat.lat]);
+  renderPreview(e.lngLat.lng, e.lngLat.lat);
+  upd();
+});
+map.on('dblclick', e => { if (!drawing) return; e.preventDefault(); finishDraw(); });
+
+function renderPreview(mx, my) {
+  const f = [];
+  drawPts.forEach(p => f.push(feat('Point', p)));
+  if (drawPts.length) {
+    const ln = [...drawPts, [mx, my]];
+    f.push(feat('LineString', ln));
+    if (drawPts.length >= 2) f.push(feat('Polygon', [[...ln, drawPts[0]]]));
+  }
+  map.getSource('pre').setData(fc(f));
+}
+
+function feat(type, coords) {
+  return { type:'Feature', geometry:{ type, coordinates: coords } };
+}
+
+function startDraw() {
+  drawing=true; drawPts=[]; pending=null;
+  document.body.classList.add('drawing');
+  dh.style.display='block';
+  map.getSource('pre').setData(fc([]));
+  upd();
+}
+
+function finishDraw() {
+  if (drawPts.length < 3) { toast('Need at least 3 points'); return; }
+  drawing=false; document.body.classList.remove('drawing'); dh.style.display='none';
+  pending = drawPts.map(p => ({ lat:p[1], lng:p[0] }));
+  const ring = [...drawPts, drawPts[0]];
+  map.getSource('pre').setData(fc([feat('Polygon', [ring])]));
+  drawPts=[]; upd();
+}
+
+function cancelDraw() {
+  drawing=false; pending=null; drawPts=[];
+  document.body.classList.remove('drawing'); dh.style.display='none';
+  map.getSource('pre').setData(fc([]));
+  upd();
+}
+
+// ── Buttons ───────────────────────────────────────────────────────────────────
+document.getElementById('bdr').onclick = startDraw;
+document.getElementById('bfi').onclick = finishDraw;
+document.getElementById('bca').onclick = cancelDraw;
+
+document.getElementById('bsv').onclick = () => {
+  if (!pending) return;
+  const payload = {};
+  pending.forEach((p,i) => payload[i] = p);
+  db.ref('polygons').push(pending, err => {
+    if (!err) { toast('Saved!'); pending=null; map.getSource('pre').setData(fc([])); loadAll(); upd(); }
+  });
+};
+
+document.getElementById('bcp').onclick = () => {
+  const arr = [...selected].map(id => allPolygons[id]?.coords.map(p=>[p.lat,p.lng])).filter(Boolean);
+  copyText(fmtCoords(arr));
+};
+
+document.getElementById('bdl').onclick = () => { if (selected.size) pinOpen([...selected]); };
+
+document.getElementById('bsa').onclick = () => {
+  const all = Object.keys(allPolygons);
+  if (selected.size === all.length) { selected.clear(); }
+  else { all.forEach(k => selected.add(k)); }
+  flushPolys(); upd();
+};
+
+function sh(id,v){ document.getElementById(id).classList.toggle('on',v); }
+function upd() {
+  const hasP   = Object.keys(allPolygons).length > 0;
+  const hasSel = selected.size > 0;
+  const allSel = hasSel && selected.size === Object.keys(allPolygons).length;
+  const hasGeo = !!lastSearchGeo;
+  sh('bdr', !drawing && !pending);
+  sh('bzn', hasGeo && !drawing && !pending);          // Save Area
+  sh('bsp', selected.size === 1 && !drawing && !pending); // Split (needs exactly 1 selected)
+  sh('bfi', drawing && drawPts.length >= 3);
+  sh('bca', drawing || !!pending);
+  sh('bsv', !!pending);
+  sh('bcp', hasSel && !drawing);
+  sh('bdl', hasSel && !drawing);
+  sh('bsa', hasP && !drawing && !pending);
+  document.getElementById('bsa').innerHTML = `<span class="material-icons mi">done_all</span> ${allSel?'Unselect':'Select'} All`;
+}
+
+// ── Search highlight ──────────────────────────────────────────────────────────
+const clearHlBtn = document.getElementById('clear-search-hl');
+
+function setSearchHighlight(geojson) {
+  if (!map.getSource('search-hl')) return;
+  if (geojson) {
+    let data;
+    if (geojson.type === 'FeatureCollection') data = geojson;
+    else if (geojson.type === 'Feature')       data = fc([geojson]);
+    else                                       data = fc([{ type:'Feature', properties:{}, geometry: geojson }]);
+    map.getSource('search-hl').setData(data);
+    clearHlBtn.classList.add('on');
+  } else {
+    map.getSource('search-hl').setData(fc([]));
+    clearHlBtn.classList.remove('on');
+  }
+}
+
+clearHlBtn.onclick = () => {
+  setSearchHighlight(null);
+  lastSearchGeo = null;
+  lastSearchName = null;
+  upd();
+};
+
+// ── Search ────────────────────────────────────────────────────────────────────
+const SI=document.getElementById('si'), SR=document.getElementById('sr'), SX=document.getElementById('sx');
+let st=null;
+SI.addEventListener('input', function() {
+  const q=this.value.trim(); SX.style.display=q?'block':'none';
+  clearTimeout(st); if(!q){SR.style.display='none';return;}
+  st=setTimeout(()=>doSearch(q),300);
+});
+SX.onclick=()=>{
+  SI.value=''; SX.style.display='none'; SR.style.display='none';
+  if(sMarker){sMarker.remove();sMarker=null;}
+  setSearchHighlight(null);
+  lastSearchGeo = null; lastSearchName = null;
+  upd();
+  SI.focus();
+};
+
+async function doSearch(q) {
+  SR.innerHTML='<div class="srm">Searching…</div>'; SR.style.display='block';
+  try {
+    const d = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=6&addressdetails=1&polygon_geojson=1&q=${encodeURIComponent(q)}`,
+      {headers:{'Accept-Language':'en'}}
+    ).then(r=>r.json());
+    if (!d.length) { SR.innerHTML='<div class="srm">No results</div>'; return; }
+    SR.innerHTML='';
+    d.forEach(item => {
+      const el=document.createElement('div'); el.className='sri';
+      const ic=['city','town'].includes(item.type)?'location_city':['village','hamlet'].includes(item.type)?'holiday_village':'place';
+      el.innerHTML=`<span class="material-icons mi">${ic}</span><span>${item.display_name}</span>`;
+      el.onclick=()=>pickPlace(item); SR.appendChild(el);
+    });
+  } catch { SR.innerHTML='<div class="srm">Unavailable</div>'; }
+}
+
+function pickPlace(item) {
+  SR.style.display='none'; SI.value=item.display_name.split(',')[0];
+  if(sMarker) sMarker.remove();
+
+  // Store the geometry for "Save Area" but don't show it on the map.
+  // The user reveals boundaries by clicking on places (see map click handler below).
+  if (item.geojson && (item.geojson.type === 'Polygon' || item.geojson.type === 'MultiPolygon')) {
+    lastSearchGeo  = item.geojson;
+    lastSearchName = item.display_name.split(',')[0];
+    sMarker = null;
+  } else {
+    lastSearchGeo = null; lastSearchName = null;
+    sMarker = new maplibregl.Marker({color:'#007bff'}).setLngLat([+item.lon,+item.lat]).addTo(map);
+  }
+  setSearchHighlight(null);
+
+  if(item.boundingbox){
+    const b=item.boundingbox.map(Number);
+    map.fitBounds([[b[2],b[0]],[b[3],b[1]]],{padding:40,maxZoom:14,duration:800});
+  } else { map.flyTo({center:[+item.lon,+item.lat],zoom:13,duration:800}); }
+  upd();
+}
+
+map.on('click',()=>SR.style.display='none');
+document.addEventListener('click',e=>{ if(!document.getElementById('sc').contains(e.target)) SR.style.display='none'; });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CLICK-TO-HIGHLIGHT — reverse-geocode a clicked location and show its boundary
+// ══════════════════════════════════════════════════════════════════════════════
+// Throttle: prevent rapid double-clicks from spamming Nominatim. Nominatim's
+// usage policy asks for max 1 request/sec.
+let lastReverseClick = 0;
+
+async function handleMapPlaceClick(lng, lat) {
+  const now = Date.now();
+  if (now - lastReverseClick < 800) return;
+  lastReverseClick = now;
+
+  // Pick the smallest meaningful admin level for the current zoom:
+  //  zoom <  8 → state/country level
+  //  zoom 8-11 → city
+  //  zoom 12+  → town/village/neighborhood
+  // Nominatim's `zoom` param does roughly this for us.
+  const z = Math.round(map.getZoom());
+  const nz = Math.min(18, Math.max(3, z));
+
+  // Brief visual feedback while we wait
+  map.getCanvas().style.cursor = 'wait';
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse`
+              + `?format=json&zoom=${nz}&addressdetails=1&polygon_geojson=1`
+              + `&lat=${lat}&lon=${lng}`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    if (!res.ok) throw new Error('Nominatim ' + res.status);
+    const item = await res.json();
+    if (!item || !item.display_name) { toast('No place found here'); return; }
+
+    if (item.geojson && (item.geojson.type === 'Polygon' || item.geojson.type === 'MultiPolygon')) {
+      setSearchHighlight(item.geojson);
+      lastSearchGeo  = item.geojson;
+      lastSearchName = item.display_name.split(',')[0];
+      // Update the search input so the user sees what got highlighted
+      SI.value = lastSearchName;
+      SX.style.display = 'block';
+      toast(lastSearchName);
+      upd();
+    } else {
+      toast('No boundary available for ' + (item.display_name.split(',')[0] || 'this place'));
+    }
+  } catch (err) {
+    console.error('Reverse geocode error:', err);
+    toast('Place lookup failed');
+  } finally {
+    map.getCanvas().style.cursor = '';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STEP 1: SAVE AREA — one click, saves the search boundary as polygon(s)
+// ══════════════════════════════════════════════════════════════════════════════
+document.getElementById('bzn').onclick = async () => {
+  if (!lastSearchGeo) { toast('Search an area first'); return; }
+  const btn = document.getElementById('bzn');
+  btn.disabled = true;
+  try {
+    const rings = geometryToRings(lastSearchGeo);
+    if (!rings.length) throw new Error('No usable geometry from search');
+    const polysToSave = rings.map(simplifyRing).filter(r => r.length >= 3);
+    if (!polysToSave.length) throw new Error('Boundary too small');
+
+    let saved = 0;
+    for (const ring of polysToSave) {
+      const coords = ring.map(([lng, lat]) => ({ lat, lng }));
+      await new Promise((resolve, reject) => {
+        db.ref('polygons').push(coords, err => err ? reject(err) : resolve());
+      });
+      saved++;
+    }
+    toast(`Saved ${saved} polygon${saved>1?'s':''}!`);
+    // Clear the highlight so the button hides — user knows it worked
+    setSearchHighlight(null);
+    lastSearchGeo = null; lastSearchName = null;
+    loadAll();
+  } catch (err) {
+    console.error('Save area error:', err);
+    toast('Save failed: ' + (err.message || 'unknown'));
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STEP 2: SPLIT — fill the selected polygon with a hexagon grid
+// ══════════════════════════════════════════════════════════════════════════════
+const ZBM = document.getElementById('zb-modal');
+const ZBgo = document.getElementById('zb-go');
+const ZBcancel = document.getElementById('zb-cancel');
+const ZBgridOpt = document.getElementById('zb-grid-opt');
+const ZBgridInput = document.getElementById('zb-grid-input');
+const ZBsub = document.getElementById('zb-sub');
+
+document.getElementById('bsp').onclick = () => {
+  if (selected.size !== 1) { toast('Select exactly one polygon to split'); return; }
+  const id = [...selected][0];
+  const poly = allPolygons[id];
+  if (!poly) return;
+  ZBsub.textContent = `Filling polygon (${poly.coords.length} points) with hexagons.`;
+  ZBgridInput.value = 20; ZBgridInput.min = 2; ZBgridInput.max = 500;
+  ZBM.classList.add('on');
+};
+
+ZBcancel.onclick = () => ZBM.classList.remove('on');
+ZBM.addEventListener('click', e => { if (e.target === ZBM) ZBM.classList.remove('on'); });
+
+ZBgo.onclick = async () => {
+  if (selected.size !== 1) { ZBM.classList.remove('on'); return; }
+  const sourceId = [...selected][0];
+  const source = allPolygons[sourceId];
+  if (!source) { ZBM.classList.remove('on'); return; }
+
+  ZBgo.disabled = true; ZBgo.textContent = 'Splitting…';
+
+  try {
+    const ring = source.coords.map(c => [c.lng, c.lat]);
+    const N = Math.max(2, Math.min(500, parseInt(ZBgridInput.value, 10) || 20));
+    const subZones = buildHexZones(ring, N);
+
+    if (!subZones.length) throw new Error('Could not generate hexagons for this shape');
+
+    // Delete original
+    await db.ref('polygons/' + sourceId).remove();
+    // Save each hexagon
+    let saved = 0;
+    for (const sub of subZones) {
+      const coords = sub.map(([lng, lat]) => ({ lat, lng }));
+      await new Promise((resolve, reject) => {
+        db.ref('polygons').push(coords, err => err ? reject(err) : resolve());
+      });
+      saved++;
+    }
+    toast(`Split into ${saved} hexagon${saved>1?'s':''}!`);
+    ZBM.classList.remove('on');
+    selected.clear();
+    loadAll();
+  } catch (err) {
+    console.error('Split error:', err);
+    toast('Split failed: ' + (err.message || 'unknown'));
+  } finally {
+    ZBgo.disabled = false; ZBgo.textContent = 'Split';
+  }
+};
+
+// Extract outer rings from a GeoJSON Polygon or MultiPolygon
+function geometryToRings(geo) {
+  if (!geo) return [];
+  if (geo.type === 'Polygon')      return [geo.coordinates[0]];
+  if (geo.type === 'MultiPolygon') return geo.coordinates.map(poly => poly[0]);
+  return [];
+}
+
+// Reduce dense boundaries to a manageable number of vertices.
+// Uses simple uniform sampling — fast, no library needed.
+function simplifyRing(ring) {
+  // Remove duplicate closing point if present
+  let pts = ring.slice();
+  if (pts.length > 1 && pts[0][0] === pts[pts.length-1][0] && pts[0][1] === pts[pts.length-1][1]) {
+    pts = pts.slice(0, -1);
+  }
+  const MAX = 80; // cap vertices stored in Firebase
+  if (pts.length <= MAX) return pts;
+  const step = pts.length / MAX;
+  const out = [];
+  for (let i = 0; i < MAX; i++) out.push(pts[Math.floor(i * step)]);
+  return out;
+}
+
+// Fill the boundary with a hexagon grid sized so we get approximately N cells.
+// Uses Turf's hexGrid which generates flat-topped hexagons in lng/lat space,
+// then clips each one to the source polygon so edge hexagons follow the boundary.
+function buildHexZones(ring, N) {
+  if (typeof turf === 'undefined') throw new Error('Turf.js not loaded');
+
+  // Ensure ring is closed for Turf
+  const closed = ring[0][0] === ring[ring.length-1][0] && ring[0][1] === ring[ring.length-1][1]
+    ? ring : [...ring, ring[0]];
+
+  let poly;
+  try {
+    poly = turf.polygon([closed]);
+    poly = turf.cleanCoords(poly);
+  } catch (e) {
+    throw new Error('Invalid source polygon: ' + e.message);
+  }
+
+  const totalArea = turf.area(poly); // in m²
+  if (totalArea <= 0) throw new Error('Source polygon has no area');
+
+  // Target area per hex cell (m²). Regular hexagon: area = (3√3/2) · s²
+  // where s is the side length. So s = √(2·A / (3√3)).
+  // Turf.hexGrid takes `cellSide` in the same units as `units` option.
+  const cellArea = totalArea / N;
+  const cellSideM = Math.sqrt(2 * cellArea / (3 * Math.sqrt(3)));
+
+  // Compute bbox with a tiny padding so border hexes aren't clipped off
+  const bbox = turf.bbox(poly);
+  const padLng = (bbox[2] - bbox[0]) * 0.02;
+  const padLat = (bbox[3] - bbox[1]) * 0.02;
+  const paddedBbox = [bbox[0]-padLng, bbox[1]-padLat, bbox[2]+padLng, bbox[3]+padLat];
+
+  let grid;
+  try {
+    grid = turf.hexGrid(paddedBbox, cellSideM, { units: 'meters' });
+  } catch (e) {
+    throw new Error('Could not generate hex grid: ' + e.message);
+  }
+  if (!grid || !grid.features || !grid.features.length) {
+    throw new Error('Hex grid is empty');
+  }
+
+  // Keep only hexes that overlap the polygon, clipped to its boundary
+  const out = [];
+  for (const hex of grid.features) {
+    let clipped;
+    try {
+      clipped = turf.intersect(hex, poly);
+    } catch { continue; }
+    if (!clipped) continue;
+    const geom = clipped.geometry;
+    if (geom.type === 'Polygon') {
+      out.push(simplifyRing(geom.coordinates[0]));
+    } else if (geom.type === 'MultiPolygon') {
+      // Edge hexes can split into multiple parts on concave boundaries
+      geom.coordinates.forEach(p => out.push(simplifyRing(p[0])));
+    }
+  }
+  return out;
+}
+
+
+// ── PIN ───────────────────────────────────────────────────────────────────────
+let dq=[];
+const PB=document.getElementById('pb'),PIN=document.getElementById('pi'),PE=document.getElementById('pe');
+function pinOpen(q){ dq=q; PIN.value=''; PE.style.display='none'; PB.style.display='flex'; setTimeout(()=>PIN.focus(),80); }
+function pinClose(){ PB.style.display='none'; dq=[]; }
+document.getElementById('pca').onclick=pinClose;
+PB.onclick=e=>{ if(e.target===PB) pinClose(); };
+document.getElementById('pok').onclick=()=>{
+  if(PIN.value==='000888'){
+    Promise.all(dq.map(id=>{ delete allPolygons[id]; selected.delete(id); return db.ref('polygons/'+id).remove(); }))
+      .then(()=>{ flushPolys(); upd(); toast('Deleted!'); });
+    pinClose();
+  } else { PE.style.display='block'; PIN.value=''; PIN.focus(); }
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fc(features){ return { type:'FeatureCollection', features }; }
+function fmtCoords(arr){ return '[\n'+arr.map(p=>'  [\n'+p.map(c=>`    [${c[0]}, ${c[1]}]`).join(',\n')+'\n  ]').join(',\n')+'\n]'; }
+function copyText(s){
+  if(navigator.clipboard) navigator.clipboard.writeText(s).then(()=>toast('Copied!'),()=>toast('Failed'));
+  else{ const t=Object.assign(document.createElement('textarea'),{value:s}); document.body.appendChild(t); t.select(); try{document.execCommand('copy');toast('Copied!');}catch{} document.body.removeChild(t); }
+}
+function toast(msg){
+  const t=Object.assign(document.createElement('div'),{className:'toast',innerText:msg});
+  document.body.appendChild(t); setTimeout(()=>t.remove(),1750);
+}
+</script>
+</body>
+</html>
