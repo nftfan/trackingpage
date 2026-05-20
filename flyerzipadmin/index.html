@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlyerZip — Admin Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --bg: #f8f7f5;
+  --surface: #ffffff;
+  --ink: #1a1816;
+  --ink-muted: #5c5750;
+  --ink-light: #9b9590;
+  --line: #e8e4df;
+  --accent: #c8440e;
+  --accent-light: #fdf3ef;
+  --danger: #d12727;
+  --danger-light: #fdeded;
+  --ok: #1f9d55;
+  --ok-light: #ecfaf1;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+body { background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+
+/* ---- Header ---- */
+.admin-header {
+  background: var(--ink); color: #fff;
+  padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  position: sticky; top: 0; z-index: 50;
+}
+.admin-brand { font-family: 'Instrument Serif', serif; font-size: 28px; line-height: 1; }
+.admin-brand span { color: var(--accent); font-style: italic; }
+.admin-badge {
+  font-family: 'Outfit', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; background: var(--accent); padding: 3px 10px; border-radius: 99px; margin-left: 10px;
+  vertical-align: middle;
+}
+.header-stat { font-size: 13px; color: rgba(255,255,255,0.65); }
+.header-stat b { color: #fff; font-weight: 600; }
+
+/* ---- Toolbar ---- */
+.toolbar {
+  max-width: 1200px; margin: 24px auto 0; padding: 0 20px;
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+}
+.search-wrap { flex: 1; min-width: 220px; position: relative; }
+.search-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--ink-light); font-size: 18px; }
+.search-wrap input {
+  width: 100%; padding: 12px 16px 12px 42px; border: 1.5px solid var(--line); border-radius: 12px;
+  font-size: 15px; outline: none; background: var(--surface); font-family: inherit; transition: 0.2s;
+}
+.search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.toolbar select {
+  appearance: none; -webkit-appearance: none; background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 38px 12px 16px;
+  font-size: 14px; font-weight: 500; color: var(--ink); font-family: inherit; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%235c5750' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+}
+.toolbar select:focus { outline: none; border-color: var(--accent); }
+
+/* ---- Main ---- */
+.main { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
+
+/* ---- Table (desktop) ---- */
+.table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--ink-light); padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--bg);
+}
+tbody td { padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 14px; vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--bg); }
+
+.thumb {
+  width: 52px; height: 70px; border-radius: 8px; object-fit: cover; background: var(--bg);
+  border: 1px solid var(--line); cursor: zoom-in; display: block;
+}
+.cell-name { font-weight: 600; color: var(--ink); }
+.cell-cat { font-size: 12px; color: var(--ink-light); }
+.cell-loc { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-muted); }
+.cell-loc i { color: var(--accent); font-size: 15px; }
+.tag-count {
+  display: inline-block; background: var(--accent-light); color: var(--accent);
+  font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px;
+}
+
+.row-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.icon-btn {
+  width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 9px; border: 1.5px solid var(--line); background: var(--surface); cursor: pointer;
+  transition: 0.2s; color: var(--ink-muted); font-size: 17px;
+}
+.icon-btn:hover { border-color: var(--ink); color: var(--ink); }
+.icon-btn.del:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-light); }
+.icon-btn.edit:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+/* ---- States ---- */
+.state-box { text-align: center; padding: 70px 20px; color: var(--ink-muted); }
+.state-box i { font-size: 46px; color: var(--line); margin-bottom: 14px; display: block; }
+.state-box h3 { font-family: 'Instrument Serif', serif; font-size: 26px; color: var(--ink); margin-bottom: 6px; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; display: inline-block; }
+
+/* ---- Modal (shared) ---- */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(10,8,6,0.55);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  z-index: 200; align-items: center; justify-content: center; padding: 16px;
+}
+.modal-overlay.active { display: flex; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: var(--surface); border-radius: 20px; width: 100%; max-width: 540px;
+  max-height: 92vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(0,0,0,0.25);
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1;
+}
+.modal-head h3 { font-family: 'Instrument Serif', serif; font-size: 24px; }
+.modal-close {
+  width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface);
+  cursor: pointer; font-size: 20px; line-height: 1; color: var(--ink-muted); display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { border-color: var(--ink); color: var(--ink); }
+.modal-body { padding: 24px; }
+.modal-foot { padding: 16px 24px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ---- Form ---- */
+.field { margin-bottom: 18px; }
+.field label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-muted); margin-bottom: 6px; }
+.field input, .field textarea {
+  width: 100%; padding: 11px 14px; border: 1.5px solid var(--line); border-radius: 10px;
+  font-size: 14px; font-family: inherit; outline: none; transition: 0.2s; background: var(--bg); color: var(--ink);
+}
+.field input:focus, .field textarea:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-light); }
+.field textarea { resize: vertical; min-height: 70px; }
+.field .hint { font-size: 12px; color: var(--ink-light); margin-top: 5px; }
+.field-row { display: flex; gap: 14px; }
+.field-row .field { flex: 1; }
+.preview-img {
+  margin-top: 10px; width: 100%; max-height: 220px; object-fit: contain;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--bg); display: none;
+}
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 11px 22px; border-radius: 10px;
+  font-size: 14px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent; font-family: inherit; transition: 0.2s;
+}
+.btn-ghost { background: var(--surface); border-color: var(--line); color: var(--ink); }
+.btn-ghost:hover { border-color: var(--ink); }
+.btn-dark { background: var(--ink); color: #fff; }
+.btn-dark:hover { background: var(--accent); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #b01f1f; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---- Password gate inside delete modal ---- */
+.del-target {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px; margin-bottom: 18px;
+}
+.del-target img { width: 42px; height: 56px; border-radius: 6px; object-fit: cover; border: 1px solid var(--line); }
+.del-target .dt-name { font-weight: 600; font-size: 14px; }
+.del-target .dt-loc { font-size: 12px; color: var(--ink-muted); }
+.pw-error { color: var(--danger); font-size: 13px; margin-top: 6px; display: none; }
+
+/* ---- Toast ---- */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120%);
+  background: var(--ink); color: #fff; padding: 13px 22px; border-radius: 99px;
+  font-size: 14px; font-weight: 500; z-index: 500; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  display: flex; align-items: center; gap: 8px; transition: transform 0.35s cubic-bezier(.2,.9,.3,1);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.ok i { color: #6ee7a7; }
+.toast.err i { color: #ff9a9a; }
+
+/* ---- Image lightbox ---- */
+.img-lb { display: none; position: fixed; inset: 0; background: rgba(10,8,6,0.9); z-index: 400; align-items: center; justify-content: center; padding: 24px; }
+.img-lb.active { display: flex; }
+.img-lb img { max-width: 90%; max-height: 90vh; border-radius: 10px; }
+.img-lb-close { position: absolute; top: 20px; right: 24px; color: #fff; font-size: 34px; cursor: pointer; line-height: 1; }
+
+/* ---- Mobile cards ---- */
+.card-list { display: none; }
+@media (max-width: 768px) {
+  .table-wrap { display: none; }
+  .card-list { display: flex; flex-direction: column; gap: 12px; }
+  .m-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px; display: flex; gap: 12px;
+  }
+  .m-card img.thumb { width: 64px; height: 86px; }
+  .m-card-body { flex: 1; min-width: 0; }
+  .m-card-body .cell-name { font-size: 15px; }
+  .m-card-body .cell-cat { margin-bottom: 4px; }
+  .m-card-body .cell-loc { font-size: 13px; }
+  .m-card-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .admin-header { padding: 14px 16px; }
+  .admin-brand { font-size: 24px; }
+  .field-row { flex-direction: column; gap: 0; }
+}
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+</head>
+<body>
+
+<!-- Header -->
+<header class="admin-header">
+  <div>
+    <span class="admin-brand">Flyer<span>Zip</span></span>
+    <span class="admin-badge">Admin</span>
+  </div>
+  <div class="header-stat"><b id="statCount">0</b> listings</div>
+</header>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <i class="ti ti-search"></i>
+    <input type="text" id="searchInput" placeholder="Search by name, category, location or service…" oninput="render()">
+  </div>
+  <select id="locFilter" onchange="render()">
+    <option value="">All locations</option>
+  </select>
+  <select id="sortBy" onchange="render()">
+    <option value="newest">Newest first</option>
+    <option value="oldest">Oldest first</option>
+    <option value="name">Name A–Z</option>
+  </select>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="table-wrap" id="tableWrap">
+    <div class="state-box"><i class="ti ti-loader spin"></i><h3>Loading listings…</h3></div>
+  </div>
+  <div class="card-list" id="cardList"></div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Edit listing</h3>
+      <button class="modal-close" onclick="closeEdit()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Business name</label>
+        <input type="text" id="f_name">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Category</label>
+          <input type="text" id="f_category">
+        </div>
+        <div class="field">
+          <label>Location</label>
+          <input type="text" id="f_location">
+        </div>
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="text" id="f_phone">
+      </div>
+      <div class="field">
+        <label>Google Maps URL</label>
+        <input type="text" id="f_map">
+      </div>
+      <div class="field">
+        <label>Services & keywords</label>
+        <textarea id="f_keywords" placeholder="Comma-separated, e.g. Plumbing, Heating, Repairs"></textarea>
+        <div class="hint">Separate each service with a comma.</div>
+      </div>
+      <div class="field">
+        <label>Flyer image URL</label>
+        <input type="text" id="f_flyer" oninput="updatePreview()">
+        <img class="preview-img" id="f_preview" alt="Flyer preview">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeEdit()">Cancel</button>
+      <button class="btn btn-dark" id="saveBtn" onclick="saveEdit()"><i class="ti ti-device-floppy"></i> Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal-overlay" id="deleteOverlay">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-head">
+      <h3>Delete listing</h3>
+      <button class="modal-close" onclick="closeDelete()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="del-target" id="delTarget"></div>
+      <p style="color:var(--ink-muted);font-size:14px;margin-bottom:18px;">
+        This permanently removes the entire entry from the database. Enter the admin password to confirm.
+      </p>
+      <div class="field" style="margin-bottom:0;">
+        <label>Admin password</label>
+        <input type="password" id="delPassword" placeholder="••••••" onkeypress="if(event.key==='Enter') confirmDelete()" autocomplete="off">
+        <div class="pw-error" id="pwError"><i class="ti ti-alert-circle"></i> Incorrect password. Try again.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeDelete()">Cancel</button>
+      <button class="btn btn-danger" id="confirmDelBtn" onclick="confirmDelete()"><i class="ti ti-trash"></i> Delete permanently</button>
+    </div>
+  </div>
+</div>
+
+<!-- Image lightbox -->
+<div class="img-lb" id="imgLb" onclick="closeImgLb()">
+  <span class="img-lb-close">&times;</span>
+  <img id="imgLbImg" src="" alt="Flyer">
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"><i class="ti ti-circle-check"></i><span id="toastMsg"></span></div>
+
+<script>
+// ---- Admin password (delete confirmation) ----
+const ADMIN_PASSWORD = "000888";
+
+// ---- Firebase ----
+const firebaseConfig = {
+  apiKey: "AIzaSyBWPCkYNw7gT_T7kcwbp5laZgIHac18bvE",
+  authDomain: "expandlf.firebaseapp.com",
+  databaseURL: "https://expandlf-default-rtdb.firebaseio.com",
+  projectId: "expandlf",
+  storageBucket: "expandlf.firebasestorage.app",
+  messagingSenderId: "890066961009",
+  appId: "1:890066961009:web:3a2ed1e7c2cf797f3751d0",
+  measurementId: "G-QPRSX7ZVZ5"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const refListings = db.ref('directory/listings');
+
+let allListings = [];
+let editingId = null;
+let deletingId = null;
+
+function toTitleCase(str) {
+  return (str || '').replace(/\w\S*/g, t => t.charAt(0).toUpperCase() + t.substr(1).toLowerCase());
+}
+function esc(s) {
+  return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---- Load data (live) ----
+refListings.on('value', snapshot => {
+  const data = snapshot.val();
+  allListings = data
+    ? Object.keys(data).map(key => ({ id: key, ...data[key] }))
+    : [];
+  buildLocationFilter();
+  render();
+});
+
+function buildLocationFilter() {
+  const sel = document.getElementById('locFilter');
+  const current = sel.value;
+  const cities = new Set();
+  allListings.forEach(item => {
+    const loc = item.search_data?.location;
+    if (loc && loc.trim()) cities.add(toTitleCase(loc.trim()));
+  });
+  const sorted = Array.from(cities).sort();
+  sel.innerHTML = '<option value="">All locations</option>' +
+    sorted.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if (current && sorted.includes(current)) sel.value = current;
+}
+
+// ---- Render ----
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const loc = document.getElementById('locFilter').value;
+  const sort = document.getElementById('sortBy').value;
+
+  let rows = allListings.filter(item => {
+    const name = (item.business_info?.name || '').toLowerCase();
+    const cat = (item.search_data?.category || '').toLowerCase();
+    const l = (item.search_data?.location || '').toLowerCase();
+    const kws = (item.search_data?.services_and_keywords || []).map(k => (k||'').toLowerCase());
+    const matchQ = !q || name.includes(q) || cat.includes(q) || l.includes(q) || kws.some(k => k.includes(q));
+    const matchLoc = !loc || toTitleCase((item.search_data?.location || '').trim()) === loc;
+    return matchQ && matchLoc;
+  });
+
+  if (sort === 'newest') rows.sort((a,b) => new Date(b.timestamp||0) - new Date(a.timestamp||0));
+  else if (sort === 'oldest') rows.sort((a,b) => new Date(a.timestamp||0) - new Date(b.timestamp||0));
+  else if (sort === 'name') rows.sort((a,b) => (a.business_info?.name||'').localeCompare(b.business_info?.name||''));
+
+  return rows;
+}
+
+function render() {
+  const rows = getFiltered();
+  document.getElementById('statCount').textContent = allListings.length;
+
+  const tableWrap = document.getElementById('tableWrap');
+  const cardList = document.getElementById('cardList');
+
+  if (rows.length === 0) {
+    const empty = `<div class="state-box"><i class="ti ti-mood-empty"></i><h3>No listings found</h3><p>Try adjusting your search or filters.</p></div>`;
+    tableWrap.innerHTML = empty;
+    cardList.innerHTML = '';
+    return;
+  }
+
+  // Desktop table
+  let t = `<table><thead><tr>
+    <th style="width:64px;">Flyer</th>
+    <th>Business</th>
+    <th>Location</th>
+    <th>Services</th>
+    <th style="text-align:right;">Actions</th>
+  </tr></thead><tbody>`;
+
+  rows.forEach(item => {
+    const b = item.business_info || {};
+    const s = item.search_data || {};
+    const img = item.flyer_url || 'https://via.placeholder.com/100x140?text=No+Image';
+    const kwCount = (s.services_and_keywords || []).length;
+    t += `<tr>
+      <td><img class="thumb" src="${esc(img)}" alt="" loading="lazy" onclick="openImgLb('${esc(img)}')"></td>
+      <td><div class="cell-name">${esc(b.name || 'Untitled')}</div>${s.category ? `<div class="cell-cat">${esc(s.category)}</div>` : ''}</td>
+      <td><span class="cell-loc"><i class="ti ti-map-pin"></i> ${esc(s.location || '—')}</span></td>
+      <td>${kwCount ? `<span class="tag-count">${kwCount} service${kwCount>1?'s':''}</span>` : '<span class="cell-cat">—</span>'}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn edit" title="Edit" onclick="openEdit('${item.id}')"><i class="ti ti-edit"></i></button>
+        <button class="icon-btn del" title="Delete" onclick="openDelete('${item.id}')"><i class="ti ti-trash"></i></button>
+      </div></td>
+    </tr>`;
+  });
+  t += `</tbody></table>`;
+  tableWrap.innerHTML = t;
+
+  // Mobile cards
+  let c = '';
+  rows.forEach(item => {
+    const b = item.business_info || {};
+    const s = item.search_data || {};
+    const img = item.flyer_url || 'https://via.placeholder.com/100x140?text=No+Image';
+    c += `<div class="m-card">
+      <img class="thumb" src="${esc(img)}" alt="" loading="lazy" onclick="openImgLb('${esc(img)}')">
+      <div class="m-card-body">
+        <div class="cell-name">${esc(b.name || 'Untitled')}</div>
+        ${s.category ? `<div class="cell-cat">${esc(s.category)}</div>` : ''}
+        <div class="cell-loc"><i class="ti ti-map-pin"></i> ${esc(s.location || '—')}</div>
+        <div class="m-card-actions">
+          <button class="icon-btn edit" onclick="openEdit('${item.id}')"><i class="ti ti-edit"></i></button>
+          <button class="icon-btn del" onclick="openDelete('${item.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+    </div>`;
+  });
+  cardList.innerHTML = c;
+}
+
+// ---- Edit ----
+function openEdit(id) {
+  const item = allListings.find(x => x.id === id);
+  if (!item) return;
+  editingId = id;
+  const b = item.business_info || {};
+  const s = item.search_data || {};
+
+  document.getElementById('f_name').value = b.name || '';
+  document.getElementById('f_phone').value = b.phone || '';
+  document.getElementById('f_category').value = s.category || '';
+  document.getElementById('f_location').value = s.location || '';
+  document.getElementById('f_map').value = s.google_map_url || '';
+  document.getElementById('f_keywords').value = (s.services_and_keywords || []).join(', ');
+  document.getElementById('f_flyer').value = item.flyer_url || '';
+  updatePreview();
+
+  document.getElementById('editOverlay').classList.add('active');
+}
+
+function updatePreview() {
+  const url = document.getElementById('f_flyer').value.trim();
+  const img = document.getElementById('f_preview');
+  if (url) { img.src = url; img.style.display = 'block'; }
+  else { img.style.display = 'none'; }
+}
+
+function saveEdit() {
+  if (!editingId) return;
+  const item = allListings.find(x => x.id === editingId) || {};
+  const existingBiz = item.business_info || {};
+  const existingSearch = item.search_data || {};
+
+  const keywords = document.getElementById('f_keywords').value
+    .split(',').map(k => k.trim()).filter(Boolean);
+
+  const updated = {
+    ...item,
+    business_info: {
+      ...existingBiz,
+      name: document.getElementById('f_name').value.trim(),
+      phone: document.getElementById('f_phone').value.trim()
+    },
+    search_data: {
+      ...existingSearch,
+      category: document.getElementById('f_category').value.trim(),
+      location: document.getElementById('f_location').value.trim(),
+      google_map_url: document.getElementById('f_map').value.trim(),
+      services_and_keywords: keywords
+    },
+    flyer_url: document.getElementById('f_flyer').value.trim()
+  };
+  delete updated.id; // don't store the key inside the record
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader spin"></i> Saving…';
+
+  refListings.child(editingId).set(updated)
+    .then(() => {
+      closeEdit();
+      showToast('Listing updated', true);
+    })
+    .catch(err => {
+      showToast('Save failed: ' + err.message, false);
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-device-floppy"></i> Save changes';
+    });
+}
+
+function closeEdit() {
+  document.getElementById('editOverlay').classList.remove('active');
+  editingId = null;
+}
+
+// ---- Delete (password protected) ----
+function openDelete(id) {
+  const item = allListings.find(x => x.id === id);
+  if (!item) return;
+  deletingId = id;
+  const b = item.business_info || {};
+  const s = item.search_data || {};
+  const img = item.flyer_url || 'https://via.placeholder.com/100x140?text=No+Image';
+
+  document.getElementById('delTarget').innerHTML = `
+    <img src="${esc(img)}" alt="">
+    <div>
+      <div class="dt-name">${esc(b.name || 'Untitled')}</div>
+      <div class="dt-loc">${esc(s.location || '—')}</div>
+    </div>`;
+
+  document.getElementById('delPassword').value = '';
+  document.getElementById('pwError').style.display = 'none';
+  document.getElementById('deleteOverlay').classList.add('active');
+  setTimeout(() => document.getElementById('delPassword').focus(), 100);
+}
+
+function confirmDelete() {
+  if (!deletingId) return;
+  const pw = document.getElementById('delPassword').value;
+
+  if (pw !== ADMIN_PASSWORD) {
+    document.getElementById('pwError').style.display = 'block';
+    document.getElementById('delPassword').value = '';
+    document.getElementById('delPassword').focus();
+    return;
+  }
+
+  const btn = document.getElementById('confirmDelBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader spin"></i> Deleting…';
+
+  refListings.child(deletingId).remove()
+    .then(() => {
+      closeDelete();
+      showToast('Listing deleted permanently', true);
+    })
+    .catch(err => {
+      showToast('Delete failed: ' + err.message, false);
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-trash"></i> Delete permanently';
+    });
+}
+
+function closeDelete() {
+  document.getElementById('deleteOverlay').classList.remove('active');
+  deletingId = null;
+}
+
+// ---- Image lightbox ----
+function openImgLb(url) {
+  document.getElementById('imgLbImg').src = url;
+  document.getElementById('imgLb').classList.add('active');
+}
+function closeImgLb() {
+  document.getElementById('imgLb').classList.remove('active');
+}
+
+// ---- Toast ----
+let toastTimer;
+function showToast(msg, ok) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  t.className = 'toast show ' + (ok ? 'ok' : 'err');
+  t.querySelector('i').className = ok ? 'ti ti-circle-check' : 'ti ti-alert-triangle';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ---- Keyboard ----
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeEdit(); closeDelete(); closeImgLb();
+  }
+});
+
+// ---- Close modals on overlay click ----
+document.getElementById('editOverlay').addEventListener('click', e => {
+  if (e.target.id === 'editOverlay') closeEdit();
+});
+document.getElementById('deleteOverlay').addEventListener('click', e => {
+  if (e.target.id === 'deleteOverlay') closeDelete();
+});
+</script>
+</body>
+</html>
