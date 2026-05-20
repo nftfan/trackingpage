@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -243,30 +244,27 @@ body { background: var(--bg); color: var(--ink); line-height: 1.5; display: flex
 
 /* Panes */
 .lb-pane { display: none; }
-.lb-pane.active { display: flex; flex: 1; min-height: 0; }
+.lb-pane.active { display: block; }
 
-/* Flyer pane: center the image, contain it within available space */
+/* Flyer pane: full image visible, scrolls if taller than viewport */
 #pane-flyer {
-  align-items: center;
-  justify-content: center;
   padding: 8px;
   background: #111;
+  text-align: center;
+  line-height: 0;
 }
 #pane-flyer img {
   display: block;
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
+  width: 100%;
   height: auto;
-  object-fit: contain;
+  max-width: 100%;
   border-radius: 6px;
+  margin: 0 auto;
 }
 
 #pane-services {
   padding: 18px;
   background: #111;
-  flex-direction: column;
-  overflow-y: auto;
 }
 #pane-services h4 {
   font-family: 'Instrument Serif', serif;
@@ -302,6 +300,25 @@ body { background: var(--bg); color: var(--ink); line-height: 1.5; display: flex
 .lb-nav-btn:disabled { opacity: 0.28; cursor: not-allowed; }
 .lb-nav-counter { font-size: 12px; color: rgba(255,255,255,0.4); font-weight: 500; }
 
+.lb-nav-center {
+  display: flex; align-items: center; gap: 10px;
+}
+.lb-download-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: 0.2s;
+  font-family: inherit;
+}
+.lb-download-btn:hover { background: #a8370a; transform: scale(1.05); }
+.lb-download-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.lb-download-btn i { font-size: 17px; }
+.lb-download-btn.is-loading i { animation: spin 1s linear infinite; }
+
 /* ---- Footer ---- */
 .footer { text-align: center; padding: 20px; border-top: 1px solid var(--line); background: var(--surface); color: var(--ink-light); font-size: 13px; margin-top: auto; }
 
@@ -334,6 +351,8 @@ body { background: var(--bg); color: var(--ink); line-height: 1.5; display: flex
   .lb-close { width: 30px; height: 30px; font-size: 17px; }
   .lb-nav { padding: 6px 10px; }
   .lb-nav-btn { padding: 6px 12px; font-size: 12px; }
+  .lb-download-btn { width: 32px; height: 32px; }
+  .lb-download-btn i { font-size: 16px; }
   #pane-flyer { padding: 6px; }
   #pane-services { padding: 14px; }
 }
@@ -448,7 +467,12 @@ body { background: var(--bg); color: var(--ink); line-height: 1.5; display: flex
       <button class="lb-nav-btn" id="lb-prev" onclick="lbNavigate(-1)">
         <i class="ti ti-arrow-left"></i> Prev
       </button>
-      <span class="lb-nav-counter" id="lb-counter">1 / 1</span>
+      <div class="lb-nav-center">
+        <span class="lb-nav-counter" id="lb-counter">1 / 1</span>
+        <button class="lb-download-btn" id="lb-download" onclick="downloadFlyer()" title="Save flyer">
+          <i class="ti ti-download"></i>
+        </button>
+      </div>
       <button class="lb-nav-btn" id="lb-next" onclick="lbNavigate(1)">
         Next <i class="ti ti-arrow-right"></i>
       </button>
@@ -714,6 +738,79 @@ function lbNavigate(dir) {
   if (next < 0 || next >= visibleCount) return;
   lbIndex = next;
   renderLightboxItem();
+}
+
+// ---- Download / save flyer to device ----
+async function downloadFlyer() {
+  const item = currentFiltered[lbIndex];
+  if (!item || !item.flyer_url) return;
+
+  const btn = document.getElementById('lb-download');
+  const icon = btn.querySelector('i');
+  const originalIconClass = icon.className;
+
+  // Show loading state
+  btn.classList.add('is-loading');
+  icon.className = 'ti ti-loader-2';
+  btn.disabled = true;
+
+  try {
+    // Fetch image as blob
+    const response = await fetch(item.flyer_url, { mode: 'cors' });
+    if (!response.ok) throw new Error('Fetch failed');
+    const blob = await response.blob();
+
+    // Build filename
+    const bizName = (item.business_info?.name || 'flyer').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    const filename = `${bizName}_flyer.${ext}`;
+
+    // Try Web Share API first (lets mobile users save to gallery / share elsewhere)
+    if (navigator.canShare) {
+      const file = new File([blob], filename, { type: blob.type });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: item.business_info?.name || 'Flyer' });
+          showDownloadSuccess(btn, icon, originalIconClass);
+          return;
+        } catch (shareErr) {
+          // User cancelled share — fall through to download
+          if (shareErr.name === 'AbortError') {
+            restoreDownloadBtn(btn, icon, originalIconClass);
+            return;
+          }
+        }
+      }
+    }
+
+    // Fallback: trigger a normal download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    showDownloadSuccess(btn, icon, originalIconClass);
+  } catch (err) {
+    // CORS or network failure — open the image in a new tab so user can long-press / right-click to save
+    window.open(item.flyer_url, '_blank', 'noopener');
+    restoreDownloadBtn(btn, icon, originalIconClass);
+  }
+}
+
+function showDownloadSuccess(btn, icon, originalIconClass) {
+  btn.classList.remove('is-loading');
+  icon.className = 'ti ti-check';
+  setTimeout(() => restoreDownloadBtn(btn, icon, originalIconClass), 1500);
+}
+
+function restoreDownloadBtn(btn, icon, originalIconClass) {
+  btn.classList.remove('is-loading');
+  icon.className = originalIconClass;
+  btn.disabled = false;
 }
 
 function closeLightbox() {
