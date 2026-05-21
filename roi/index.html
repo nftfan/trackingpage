@@ -1,0 +1,748 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>ROI Calculator — LeuvenFlyers</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+  <style>
+/* ============================================================
+   CSS VARIABLES
+============================================================ */
+:root {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --border: #e2e5eb;
+  --primary: #1a56db;
+  --primary-strong: #1446b5;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+}
+
+/* ============================================================
+   RESET & BASE
+============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Inter', 'Roboto', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+  padding-top: 60px;
+  font-size: 14px;
+  overflow-x: hidden;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+
+/* ============================================================
+   LAYOUT
+============================================================ */
+.page-wrap { padding: 0 clamp(12px, 4vw, 90px); }
+.container {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  border: 0.5px solid var(--border);
+  margin: 18px 0 30px;
+}
+
+/* ============================================================
+   HEADER
+============================================================ */
+.header-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px clamp(12px, 4vw, 90px);
+  background: #0e9afe;
+  gap: 8px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.2);
+  min-height: 60px;
+}
+.brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.logo-wrapper {
+  display: grid; place-items: center;
+  width: 36px; height: 36px;
+  background: #e8f0fe;
+  border-radius: 8px;
+  border: 0.5px solid #c5d5f8;
+  flex-shrink: 0;
+}
+.logo-wrapper img { width: 22px; height: 22px; object-fit: contain; }
+.brand-titlee { display: flex; flex-direction: column; line-height: 1.2; }
+.brand-titlee strong { font-size: clamp(0.9rem, 3vw, 1.2rem); color: #fff; white-space: nowrap; }
+.brand-titlee span { font-size: clamp(0.65rem, 2vw, 0.88rem); color: rgba(255,255,255,0.85); font-weight: 500; white-space: nowrap; }
+
+/* ============================================================
+   SLIM TITLE BAR
+============================================================ */
+.roi-titlebar {
+  text-align: center;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
+  padding: clamp(20px, 4vw, 32px) clamp(14px, 4vw, 32px);
+  border-bottom: 0.5px solid var(--border);
+}
+.roi-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: 6px;
+  background: #e8f0fe; color: #1e3a8a; font-weight: 600;
+  font-size: clamp(0.72rem, 2vw, 0.88rem); border: 0.5px solid #c5d5f8;
+}
+.roi-badge .material-icons { font-size: 16px; }
+.roi-titlebar h1 {
+  font-size: clamp(20px, 4vw, 32px);
+  margin: 10px 0 6px; line-height: 1.22; font-weight: 800;
+}
+.roi-titlebar h1 span { color: var(--primary); }
+.roi-titlebar p {
+  color: var(--text-secondary);
+  font-size: clamp(0.84rem, 2.2vw, 1rem);
+  max-width: 540px; margin: 0 auto;
+}
+@keyframes floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+/* ============================================================
+   SIMPLE INFO BULLETS
+============================================================ */
+.info-section {
+  background: #fff;
+  padding: clamp(20px, 4vw, 32px) clamp(14px, 4vw, 32px);
+  border-top: 0.5px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(16px, 3vw, 28px);
+}
+.info-block h3 {
+  font-size: clamp(0.95rem, 2.4vw, 1.12rem); font-weight: 700;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.info-block h3 .material-icons-round { color: var(--primary); font-size: 21px; }
+.info-block ul { margin: 0; padding-left: 20px; }
+.info-block li {
+  font-size: clamp(0.8rem, 2vw, 0.92rem);
+  color: var(--text-secondary); margin-bottom: 7px; line-height: 1.5;
+}
+.info-fact {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(120deg, #1a56db 0%, #0e9afe 100%);
+  color: #fff; border-radius: 12px; padding: 14px 18px;
+  font-size: clamp(0.82rem, 2.1vw, 0.98rem); margin: 4px 0 0;
+}
+.info-fact .material-icons-round { font-size: 22px; flex-shrink: 0; }
+
+/* ============================================================
+   CALCULATOR
+============================================================ */
+.calc-section {
+  background: #fff;
+  padding: clamp(18px, 4vw, 30px) clamp(14px, 4vw, 32px);
+}
+.calc-title {
+  font-size: clamp(17px, 4vw, 24px); font-weight: 800; text-align: center; margin-bottom: 4px;
+}
+.calc-sub {
+  text-align: center; color: var(--text-secondary);
+  font-size: clamp(0.8rem, 2vw, 0.95rem); margin-bottom: 22px;
+}
+
+.calc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.calc-block {
+  background: #f8f9fb;
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: clamp(14px, 3vw, 20px);
+}
+.block-title {
+  font-size: clamp(0.85rem, 2.3vw, 1.02rem);
+  font-weight: 700; color: var(--primary);
+  display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+  padding-bottom: 10px; border-bottom: 0.5px solid var(--border);
+}
+.block-title .material-icons-round { font-size: 19px; }
+
+.field { margin-bottom: 15px; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 600; font-size: clamp(0.78rem, 2vw, 0.9rem); margin-bottom: 4px;
+}
+.field .hint {
+  font-size: clamp(0.68rem, 1.8vw, 0.8rem);
+  color: var(--text-secondary); margin: 0 0 7px; line-height: 1.45;
+}
+.input-wrap { position: relative; }
+.input-wrap .prefix {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-secondary); font-weight: 700; font-size: 0.95rem; pointer-events: none;
+}
+.input-wrap.has-prefix input { padding-left: 28px; }
+.input-wrap .suffix {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-secondary); font-weight: 700; font-size: 0.9rem; pointer-events: none;
+}
+/* Euro shown on the RIGHT side */
+.input-wrap.has-euro input { padding-right: 34px; }
+.input-wrap .euro-suffix {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--primary); font-weight: 800; font-size: 1.05rem; pointer-events: none; line-height: 1;
+}
+.field input[type="number"] {
+  width: 100%;
+  background: #fff;
+  border: 0.5px solid var(--border);
+  border-radius: 9px;
+  padding: 11px 12px;
+  font-size: clamp(0.9rem, 2.2vw, 1rem);
+  font-family: inherit; font-weight: 600; color: var(--text-primary);
+  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field input[type="number"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,0.12); }
+.field input::-webkit-outer-spin-button,
+.field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.field input[type=number] { -moz-appearance: textfield; }
+
+.auto-note {
+  display: none;
+  margin-top: 7px;
+  font-size: clamp(0.7rem, 1.9vw, 0.82rem);
+  color: #1e3a8a; background: #e8f0fe;
+  border: 0.5px solid #c5d5f8; border-radius: 7px;
+  padding: 7px 10px; align-items: center; gap: 6px;
+}
+.auto-note.show { display: flex; }
+.auto-note .material-icons-round { font-size: 16px; }
+
+.calc-btn {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  background: var(--primary);
+  color: #fff; border: none;
+  padding: 14px 18px; border-radius: 10px;
+  font-weight: 700; font-size: clamp(0.92rem, 2.2vw, 1.05rem);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.calc-btn:hover { background: var(--primary-strong); }
+.calc-btn:active { transform: scale(0.99); }
+.calc-btn .material-icons-round { font-size: 20px; }
+
+/* ============================================================
+   RESULTS
+============================================================ */
+.results {
+  margin-top: 22px;
+  display: none;
+  animation: fadeUp 0.5s ease;
+}
+.results.show { display: block; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+.roi-headline {
+  background: linear-gradient(120deg, #1a56db 0%, #0e9afe 100%);
+  color: #fff; border-radius: 14px;
+  padding: clamp(18px, 4vw, 26px);
+  display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
+  margin-bottom: 16px;
+}
+.roi-headline .label { font-size: clamp(0.8rem, 2vw, 0.95rem); opacity: 0.92; display: flex; align-items: center; gap: 7px; }
+.roi-headline .big { font-size: clamp(30px, 9vw, 54px); font-weight: 900; line-height: 1.05; margin-top: 4px; }
+.roi-headline .roi-gauge svg { width: clamp(90px, 22vw, 130px); height: auto; }
+
+/* Live conversion slider card */
+.conv-slider-card {
+  background: #f8f9fb;
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 16px clamp(14px, 3vw, 20px);
+  margin-bottom: 16px;
+}
+.csc-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.csc-title {
+  font-weight: 700; font-size: clamp(0.85rem, 2.2vw, 1rem);
+  color: var(--primary); display: flex; align-items: center; gap: 7px;
+}
+.csc-title .material-icons-round { font-size: 19px; }
+.csc-val { font-weight: 800; font-size: clamp(1rem, 2.6vw, 1.25rem); color: var(--text-primary); }
+.csc-per { font-weight: 600; font-size: clamp(0.7rem, 1.9vw, 0.82rem); color: var(--text-secondary); }
+.conv-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 7px; border-radius: 999px;
+  background: linear-gradient(90deg, #1a56db var(--fill, 23%), #e2e5eb var(--fill, 23%));
+  outline: none; cursor: pointer; margin: 4px 0;
+}
+.conv-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--primary); border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #c5d5f8, 0 2px 6px rgba(0,0,0,0.2); cursor: pointer;
+}
+.conv-slider::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--primary); border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #c5d5f8; cursor: pointer;
+}
+.csc-scale {
+  display: flex; justify-content: space-between;
+  font-size: clamp(0.66rem, 1.8vw, 0.78rem); color: var(--text-secondary);
+  font-weight: 600; margin-top: 2px;
+}
+.csc-hint { font-size: clamp(0.7rem, 1.9vw, 0.82rem); color: var(--text-secondary); margin: 8px 0 0; }
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.res-card {
+  background: #fff; border: 0.5px solid var(--border);
+  border-radius: 11px; padding: 15px;
+}
+.res-card .rc-top { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: clamp(0.72rem, 1.9vw, 0.85rem); font-weight: 600; }
+.res-card .rc-top .material-icons-round { font-size: 17px; }
+.res-card .rc-val { font-size: clamp(18px, 4.5vw, 26px); font-weight: 800; margin-top: 5px; }
+.res-card.green .rc-val { color: #15803d; }
+.res-card.red .rc-val { color: #b91c1c; }
+.res-card.blue .rc-val { color: var(--primary); }
+.res-card.purple .rc-val { color: #6d28d9; }
+
+.results-note {
+  margin-top: 14px; font-size: clamp(0.72rem, 1.9vw, 0.85rem);
+  color: var(--text-secondary); background: #f8f9fb;
+  border: 0.5px solid var(--border); border-radius: 9px; padding: 12px 14px;
+  display: flex; gap: 9px;
+}
+.results-note .material-icons-round { color: var(--primary); font-size: 18px; flex-shrink: 0; }
+
+/* ============================================================
+   FOOTER
+============================================================ */
+.roi-footer {
+  background: #0e9afe; color: #fff;
+  text-align: center; padding: 22px 16px;
+  font-size: clamp(0.75rem, 2vw, 0.9rem);
+}
+.roi-footer a { color: #fff; font-weight: 700; text-decoration: underline; }
+
+/* ============================================================
+   REVEAL
+============================================================ */
+.reveal { opacity: 0; transform: translateY(10px); transition: opacity 0.5s ease, transform 0.5s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* ============================================================
+   MOBILE
+============================================================ */
+@media (max-width: 768px) {
+  body { padding-top: 60px; font-size: 13px; }
+  .calc-grid { grid-template-columns: 1fr; }
+  .info-section { grid-template-columns: 1fr; }
+  .roi-headline { grid-template-columns: 1fr; text-align: center; }
+  .roi-headline .roi-gauge { display: flex; justify-content: center; }
+  .roi-headline .label { justify-content: center; }
+}
+  </style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <!-- HEADER -->
+  <header class="header-bar reveal">
+    <div class="brand">
+      <span class="logo-wrapper">
+        <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png" alt="Logo" />
+      </span>
+      <span class="brand-titlee">
+        <strong>LeuvenFlyers</strong>
+        <span>Your Flyer Everywhere.</span>
+      </span>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- SLIM TITLE -->
+    <section class="roi-titlebar reveal">
+      <span class="roi-badge"><span class="material-icons">trending_up</span> All figures in euros (€)</span>
+      <h1>Flyer Campaign <span>ROI Calculator</span></h1>
+      <p>Enter your numbers below to see exactly what your leaflet campaign returns.</p>
+    </section>
+
+    <!-- CALCULATOR -->
+    <section class="calc-section reveal">
+      <h2 class="calc-title">Calculate Your Campaign ROI</h2>
+      <p class="calc-sub">Fill in the fields below. Hints explain each term.</p>
+
+      <div class="calc-grid">
+
+        <!-- COSTS -->
+        <div class="calc-block">
+          <div class="block-title"><span class="material-icons-round">payments</span> Campaign Costs</div>
+
+          <div class="field">
+            <label><span class="material-icons-round" style="font-size:16px;color:var(--primary)">local_shipping</span> Total Distribution Cost</label>
+            <p class="hint">What you pay to have the flyers physically delivered to homes/streets.</p>
+            <div class="input-wrap has-euro">
+                <input type="number" id="distCost" min="0" step="1" placeholder="0" value="0">
+                <span class="euro-suffix">€</span>
+              </div>
+          </div>
+
+          <div class="field">
+            <label><span class="material-icons-round" style="font-size:16px;color:var(--primary)">print</span> Total Print Cost</label>
+            <p class="hint">The cost of printing all your flyers (paper + printing).</p>
+            <div class="input-wrap has-euro">
+                <input type="number" id="printCost" min="0" step="1" placeholder="0" value="0">
+                <span class="euro-suffix">€</span>
+              </div>
+          </div>
+
+          <div class="field">
+            <label><span class="material-icons-round" style="font-size:16px;color:var(--primary)">brush</span> Total Artwork / Design Cost</label>
+            <p class="hint">One-off cost of designing the flyer artwork (logo, layout, graphics).</p>
+            <div class="input-wrap has-euro">
+                <input type="number" id="artCost" min="0" step="1" placeholder="0" value="0">
+                <span class="euro-suffix">€</span>
+              </div>
+          </div>
+        </div>
+
+        <!-- DISTRIBUTION -->
+        <div class="calc-block">
+          <div class="block-title"><span class="material-icons-round">groups</span> Distribution &amp; Customers</div>
+
+          <div class="field">
+            <label><span class="material-icons-round" style="font-size:16px;color:var(--primary)">description</span> Total Leaflets to be Delivered</label>
+            <p class="hint">How many flyers will be distributed in total during the campaign.</p>
+            <div class="input-wrap">
+              <input type="number" id="leaflets" min="0" step="100" placeholder="0" value="0">
+            </div>
+            <div class="auto-note" id="convNote">
+              <span class="material-icons-round">auto_fix_high</span>
+              <span id="convNoteText"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label><span class="material-icons-round" style="font-size:16px;color:var(--primary)">how_to_reg</span> Estimated Customers per 1,000 Flyers</label>
+            <p class="hint">How many new customers you expect for every 1,000 flyers delivered. Most businesses see between <strong>1 and 20</strong>.</p>
+            <div class="input-wrap">
+              <input type="number" id="perK" min="0" max="1000" step="1" placeholder="0" value="7">
+              <span class="suffix">/ 1,000</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- INCOME -->
+        <div class="calc-block" style="grid-column:1 / -1;">
+          <div class="block-title"><span class="material-icons-round">euro</span> Income Details</div>
+          <div class="calc-grid" style="gap:15px;">
+            <div class="field" style="margin-bottom:0;">
+              <label><span class="material-icons-round" style="font-size:16px;color:var(--primary)">shopping_cart</span> Average Customer Spend</label>
+              <p class="hint">What a customer pays you on their first visit, on average (the full price they pay — not profit).</p>
+              <div class="input-wrap has-euro">
+                <input type="number" id="spend" min="0" step="1" placeholder="0" value="0">
+                <span class="euro-suffix">€</span>
+              </div>
+            </div>
+            <div class="field" style="margin-bottom:0;">
+              <label><span class="material-icons-round" style="font-size:16px;color:var(--primary)">loyalty</span> Extra Lifetime Spend</label>
+              <p class="hint">All the extra a customer pays you through repeat visits over time (e.g. €15 × 12 months = €180).</p>
+              <div class="input-wrap has-euro">
+                <input type="number" id="ltv" min="0" step="1" placeholder="0" value="0">
+                <span class="euro-suffix">€</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="field" style="margin:15px 0 0;">
+            <label><span class="material-icons-round" style="font-size:16px;color:var(--primary)">percent</span> Your Profit Margin</label>
+            <p class="hint">Out of every €100 a customer pays, how much do you actually <strong>keep</strong> after your costs (food, stock, staff)? A burger restaurant is often around 30–45%.</p>
+            <div class="input-wrap">
+              <input type="number" id="margin" min="0" max="100" step="1" placeholder="40" value="40">
+              <span class="suffix">%</span>
+            </div>
+            <div class="auto-note show" id="marginNote" style="background:#f0fdf4;border-color:#bbf7d0;color:#15803d;">
+              <span class="material-icons-round">savings</span>
+              <span id="marginNoteText"></span>
+            </div>
+          </div>
+        </div>
+
+        <button class="calc-btn" id="calcBtn"><span class="material-icons-round">calculate</span> Calculate ROI</button>
+      </div>
+
+      <!-- RESULTS -->
+      <div class="results" id="results">
+        <div class="roi-headline">
+          <div>
+            <div class="label"><span class="material-icons-round">trending_up</span> Return on Investment</div>
+            <div class="big" id="roiPct">0%</div>
+            <div id="roiVerdict" style="font-size:clamp(0.8rem,2vw,0.95rem);opacity:0.92;margin-top:4px;"></div>
+          </div>
+          <div class="roi-gauge">
+            <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="12"/>
+              <circle id="gaugeArc" cx="60" cy="60" r="50" fill="none" stroke="#ffffff" stroke-width="12"
+                      stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314"
+                      transform="rotate(-90 60 60)"/>
+              <text x="60" y="66" text-anchor="middle" font-size="22" font-weight="900" fill="#fff" id="gaugeLabel">€</text>
+            </svg>
+          </div>
+        </div>
+
+        <!-- LIVE CUSTOMERS-PER-1000 SLIDER -->
+        <div class="conv-slider-card">
+          <div class="csc-head">
+            <div class="csc-title"><span class="material-icons-round">tune</span> Adjust Customers per 1,000 Flyers</div>
+            <div class="csc-val"><span id="sliderRate">0</span> <span class="csc-per">per 1,000</span></div>
+          </div>
+          <input type="range" class="conv-slider" id="convSlider" min="0" max="30" step="1" value="0">
+          <div class="csc-scale"><span>0</span><span>15</span><span>30</span></div>
+          <p class="csc-hint">Drag to see how your customers, revenue and ROI change in real time.</p>
+        </div>
+
+        <div class="results-grid">
+          <div class="res-card blue">
+            <div class="rc-top"><span class="material-icons-round">person_add</span> New Customers</div>
+            <div class="rc-val" id="resCustomers">0</div>
+          </div>
+          <div class="res-card red">
+            <div class="rc-top"><span class="material-icons-round">remove_circle_outline</span> Total Investment</div>
+            <div class="rc-val" id="resCost">€0</div>
+          </div>
+          <div class="res-card purple">
+            <div class="rc-top"><span class="material-icons-round">account_balance_wallet</span> Total Revenue (paid to you)</div>
+            <div class="rc-val" id="resRevenue">€0</div>
+          </div>
+          <div class="res-card green">
+            <div class="rc-top"><span class="material-icons-round">savings</span> Net Profit (after margin)</div>
+            <div class="rc-val" id="resProfit">€0</div>
+          </div>
+          <div class="res-card blue">
+            <div class="rc-top"><span class="material-icons-round">price_check</span> Cost Per Customer</div>
+            <div class="rc-val" id="resCPC">€0</div>
+          </div>
+          <div class="res-card green">
+            <div class="rc-top"><span class="material-icons-round">currency_exchange</span> Profit per €1 Spent</div>
+            <div class="rc-val" id="resPerEuro">€0</div>
+          </div>
+        </div>
+
+        <div class="results-note">
+          <span class="material-icons-round">info</span>
+          <span><strong>Revenue</strong> is what customers pay you. <strong>Net profit</strong> applies your profit margin and subtracts the campaign cost — that's the money you actually keep. ROI is based on net profit.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SIMPLE INFO BULLETS -->
+    <section class="info-section reveal">
+      <div class="info-block">
+        <h3><span class="material-icons-round">tips_and_updates</span> What affects your results</h3>
+        <ul>
+          <li>Flyer design — a clean, eye-catching layout gets noticed and kept.</li>
+          <li>Print quality — good paper signals a serious, trustworthy business.</li>
+          <li>The offer — a clear deal or discount with a deadline drives responses.</li>
+          <li>Target area — delivering near your business lifts results a lot.</li>
+          <li>Business type — food, retail and local services convert best.</li>
+          <li>Timing & frequency — repeated drops build recognition and trust.</li>
+        </ul>
+      </div>
+
+      <div class="info-block">
+        <h3><span class="material-icons-round">redeem</span> What you also get</h3>
+        <ul>
+          <li>Brand visibility — your name lands directly in local homes and hands.</li>
+          <li>Long-term trust — physical flyers feel real and credible.</li>
+          <li>Local market presence — you own your neighbourhood.</li>
+          <li>No ad-blockers — a flyer can't be skipped or scrolled past.</li>
+          <li>Word-of-mouth — memorable flyers get shared and talked about.</li>
+          <li>Repeat customers — many first-time buyers come back for years.</li>
+          <li>GPS-tracked transparency — see exactly where flyers were delivered.</li>
+        </ul>
+      </div>
+
+      <p class="info-fact"><span class="material-icons-round">insights</span> With LeuvenFlyers GPS-tracked distribution, many businesses get <strong>1 to 20 new customers per 1,000 flyers</strong> delivered.</p>
+    </section>
+
+    <!-- FOOTER -->
+    <div class="roi-footer">
+      © <span id="year"></span> LeuvenFlyers — Your Flyer Everywhere. &nbsp;|&nbsp;
+      <a href="http://www.leuvenflyers.com/costcal/" target="_blank">Estimate your campaign cost →</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  /* ---------- Reveal on scroll ---------- */
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  /* ---------- Formatting helpers ---------- */
+  const euro = (n) => '€' + Math.round(n).toLocaleString('en-US');
+  const euro2 = (n) => '€' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  function animateNumber(el, to, fmt, dur = 700) {
+    const from = parseFloat((el.dataset.val || '0')); 
+    const start = performance.now();
+    function tick(now) {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const val = from + (to - from) * eased;
+      el.textContent = fmt(val);
+      if (p < 1) requestAnimationFrame(tick);
+      else el.dataset.val = to;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  /* ---------- Live customer preview ---------- */
+  const leafletsEl = document.getElementById('leaflets');
+  const perKEl = document.getElementById('perK');
+  const convNote = document.getElementById('convNote');
+  const convNoteText = document.getElementById('convNoteText');
+
+  function updateCustomerPreview() {
+    const leaflets = parseFloat(leafletsEl.value) || 0;
+    const perK = parseFloat(perKEl.value) || 0;
+    if (leaflets <= 0 || perK <= 0) { convNote.classList.remove('show'); return; }
+    const customers = Math.round(leaflets * perK / 1000);
+    convNoteText.textContent = `${leaflets.toLocaleString('en-US')} flyers × ${perK} per 1,000 ≈ ${customers.toLocaleString('en-US')} new customers.`;
+    convNote.classList.add('show');
+  }
+  leafletsEl.addEventListener('input', updateCustomerPreview);
+  perKEl.addEventListener('input', updateCustomerPreview);
+
+  /* ---------- Live profit-margin helper ---------- */
+  const marginEl = document.getElementById('margin');
+  const marginNoteText = document.getElementById('marginNoteText');
+  function updateMarginNote() {
+    const m = Math.max(0, Math.min(100, parseFloat(marginEl.value) || 0));
+    const kept = (100 * m / 100).toFixed(0);
+    marginNoteText.textContent = `So out of every €100 a customer pays, you keep about €${kept} as profit.`;
+  }
+  marginEl.addEventListener('input', updateMarginNote);
+  updateMarginNote();
+
+  /* ---------- ROI calculation ---------- */
+  const resultsEl = document.getElementById('results');
+  const convSlider = document.getElementById('convSlider');
+  const sliderRateEl = document.getElementById('sliderRate');
+
+  function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
+
+  // Captured campaign inputs (set when Calculate is pressed)
+  let base = { totalCost: 0, leaflets: 0, revPerCustomer: 0, margin: 0.4 };
+
+  // Render results for a given "customers per 1,000 flyers" value.
+  // animate=true for the first reveal, false for live slider dragging.
+  function render(perK, animate) {
+    const customers = base.leaflets * (perK / 1000);
+    const revenue = customers * base.revPerCustomer;        // what customers PAY you
+    const grossProfit = revenue * base.margin;              // what you actually KEEP
+    const netProfit = grossProfit - base.totalCost;         // kept minus campaign cost
+    const roi = base.totalCost > 0 ? (netProfit / base.totalCost) * 100 : 0;
+    const cpc = customers > 0 ? base.totalCost / customers : 0;
+    const perEuro = base.totalCost > 0 ? grossProfit / base.totalCost : 0;  // profit returned per €1
+
+    const set = (el, to, fmt) => {
+      if (animate) animateNumber(el, to, fmt);
+      else { el.textContent = fmt(to); el.dataset.val = to; }
+    };
+
+    set(document.getElementById('roiPct'), roi, v => (v >= 0 ? '+' : '') + Math.round(v) + '%');
+    set(document.getElementById('resCustomers'), customers, v => Math.round(v).toLocaleString('en-US'));
+    set(document.getElementById('resCost'), base.totalCost, euro);
+    set(document.getElementById('resRevenue'), revenue, euro);
+    set(document.getElementById('resProfit'), netProfit, euro);
+    set(document.getElementById('resCPC'), cpc, euro2);
+    set(document.getElementById('resPerEuro'), perEuro, v => '€' + v.toFixed(2));
+
+    // verdict
+    const verdict = document.getElementById('roiVerdict');
+    if (base.totalCost === 0) verdict.textContent = 'Enter your costs to see the return.';
+    else if (roi >= 100) verdict.textContent = 'Excellent — more than doubling your money.';
+    else if (roi >= 0)   verdict.textContent = 'Profitable campaign.';
+    else                 verdict.textContent = 'Below break-even — adjust offer, area or volume.';
+
+    // gauge: map 0–300% ROI onto the ring
+    const circ = 314;
+    const pct = Math.max(0, Math.min(1, roi / 300));
+    const arc = document.getElementById('gaugeArc');
+    arc.style.transition = animate ? 'stroke-dashoffset 0.9s ease' : 'stroke-dashoffset 0.15s linear';
+    arc.style.strokeDashoffset = (circ - circ * pct).toFixed(1);
+    document.getElementById('gaugeLabel').textContent = (perEuro > 0 ? perEuro.toFixed(1) + 'x' : '–');
+  }
+
+  // Update the slider's read-outs and gradient fill
+  function updateSliderUI(perK) {
+    sliderRateEl.textContent = Math.round(perK);
+    const fill = (perK / parseFloat(convSlider.max)) * 100;
+    convSlider.style.setProperty('--fill', fill + '%');
+  }
+
+  function calculate() {
+    const distCost  = num('distCost');
+    const printCost = num('printCost');
+    const artCost   = num('artCost');
+    const leaflets  = num('leaflets');
+    const spend     = num('spend');
+    const ltv       = num('ltv');
+    const margin    = num('margin');
+    const perK      = num('perK');
+
+    base.totalCost = distCost + printCost + artCost;
+    base.leaflets = leaflets;
+    base.revPerCustomer = spend + ltv;
+    base.margin = Math.max(0, Math.min(100, margin)) / 100;
+
+    // Start the slider at the value entered above (clamped to its range).
+    const startPerK = Math.max(0, Math.min(parseFloat(convSlider.max), perK));
+    convSlider.value = startPerK;
+    updateSliderUI(startPerK);
+
+    resultsEl.classList.add('show');
+    render(startPerK, true);
+    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Live slider: recalc instantly while dragging
+  convSlider.addEventListener('input', () => {
+    const perK = parseFloat(convSlider.value);
+    updateSliderUI(perK);
+    render(perK, false);
+    perKEl.value = perK;            // keep the input field in sync
+    updateCustomerPreview();
+  });
+
+  document.getElementById('calcBtn').addEventListener('click', calculate);
+
+  /* ---------- Footer year ---------- */
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
