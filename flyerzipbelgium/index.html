@@ -318,7 +318,7 @@ body { background: var(--bg); color: var(--ink); line-height: 1.5; display: flex
 .lb-nav-center {
   display: flex; align-items: center; gap: 10px;
 }
-.lb-download-btn {
+.lb-action-btn {
   display: flex; align-items: center; justify-content: center;
   width: 34px; height: 34px;
   background: var(--accent);
@@ -329,10 +329,41 @@ body { background: var(--bg); color: var(--ink); line-height: 1.5; display: flex
   transition: 0.2s;
   font-family: inherit;
 }
-.lb-download-btn:hover { background: #a8370a; transform: scale(1.05); }
-.lb-download-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.lb-download-btn i { font-size: 17px; }
-.lb-download-btn.is-loading i { animation: spin 1s linear infinite; }
+.lb-action-btn:hover { background: #a8370a; transform: scale(1.05); }
+.lb-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.lb-action-btn i { font-size: 17px; }
+.lb-action-btn.is-loading i { animation: spin 1s linear infinite; }
+
+/* Share button uses a slightly different look so the two are distinguishable */
+.lb-share-btn {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.lb-share-btn:hover { background: rgba(255,255,255,0.22); }
+
+/* ---- Toast (copied-link confirmation) ---- */
+.lb-toast {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 22px;
+  border-radius: 99px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 10001;
+}
+.lb-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.lb-toast i { color: #4ade80; font-size: 17px; }
 
 /* ---- Footer ---- */
 .footer { text-align: center; padding: 20px; border-top: 1px solid var(--line); background: var(--surface); color: var(--ink-light); font-size: 13px; margin-top: auto; }
@@ -367,8 +398,8 @@ body { background: var(--bg); color: var(--ink); line-height: 1.5; display: flex
   .lb-close { width: 30px; height: 30px; font-size: 17px; }
   .lb-nav { padding: 6px 10px; }
   .lb-nav-btn { padding: 6px 12px; font-size: 12px; }
-  .lb-download-btn { width: 32px; height: 32px; }
-  .lb-download-btn i { font-size: 16px; }
+  .lb-action-btn { width: 32px; height: 32px; }
+  .lb-action-btn i { font-size: 16px; }
   #pane-flyer { padding: 6px; }
   #pane-services { padding: 14px; }
 }
@@ -485,7 +516,10 @@ body { background: var(--bg); color: var(--ink); line-height: 1.5; display: flex
       </button>
       <div class="lb-nav-center">
         <span class="lb-nav-counter" id="lb-counter">1 / 1</span>
-        <button class="lb-download-btn" id="lb-download" onclick="downloadFlyer()" title="Save flyer">
+        <button class="lb-action-btn lb-share-btn" id="lb-share" onclick="shareFlyer()" title="Share flyer">
+          <i class="ti ti-share"></i>
+        </button>
+        <button class="lb-action-btn" id="lb-download" onclick="downloadFlyer()" title="Save flyer">
           <i class="ti ti-download"></i>
         </button>
       </div>
@@ -495,6 +529,12 @@ body { background: var(--bg); color: var(--ink); line-height: 1.5; display: flex
     </div>
 
   </div>
+</div>
+
+<!-- Toast for "link copied" -->
+<div class="lb-toast" id="lbToast">
+  <i class="ti ti-circle-check"></i>
+  <span id="lbToastText">Link copied to clipboard</span>
 </div>
 
 <script>
@@ -520,9 +560,16 @@ let selectedLocation = null; // null = detected city
 let displayLimit = 12;
 let dataLoaded = false;
 let lbIndex = 0; // current lightbox index within currentFiltered
+let pendingShareId = null; // flyer id from URL to auto-open after data loads
 
 function toTitleCase(str) {
   return str.replace(/\w\S*/g, t => t.charAt(0).toUpperCase() + t.substr(1).toLowerCase());
+}
+
+// ---- Read ?flyer= from the URL (if present) ----
+function getFlyerIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('flyer');
 }
 
 // ---- Geolocation ----
@@ -557,6 +604,7 @@ function launchApp() {
   if (dataLoaded) {
     buildLocationDropdown();
     filterData();
+    maybeOpenSharedFlyer();
   }
 }
 
@@ -572,6 +620,7 @@ refListings.on('value', snapshot => {
   if (document.getElementById('appContent').style.display !== 'none') {
     buildLocationDropdown();
     filterData();
+    maybeOpenSharedFlyer();
   }
 });
 
@@ -717,6 +766,7 @@ function openLightboxByIndex(idx) {
   renderLightboxItem();
   document.getElementById('lightboxOverlay').classList.add('active');
   document.body.style.overflow = 'hidden';
+  updateUrlForCurrentFlyer();
 }
 
 function renderLightboxItem() {
@@ -754,6 +804,112 @@ function lbNavigate(dir) {
   if (next < 0 || next >= visibleCount) return;
   lbIndex = next;
   renderLightboxItem();
+  updateUrlForCurrentFlyer();
+}
+
+// ---- Build the shareable URL for a given flyer id ----
+function buildShareUrl(flyerId) {
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?flyer=${encodeURIComponent(flyerId)}`;
+}
+
+// ---- Update the address bar (without reloading) to point at the open flyer ----
+function updateUrlForCurrentFlyer() {
+  const item = currentFiltered[lbIndex];
+  if (!item || !item.id) return;
+  const newUrl = buildShareUrl(item.id);
+  history.replaceState({ flyer: item.id }, '', newUrl);
+}
+
+// ---- Remove the ?flyer= param from the address bar ----
+function clearFlyerFromUrl() {
+  const base = window.location.origin + window.location.pathname;
+  history.replaceState({}, '', base);
+}
+
+// ---- Share the current flyer ----
+async function shareFlyer() {
+  const item = currentFiltered[lbIndex];
+  if (!item || !item.id) return;
+
+  const shareUrl = buildShareUrl(item.id);
+  const title = item.business_info?.name || 'Flyer';
+  const text = `Check out ${title} on FlyerZip`;
+
+  // Try native share sheet first (best on mobile)
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url: shareUrl });
+      return;
+    } catch (err) {
+      // User cancelled — do nothing
+      if (err.name === 'AbortError') return;
+      // Otherwise fall through to clipboard copy
+    }
+  }
+
+  // Fallback: copy the link to clipboard
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    showToast('Link copied to clipboard');
+  } catch (err) {
+    // Last-resort fallback for older browsers
+    const tmp = document.createElement('input');
+    tmp.value = shareUrl;
+    document.body.appendChild(tmp);
+    tmp.select();
+    try { document.execCommand('copy'); showToast('Link copied to clipboard'); }
+    catch (e) { showToast('Could not copy link'); }
+    document.body.removeChild(tmp);
+  }
+}
+
+// ---- Toast helper ----
+let toastTimer = null;
+function showToast(message) {
+  const toast = document.getElementById('lbToast');
+  document.getElementById('lbToastText').textContent = message;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+// ---- If the URL has ?flyer=ID, find & open that flyer automatically ----
+function maybeOpenSharedFlyer() {
+  if (pendingShareId === null) {
+    pendingShareId = getFlyerIdFromUrl();
+  }
+  if (!pendingShareId) return;
+
+  // Find the listing in ALL data
+  const item = allListings.find(l => l.id === pendingShareId);
+  if (!item) {
+    // Not found (maybe deleted) — just clear the param and clear pending
+    pendingShareId = null;
+    clearFlyerFromUrl();
+    return;
+  }
+
+  // Make sure this flyer is part of currentFiltered & visible.
+  // Easiest reliable approach: show all listings, with this flyer included.
+  currentFiltered = allListings.slice();
+  const idx = currentFiltered.findIndex(l => l.id === pendingShareId);
+
+  if (idx === -1) {
+    pendingShareId = null;
+    return;
+  }
+
+  // Make sure it's within the visible range so Prev/Next counters stay correct
+  if (idx + 1 > displayLimit) {
+    displayLimit = idx + 1;
+  }
+
+  renderGrid();
+  openLightboxByIndex(idx);
+
+  // Consume the pending id so it doesn't reopen on future data refreshes
+  pendingShareId = null;
 }
 
 // ---- Download / save flyer to device ----
@@ -832,6 +988,7 @@ function restoreDownloadBtn(btn, icon, originalIconClass) {
 function closeLightbox() {
   document.getElementById('lightboxOverlay').classList.remove('active');
   document.body.style.overflow = 'auto';
+  clearFlyerFromUrl();
   setTimeout(() => {
     document.getElementById('lightbox-img').src = '';
     document.getElementById('lightbox-tags').innerHTML = '';
@@ -849,6 +1006,24 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') lbNavigate(-1);
   if (e.key === 'ArrowRight') lbNavigate(1);
 });
+
+// ---- On first load: if a ?flyer= link was opened, skip the location screen ----
+// so the shared flyer opens immediately on the landing page.
+(function handleDeepLinkOnLoad() {
+  const flyerId = getFlyerIdFromUrl();
+  if (flyerId) {
+    pendingShareId = flyerId;
+    // Show the app directly instead of asking for location first
+    document.getElementById('locScreen').style.display = 'none';
+    document.getElementById('appContent').style.display = 'flex';
+    selectedLocation = null; // show all, the shared flyer will be opened
+    if (dataLoaded) {
+      buildLocationDropdown();
+      filterData();
+      maybeOpenSharedFlyer();
+    }
+  }
+})();
 </script>
 </body>
 </html>
