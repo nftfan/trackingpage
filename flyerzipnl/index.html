@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -656,9 +657,11 @@ const firebaseConfig = {
   measurementId: "G-QPRSX7ZVZ5"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const refListings = db.ref('nederlandszip/listings');
+// Firebase is initialised lazily inside startFirebase() so that a failed
+// SDK load (network, ad-blocker, CSP) does NOT throw at the top level and
+// take down every function defined below it.
+let db = null;
+let refListings = null;
 
 const LATEST_LIMIT = 6; // home page shows the 6 newest
 
@@ -682,18 +685,90 @@ function getFlyerIdFromUrl() {
 /* ============================================================
    FIREBASE LISTENER
    ============================================================ */
-refListings.on('value', snapshot => {
-  const data = snapshot.val();
-  allListings = [];
-  if (data) {
-    allListings = Object.keys(data).map(key => ({ id: key, ...data[key] }))
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+// Replace the spinner with a readable error instead of hanging.
+function showLoadError(kind, detail) {
+  const grid = document.getElementById('flyerGrid');
+  const lmw = document.getElementById('loadMoreWrap');
+  if (lmw) lmw.style.display = 'none';
+  if (!grid) return;
+
+  let title, msg;
+  if (kind === 'sdk') {
+    title = 'Verbinding mislukt';
+    msg = 'De database-bibliotheek (Firebase) kon niet worden geladen. Controleer je internetverbinding of schakel een eventuele ad-blocker / privacy-extensie uit en herlaad de pagina.';
+  } else if (kind === 'permission') {
+    title = 'Kan gegevens niet laden';
+    msg = 'De database weigerde de leesopdracht. Controleer dat de Realtime Database-regels leesrechten geven op het pad "nederlandszip/listings".';
+  } else {
+    title = 'Er ging iets mis';
+    msg = 'Er trad een fout op bij het tonen van de flyers.';
   }
-  dataLoaded = true;
-  buildLocationDropdown();
-  filterData();
-  maybeOpenSharedFlyer();
-});
+
+  grid.innerHTML =
+    '<div class="state-box">' +
+      '<i class="ti ti-alert-triangle" style="color:var(--accent)"></i>' +
+      '<h3>' + title + '</h3>' +
+      '<p>' + msg + (detail ? '<br><br><code style="font-size:11px;color:var(--ink-light)">' + detail + '</code>' : '') + '</p>' +
+    '</div>';
+}
+
+function onFirebaseValue(snapshot) {
+  try {
+    const data = snapshot.val();
+    allListings = [];
+    if (data) {
+      allListings = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+
+      // Robust newest-first sort.
+      // Firebase push() keys are chronological, so they are a reliable
+      // ordering even when a record has a missing or unparseable timestamp.
+      allListings.sort((a, b) => {
+        const ta = Date.parse(a.timestamp);
+        const tb = Date.parse(b.timestamp);
+        const aValid = !isNaN(ta);
+        const bValid = !isNaN(tb);
+        if (aValid && bValid && tb !== ta) return tb - ta;
+        // Fall back to the push-key (later key = newer)
+        return String(b.id).localeCompare(String(a.id));
+      });
+    }
+    dataLoaded = true;
+    buildLocationDropdown();
+    filterData();
+    maybeOpenSharedFlyer();
+  } catch (err) {
+    console.error('Render error:', err);
+    showLoadError('render', err.message);
+  }
+}
+
+// Initialise Firebase safely. If the SDK script didn't load, we show a
+// clear error instead of throwing and killing the rest of the app.
+function startFirebase() {
+  if (typeof firebase === 'undefined' || !firebase.initializeApp) {
+    console.error('Firebase SDK not available.');
+    showLoadError('sdk');
+    return;
+  }
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    refListings = db.ref('nederlandszip/listings');
+    refListings.on('value', onFirebaseValue, err => {
+      console.error('Firebase read failed:', err);
+      showLoadError('permission', err && err.message);
+    });
+  } catch (err) {
+    console.error('Firebase init failed:', err);
+    showLoadError('sdk', err.message);
+  }
+
+  // Safety net: if Firebase never responds at all, stop the spinner.
+  setTimeout(function () {
+    if (!dataLoaded) showLoadError('permission', 'Time-out — geen reactie van de database.');
+  }, 12000);
+}
 
 /* ============================================================
    LOCATION DROPDOWN  (city selection — no geolocation)
@@ -753,11 +828,16 @@ function filterData() {
       return name.includes(q) || cat.includes(q) || loc.includes(q) || kws.some(k => k.includes(q));
     });
   } else if (selectedLocation) {
-    // CITY MODE — filter by selected city
+    // CITY MODE — filter by selected city.
+    // The dropdown value is the full title-cased location string, so we
+    // match exactly first, then fall back to a substring match (handles
+    // "Amsterdam" selected vs "Jordaan, Amsterdam" stored, and vice versa).
+    const sel = selectedLocation.toLowerCase().trim();
     currentFiltered = allListings.filter(item => {
-      const loc = item.search_data?.location ? toTitleCase(item.search_data.location.trim()) : '';
-      const sel = selectedLocation.toLowerCase();
-      return loc.toLowerCase().includes(sel) || sel.includes(loc.toLowerCase());
+      const raw = (item.search_data?.location || '').toLowerCase().trim();
+      if (!raw) return false;            // never match blank locations
+      if (raw === sel) return true;      // exact match
+      return raw.includes(sel) || sel.includes(raw); // partial, both directions
     });
   } else {
     // HOME / LATEST MODE — only the 6 newest across all cities
@@ -1081,3 +1161,7 @@ document.addEventListener('keydown', e => {
    ============================================================ */
 currentLang = detectDefaultLang();
 applyTranslations();
+startFirebase();
+</script>
+</body>
+</html>
