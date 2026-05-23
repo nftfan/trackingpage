@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>LEUVENFLYERS – Campaign XX9210 (Map)</title>
+  <title>LEUVENFLYERS – Campaign XX9211 (Map)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"/>
   <meta name="theme-color" content="#2563eb">
 
@@ -23,6 +22,7 @@
     --success: #31A24C;
     --warning: #F5C33B;
     --danger: #E41E3F;
+    --purple: #7c3aed;
     --ink-900: #1C1E21;
     --ink-800: #4B4F56;
     --ink-700: #606770;
@@ -96,6 +96,10 @@
   button.icon-btn .material-icons-outlined { font-size: 15px; }
   button.icon-btn:hover { background: var(--ink-300); }
   button.icon-btn:active { transform: scale(0.93); }
+  button.icon-btn.active { background: var(--accent-soft); border-color: var(--brand); }
+  button.icon-btn.active .material-icons-outlined { color: var(--brand); }
+  button.icon-btn.draw-active { background:#f3e8ff; border-color: var(--purple); }
+  button.icon-btn.draw-active .material-icons-outlined { color: var(--purple); }
 
   .notif-badge {
     position: absolute; top: -3px; right: -3px;
@@ -105,7 +109,7 @@
     padding: 0 3px; box-shadow: 0 0 0 1.5px var(--surface);
   }
 
-  /* ── Metrics chips (3: Delivered, QR, Req Flyers) ── */
+  /* ── Metrics chips ── */
   .metrics-scroll {
     display: flex; align-items: center; gap: 5px; overflow-x: auto;
     padding: 3px 0; background: var(--surface);
@@ -177,6 +181,7 @@
     left: 0; right: 0;
     bottom: var(--footer-h);
   }
+  body.drawing #map .maplibregl-canvas { cursor: crosshair !important; }
 
   /* ── Zone Labels — compact ── */
   .zone-label-wrapper { background: transparent !important; border: none !important; }
@@ -198,6 +203,7 @@
   .zone-label.tiny { background: var(--brand); color: #fff; border-color: transparent; padding: 1px 4px; font-size: 8px; }
   .zone-label.status-booked { background: var(--warning); color: var(--ink-900); border-color: transparent; }
   .zone-label.status-completed { background: var(--success); color: #fff !important; border-color: transparent; }
+  .zone-label.muni { background:#f3e8ff; color: var(--purple); border-color:#ddd6fe; }
   .zone-label .dots-badge {
     display: inline-flex; align-items: center; gap: 2px;
     padding: 0 4px; border-radius: 999px; height: 14px;
@@ -206,12 +212,11 @@
   }
   .zone-label .dots-badge .material-icons-outlined { font-size: 9px; color: green; }
 
-  /* ── Proof camera marker on map — small & simple ── */
+  /* ── Proof camera marker ── */
   .proof-ml-icon {
     width: 22px; height: 22px; display: grid; place-items: center;
     background: #fff; border: 1.5px solid #1976d2; border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: pointer;
   }
   .proof-ml-icon:hover { background: #e3f2fd; }
   .proof-ml-icon .material-icons-outlined { font-size: 13px; color: #1976d2; }
@@ -236,23 +241,17 @@
   @keyframes pop-in { 0%{transform:translateY(0) scale(0.5);opacity:0;} 100%{transform:translateY(-8px) scale(1);opacity:1;} }
   @keyframes pulse-ring { 0%{transform:scale(0.8);opacity:0.8;} 100%{transform:scale(3.5);opacity:0;} }
 
-  /* ── Proof Strip — minimal & compact ── */
+  /* ── Proof Strip ── */
   .proof-strip {
-    border: 1px solid var(--ink-300);
-    border-radius: 8px;
-    position: fixed; left: 8px; right: 8px;
-    bottom: 5px;
-    height: 42px;
-    align-items: center; gap: 4px;
-    z-index: 580; display: none;
-    background: var(--surface);
-    padding: 0 5px;
+    border: 1px solid var(--ink-300); border-radius: 8px;
+    position: fixed; left: 8px; right: 8px; bottom: 5px; height: 42px;
+    align-items: center; gap: 4px; z-index: 580; display: none;
+    background: var(--surface); padding: 0 5px;
   }
   .proof-strip.visible { display: flex; }
   .proof-strip-inner {
     display: flex; align-items: center; gap: 5px;
-    overflow-x: auto; flex: 1; scrollbar-width: none;
-    padding: 3px 2px;
+    overflow-x: auto; flex: 1; scrollbar-width: none; padding: 3px 2px;
   }
   .proof-strip-inner::-webkit-scrollbar { display: none; }
   .proof-item {
@@ -301,58 +300,80 @@
   .zp-btn.warn { background:#fff9e8;border-color:#f5e2ad;color:#92670a; }
   .zp-btn.danger { background:#fff0f2;border-color:#f3b6bf;color:#b3261e; }
   .zp-btn.verify-btn { background:#f0fdf4;border-color:#bfe8cc;color:#15803d; }
+  .zp-btn.save-btn { background:#f3e8ff;border-color:#ddd6fe;color:#6d28d9; }
+  .zp-btn.primary { background:var(--brand);border-color:var(--brand);color:#fff; }
   .zp-btn:disabled { opacity:.5;cursor:not-allowed; }
+
+  /* ── Draw helper bar ── */
+  #drawHint {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--footer-h) + 10px);
+    background: rgba(124,58,237,.95); color: #fff; font-size: 11px; font-weight: 600;
+    border-radius: 9px; padding: 8px 14px; z-index: 700; display: none;
+    box-shadow: var(--shadow-md); align-items: center; gap: 10px;
+  }
+  #drawHint.visible { display: flex; }
+  #drawHint .dh-actions { display: flex; gap: 6px; }
+  #drawHint button {
+    border: none; border-radius: 7px; font-size: 11px; font-weight: 700;
+    padding: 5px 10px; cursor: pointer;
+  }
+  #dhFinish { background: #fff; color: var(--purple); }
+  #dhCancel { background: rgba(255,255,255,.18); color: #fff; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: calc(var(--footer-h) + 56px); left: 50%;
+    transform: translateX(-50%); background: #1a1a1a; color: #fff;
+    font-size: 11px; border-radius: 8px; padding: 8px 18px; z-index: 999;
+    pointer-events: none; animation: toastAnim 1.9s forwards;
+  }
+  @keyframes toastAnim {
+    0%{opacity:0;transform:translateX(-50%) translateY(6px);}
+    12%{opacity:1;transform:translateX(-50%) translateY(0);}
+    80%{opacity:1;} 100%{opacity:0;}
+  }
+
+  /* ── PIN modal ── */
+  #pinModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:950; align-items:center; justify-content:center; }
+  #pinModal.visible { display:flex; }
+  #pinCard { background:#fff; border-radius:12px; padding:20px; min-width:240px; text-align:center; box-shadow:var(--shadow-md); }
+  #pinCard h3 { font-size:13px; margin-bottom:12px; }
+  #pinInput { font-size:15px; padding:8px 12px; border:1.5px solid var(--ink-300); border-radius:8px; width:70%; text-align:center; letter-spacing:.2em; outline:none; margin-bottom:10px; }
+  #pinInput:focus { border-color:var(--brand); }
+  #pinErr { color:var(--danger); font-size:10px; margin-bottom:8px; display:none; }
+  .pin-acts { display:flex; gap:8px; justify-content:center; }
+  .pin-acts button { padding:7px 16px; border-radius:8px; border:none; font-size:12px; font-weight:600; cursor:pointer; }
+  #pinOk { background:var(--brand); color:#fff; } #pinCancel { background:var(--ink-200); color:var(--ink-800); }
 
   /* ── Mobile compact mode ── */
   @media (max-width: 480px) {
-    :root {
-      --footer-h: 0px;
-      --chip-h: 38px;
-      --chip-radius: 7px;
-    }
+    :root { --footer-h: 0px; --chip-h: 38px; --chip-radius: 7px; }
     html, body { font-size: 10px; }
-
-    /* Topbar tighter */
     .topbar { padding: 4px 6px; gap: 3px; }
     .brand-title { font-size: 10px; }
     .campaign-badge { font-size: 8px; padding: 1px 4px; border-radius: 4px; }
     button.icon-btn { width: 26px; height: 26px; border-radius: 6px; }
     button.icon-btn .material-icons-outlined { font-size: 13px; }
-
-    /* Metric chips smaller */
     .metric-chip { padding: 4px 6px; gap: 4px; }
     .metric-chip .material-icons-outlined { font-size: 13px; }
     .metric-chip .label { font-size: 7px; }
     .metric-chip .value { font-size: 11px; }
-
-    /* Zone labels tiny */
     .zone-label { font-size: 8px; padding: 1px 4px; border-radius: 8px; gap: 3px; }
-    .zone-label .flyers-badge, .zone-label .dots-badge {
-      font-size: 7px; padding: 0 3px; height: 12px;
-    }
+    .zone-label .flyers-badge, .zone-label .dots-badge { font-size: 7px; padding: 0 3px; height: 12px; }
     .zone-label .flyers-badge .material-icons-outlined,
     .zone-label .dots-badge .material-icons-outlined { font-size: 8px; }
-
-    /* Proof markers smaller */
     .proof-ml-icon { width: 18px; height: 18px; }
     .proof-ml-icon .material-icons-outlined { font-size: 11px; }
-
-    /* Proof strip compact */
     .proof-strip { height: 36px; left: 4px; right: 4px; bottom: 3px; }
     .proof-item { width: 24px; height: 24px; border-radius: 5px; }
     .ps-btn { width: 18px; height: 20px; }
     .ps-btn .material-icons-outlined { font-size: 12px; }
-
-    /* Latest dot marker smaller */
     .latest-dot-marker { font-size: 10px; padding: 4px 8px; }
     .latest-dot-marker .material-icons-outlined { font-size: 12px; }
     .pulse-ring { width: 10px; height: 10px; }
-
-    /* Popups tighter */
     .maplibregl-popup-content { padding: 7px 9px !important; font-size: 10px !important; max-width: 220px; }
     .zp-btn { font-size: 10px; padding: 4px 8px; }
-
-    /* Chat & notif panels narrower */
     .chat-panel { width: 88vw; max-width: 320px; }
   }
   </style>
@@ -365,7 +386,6 @@
   </div>
 
   <header class="topbar" id="topbar">
-    <!-- Brand row + controls -->
     <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;">
       <div style="display:flex;align-items:center;gap:5px;min-width:0;flex:1;">
         <span class="material-icons-outlined" style="font-size:14px;color:var(--brand);flex-shrink:0;">map</span>
@@ -373,8 +393,11 @@
         <span class="campaign-badge">8000 (Mailbox delivery) </span>
       </div>
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
-        <button id="toggleZonesBtn" class="icon-btn" aria-label="Show all zones" title="Show all zones">
+        <button id="toggleZonesBtn" class="icon-btn" aria-label="Show all zones" title="Show all Netherlands zones">
           <span class="material-icons-outlined" id="toggleZonesIcon">layers</span>
+        </button>
+        <button id="drawBtn" class="icon-btn" aria-label="Draw sub-zone" title="Draw a sub-zone inside a municipality">
+          <span class="material-icons-outlined">edit</span>
         </button>
         <button id="chatBtn" class="icon-btn" aria-label="Chat" title="Chat">
           <span class="material-icons-outlined">chat</span>
@@ -383,7 +406,6 @@
       </div>
     </div>
 
-    <!-- Metrics chips — Delivered, QR Scans, Req Flyers -->
     <div class="metrics-scroll" id="metricsScroll">
       <div class="metric-chip success" title="Completed Flyers">
         <span class="material-icons-outlined">task_alt</span>
@@ -411,9 +433,7 @@
 
   <div id="chatPanel" class="chat-panel" role="dialog" aria-label="Chat">
     <div class="chat-header">
-      <div class="chat-title">
-        <span class="material-icons-outlined">chat</span>Chat
-      </div>
+      <div class="chat-title"><span class="material-icons-outlined">chat</span>Chat</div>
       <button id="chatMarkReadBtn" class="chat-mark-btn">Mark all read</button>
     </div>
     <div id="chatList" class="chat-list"></div>
@@ -428,6 +448,15 @@
   <!-- Map -->
   <div id="map"></div>
 
+  <!-- Draw hint bar -->
+  <div id="drawHint">
+    <span id="dhText">Tap inside a municipality to add points · double-click to close</span>
+    <span class="dh-actions">
+      <button id="dhFinish">Finish</button>
+      <button id="dhCancel">Cancel</button>
+    </span>
+  </div>
+
   <div id="proofStrip" class="proof-strip">
     <button id="psLeft" class="ps-btn"><span class="material-icons-outlined">chevron_left</span></button>
     <div id="proofStripInner" class="proof-strip-inner"></div>
@@ -441,12 +470,25 @@
     </div>
   </div>
 
+  <!-- PIN modal (for deleting saved municipalities) -->
+  <div id="pinModal">
+    <div id="pinCard">
+      <h3>Enter PIN</h3>
+      <input id="pinInput" type="password" maxlength="6" placeholder="PIN" autocomplete="off"/>
+      <div id="pinErr">Incorrect PIN.</div>
+      <div class="pin-acts">
+        <button id="pinOk">Confirm</button>
+        <button id="pinCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
   <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, onValue, get, update, push, set, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, onValue, get, update, push, set, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   /* ── Firebase ── */
   const campaignApp = initializeApp({
@@ -482,6 +524,21 @@
   }, 'ff974App');
   const ff974Db = getDatabase(ff974App);
 
+  /* ── Firebase folders ──
+   *  nedzones      → big auto-loaded municipalities. SAVE-ONLY, never bookable.
+   *  nedsubzones   → user-drawn subdivisions. BOOKABLE (this is what the campaign acts on).
+   */
+  const FB_SUBZONES = 'nedsubzones';
+  const FB_MUNI     = 'nedzones';
+  const DELETE_PIN  = '000888';
+
+  // PDOK WFS — all Dutch municipalities, generalized geometry, WGS84. CC-BY open data.
+  const PDOK_URL =
+    'https://service.pdok.nl/cbs/gebiedsindelingen/2025/wfs/v1_0' +
+    '?request=GetFeature&service=WFS&version=2.0.0' +
+    '&typeName=gemeente_gegeneraliseerd' +
+    '&srsName=EPSG:4326&outputFormat=json';
+
   /* ── DOM ── */
   const completedFlyersCountEl = document.getElementById('completedFlyersCount');
   const qrScanCountEl   = document.getElementById('qrScanCount');
@@ -500,12 +557,21 @@
   const chatSendBtn     = document.getElementById('chatSendBtn');
   const chatBadge       = document.getElementById('chatBadge');
   const chatMarkReadBtn = document.getElementById('chatMarkReadBtn');
+  const drawBtn         = document.getElementById('drawBtn');
+  const drawHint        = document.getElementById('drawHint');
+  const dhText          = document.getElementById('dhText');
+  const dhFinish        = document.getElementById('dhFinish');
+  const dhCancel        = document.getElementById('dhCancel');
+  const pinModal        = document.getElementById('pinModal');
+  const pinInput        = document.getElementById('pinInput');
+  const pinErr          = document.getElementById('pinErr');
 
   /* ── State ── */
   let map;
-  let polygonMeta = [];
-  let polygonsByZone = new Map();
-  const ZONE_STATUS_PATH = 'campaigns/XX9210/zone_statuses';
+  // Sub-zones (drawn / bookable) — these are the campaign's working zones.
+  let polygonMeta = [];                 // [{zoneNumber, turfPoly, bounds, firebaseKey, center}]
+  let polygonsByZone = new Map();        // zoneNumber → index in polygonMeta
+  const ZONE_STATUS_PATH = 'campaigns/XX9211/zone_statuses';
   const zoneStatusByZone = new Map();
   const zoneStatusKeyByZone = new Map();
   let firstFullLoad = true;
@@ -516,16 +582,27 @@
   let lastLatestFocusedZone = null;
   let lastLatestFocusTs = 0;
   const ff2630DotsCountByZone = new Map();
-  const CHAT_PATH = 'campaigns/XX9210/chat/messages';
+  const CHAT_PATH = 'campaigns/XX9211/chat/messages';
   let chatMessages = [];
   let chatInitialized = false;
-  const deviceIdKey = 'XX9210_chat_device_id';
+  const deviceIdKey = 'XX9211_chat_device_id';
   const myDeviceId = getOrCreateDeviceId();
   const myName = 'Viewer';
-  const lastReadKey = 'XX9210_chat_last_read_ts';
+  const lastReadKey = 'XX9211_chat_last_read_ts';
   const buildingDataByZone = new Map();
   const buildingFetchPromises = new Map();
-  const FF9210_USER = 'FF9210';
+  const FF9211_USER = 'FF9211';
+
+  // Municipalities (purple, save-only)
+  let muniByName = new Map();   // name → { name, geometry, savedKey|null, savedExtraKeys:[] }
+  let muniLoaded = false;
+  let showAllZones = false;     // toggled by the Show-all button → also loads PDOK
+
+  // Drawing
+  let drawing = false;
+  let drawPts = [];             // [[lng,lat], …]
+  let drawParentMuni = null;    // name of the municipality the drawing started in
+  let pinPendingAction = null;  // function to run after correct PIN
 
   /* ── GeoJSON helpers ── */
   const fc   = (features=[]) => ({ type:'FeatureCollection', features });
@@ -557,12 +634,16 @@
     });
   }
 
+  function toast(msg){
+    const t = Object.assign(document.createElement('div'), { className:'toast', innerText:msg });
+    document.body.appendChild(t); setTimeout(()=>t.remove(), 1900);
+  }
+
   /* ── Init ── */
   window.addEventListener('DOMContentLoaded', async () => {
     setHeaderHeightVar();
     try { await waitForGlobals(['maplibregl','turf']); } catch(e){ console.error(e); }
 
-    // ── MapLibre GL — NO navigation controls, NO compass ──
     map = new maplibregl.Map({
       container: 'map',
       style: {
@@ -580,10 +661,7 @@
             attribution: '© OpenStreetMap contributors'
           }
         },
-        layers: [{
-          id: 'osm', type: 'raster', source: 'osm',
-          paint: { 'raster-fade-duration': 0 }
-        }]
+        layers: [{ id: 'osm', type: 'raster', source: 'osm', paint: { 'raster-fade-duration': 0 } }]
       },
       center: [4.35, 50.85],
       zoom: 12,
@@ -591,10 +669,25 @@
       attributionControl: false,
       fadeDuration: 0
     });
-    // No NavigationControl added — no +/- buttons, no compass
 
     map.on('load', async () => {
-      // Zones
+      // ── Municipalities: purple borders only, NO fill (fill is invisible but
+      //    catches clicks). Added first so sub-zones render above. ──
+      map.addSource('muni-src', { type:'geojson', data: fc() });
+      map.addLayer({
+        id: 'muni-fill', type: 'fill', source: 'muni-src',
+        paint: { 'fill-color': '#7c3aed', 'fill-opacity': ['case',['==',['get','saved'],1],0.06,0.01] }
+      });
+      map.addLayer({
+        id: 'muni-line', type: 'line', source: 'muni-src',
+        paint: {
+          'line-color': '#7c3aed',
+          'line-width': 2,
+          'line-opacity': ['case',['==',['get','saved'],1],1,0.8]
+        }
+      });
+
+      // ── Sub-zones (drawn, bookable) ──
       map.addSource('zones-fill-src', { type:'geojson', data: fc() });
       map.addLayer({
         id: 'zones-fill', type: 'fill', source: 'zones-fill-src',
@@ -605,50 +698,62 @@
         paint: { 'line-color': ['get','lineColor'], 'line-width': 1.5, 'line-opacity': 0.85 }
       });
 
-      // Blue FF9210 dots
+      // ── Draw preview ──
+      map.addSource('draw-src', { type:'geojson', data: fc() });
+      map.addLayer({ id:'draw-fill', type:'fill', source:'draw-src', filter:['==','$type','Polygon'],
+        paint:{ 'fill-color':'#7c3aed','fill-opacity':0.2 } });
+      map.addLayer({ id:'draw-line', type:'line', source:'draw-src', filter:['==','$type','LineString'],
+        paint:{ 'line-color':'#7c3aed','line-width':2,'line-dasharray':[2,1.5] } });
+      map.addLayer({ id:'draw-pt', type:'circle', source:'draw-src', filter:['==','$type','Point'],
+        paint:{ 'circle-radius':4,'circle-color':'#7c3aed','circle-stroke-color':'#fff','circle-stroke-width':2 } });
+
+      // Blue FF9211 dots
       map.addSource('blue-dots-src', { type:'geojson', data: fc() });
-      map.addLayer({
-        id: 'blue-dots', type: 'circle', source: 'blue-dots-src',
-        paint: {
-          'circle-radius': 3,
-          'circle-color': '#1f6feb',
-          'circle-stroke-color': '#1f6feb',
-          'circle-stroke-width': 1,
-          'circle-opacity': 0.9
-        }
-      });
-      map.addLayer({
-        id: 'blue-trail', type: 'line', source: 'blue-dots-src',
-        paint: { 'line-color': '#888', 'line-width': 1, 'line-opacity': 0.6 }
-      });
+      map.addLayer({ id:'blue-dots', type:'circle', source:'blue-dots-src',
+        paint:{ 'circle-radius':3,'circle-color':'#1f6feb','circle-stroke-color':'#1f6feb','circle-stroke-width':1,'circle-opacity':0.9 } });
+      map.addLayer({ id:'blue-trail', type:'line', source:'blue-dots-src',
+        paint:{ 'line-color':'#888','line-width':1,'line-opacity':0.6 } });
 
       // Building dots
       map.addSource('building-dots-src', { type:'geojson', data: fc() });
-      map.addLayer({
-        id: 'building-dots', type: 'circle', source: 'building-dots-src',
-        paint: {
-          'circle-radius': 2.5,
-          'circle-color': '#000000',
-          'circle-opacity': 0.85,
-          'circle-stroke-width': 0
-        }
-      });
+      map.addLayer({ id:'building-dots', type:'circle', source:'building-dots-src',
+        paint:{ 'circle-radius':2.5,'circle-color':'#000','circle-opacity':0.85,'circle-stroke-width':0 } });
 
-      // Click zones
+      // ── Click handlers ──
+      // Sub-zone click → bookable popup
       map.on('click', 'zones-fill', e => {
+        if(drawing) return;
+        e.originalEvent?.stopPropagation?.();
         const props = e.features[0].properties;
         showZonePopup(props.zoneNumber, e.lngLat);
       });
-      map.on('mouseenter', 'zones-fill', () => map.getCanvas().style.cursor = 'pointer');
-      map.on('mouseleave', 'zones-fill', () => map.getCanvas().style.cursor = '');
+      map.on('mouseenter', 'zones-fill', () => { if(!drawing) map.getCanvas().style.cursor='pointer'; });
+      map.on('mouseleave', 'zones-fill', () => { if(!drawing) map.getCanvas().style.cursor=''; });
+
+      // Municipality click → save-only popup (lower priority than sub-zones)
+      map.on('click', 'muni-fill', e => {
+        if(drawing) return;
+        // If a sub-zone is also under the cursor, let it win.
+        const subHits = map.queryRenderedFeatures(e.point, { layers:['zones-fill'] });
+        if(subHits.length) return;
+        const name = e.features[0].properties.name;
+        showMuniPopup(name, e.lngLat);
+      });
+      map.on('mouseenter', 'muni-fill', () => { if(!drawing) map.getCanvas().style.cursor='pointer'; });
+      map.on('mouseleave', 'muni-fill', () => { if(!drawing) map.getCanvas().style.cursor=''; });
+
+      // Global click → used for drawing point capture
+      map.on('click', e => { if(drawing) handleDrawClick(e); });
+      map.on('mousemove', e => { if(drawing) renderDrawPreview(e.lngLat.lng, e.lngLat.lat); });
+      map.on('dblclick', e => { if(drawing){ e.preventDefault(); finishDraw(); } });
 
       try {
-        await loadPolygons();
+        await loadSubZones();      // bookable zones from nedsubzones
         listenZoneStatuses();
         listenProofs();
         listenQrScans();
         listenChat();
-        listenFF9210Dots();
+        listenFF9211Dots();
       } catch(err) {
         console.error(err);
       } finally {
@@ -657,61 +762,491 @@
     });
   });
 
-  /* ── Zone popup ── */
-  let activePopup = null;
-  function clearBuildingDots(){
-    if(map.getSource('building-dots-src')) map.getSource('building-dots-src').setData(fc());
-  }
-  function showBuildingDots(centers){
-    if(!map.getSource('building-dots-src')) return;
-    const features = centers.map(([lat,lng]) => feat('Point',[lng,lat]));
-    map.getSource('building-dots-src').setData(fc(features));
-  }
-
-  function showZonePopup(zoneNumber, lngLat, autoLoadBuildings = true){
-    clearBuildingDots();
-    if(activePopup){ activePopup.remove(); activePopup = null; }
-
-    const z = zoneStatusByZone.get(zoneNumber) || {};
-    const meta = statusMeta(z.status, false);
-    const flyers = safeInt(z.flyers);
-    const canBook = z.status !== 'booked' && z.status !== 'completed';
-    const canUnbook = z.status === 'booked';
-
-    let actionButtons = '';
-    if(canBook) actionButtons += `<button class="zp-btn warn" data-act="book" data-zone="${zoneNumber}"><span class="material-icons-outlined" style="font-size:14px;">bookmark_add</span>Book</button>`;
-    if(canUnbook) actionButtons += `<button class="zp-btn danger" data-act="unbook" data-zone="${zoneNumber}"><span class="material-icons-outlined" style="font-size:14px;">bookmark_remove</span>Unbook</button>`;
-    if(z.status === 'completed'){
-      if(z.verifiedAt) actionButtons += `<button class="zp-btn" disabled><span class="material-icons-outlined" style="font-size:14px;">verified</span>Verified</button>`;
-      else actionButtons += `<button class="zp-btn verify-btn" data-act="verify" data-zone="${zoneNumber}"><span class="material-icons-outlined" style="font-size:14px;">check_circle</span>Verify</button>`;
+  /* ════════════════════════════════════════════════════════════════════
+     MUNICIPALITIES (purple, save-only)
+     ════════════════════════════════════════════════════════════════════ */
+  async function loadMunicipalities(){
+    if(muniLoaded) return;
+    toast('Loading Netherlands municipalities…');
+    // 1. boundaries from PDOK
+    let geo;
+    try {
+      const res = await fetch(PDOK_URL);
+      if(!res.ok) throw new Error('PDOK '+res.status);
+      geo = await res.json();
+    } catch(err){
+      console.error('PDOK load failed', err);
+      toast('Could not load NL municipalities');
+      return;
     }
+    if(!geo.features) return;
+    geo.features.forEach(f => {
+      const p = f.properties || {};
+      const name = p.statnaam || p.gemeentenaam || p.naam || p.statcode;
+      if(!name || !f.geometry) return;
+      muniByName.set(name, { name, geometry:f.geometry, savedKey:null, savedExtraKeys:[] });
+    });
 
-    let flyersReqHtml = z.flyersRequired
-      ? `<div style="margin-top:4px;font-size:11px;"><span style="display:inline-flex;align-items:center;gap:4px;"><span class="material-icons-outlined" style="font-size:12px;color:var(--warning);">group</span>Required: <strong>${z.flyersRequired.toLocaleString()}</strong></span></div>`
-      : '';
-    let proofImgHtml = z.proofImage
-      ? `<div style="margin-top:10px;"><img src="${z.proofImage}" data-proof="${z.proofImage}" loading="lazy" style="max-width:110px;border-radius:10px;cursor:pointer;border:1px solid var(--ink-300);"></div>`
-      : '';
-    let gpsHtml = z.gpsProof || z.gpsUrl
-      ? `<div style="margin-top:8px;"><a href="${z.gpsProof||z.gpsUrl}" target="_blank" rel="noopener" style="background:#1976d2;color:#fff;font-size:10px;padding:5px 12px;border-radius:10px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;"><span class="material-icons-outlined" style="font-size:14px;">assistant_navigation</span>GPS Route</a></div>`
-      : '';
+    // 2. which are already saved in nedzones (match by _name)
+    try {
+      const snap = await get(ref(polygonsDb, FB_MUNI));
+      if(snap.exists()){
+        snap.forEach(ch => {
+          const raw = ch.val() || {};
+          const nm = raw._name;
+          if(nm && muniByName.has(nm)){
+            const m = muniByName.get(nm);
+            if(!m.savedKey) m.savedKey = ch.key;
+            else m.savedExtraKeys.push(ch.key);
+          }
+        });
+      }
+    } catch(e){ console.warn('nedzones read failed', e); }
 
-    // Building status / load button — different content depending on autoLoad flag
-    const buildingStatusId = `bld-status-${zoneNumber}`;
-    const buildingHtml = autoLoadBuildings
-      ? `<div id="${buildingStatusId}" style="margin-top:6px;font-size:10px;color:#6b7280;display:flex;align-items:center;gap:4px;">
-          <span class="material-icons-outlined" style="font-size:12px;animation:spin 1s linear infinite;">refresh</span>Loading building dots…
-        </div>`
-      : `<div id="${buildingStatusId}" style="margin-top:6px;">
-          <button class="zp-btn" data-act="load-buildings" data-zone="${zoneNumber}" style="font-size:10px;padding:4px 8px;">
-            <span class="material-icons-outlined" style="font-size:12px;">grid_on</span>Show buildings
-          </button>
-        </div>`;
+    muniLoaded = true;
+    renderMunicipalities();
+  }
 
+  function renderMunicipalities(){
+    if(!map.getSource('muni-src')) return;
+    if(!showAllZones){ map.getSource('muni-src').setData(fc()); clearMuniLabels(); return; }
+    const features = [];
+    muniByName.forEach(m => {
+      features.push({
+        type:'Feature',
+        properties:{ name:m.name, saved: m.savedKey ? 1 : 0 },
+        geometry: m.geometry
+      });
+    });
+    map.getSource('muni-src').setData(fc(features));
+    renderMuniLabels();
+  }
+
+  // Light-weight name labels for municipalities (only a handful visible at low zoom).
+  let muniLabelMarkers = new Map();
+  function clearMuniLabels(){ muniLabelMarkers.forEach(m=>m.remove()); muniLabelMarkers.clear(); }
+  function renderMuniLabels(){
+    clearMuniLabels();
+    if(!showAllZones) return;
+    muniByName.forEach(m => {
+      let center;
+      try { center = turf.centroid({type:'Feature',geometry:m.geometry,properties:{}}).geometry.coordinates; }
+      catch { return; }
+      const el = document.createElement('div');
+      el.innerHTML = `<div class="zone-label muni"><span class="zone-num">${m.name}</span>${m.savedKey?'<span class="material-icons-outlined" style="font-size:10px;color:#16a34a;">check_circle</span>':''}</div>`;
+      el.style.cursor='pointer';
+      el.addEventListener('click', ev => { ev.stopPropagation(); showMuniPopup(m.name, { lng:center[0], lat:center[1] }); });
+      const mk = new maplibregl.Marker({ element:el, anchor:'center' }).setLngLat(center).addTo(map);
+      muniLabelMarkers.set(m.name, mk);
+    });
+  }
+
+  let activePopup = null;
+  function showMuniPopup(name, lngLat){
+    if(activePopup){ activePopup.remove(); activePopup=null; }
+    const m = muniByName.get(name);
+    if(!m) return;
+    const isSaved = !!m.savedKey;
     const html = `
       <div style="text-align:left;">
+        <strong style="display:flex;align-items:center;gap:4px;color:#5b21b6;font-size:12px;">
+          <span class="material-icons-outlined" style="font-size:14px;color:#7c3aed;">location_city</span>${name}
+        </strong>
+        <div style="margin-top:6px;font-size:10px;color:#6b7280;">
+          Municipality boundary. ${isSaved?'Saved in nedzones.':'Not bookable — save it, then draw sub-zones inside to book.'}
+        </div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+          ${isSaved
+            ? `<button class="zp-btn danger" data-act="muni-del" data-name="${name}"><span class="material-icons-outlined" style="font-size:14px;">delete</span>Delete saved</button>`
+            : `<button class="zp-btn save-btn" data-act="muni-save" data-name="${name}"><span class="material-icons-outlined" style="font-size:14px;">save</span>Save area</button>`}
+          <button class="zp-btn primary" data-act="muni-draw" data-name="${name}"><span class="material-icons-outlined" style="font-size:14px;">edit</span>Draw sub-zone</button>
+        </div>
+      </div>`;
+    activePopup = new maplibregl.Popup({ closeButton:true, closeOnClick:false, offset:[0,-8], maxWidth:'280px' })
+      .setLngLat(lngLat).setHTML(html).addTo(map);
+    activePopup.on('close', ()=>{ activePopup=null; });
+
+    setTimeout(()=>{
+      const el = activePopup?.getElement(); if(!el) return;
+      el.querySelectorAll('.zp-btn[data-act]').forEach(btn=>{
+        btn.addEventListener('click', async ev=>{
+          ev.preventDefault();
+          const act = btn.dataset.act, nm = btn.dataset.name;
+          if(act==='muni-save'){
+            btn.disabled=true; btn.innerHTML='<span class="material-icons-outlined" style="font-size:14px;animation:spin 1s linear infinite;">refresh</span>Saving…';
+            await saveMunicipality(nm);
+            if(activePopup){ activePopup.remove(); activePopup=null; }
+          } else if(act==='muni-del'){
+            requestPin(async ()=>{ await deleteMunicipality(nm); if(activePopup){activePopup.remove();activePopup=null;} });
+          } else if(act==='muni-draw'){
+            if(activePopup){ activePopup.remove(); activePopup=null; }
+            startDraw(nm);
+          }
+        });
+      });
+    },60);
+  }
+
+  function muniRings(geo){
+    if(!geo) return [];
+    if(geo.type==='Polygon')      return [geo.coordinates[0]];
+    if(geo.type==='MultiPolygon') return geo.coordinates.map(p=>p[0]);
+    return [];
+  }
+  function simplifyRing(ring, MAX=120){
+    let pts = ring.slice();
+    if(pts.length>1 && pts[0][0]===pts[pts.length-1][0] && pts[0][1]===pts[pts.length-1][1]) pts=pts.slice(0,-1);
+    if(pts.length<=MAX) return pts;
+    const step = pts.length/MAX, out=[];
+    for(let i=0;i<MAX;i++) out.push(pts[Math.floor(i*step)]);
+    return out;
+  }
+
+  async function saveMunicipality(name){
+    const m = muniByName.get(name);
+    if(!m){ return; }
+    try {
+      const rings = muniRings(m.geometry);
+      if(!rings.length){ toast('No usable geometry'); return; }
+      const keys=[];
+      for(const ring of rings){
+        const simp = simplifyRing(ring);
+        if(simp.length<3) continue;
+        const payload = { _name:name };
+        simp.forEach(([lng,lat],i)=>{ payload[i]={lat,lng}; });
+        const r = await push(ref(polygonsDb, FB_MUNI), payload);
+        keys.push(r.key);
+      }
+      if(!keys.length){ toast('Boundary too small'); return; }
+      m.savedKey = keys[0]; m.savedExtraKeys = keys.slice(1);
+      toast('Saved '+name+(keys.length>1?` (${keys.length} parts)`:''));
+      renderMunicipalities();
+    } catch(err){
+      console.error(err); toast('Save failed');
+    }
+  }
+
+  async function deleteMunicipality(name){
+    const m = muniByName.get(name);
+    if(!m) return;
+    try {
+      // Remove all nedzones records tagged with this name.
+      const snap = await get(ref(polygonsDb, FB_MUNI));
+      const dels = [];
+      if(snap.exists()){
+        snap.forEach(ch=>{ if((ch.val()||{})._name===name) dels.push(remove(ref(polygonsDb, FB_MUNI+'/'+ch.key))); });
+      }
+      await Promise.all(dels);
+      m.savedKey=null; m.savedExtraKeys=[];
+      toast('Deleted '+name);
+      renderMunicipalities();
+    } catch(err){ console.error(err); toast('Delete failed'); }
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     DRAWING SUB-ZONES (bookable, saved to nedsubzones)
+     ════════════════════════════════════════════════════════════════════ */
+  function startDraw(parentMuniName=null){
+    if(!showAllZones){
+      // Drawing happens inside municipalities, so make sure they're visible.
+      showAllZones = true; syncToggleBtn(); loadMunicipalities();
+    }
+    drawing = true; drawPts = []; drawParentMuni = parentMuniName;
+    if(map.doubleClickZoom) map.doubleClickZoom.disable();
+    document.body.classList.add('drawing');
+    drawBtn.classList.add('draw-active');
+    drawHint.classList.add('visible');
+    dhText.textContent = parentMuniName
+      ? `Drawing inside ${parentMuniName} · tap to add points`
+      : 'Tap inside a municipality to add points · double-click to close';
+    map.getSource('draw-src').setData(fc());
+    if(activePopup){ activePopup.remove(); activePopup=null; }
+  }
+
+  function cancelDraw(){
+    drawing=false; drawPts=[]; drawParentMuni=null;
+    if(map.doubleClickZoom) map.doubleClickZoom.enable();
+    document.body.classList.remove('drawing');
+    drawBtn.classList.remove('draw-active');
+    drawHint.classList.remove('visible');
+    if(map.getSource('draw-src')) map.getSource('draw-src').setData(fc());
+  }
+
+  function handleDrawClick(e){
+    const lng=e.lngLat.lng, lat=e.lngLat.lat;
+    // Lock the parent municipality to wherever the FIRST point lands.
+    if(drawPts.length===0){
+      const hit = muniAtPoint(lng,lat);
+      if(!hit){ toast('Start inside a municipality'); return; }
+      drawParentMuni = hit;
+      dhText.textContent = `Drawing inside ${hit} · tap to add points`;
+    } else {
+      // keep subsequent points inside the same municipality
+      const stillInside = pointInMuni(lng,lat,drawParentMuni);
+      if(!stillInside){ toast('Stay inside '+drawParentMuni); return; }
+    }
+    drawPts.push([lng,lat]);
+    renderDrawPreview(lng,lat);
+  }
+
+  function renderDrawPreview(mx,my){
+    const f=[];
+    drawPts.forEach(p=>f.push(feat('Point',p)));
+    if(drawPts.length){
+      const ln=[...drawPts,[mx,my]];
+      f.push(feat('LineString',ln));
+      if(drawPts.length>=2) f.push(feat('Polygon',[[...ln,drawPts[0]]]));
+    }
+    if(map.getSource('draw-src')) map.getSource('draw-src').setData(fc(f));
+  }
+
+  async function finishDraw(){
+    if(drawPts.length<3){ toast('Need at least 3 points'); return; }
+    const parent = drawParentMuni;
+    const ringLngLat = [...drawPts, drawPts[0]];
+    // Clip to parent municipality so the sub-zone never spills outside it.
+    let finalRing = ringLngLat;
+    try {
+      if(parent && muniByName.has(parent)){
+        const sub = turf.polygon([ringLngLat]);
+        const muniGeo = muniByName.get(parent).geometry;
+        const muniPoly = muniGeo.type==='MultiPolygon'
+          ? turf.multiPolygon(muniGeo.coordinates)
+          : turf.polygon(muniGeo.coordinates);
+        const clipped = turf.intersect(sub, muniPoly);
+        if(clipped){
+          const g = clipped.geometry;
+          finalRing = (g.type==='Polygon' ? g.coordinates[0] : g.coordinates[0][0]);
+        }
+      }
+    } catch(e){ /* fall back to raw ring */ }
+
+    const coords = simplifyRing(finalRing, 200).map(([lng,lat])=>({lat,lng}));
+    if(coords.length<3){ toast('Sub-zone invalid'); cancelDraw(); return; }
+
+    // Auto-number: max existing numeric sub-zone + 1
+    let maxN=0;
+    polygonsByZone.forEach((_,zn)=>{ const n=parseInt(zn,10); if(!isNaN(n)&&n>maxN) maxN=n; });
+    const zoneName = String(maxN+1);
+
+    const payload = { zoneName, _parent: parent || '' };
+    coords.forEach((p,i)=>{ payload[i]=p; });
+    try {
+      await push(ref(polygonsDb, FB_SUBZONES), payload);
+      toast('Sub-zone '+zoneName+' saved'+(parent?` in ${parent}`:''));
+    } catch(err){ console.error(err); toast('Save failed'); }
+    cancelDraw();
+    await loadSubZones();
+    updateZonesVisual();
+  }
+
+  // Find which loaded municipality (if any) contains a point.
+  function muniAtPoint(lng,lat){
+    for(const [name,m] of muniByName){
+      try {
+        const g=m.geometry;
+        const poly = g.type==='MultiPolygon'? turf.multiPolygon(g.coordinates): turf.polygon(g.coordinates);
+        if(turf.booleanPointInPolygon([lng,lat], poly)) return name;
+      } catch {}
+    }
+    return null;
+  }
+  function pointInMuni(lng,lat,name){
+    const m = muniByName.get(name); if(!m) return false;
+    try {
+      const g=m.geometry;
+      const poly = g.type==='MultiPolygon'? turf.multiPolygon(g.coordinates): turf.polygon(g.coordinates);
+      return turf.booleanPointInPolygon([lng,lat], poly);
+    } catch { return false; }
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     SUB-ZONES load + render (bookable)
+     ════════════════════════════════════════════════════════════════════ */
+  async function loadSubZones(){
+    const snap = await get(ref(polygonsDb, FB_SUBZONES));
+    labelMarkers.forEach(m=>m.remove()); labelMarkers.clear();
+    polygonMeta = []; polygonsByZone.clear();
+
+    let allLngs=[], allLats=[];
+    if(snap.exists()){
+      snap.forEach(child=>{
+        const raw=child.val(); const firebaseKey=child.key;
+        if(!raw||typeof raw!=='object') return;
+        const coordsLatLng = Object.keys(raw)
+          .filter(k=>!isNaN(Number(k)))
+          .sort((a,b)=>Number(a)-Number(b))
+          .map(k=>{ const pt=raw[k]; return Array.isArray(pt)?{lat:pt[0],lng:pt[1]}:{lat:pt.lat,lng:pt.lng}; })
+          .filter(pt=>typeof pt.lat==='number'&&typeof pt.lng==='number');
+        if(coordsLatLng.length<3) return;
+
+        let zoneName = raw.zoneName||raw.zoneNumber;
+        if(zoneName===undefined||zoneName===null||String(zoneName).trim()==='') zoneName=String(polygonMeta.length+1);
+        else zoneName=String(zoneName).trim();
+
+        const ring = coordsLatLng.map(p=>[p.lng,p.lat]);
+        if(ring[0][0]!==ring[ring.length-1][0]||ring[0][1]!==ring[ring.length-1][1]) ring.push(ring[0]);
+
+        const turfPoly = turf.polygon([ring]);
+        const center = turf.centroid(turfPoly).geometry.coordinates;
+        const lngs=ring.map(r=>r[0]), lats=ring.map(r=>r[1]);
+        const bounds={ minLng:Math.min(...lngs),maxLng:Math.max(...lngs),minLat:Math.min(...lats),maxLat:Math.max(...lats) };
+        allLngs.push(...lngs); allLats.push(...lats);
+
+        polygonMeta.push({ zoneNumber:zoneName, turfPoly, bounds, firebaseKey, center, parent: raw._parent||'' });
+        polygonsByZone.set(zoneName, polygonMeta.length-1);
+      });
+    }
+
+    if(map.getSource('zones-fill-src')) map.getSource('zones-fill-src').setData(fc());
+    updateZonesVisual();
+
+    // Only fit to sub-zones on the very first load and if we're not showing all NL.
+    if(firstFullLoad && allLngs.length && !showAllZones){
+      map.fitBounds([[Math.min(...allLngs),Math.min(...allLats)],[Math.max(...allLngs),Math.max(...allLats)]],{padding:50,duration:900});
+    }
+  }
+
+  function addOrUpdateLabelMarker(zoneNumber, center, status, isTiny, flyersCount){
+    const existing = labelMarkers.get(zoneNumber);
+    if(existing) existing.remove();
+    const el = document.createElement('div');
+    el.innerHTML = zoneLabelHtml(zoneNumber, isTiny, status, flyersCount);
+    el.style.pointerEvents='all'; el.style.cursor='pointer';
+    el.addEventListener('click', ()=>{ if(!drawing) showZonePopup(zoneNumber,{lng:center[0],lat:center[1]}); });
+    const m = new maplibregl.Marker({ element:el, anchor:'center' }).setLngLat(center).addTo(map);
+    labelMarkers.set(zoneNumber, m);
+  }
+
+  function zoneLabelHtml(z, tiny=false, status='', flyersCount=0){
+    const classes=['zone-label'];
+    if(tiny) classes.push('tiny');
+    if(status==='booked') classes.push('status-booked');
+    if(status==='completed') classes.push('status-completed');
+    const flyersHtml = status==='completed'&&flyersCount>0
+      ? `<span class="flyers-badge"><span class="material-icons-outlined">mail</span>${flyersCount}</span>`:'';
+    const dotsCount = ff2630DotsCountByZone.get(z)||0;
+    const dotsHtml = dotsCount>0
+      ? `<span class="dots-badge"><span class="material-icons-outlined">trip_origin</span>${dotsCount}</span>`:'';
+    return `<div class="${classes.join(' ')}"><span class="zone-num">${z}</span>${flyersHtml}${dotsHtml}</div>`;
+  }
+
+  function listenZoneStatuses(){
+    onValue(ref(db, ZONE_STATUS_PATH), snap => {
+      const newlyCompleted=[]; const existingCompleted=new Set();
+      zoneStatusByZone.forEach((s,z)=>{ if(s.status==='completed') existingCompleted.add(z); });
+      zoneStatusByZone.clear(); zoneStatusKeyByZone.clear();
+      if(snap.exists()){
+        snap.forEach(child=>{
+          const key=child.key; const data=child.val()||{};
+          const fieldZone = data.zoneName||String(data.zoneNumber||'');
+          const keyNum = safeInt(key);
+          let zName=null;
+          if(fieldZone && polygonsByZone.has(fieldZone)) zName=fieldZone;
+          else if(keyNum && polygonsByZone.has(keyNum)) zName=keyNum;
+          else if((keyNum||key==='0') && polygonsByZone.has(keyNum+1)) zName=keyNum+1;
+          else if(safeInt(data.zone)&&polygonsByZone.has(safeInt(data.zone))) zName=safeInt(data.zone);
+          if(zName!=null){
+            if(data.status==='completed'&&!existingCompleted.has(zName)){
+              data.completedAt=data.completedAt||Date.now();
+              newlyCompleted.push({zoneNum:zName,timestamp:data.completedAt});
+            }
+            zoneStatusByZone.set(zName,data);
+            zoneStatusKeyByZone.set(zName,key);
+          }
+        });
+      }
+      idle(updateZonesVisual);
+      if(firstFullLoad){
+        firstFullLoad=false;
+        const last=newlyCompleted.sort((a,b)=>b.timestamp-a.timestamp)[0];
+        if(last) setTimeout(()=>focusZone(last.zoneNum),250);
+      } else if(newlyCompleted.length){
+        const last=newlyCompleted.sort((a,b)=>b.timestamp-a.timestamp)[0];
+        if(last) focusZone(last.zoneNum);
+      }
+    });
+  }
+
+  function updateZonesVisual(){
+    const fillFeatures=[];
+    polygonMeta.forEach(({zoneNumber, turfPoly, center})=>{
+      const z=zoneStatusByZone.get(zoneNumber)||{};
+      const dotCount=ff2630DotsCountByZone.get(zoneNumber)||0;
+      const hasBlueDots=dotCount>0;
+      const isBooked=z.status==='booked';
+      const isCompleted=z.status==='completed';
+      const isRelevant=isBooked||isCompleted||hasBlueDots;
+
+      // Hide pending sub-zones unless "Show all" is on.
+      if(!isRelevant && !showAllZones){
+        const existing=labelMarkers.get(zoneNumber);
+        if(existing){ existing.remove(); labelMarkers.delete(zoneNumber); }
+        return;
+      }
+
+      let fillColor, lineColor;
+      if(hasBlueDots||isCompleted){ fillColor='#2e7d32'; lineColor='#1b5e20'; }
+      else if(isBooked){ fillColor='#F5C33B'; lineColor='#b38700'; }
+      else { fillColor='#60a5fa'; lineColor='#2563eb'; }   // available sub-zone (blue)
+
+      const ring=turfPoly.geometry.coordinates[0];
+      fillFeatures.push(feat('Polygon',[ring],{
+        zoneNumber, fillColor, fillOpacity:isRelevant?0.34:0.2, lineColor
+      }));
+      addOrUpdateLabelMarker(zoneNumber, center, z.status||'', false, safeInt(z.flyers));
+    });
+    if(map.getSource('zones-fill-src')) map.getSource('zones-fill-src').setData(fc(fillFeatures));
+    recalcFlyersRequired();
+  }
+
+  function recalcFlyersRequired(){
+    let total=0;
+    zoneStatusByZone.forEach(z=>{ if(z.status==='booked'&&z.flyersRequired) total+=safeInt(z.flyersRequired); });
+    flyersRequiredEl.textContent=total.toLocaleString();
+  }
+
+  /* ── Zone popup (bookable sub-zones) ── */
+  function clearBuildingDots(){ if(map.getSource('building-dots-src')) map.getSource('building-dots-src').setData(fc()); }
+  function showBuildingDots(centers){
+    if(!map.getSource('building-dots-src')) return;
+    map.getSource('building-dots-src').setData(fc(centers.map(([lat,lng])=>feat('Point',[lng,lat]))));
+  }
+
+  function showZonePopup(zoneNumber, lngLat, autoLoadBuildings=true){
+    clearBuildingDots();
+    if(activePopup){ activePopup.remove(); activePopup=null; }
+
+    const z=zoneStatusByZone.get(zoneNumber)||{};
+    const meta=statusMeta(z.status,false);
+    const flyers=safeInt(z.flyers);
+    const canBook = z.status!=='booked'&&z.status!=='completed';
+    const canUnbook = z.status==='booked';
+
+    let actionButtons='';
+    if(canBook) actionButtons+=`<button class="zp-btn warn" data-act="book" data-zone="${zoneNumber}"><span class="material-icons-outlined" style="font-size:14px;">bookmark_add</span>Book</button>`;
+    if(canUnbook) actionButtons+=`<button class="zp-btn danger" data-act="unbook" data-zone="${zoneNumber}"><span class="material-icons-outlined" style="font-size:14px;">bookmark_remove</span>Unbook</button>`;
+    if(z.status==='completed'){
+      if(z.verifiedAt) actionButtons+=`<button class="zp-btn" disabled><span class="material-icons-outlined" style="font-size:14px;">verified</span>Verified</button>`;
+      else actionButtons+=`<button class="zp-btn verify-btn" data-act="verify" data-zone="${zoneNumber}"><span class="material-icons-outlined" style="font-size:14px;">check_circle</span>Verify</button>`;
+    }
+
+    const flyersReqHtml = z.flyersRequired
+      ? `<div style="margin-top:4px;font-size:11px;"><span style="display:inline-flex;align-items:center;gap:4px;"><span class="material-icons-outlined" style="font-size:12px;color:var(--warning);">group</span>Required: <strong>${z.flyersRequired.toLocaleString()}</strong></span></div>`:'';
+    const proofImgHtml = z.proofImage
+      ? `<div style="margin-top:10px;"><img src="${z.proofImage}" data-proof="${z.proofImage}" loading="lazy" style="max-width:110px;border-radius:10px;cursor:pointer;border:1px solid var(--ink-300);"></div>`:'';
+    const gpsHtml = (z.gpsProof||z.gpsUrl)
+      ? `<div style="margin-top:8px;"><a href="${z.gpsProof||z.gpsUrl}" target="_blank" rel="noopener" style="background:#1976d2;color:#fff;font-size:10px;padding:5px 12px;border-radius:10px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;"><span class="material-icons-outlined" style="font-size:14px;">assistant_navigation</span>GPS Route</a></div>`:'';
+
+    const buildingStatusId=`bld-status-${zoneNumber}`;
+    const buildingHtml = autoLoadBuildings
+      ? `<div id="${buildingStatusId}" style="margin-top:6px;font-size:10px;color:#6b7280;display:flex;align-items:center;gap:4px;"><span class="material-icons-outlined" style="font-size:12px;animation:spin 1s linear infinite;">refresh</span>Loading building dots…</div>`
+      : `<div id="${buildingStatusId}" style="margin-top:6px;"><button class="zp-btn" data-act="load-buildings" data-zone="${zoneNumber}" style="font-size:10px;padding:4px 8px;"><span class="material-icons-outlined" style="font-size:12px;">grid_on</span>Show buildings</button></div>`;
+
+    const html=`
+      <div style="text-align:left;">
         <strong style="display:flex;align-items:center;gap:4px;color:#0e3450;font-size:12px;">
-          <span class="material-icons-outlined" style="font-size:14px;color:#1976d2;">layers</span>Zone ${zoneNumber}
+          <span class="material-icons-outlined" style="font-size:14px;color:#1976d2;">layers</span>Sub-zone ${zoneNumber}
         </strong>
         <div style="margin-top:6px;font-size:11px;"><span style="display:inline-flex;align-items:center;gap:4px;"><span class="material-icons-outlined" style="font-size:12px;color:#1976d2;">mail</span>Flyers: <strong>${flyers||'-'}</strong></span></div>
         ${flyersReqHtml}
@@ -721,287 +1256,77 @@
         ${gpsHtml}${proofImgHtml}
       </div>`;
 
-    activePopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, offset: [0,-8], maxWidth:'280px' })
-      .setLngLat(lngLat)
-      .setHTML(html)
-      .addTo(map);
+    activePopup=new maplibregl.Popup({ closeButton:true, closeOnClick:false, offset:[0,-8], maxWidth:'280px' })
+      .setLngLat(lngLat).setHTML(html).addTo(map);
+    activePopup.on('close', ()=>{ clearBuildingDots(); activePopup=null; });
 
-    activePopup.on('close', () => { clearBuildingDots(); activePopup = null; });
-
-    // Only auto-fetch building dots if explicitly enabled (manual click on polygon/label)
-    if (autoLoadBuildings) {
-      computeBuildingCount(zoneNumber).then(count => {
-        const data = buildingDataByZone.get(zoneNumber);
-        if(data && data.centers.length > 0) showBuildingDots(data.centers);
-        const statusEl = document.getElementById(buildingStatusId);
+    if(autoLoadBuildings){
+      computeBuildingCount(zoneNumber).then(count=>{
+        const data=buildingDataByZone.get(zoneNumber);
+        if(data&&data.centers.length>0) showBuildingDots(data.centers);
+        const statusEl=document.getElementById(buildingStatusId);
         if(statusEl){
-          if(count > 0){
-            statusEl.innerHTML = `<span class="material-icons-outlined" style="font-size:12px;color:#000;">location_on</span><strong style="color:#000;">${count}</strong> buildings shown`;
-            statusEl.style.color = '#374151';
-          } else {
-            statusEl.innerHTML = `<span class="material-icons-outlined" style="font-size:12px;">info</span>No building data found`;
-          }
+          if(count>0){ statusEl.innerHTML=`<span class="material-icons-outlined" style="font-size:12px;color:#000;">location_on</span><strong style="color:#000;">${count}</strong> buildings shown`; statusEl.style.color='#374151'; }
+          else statusEl.innerHTML=`<span class="material-icons-outlined" style="font-size:12px;">info</span>No building data found`;
         }
-      }).catch(() => {
-        const statusEl = document.getElementById(buildingStatusId);
-        if(statusEl) statusEl.innerHTML = `<span style="color:#e41e3f;">Building data unavailable</span>`;
-      });
+      }).catch(()=>{ const s=document.getElementById(buildingStatusId); if(s) s.innerHTML=`<span style="color:#e41e3f;">Building data unavailable</span>`; });
     }
 
-    setTimeout(() => {
-      const popupEl = activePopup?.getElement();
-      if(!popupEl) return;
-      const img = popupEl.querySelector('[data-proof]');
-      if(img) img.addEventListener('click', () => showModal('imgModal', img.dataset.proof));
-      popupEl.querySelectorAll('.zp-btn[data-act]').forEach(btn => {
-        btn.addEventListener('click', async e => {
+    setTimeout(()=>{
+      const popupEl=activePopup?.getElement(); if(!popupEl) return;
+      const img=popupEl.querySelector('[data-proof]');
+      if(img) img.addEventListener('click', ()=>showModal('imgModal',img.dataset.proof));
+      popupEl.querySelectorAll('.zp-btn[data-act]').forEach(btn=>{
+        btn.addEventListener('click', async e=>{
           e.preventDefault();
-          const act = btn.dataset.act;
-          const znum = btn.dataset.zone;
-
-          // Manual building load
-          if(act === 'load-buildings'){
-            btn.disabled = true;
-            btn.innerHTML = '<span class="material-icons-outlined" style="font-size:12px;animation:spin 1s linear infinite;">refresh</span>Loading…';
-            const count = await computeBuildingCount(znum);
-            const data = buildingDataByZone.get(znum);
-            if(data && data.centers.length > 0) showBuildingDots(data.centers);
-            const statusEl = document.getElementById(buildingStatusId);
+          const act=btn.dataset.act, znum=btn.dataset.zone;
+          if(act==='load-buildings'){
+            btn.disabled=true; btn.innerHTML='<span class="material-icons-outlined" style="font-size:12px;animation:spin 1s linear infinite;">refresh</span>Loading…';
+            const count=await computeBuildingCount(znum);
+            const data=buildingDataByZone.get(znum);
+            if(data&&data.centers.length>0) showBuildingDots(data.centers);
+            const statusEl=document.getElementById(buildingStatusId);
             if(statusEl){
-              if(count > 0){
-                statusEl.innerHTML = `<span class="material-icons-outlined" style="font-size:12px;color:#000;">location_on</span><strong style="color:#000;">${count}</strong> buildings shown`;
-                statusEl.style.color = '#374151';
-                statusEl.style.fontSize = '10px';
-                statusEl.style.display = 'flex';
-                statusEl.style.alignItems = 'center';
-                statusEl.style.gap = '4px';
-              } else {
-                statusEl.innerHTML = `<span style="font-size:10px;color:#6b7280;">No building data found</span>`;
-              }
+              if(count>0){ statusEl.innerHTML=`<span class="material-icons-outlined" style="font-size:12px;color:#000;">location_on</span><strong style="color:#000;">${count}</strong> buildings shown`; statusEl.style.color='#374151'; statusEl.style.fontSize='10px'; statusEl.style.display='flex'; statusEl.style.alignItems='center'; statusEl.style.gap='4px'; }
+              else statusEl.innerHTML=`<span style="font-size:10px;color:#6b7280;">No building data found</span>`;
             }
             return;
           }
-
-          btn.disabled = true; btn.textContent = 'Working…';
-          if(act === 'book'){
-            btn.innerHTML = '<span class="material-icons-outlined" style="font-size:13px;animation:spin 1s linear infinite;">refresh</span> Loading…';
-            const count = await computeBuildingCount(znum);
+          btn.disabled=true; btn.textContent='Working…';
+          if(act==='book'){
+            btn.innerHTML='<span class="material-icons-outlined" style="font-size:13px;animation:spin 1s linear infinite;">refresh</span> Loading…';
+            const count=await computeBuildingCount(znum);
             if(!count){ btn.disabled=false; btn.textContent='Retry'; return; }
-            showBuildingDots(buildingDataByZone.get(znum)?.centers || []);
-            await applyStatusToZones([znum], 'booked');
-          } else if(act === 'unbook'){
-            await applyStatusToZones([znum], 'pending');
-          } else if(act === 'verify'){
+            showBuildingDots(buildingDataByZone.get(znum)?.centers||[]);
+            await applyStatusToZones([znum],'booked');
+          } else if(act==='unbook'){
+            await applyStatusToZones([znum],'pending');
+          } else if(act==='verify'){
             await verifyZone(znum);
           }
-          if(activePopup){ activePopup.remove(); activePopup = null; }
+          if(activePopup){ activePopup.remove(); activePopup=null; }
         });
       });
-    }, 60);
-  }
-
-  /* ── Load polygons ── */
-  async function loadPolygons(){
-    const snap = await get(ref(polygonsDb,'nedzones'));
-    if(!snap.exists()) return;
-
-    labelMarkers.forEach(m => m.remove());
-    labelMarkers.clear();
-    polygonMeta = [];
-    polygonsByZone.clear();
-
-    let allLngs = [], allLats = [];
-
-    snap.forEach(child => {
-      const raw = child.val();
-      const firebaseKey = child.key;
-      if(!raw || typeof raw !== 'object') return;
-
-      const coordsLatLng = Object.keys(raw)
-        .filter(k => !isNaN(Number(k)))
-        .sort((a,b) => Number(a)-Number(b))
-        .map(k => {
-          const pt = raw[k];
-          return Array.isArray(pt) ? { lat:pt[0], lng:pt[1] } : { lat:pt.lat, lng:pt.lng };
-        })
-        .filter(pt => typeof pt.lat==='number' && typeof pt.lng==='number');
-
-      if(coordsLatLng.length < 3) return;
-
-      let zoneName = raw.zoneName || raw.zoneNumber;
-      if(zoneName===undefined||zoneName===null||String(zoneName).trim()==='')
-        zoneName = String(polygonMeta.length + 1);
-      else zoneName = String(zoneName).trim();
-
-      const ring = coordsLatLng.map(p => [p.lng, p.lat]);
-      if(ring[0][0]!==ring[ring.length-1][0]||ring[0][1]!==ring[ring.length-1][1]) ring.push(ring[0]);
-
-      const turfPoly = turf.polygon([ring]);
-      const center = turf.centroid(turfPoly).geometry.coordinates;
-
-      const lngs = ring.map(r=>r[0]), lats = ring.map(r=>r[1]);
-      const bounds = { minLng:Math.min(...lngs), maxLng:Math.max(...lngs), minLat:Math.min(...lats), maxLat:Math.max(...lats) };
-      allLngs.push(...lngs); allLats.push(...lats);
-
-      polygonMeta.push({ zoneNumber: zoneName, turfPoly, bounds, firebaseKey, center });
-      polygonsByZone.set(zoneName, polygonMeta.length - 1);
-
-      // Don't add fill or label here — updateZonesVisual() will fill in only
-      // the relevant zones (booked / dotted / completed) once Firebase data arrives.
-    });
-
-    // Start with an empty zone source — populated by updateZonesVisual
-    if(map.getSource('zones-fill-src')) map.getSource('zones-fill-src').setData(fc());
-
-    if(allLngs.length){
-      map.fitBounds(
-        [[Math.min(...allLngs), Math.min(...allLats)], [Math.max(...allLngs), Math.max(...allLats)]],
-        { padding: 50, duration: 900 }
-      );
-    }
-  }
-
-  function addOrUpdateLabelMarker(zoneNumber, center, status, isTiny, flyersCount){
-    const existing = labelMarkers.get(zoneNumber);
-    if(existing) existing.remove();
-    const el = document.createElement('div');
-    el.innerHTML = zoneLabelHtml(zoneNumber, isTiny, status, flyersCount);
-    el.style.pointerEvents = 'all';
-    el.style.cursor = 'pointer';
-    el.addEventListener('click', () => showZonePopup(zoneNumber, { lng: center[0], lat: center[1] }));
-    const m = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(center).addTo(map);
-    labelMarkers.set(zoneNumber, m);
-  }
-
-  function zoneLabelHtml(z, tiny=false, status='', flyersCount=0){
-    const classes = ['zone-label'];
-    if(tiny) classes.push('tiny');
-    if(status==='booked') classes.push('status-booked');
-    if(status==='completed') classes.push('status-completed');
-    const flyersHtml = status==='completed' && flyersCount>0
-      ? `<span class="flyers-badge"><span class="material-icons-outlined">mail</span>${flyersCount}</span>` : '';
-    const dotsCount = ff2630DotsCountByZone.get(z) || 0;
-    const dotsHtml = dotsCount > 0
-      ? `<span class="dots-badge"><span class="material-icons-outlined">trip_origin</span>${dotsCount}</span>` : '';
-    return `<div class="${classes.join(' ')}"><span class="zone-num">${z}</span>${flyersHtml}${dotsHtml}</div>`;
-  }
-
-  function listenZoneStatuses(){
-    onValue(ref(db, ZONE_STATUS_PATH), snap => {
-      const newlyCompleted = [];
-      const existingCompleted = new Set();
-      zoneStatusByZone.forEach((s,z) => { if(s.status==='completed') existingCompleted.add(z); });
-      zoneStatusByZone.clear(); zoneStatusKeyByZone.clear();
-
-      if(snap.exists()){
-        snap.forEach(child => {
-          const key = child.key;
-          const data = child.val() || {};
-          const fieldZone = data.zoneName || String(data.zoneNumber || '');
-          const keyNum = safeInt(key);
-          let zName = null;
-          if(fieldZone && polygonsByZone.has(fieldZone)) zName = fieldZone;
-          else if(keyNum && polygonsByZone.has(keyNum)) zName = keyNum;
-          else if((keyNum||key==='0') && polygonsByZone.has(keyNum+1)) zName = keyNum+1;
-          else if(safeInt(data.zone) && polygonsByZone.has(safeInt(data.zone))) zName = safeInt(data.zone);
-          if(zName!=null){
-            if(data.status==='completed' && !existingCompleted.has(zName)){
-              data.completedAt = data.completedAt || Date.now();
-              newlyCompleted.push({ zoneNum:zName, timestamp:data.completedAt });
-            }
-            zoneStatusByZone.set(zName,data);
-            zoneStatusKeyByZone.set(zName,key);
-          }
-        });
-      }
-
-      idle(updateZonesVisual);
-
-      if(firstFullLoad){
-        firstFullLoad = false;
-        const last = newlyCompleted.sort((a,b)=>b.timestamp-a.timestamp)[0];
-        if(last) setTimeout(() => focusZone(last.zoneNum), 250);
-      } else if(newlyCompleted.length){
-        const last = newlyCompleted.sort((a,b)=>b.timestamp-a.timestamp)[0];
-        if(last) focusZone(last.zoneNum);
-      }
-    });
-  }
-
-  // Toggle: when false (default), only render booked / dot-active / completed zones AND their labels.
-  // User clicks "Show all zones" button in topbar to render every zone.
-  let showAllZones = false;
-
-  function updateZonesVisual(){
-    const fillFeatures = [];
-
-    polygonMeta.forEach(({zoneNumber, turfPoly, center}) => {
-      const z = zoneStatusByZone.get(zoneNumber) || {};
-      const dotCount = ff2630DotsCountByZone.get(zoneNumber) || 0;
-      const hasBlueDots = dotCount > 0;
-      const isBooked = z.status === 'booked';
-      const isCompleted = z.status === 'completed';
-      const isRelevant = isBooked || isCompleted || hasBlueDots;
-
-      // Hide pending/inactive zones entirely (no fill, no label) — unless the user
-      // has toggled "Show all zones" from the topbar.
-      if(!isRelevant && !showAllZones){
-        // Remove any existing label marker for this zone
-        const existing = labelMarkers.get(zoneNumber);
-        if(existing){ existing.remove(); labelMarkers.delete(zoneNumber); }
-        return;
-      }
-
-      // Pick fill color
-      let fillColor, lineColor;
-      if(hasBlueDots || isCompleted){
-        fillColor = '#2e7d32';                    // green
-        lineColor = '#1b5e20';
-      } else if(isBooked){
-        fillColor = '#F5C33B';                    // booked yellow
-        lineColor = '#b38700';
-      } else {
-        fillColor = '#9ca3af';                    // grey (only shown when "Show all" is on)
-        lineColor = '#6b7280';
-      }
-
-      const ring = turfPoly.geometry.coordinates[0];
-      fillFeatures.push(feat('Polygon', [ring], {
-        zoneNumber, fillColor,
-        fillOpacity: isRelevant ? 0.32 : 0.15,
-        lineColor
-      }));
-
-      addOrUpdateLabelMarker(zoneNumber, center, z.status||'', false, safeInt(z.flyers));
-    });
-
-    if(map.getSource('zones-fill-src')) map.getSource('zones-fill-src').setData(fc(fillFeatures));
-    recalcFlyersRequired();
-  }
-
-  function recalcFlyersRequired(){
-    let total = 0;
-    zoneStatusByZone.forEach(z => { if(z.status==='booked'&&z.flyersRequired) total+=safeInt(z.flyersRequired); });
-    flyersRequiredEl.textContent = total.toLocaleString();
+    },60);
   }
 
   async function applyStatusToZones(zones, newStatus){
-    const updates = {};
-    zones.forEach(zoneNum => {
-      let nodeKey = zoneStatusKeyByZone.get(zoneNum) || String(zoneNum);
-      updates[`${nodeKey}/status`] = newStatus;
-      updates[`${nodeKey}/zoneName`] = zoneNum;
-      updates[`${nodeKey}/zoneNumber`] = zoneNum;
-      if(newStatus==='completed') updates[`${nodeKey}/completedAt`] = serverTimestamp();
+    const updates={};
+    zones.forEach(zoneNum=>{
+      let nodeKey=zoneStatusKeyByZone.get(zoneNum)||String(zoneNum);
+      updates[`${nodeKey}/status`]=newStatus;
+      updates[`${nodeKey}/zoneName`]=zoneNum;
+      updates[`${nodeKey}/zoneNumber`]=zoneNum;
+      if(newStatus==='completed') updates[`${nodeKey}/completedAt`]=serverTimestamp();
     });
     await update(ref(db, ZONE_STATUS_PATH), updates);
     if(newStatus==='booked'){
       for(const z of zones){
-        const statusObj = zoneStatusByZone.get(z)||{};
+        const statusObj=zoneStatusByZone.get(z)||{};
         if(typeof statusObj.flyersRequired==='number') continue;
-        const count = await computeBuildingCount(z);
+        const count=await computeBuildingCount(z);
         if(count){
-          const nodeKey = zoneStatusKeyByZone.get(z)||String(z);
+          const nodeKey=zoneStatusKeyByZone.get(z)||String(z);
           await update(ref(db,`${ZONE_STATUS_PATH}/${nodeKey}`),{ flyersRequired: count*2 });
         }
       }
@@ -1009,231 +1334,144 @@
   }
 
   async function verifyZone(zoneNum){
-    const key = zoneStatusKeyByZone.get(zoneNum);
+    const key=zoneStatusKeyByZone.get(zoneNum);
     if(!key) return;
-    try {
-      await update(ref(db,`${ZONE_STATUS_PATH}/${key}`),{ verifiedAt: serverTimestamp() });
-    } catch(e){ alert('Verify failed.'); }
+    try { await update(ref(db,`${ZONE_STATUS_PATH}/${key}`),{ verifiedAt: serverTimestamp() }); }
+    catch(e){ alert('Verify failed.'); }
   }
 
   window.focusZone = function(zoneNum){
-    const idx = polygonsByZone.get(zoneNum);
-    if(idx===undefined) return;
-    const meta = polygonMeta[idx];
-    if(!meta) return;
-    const b = meta.bounds;
-    map.fitBounds([[b.minLng, b.minLat],[b.maxLng, b.maxLat]], { padding:60, duration:900 });
-    setTimeout(() => {
-      map.flyTo({ center: meta.center, zoom: Math.max(map.getZoom(),15), duration:600 });
-      // Don't auto-open the zone popup — user can tap the zone if they want details.
-    }, 200);
+    const idx=polygonsByZone.get(zoneNum); if(idx===undefined) return;
+    const meta=polygonMeta[idx]; if(!meta) return;
+    const b=meta.bounds;
+    map.fitBounds([[b.minLng,b.minLat],[b.maxLng,b.maxLat]],{padding:60,duration:900});
+    setTimeout(()=>{ map.flyTo({center:meta.center,zoom:Math.max(map.getZoom(),15),duration:600}); },200);
   };
 
-  /* ── Building dots ── */
+  /* ── Building dots (Overpass) ── */
   async function computeBuildingCount(zoneNum){
     if(buildingDataByZone.has(zoneNum)) return buildingDataByZone.get(zoneNum).count;
-    if(buildingFetchPromises.has(zoneNum)){
-      await buildingFetchPromises.get(zoneNum);
-      return buildingDataByZone.get(zoneNum)?.count || 0;
-    }
-    const idx = polygonsByZone.get(zoneNum);
+    if(buildingFetchPromises.has(zoneNum)){ await buildingFetchPromises.get(zoneNum); return buildingDataByZone.get(zoneNum)?.count||0; }
+    const idx=polygonsByZone.get(zoneNum);
     if(idx===undefined){ buildingDataByZone.set(zoneNum,{centers:[],count:0}); return 0; }
-    const meta = polygonMeta[idx];
-    const ring = meta.turfPoly.geometry.coordinates[0];
-    const polyStr = ring.map(([lng,lat])=>`${lat} ${lng}`).join(' ');
-    const query = `[out:json][timeout:25];(node["building"](poly:"${polyStr}");way["building"](poly:"${polyStr}");relation["building"](poly:"${polyStr}"););out center;`;
-    const prom = fetch('https://overpass-api.de/api/interpreter',{
-      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'data='+encodeURIComponent(query)
+    const meta=polygonMeta[idx];
+    const ring=meta.turfPoly.geometry.coordinates[0];
+    const polyStr=ring.map(([lng,lat])=>`${lat} ${lng}`).join(' ');
+    const query=`[out:json][timeout:25];(node["building"](poly:"${polyStr}");way["building"](poly:"${polyStr}");relation["building"](poly:"${polyStr}"););out center;`;
+    const prom=fetch('https://overpass-api.de/api/interpreter',{
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(query)
     }).then(r=>{ if(!r.ok) throw new Error('Overpass error'); return r.json(); })
     .then(data=>{
-      const elements = data?.elements||[];
-      const centers=[]; const seen=new Set();
+      const elements=data?.elements||[]; const centers=[]; const seen=new Set();
       elements.forEach(el=>{
         let lat,lon;
         if(el.type==='node'&&typeof el.lat==='number'){lat=el.lat;lon=el.lon;}
         else if(el.center){lat=el.center.lat;lon=el.center.lon;}
-        if(typeof lat==='number'){
-          const k=el.type+':'+el.id;
-          if(!seen.has(k)){seen.add(k);centers.push([lat,lon]);}
-        }
+        if(typeof lat==='number'){ const k=el.type+':'+el.id; if(!seen.has(k)){seen.add(k);centers.push([lat,lon]);} }
       });
       buildingDataByZone.set(zoneNum,{centers,count:centers.length});
       return centers.length;
-    })
-    .catch(()=>{ buildingDataByZone.set(zoneNum,{centers:[],count:0}); return 0; })
+    }).catch(()=>{ buildingDataByZone.set(zoneNum,{centers:[],count:0}); return 0; })
     .finally(()=>buildingFetchPromises.delete(zoneNum));
     buildingFetchPromises.set(zoneNum,prom);
     return prom;
   }
 
-  /* ── Blue dots (FF9210) ── */
-  function listenFF9210Dots(){
-    onValue(ref(ff974Db,`userPosts/${FF9210_USER}`), snap => {
-      const dotsList = [];
+  /* ── Blue dots (FF9211) ── */
+  function listenFF9211Dots(){
+    onValue(ref(ff974Db,`userPosts/${FF9211_USER}`), snap => {
+      const dotsList=[];
       if(snap.exists()){
-        snap.forEach(child=>{
-          const v=child.val();
-          if(v&&typeof v.lat==='number'&&typeof v.lng==='number'){
-            dotsList.push({lat:v.lat,lng:v.lng,ts:v.timestamp||Date.now()});
-          }
-        });
+        snap.forEach(child=>{ const v=child.val(); if(v&&typeof v.lat==='number'&&typeof v.lng==='number') dotsList.push({lat:v.lat,lng:v.lng,ts:v.timestamp||Date.now()}); });
       }
       dotsList.sort((a,b)=>a.ts-b.ts);
-
-      const ptFeatures = dotsList.map(d => feat('Point',[d.lng,d.lat]));
+      const ptFeatures=dotsList.map(d=>feat('Point',[d.lng,d.lat]));
       if(map.getSource('blue-dots-src')){
-        const trailCoords = dotsList.map(d=>[d.lng,d.lat]);
-        const combined = fc([
-          ...ptFeatures,
-          ...(dotsList.length>=2 ? [feat('LineString', trailCoords)] : [])
-        ]);
-        map.getSource('blue-dots-src').setData(combined);
+        const trailCoords=dotsList.map(d=>[d.lng,d.lat]);
+        map.getSource('blue-dots-src').setData(fc([...ptFeatures,...(dotsList.length>=2?[feat('LineString',trailCoords)]:[])]));
       }
-
       ff2630DotsCountByZone.clear();
       dotsList.forEach(dot=>{
-        const pt = [dot.lng, dot.lat];
+        const pt=[dot.lng,dot.lat];
         for(const meta of polygonMeta){
           if(dot.lng<meta.bounds.minLng||dot.lng>meta.bounds.maxLng||dot.lat<meta.bounds.minLat||dot.lat>meta.bounds.maxLat) continue;
-          if(turf.booleanPointInPolygon(pt, meta.turfPoly)){
-            ff2630DotsCountByZone.set(meta.zoneNumber,(ff2630DotsCountByZone.get(meta.zoneNumber)||0)+1);
-            break;
-          }
+          if(turf.booleanPointInPolygon(pt, meta.turfPoly)){ ff2630DotsCountByZone.set(meta.zoneNumber,(ff2630DotsCountByZone.get(meta.zoneNumber)||0)+1); break; }
         }
       });
-
       idle(updateZonesVisual);
       updateLatestDotUI(dotsList.length, dotsList[dotsList.length-1]||null);
     });
   }
 
   function updateLatestDotUI(total, latest){
-    completedFlyersCountEl.textContent = total.toLocaleString();
+    completedFlyersCountEl.textContent=total.toLocaleString();
     if(!latest){ if(latestDotMarker){latestDotMarker.remove();latestDotMarker=null;} return; }
-    const html = `<div class="latest-marker-container"><div class="latest-dot-marker"><span class="material-icons-outlined">task_alt</span>${total}</div><div class="pulse-ring"></div></div>`;
+    const html=`<div class="latest-marker-container"><div class="latest-dot-marker"><span class="material-icons-outlined">task_alt</span>${total}</div><div class="pulse-ring"></div></div>`;
     if(!latestDotMarker){
-      const el = document.createElement('div'); el.innerHTML = html;
-      latestDotMarker = new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([latest.lng,latest.lat]).addTo(map);
-    } else {
-      latestDotMarker.setLngLat([latest.lng,latest.lat]);
-      latestDotMarker.getElement().innerHTML = html;
-    }
-    const now = Date.now();
-    if(latest && (now-lastLatestFocusTs)>8000){
+      const el=document.createElement('div'); el.innerHTML=html;
+      latestDotMarker=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([latest.lng,latest.lat]).addTo(map);
+    } else { latestDotMarker.setLngLat([latest.lng,latest.lat]); latestDotMarker.getElement().innerHTML=html; }
+    const now=Date.now();
+    if(latest&&(now-lastLatestFocusTs)>8000){
       lastLatestFocusTs=now;
       for(const meta of polygonMeta){
         if(latest.lng<meta.bounds.minLng||latest.lng>meta.bounds.maxLng||latest.lat<meta.bounds.minLat||latest.lat>meta.bounds.maxLat) continue;
         if(turf.booleanPointInPolygon([latest.lng,latest.lat], meta.turfPoly)){
-          if(lastLatestFocusedZone !== meta.zoneNumber){
-            lastLatestFocusedZone = meta.zoneNumber;
-            setTimeout(()=>focusZone(meta.zoneNumber),120);
-          }
+          if(lastLatestFocusedZone!==meta.zoneNumber){ lastLatestFocusedZone=meta.zoneNumber; setTimeout(()=>focusZone(meta.zoneNumber),120); }
           break;
         }
       }
     }
   }
 
-  /* ── Proofs ──
-   * The dot-poster app converts user IDs `FFxxx` → `XXxxx` when writing proofs:
-   *   cId = currentUserId.startsWith('FF') ? 'XX'+cId.substring(2) : cId
-   *   push(ref(proofDb, `campaigns/${cId}/proofs`), {...})
-   *
-   * XX9210 dashboard listens ONLY to the matching XX9210 node
-   * (FF9210 worker → XX9210 proofs path).
-   */
-  const PROOFS_PATH = 'campaigns/XX9210/proofs';
+  /* ── Proofs ── */
+  const PROOFS_PATH='campaigns/XX9211/proofs';
   function listenProofs(){
-    console.log('[Proofs] Listening to', PROOFS_PATH);
-    onValue(ref(db, PROOFS_PATH), snap => {
-      proofMarkerMap.forEach(m => m.remove());
-      proofMarkerMap.clear();
-      proofsList = [];
-
-      const val = snap.val();
-      if (val) {
-        for (const id in val) {
-          const p = val[id];
-          if (p && typeof p.lat === 'number' && typeof p.lng === 'number' && p.url) {
-            proofsList.push({
-              id,
-              url: p.url,
-              lat: p.lat,
-              lng: p.lng,
-              timestamp: p.timestamp || 0
-            });
-          }
-        }
-      }
-      console.log(`[Proofs] Found ${proofsList.length} proof(s) in XX9210`);
-      proofsList.sort((a, b) => b.timestamp - a.timestamp);
-
-      proofsList.forEach(p => {
-        const el = document.createElement('div');
-        el.className = 'proof-ml-icon';
-        el.innerHTML = '<span class="material-icons-outlined">photo_camera</span>';
-        const m = new maplibregl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([p.lng, p.lat]).addTo(map);
-
-        // Prevent the camera-marker click from bubbling up to the map polygon
-        // underneath (which would open the zone popup and load building dots).
-        el.addEventListener('mousedown', e => e.stopPropagation());
-        el.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
-
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          // Also clear any zone popup / building dots that may be visible
-          clearBuildingDots();
-          if (activePopup) { activePopup.remove(); activePopup = null; }
-          activePopup = new maplibregl.Popup({ closeButton: true, offset: [0, -14] })
-            .setLngLat([p.lng, p.lat])
-            .setHTML(`<img src="${p.url}" data-proof="${p.url}" loading="lazy"
-              style="max-width:240px;max-height:240px;border-radius:8px;cursor:pointer;display:block;">`)
-            .addTo(map);
-          setTimeout(() => {
-            const img = activePopup.getElement()?.querySelector('[data-proof]');
-            if (img) img.addEventListener('click', () => showModal('imgModal', img.dataset.proof));
-          }, 60);
+    onValue(ref(db, PROOFS_PATH), snap=>{
+      proofMarkerMap.forEach(m=>m.remove()); proofMarkerMap.clear(); proofsList=[];
+      const val=snap.val();
+      if(val){ for(const id in val){ const p=val[id]; if(p&&typeof p.lat==='number'&&typeof p.lng==='number'&&p.url) proofsList.push({id,url:p.url,lat:p.lat,lng:p.lng,timestamp:p.timestamp||0}); } }
+      proofsList.sort((a,b)=>b.timestamp-a.timestamp);
+      proofsList.forEach(p=>{
+        const el=document.createElement('div'); el.className='proof-ml-icon';
+        el.innerHTML='<span class="material-icons-outlined">photo_camera</span>';
+        const m=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([p.lng,p.lat]).addTo(map);
+        el.addEventListener('mousedown',e=>e.stopPropagation());
+        el.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+        el.addEventListener('click',(e)=>{
+          e.stopPropagation(); clearBuildingDots();
+          if(activePopup){activePopup.remove();activePopup=null;}
+          activePopup=new maplibregl.Popup({closeButton:true,offset:[0,-14]})
+            .setLngLat([p.lng,p.lat])
+            .setHTML(`<img src="${p.url}" data-proof="${p.url}" loading="lazy" style="max-width:240px;max-height:240px;border-radius:8px;cursor:pointer;display:block;">`).addTo(map);
+          setTimeout(()=>{ const img=activePopup.getElement()?.querySelector('[data-proof]'); if(img) img.addEventListener('click',()=>showModal('imgModal',img.dataset.proof)); },60);
         });
-        proofMarkerMap.set(p.id, m);
+        proofMarkerMap.set(p.id,m);
       });
-
       renderProofSlider();
     });
   }
 
   function renderProofSlider(){
     proofStripInner.innerHTML='';
-    if(!proofsList.length){
-      proofStrip.classList.remove('visible');
-      console.log('[Proofs] No proofs at', PROOFS_PATH);
-      return;
-    }
-    console.log(`[Proofs] Showing ${proofsList.length} proof(s)`);
+    if(!proofsList.length){ proofStrip.classList.remove('visible'); return; }
     proofStrip.classList.add('visible');
     const frag=document.createDocumentFragment();
     proofsList.forEach((p,i)=>{
-      const div=document.createElement('div');
-      div.className='proof-item';div.dataset.id=p.id;
-      div.title = p.timestamp ? formatDateTime(p.timestamp) : `Proof ${i+1}`;
+      const div=document.createElement('div'); div.className='proof-item'; div.dataset.id=p.id;
+      div.title=p.timestamp?formatDateTime(p.timestamp):`Proof ${i+1}`;
       div.innerHTML=`<img class="proof-thumb" src="${p.url}" alt="Proof ${i+1}" loading="lazy">`;
       div.addEventListener('click',()=>{
         const m=proofMarkerMap.get(p.id);
         if(m) map.flyTo({center:[p.lng,p.lat],zoom:Math.max(map.getZoom(),16),duration:700});
         document.querySelectorAll('.proof-item').forEach(el=>el.classList.toggle('selected',el.dataset.id===p.id));
-        // Auto-open the popup so the user immediately sees the photo
         setTimeout(()=>{
           if(activePopup){activePopup.remove();activePopup=null;}
           activePopup=new maplibregl.Popup({closeButton:true,offset:[0,-14]})
             .setLngLat([p.lng,p.lat])
-            .setHTML(`<img src="${p.url}" data-proof="${p.url}" loading="lazy" style="max-width:240px;max-height:240px;border-radius:8px;cursor:pointer;display:block;">`)
-            .addTo(map);
-          setTimeout(()=>{
-            const img=activePopup.getElement()?.querySelector('[data-proof]');
-            if(img) img.addEventListener('click',()=>showModal('imgModal',img.dataset.proof));
-          },60);
-        }, 750);
+            .setHTML(`<img src="${p.url}" data-proof="${p.url}" loading="lazy" style="max-width:240px;max-height:240px;border-radius:8px;cursor:pointer;display:block;">`).addTo(map);
+          setTimeout(()=>{ const img=activePopup.getElement()?.querySelector('[data-proof]'); if(img) img.addEventListener('click',()=>showModal('imgModal',img.dataset.proof)); },60);
+        },750);
       });
       frag.appendChild(div);
     });
@@ -1245,31 +1483,58 @@
   /* ── QR Scans ── */
   function listenQrScans(){
     onValue(ref(db,'qr_scans'),snap=>{
-      let count=0;
-      const val=snap.val();
-      if(val) for(const k in val){ if(val[k].promoCode==='XX9210') count++; }
+      let count=0; const val=snap.val();
+      if(val) for(const k in val){ if(val[k].promoCode==='XX9211') count++; }
       qrScanCountEl.textContent=count;
     });
     qrCounter.addEventListener('click',()=>alert('QR Scans list is only available if active for this campaign.'));
   }
 
-  // Toggle: show all zones vs only active (booked / dotted / completed)
-  const toggleZonesBtn = document.getElementById('toggleZonesBtn');
-  const toggleZonesIcon = document.getElementById('toggleZonesIcon');
-  toggleZonesBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    showAllZones = !showAllZones;
+  /* ── Toggle: show all NL zones ── */
+  const toggleZonesBtn=document.getElementById('toggleZonesBtn');
+  const toggleZonesIcon=document.getElementById('toggleZonesIcon');
+  function syncToggleBtn(){
     toggleZonesBtn.classList.toggle('active', showAllZones);
-    toggleZonesBtn.style.background = showAllZones ? 'var(--accent-soft)' : '';
-    toggleZonesBtn.style.borderColor = showAllZones ? 'var(--brand)' : '';
-    toggleZonesIcon.style.color = showAllZones ? 'var(--brand)' : '';
-    toggleZonesBtn.title = showAllZones ? 'Hide inactive zones' : 'Show all zones';
+    toggleZonesBtn.title = showAllZones ? 'Hide inactive zones' : 'Show all Netherlands zones';
     toggleZonesIcon.textContent = showAllZones ? 'layers_clear' : 'layers';
+  }
+  toggleZonesBtn.addEventListener('click', async e=>{
+    e.stopPropagation();
+    showAllZones=!showAllZones;
+    syncToggleBtn();
+    if(showAllZones){
+      await loadMunicipalities();   // fetch + render purple borders
+    } else {
+      renderMunicipalities();        // clears them
+    }
     updateZonesVisual();
   });
+
+  /* ── Draw button ── */
+  drawBtn.addEventListener('click', e=>{
+    e.stopPropagation();
+    if(drawing) cancelDraw();
+    else startDraw(null);
+  });
+  dhFinish.addEventListener('click', e=>{ e.stopPropagation(); finishDraw(); });
+  dhCancel.addEventListener('click', e=>{ e.stopPropagation(); cancelDraw(); });
+
   document.addEventListener('click',e=>{
     if(!chatPanel.contains(e.target)&&!chatBtn.contains(e.target)) chatPanel.style.display='none';
   },{passive:true});
+
+  /* ── PIN modal ── */
+  function requestPin(action){
+    pinPendingAction=action; pinInput.value=''; pinErr.style.display='none';
+    pinModal.classList.add('visible'); setTimeout(()=>pinInput.focus(),80);
+  }
+  function closePin(){ pinModal.classList.remove('visible'); pinPendingAction=null; }
+  document.getElementById('pinCancel').addEventListener('click', closePin);
+  pinModal.addEventListener('click', e=>{ if(e.target===pinModal) closePin(); });
+  document.getElementById('pinOk').addEventListener('click', ()=>{
+    if(pinInput.value===DELETE_PIN){ const a=pinPendingAction; closePin(); if(a) a(); }
+    else { pinErr.style.display='block'; pinInput.value=''; pinInput.focus(); }
+  });
 
   /* ── Chat ── */
   function getOrCreateDeviceId(){ let id=localStorage.getItem(deviceIdKey); if(!id){id='dev_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);localStorage.setItem(deviceIdKey,id);} return id; }
@@ -1278,12 +1543,10 @@
 
   function listenChat(){
     onValue(ref(db,CHAT_PATH),snap=>{
-      chatMessages=[];
-      const val=snap.val();
+      chatMessages=[]; const val=snap.val();
       if(val) Object.keys(val).forEach(k=>{const m=val[k];if(m&&m.text)chatMessages.push({id:k,text:String(m.text),ts:m.timestamp||0,authorId:m.authorId||'unknown',authorName:m.authorName||'User'});});
       chatMessages.sort((a,b)=>a.ts-b.ts);
-      renderChat(); updateChatBadge();
-      chatInitialized=true;
+      renderChat(); updateChatBadge(); chatInitialized=true;
     });
     chatBtn.addEventListener('click',e=>{
       e.stopPropagation();
@@ -1306,21 +1569,19 @@
       const avatar=document.createElement('div'); avatar.className='avatar'; avatar.textContent=(isMine?myName:m.authorName||'U')[0].toUpperCase();
       const bubble=document.createElement('div'); bubble.className='chat-msg';
       bubble.innerHTML=`<div class="chat-text">${m.text}</div><div class="chat-meta"><span class="material-icons-outlined">schedule</span><span>${formatDateTime(m.ts)}</span></div>`;
-      if(isMine){row.appendChild(bubble);row.appendChild(avatar);}
-      else{row.appendChild(avatar);row.appendChild(bubble);}
+      if(isMine){row.appendChild(bubble);row.appendChild(avatar);} else {row.appendChild(avatar);row.appendChild(bubble);}
       frag.appendChild(row);
     });
-    chatListEl.appendChild(frag);
-    scrollChatBottom();
+    chatListEl.appendChild(frag); scrollChatBottom();
   }
   function scrollChatBottom(){ chatListEl.scrollTop=chatListEl.scrollHeight+1000; }
   async function sendChatMsg(){
-    const text=(chatInputEl.value||'').trim();if(!text)return;
+    const text=(chatInputEl.value||'').trim(); if(!text) return;
     chatSendBtn.disabled=true;
     try{
       const now=Date.now();
       await set(push(ref(db,CHAT_PATH)),{text,authorId:myDeviceId,authorName:myName,timestamp:now,_serverTs:serverTimestamp()});
-      chatInputEl.value='';setLastReadTs(now);setTimeout(scrollChatBottom,60);
+      chatInputEl.value=''; setLastReadTs(now); setTimeout(scrollChatBottom,60);
     }catch(e){alert('Failed to send.');}
     finally{chatSendBtn.disabled=false;}
   }
@@ -1335,7 +1596,7 @@
   function hideModal(id){ const m=document.getElementById(id);if(!m)return;m.style.display='none';if(id==='imgModal')document.getElementById('modalImg').src='';const any=Array.from(document.querySelectorAll('.modal')).some(mm=>mm.style.display==='flex');if(!any)document.body.style.overflow=''; }
   document.getElementById('modalCloseBtn').addEventListener('click',()=>hideModal('imgModal'));
   document.getElementById('imgModal').addEventListener('click',e=>{if(e.target.id==='imgModal')hideModal('imgModal');});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')hideModal('imgModal');});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){hideModal('imgModal'); if(drawing) cancelDraw();}});
 
   /* ── Helpers ── */
   function hideLoader(){ if(!loadingOverlay||loadingOverlay.classList.contains('fade-out'))return; loadingOverlay.classList.add('fade-out'); setTimeout(()=>loadingOverlay.remove(),200); }
