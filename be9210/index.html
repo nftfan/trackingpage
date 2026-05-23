@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>LEUVENFLYERS – Campaign XX9215 (Belgium Map)</title>
+  <title>LEUVENFLYERS – Campaign XX9210 (Belgium Map)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"/>
   <meta name="theme-color" content="#2563eb">
 
@@ -570,7 +571,7 @@
   // Sub-zones (drawn / bookable) — these are the campaign's working zones.
   let polygonMeta = [];                 // [{zoneNumber, turfPoly, bounds, firebaseKey, center}]
   let polygonsByZone = new Map();        // zoneNumber → index in polygonMeta
-  const ZONE_STATUS_PATH = 'campaigns/XX9215/zone_statuses';
+  const ZONE_STATUS_PATH = 'campaigns/XX9210/zone_statuses';
   const zoneStatusByZone = new Map();
   const zoneStatusKeyByZone = new Map();
   let firstFullLoad = true;
@@ -581,16 +582,16 @@
   let lastLatestFocusedZone = null;
   let lastLatestFocusTs = 0;
   const ff2630DotsCountByZone = new Map();
-  const CHAT_PATH = 'campaigns/XX9215/chat/messages';
+  const CHAT_PATH = 'campaigns/XX9210/chat/messages';
   let chatMessages = [];
   let chatInitialized = false;
-  const deviceIdKey = 'XX9215_chat_device_id';
+  const deviceIdKey = 'XX9210_chat_device_id';
   const myDeviceId = getOrCreateDeviceId();
   const myName = 'Viewer';
-  const lastReadKey = 'XX9215_chat_last_read_ts';
+  const lastReadKey = 'XX9210_chat_last_read_ts';
   const buildingDataByZone = new Map();
   const buildingFetchPromises = new Map();
-  const FF9215_USER = 'FF9215';
+  const FF9210_USER = 'FF9210';
 
   // Municipalities (purple, save-only)
   let muniByName = new Map();   // name → { name, geometry, savedKey|null, savedExtraKeys:[] }
@@ -675,12 +676,15 @@
       map.addSource('muni-src', { type:'geojson', data: fc() });
       map.addLayer({
         id: 'muni-fill', type: 'fill', source: 'muni-src',
-        paint: { 'fill-color': '#7c3aed', 'fill-opacity': ['case',['==',['get','saved'],1],0.06,0.01] }
+        paint: {
+          'fill-color': ['case',['==',['get','saved'],1], '#c6613f', '#7c3aed'],
+          'fill-opacity': ['case',['==',['get','saved'],1], 0.30, 0.06]
+        }
       });
       map.addLayer({
         id: 'muni-line', type: 'line', source: 'muni-src',
         paint: {
-          'line-color': '#7c3aed',
+          'line-color': ['case',['==',['get','saved'],1], '#c6613f', '#7c3aed'],
           'line-width': 2,
           'line-opacity': ['case',['==',['get','saved'],1],1,0.8]
         }
@@ -706,7 +710,7 @@
       map.addLayer({ id:'draw-pt', type:'circle', source:'draw-src', filter:['==','$type','Point'],
         paint:{ 'circle-radius':4,'circle-color':'#7c3aed','circle-stroke-color':'#fff','circle-stroke-width':2 } });
 
-      // Blue FF9215 dots
+      // Blue FF9210 dots
       map.addSource('blue-dots-src', { type:'geojson', data: fc() });
       map.addLayer({ id:'blue-dots', type:'circle', source:'blue-dots-src',
         paint:{ 'circle-radius':3,'circle-color':'#1f6feb','circle-stroke-color':'#1f6feb','circle-stroke-width':1,'circle-opacity':0.9 } });
@@ -719,30 +723,31 @@
         paint:{ 'circle-radius':2.5,'circle-color':'#000','circle-opacity':0.85,'circle-stroke-width':0 } });
 
       // ── Click handlers ──
-      // Sub-zone click → bookable popup
-      map.on('click', 'zones-fill', e => {
-        if(drawing) return;
-        e.originalEvent?.stopPropagation?.();
-        const props = e.features[0].properties;
-        showZonePopup(props.zoneNumber, e.lngLat);
-      });
+      // Sub-zone hover cursor (clicks handled by the global handler below)
       map.on('mouseenter', 'zones-fill', () => { if(!drawing) map.getCanvas().style.cursor='pointer'; });
       map.on('mouseleave', 'zones-fill', () => { if(!drawing) map.getCanvas().style.cursor=''; });
 
-      // Municipality click → save-only popup (lower priority than sub-zones)
-      map.on('click', 'muni-fill', e => {
-        if(drawing) return;
-        // If a sub-zone is also under the cursor, let it win.
+      // Municipality click → save-only popup (lower priority than sub-zones).
+      // Use a single map-level click with queryRenderedFeatures so a tap ANYWHERE
+      // inside the municipality fill works, not just on its label.
+      map.on('click', e => {
+        if(drawing){ handleDrawClick(e); return; }
+        // Sub-zones win if one is under the cursor
         const subHits = map.queryRenderedFeatures(e.point, { layers:['zones-fill'] });
-        if(subHits.length) return;
-        const name = e.features[0].properties.name;
-        showMuniPopup(name, e.lngLat);
+        if(subHits.length){
+          showZonePopup(subHits[0].properties.zoneNumber, e.lngLat);
+          return;
+        }
+        // Otherwise, did we hit a municipality?
+        const muniHits = map.queryRenderedFeatures(e.point, { layers:['muni-fill'] });
+        if(muniHits.length){
+          const nm = muniHits[0].properties.name;
+          if(nm) showMuniPopup(nm, e.lngLat);
+        }
       });
       map.on('mouseenter', 'muni-fill', () => { if(!drawing) map.getCanvas().style.cursor='pointer'; });
       map.on('mouseleave', 'muni-fill', () => { if(!drawing) map.getCanvas().style.cursor=''; });
 
-      // Global click → used for drawing point capture
-      map.on('click', e => { if(drawing) handleDrawClick(e); });
       map.on('mousemove', e => { if(drawing) renderDrawPreview(e.lngLat.lng, e.lngLat.lat); });
       map.on('dblclick', e => { if(drawing){ e.preventDefault(); finishDraw(); } });
 
@@ -752,7 +757,7 @@
         listenProofs();
         listenQrScans();
         listenChat();
-        listenFF9215Dots();
+        listenFF9210Dots();
       } catch(err) {
         console.error(err);
       } finally {
@@ -800,10 +805,11 @@
     geo.features.forEach(f => {
       const p = f.properties || {};
       const name = belgiumMuniName(p);
-      if(!name || !f.geometry) return;
-      // Some exports give duplicate names across multi-part communes; merge isn't
-      // needed because each feature already carries full geometry.
-      muniByName.set(name, { name, geometry:f.geometry, savedKey:null, savedExtraKeys:[] });
+      // Opendatasoft usually puts the shape at f.geometry, but some exports nest
+      // it under properties.geo_shape.geometry — accept either.
+      const geometry = f.geometry || (p.geo_shape && p.geo_shape.geometry) || p.geo_shape || null;
+      if(!name || !geometry) return;
+      muniByName.set(name, { name, geometry, savedKey:null, savedExtraKeys:[] });
     });
 
     // 2. which are already saved in belgizones (match by _name)
@@ -852,7 +858,7 @@
       try { center = turf.centroid({type:'Feature',geometry:m.geometry,properties:{}}).geometry.coordinates; }
       catch { return; }
       const el = document.createElement('div');
-      el.innerHTML = `<div class="zone-label muni"><span class="zone-num">${m.name}</span>${m.savedKey?'<span class="material-icons-outlined" style="font-size:10px;color:#16a34a;">check_circle</span>':''}</div>`;
+      el.innerHTML = `<div class="zone-label muni"><span class="zone-num">${m.name}</span>${m.savedKey?'<span class="material-icons-outlined" style="font-size:10px;color:#c6613f;">check_circle</span>':''}</div>`;
       el.style.cursor='pointer';
       el.addEventListener('click', ev => { ev.stopPropagation(); showMuniPopup(m.name, { lng:center[0], lat:center[1] }); });
       const mk = new maplibregl.Marker({ element:el, anchor:'center' }).setLngLat(center).addTo(map);
@@ -910,6 +916,11 @@
     if(!geo) return [];
     if(geo.type==='Polygon')      return [geo.coordinates[0]];
     if(geo.type==='MultiPolygon') return geo.coordinates.map(p=>p[0]);
+    if(geo.type==='GeometryCollection' && Array.isArray(geo.geometries)){
+      let out=[];
+      geo.geometries.forEach(g=>{ out = out.concat(muniRings(g)); });
+      return out;
+    }
     return [];
   }
   function simplifyRing(ring, MAX=120){
@@ -941,7 +952,8 @@
       toast('Saved '+name+(keys.length>1?` (${keys.length} parts)`:''));
       renderMunicipalities();
     } catch(err){
-      console.error(err); toast('Save failed');
+      console.error('saveMunicipality error:', err);
+      toast('Save failed: ' + (err.code || err.message || 'unknown'));
     }
   }
 
@@ -1396,9 +1408,9 @@
     return prom;
   }
 
-  /* ── Blue dots (FF9215) ── */
-  function listenFF9215Dots(){
-    onValue(ref(ff974Db,`userPosts/${FF9215_USER}`), snap => {
+  /* ── Blue dots (FF9210) ── */
+  function listenFF9210Dots(){
+    onValue(ref(ff974Db,`userPosts/${FF9210_USER}`), snap => {
       const dotsList=[];
       if(snap.exists()){
         snap.forEach(child=>{ const v=child.val(); if(v&&typeof v.lat==='number'&&typeof v.lng==='number') dotsList.push({lat:v.lat,lng:v.lng,ts:v.timestamp||Date.now()}); });
@@ -1444,7 +1456,7 @@
   }
 
   /* ── Proofs ── */
-  const PROOFS_PATH='campaigns/XX9215/proofs';
+  const PROOFS_PATH='campaigns/XX9210/proofs';
   function listenProofs(){
     onValue(ref(db, PROOFS_PATH), snap=>{
       proofMarkerMap.forEach(m=>m.remove()); proofMarkerMap.clear(); proofsList=[];
@@ -1503,7 +1515,7 @@
   function listenQrScans(){
     onValue(ref(db,'qr_scans'),snap=>{
       let count=0; const val=snap.val();
-      if(val) for(const k in val){ if(val[k].promoCode==='XX9215') count++; }
+      if(val) for(const k in val){ if(val[k].promoCode==='XX9210') count++; }
       qrScanCountEl.textContent=count;
     });
     qrCounter.addEventListener('click',()=>alert('QR Scans list is only available if active for this campaign.'));
