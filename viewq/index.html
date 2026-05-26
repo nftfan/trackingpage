@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quote Requests | LeuvenFlyers Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+
+  <style>
+:root {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --border: #e2e5eb;
+  --primary: #1a56db;
+  --primary-strong: #1446b5;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --new: #1a56db;
+  --new-bg: #e8f0fe;
+  --contacted: #b45309;
+  --contacted-bg: #fef3c7;
+  --closed: #16a34a;
+  --closed-bg: #dcfce7;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg); color: var(--text-primary);
+  font-family: 'Inter', 'Roboto', system-ui, -apple-system, sans-serif;
+  line-height: 1.6; min-height: 100vh; padding-top: 60px;
+  font-size: 14px; overflow-x: hidden;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+
+.page-wrap { padding: 0 clamp(12px, 4vw, 60px); }
+
+/* HEADER */
+.header-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px clamp(12px, 4vw, 60px);
+  background: #0e9afe; gap: 8px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.2); min-height: 60px;
+}
+.brand { display: flex; align-items: center; gap: 8px; }
+.logo-wrapper {
+  display: grid; place-items: center; width: 36px; height: 36px;
+  background: #e8f0fe; border-radius: 8px; border: 0.5px solid #c5d5f8;
+}
+.logo-wrapper img { width: 22px; height: 22px; object-fit: contain; }
+.brand-titlee { display: flex; flex-direction: column; line-height: 1.2; }
+.brand-titlee strong { font-size: clamp(0.9rem, 3vw, 1.2rem); color: #fff; }
+.brand-titlee span { font-size: clamp(0.65rem, 2vw, 0.85rem); color: rgba(255,255,255,0.85); font-weight: 500; }
+.header-actions { display: flex; align-items: center; gap: 6px; }
+.header-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,0.12); color: #fff;
+  font-size: clamp(0.7rem, 2vw, 0.85rem); font-weight: 600;
+  padding: 6px 10px; cursor: pointer; border-radius: 6px;
+  text-decoration: none; white-space: nowrap; border: 0.5px solid rgba(255,255,255,0.25);
+  transition: background 0.15s ease;
+}
+.header-btn:hover { background: rgba(255,255,255,0.22); }
+.header-btn .material-icons { font-size: 15px; }
+
+/* ============================================================
+   LOGIN GATE
+============================================================ */
+.gate {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.gate-card {
+  background: #fff; border: 0.5px solid var(--border);
+  border-radius: 14px; padding: 32px 28px; width: 100%; max-width: 360px;
+  text-align: center; box-shadow: 0 16px 50px rgba(17,24,39,0.08);
+}
+.gate-card .lock {
+  width: 56px; height: 56px; margin: 0 auto 14px;
+  display: grid; place-items: center; border-radius: 50%;
+  background: #e8f0fe; color: var(--primary);
+}
+.gate-card .lock .material-icons { font-size: 28px; }
+.gate-card h2 { font-size: 1.15rem; font-weight: 800; margin-bottom: 4px; }
+.gate-card p { color: var(--text-secondary); font-size: 0.84rem; margin-bottom: 18px; }
+.gate-card input {
+  width: 100%; font-family: inherit; font-size: 0.95rem;
+  padding: 11px 13px; border: 0.5px solid var(--border);
+  border-radius: 8px; background: #fafbfc; outline: none; text-align: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.gate-card input:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(26,86,219,0.12); }
+.gate-card button {
+  width: 100%; margin-top: 12px; padding: 12px;
+  background: var(--primary); color: #fff; border: none;
+  border-radius: 8px; font-weight: 700; font-size: 0.92rem;
+  cursor: pointer; font-family: inherit; transition: background 0.15s ease;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.gate-card button:hover { background: var(--primary-strong); }
+.gate-card .gate-err { color: #dc2626; font-size: 0.8rem; margin-top: 10px; display: none; }
+.gate-card .gate-err.show { display: block; }
+
+.app { display: none; }
+.app.show { display: block; }
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
+.dash { max-width: 1200px; margin: clamp(18px, 4vw, 32px) auto; }
+
+.dash-title { font-size: clamp(18px, 3.5vw, 26px); font-weight: 800; margin-bottom: 4px; }
+.dash-sub { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 20px; }
+
+/* Stat cards */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin-bottom: 22px;
+}
+.stat-box {
+  background: #fff; border: 0.5px solid var(--border);
+  border-radius: 12px; padding: 16px 18px;
+}
+.stat-box .lbl { font-size: 0.76rem; color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.stat-box .lbl .material-icons { font-size: 16px; }
+.stat-box .val { font-size: clamp(22px, 4vw, 30px); font-weight: 800; margin-top: 4px; }
+.stat-box.s-new .val { color: var(--new); }
+.stat-box.s-contacted .val { color: var(--contacted); }
+.stat-box.s-closed .val { color: var(--closed); }
+
+/* Toolbar */
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  margin-bottom: 16px;
+}
+.search-box {
+  position: relative; flex: 1; min-width: 200px;
+}
+.search-box .material-icons {
+  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+  color: var(--text-secondary); font-size: 18px;
+}
+.search-box input {
+  width: 100%; font-family: inherit; font-size: 0.88rem;
+  padding: 10px 12px 10px 36px; border: 0.5px solid var(--border);
+  border-radius: 8px; background: #fff; outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.search-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,0.1); }
+
+.filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-tab {
+  padding: 8px 14px; border-radius: 999px; border: 0.5px solid var(--border);
+  background: #fff; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  color: var(--text-secondary); font-family: inherit; transition: all 0.15s ease;
+}
+.filter-tab:hover { border-color: #93b4f0; }
+.filter-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.export-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 14px; border-radius: 8px; border: 0.5px solid var(--border);
+  background: #fff; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  font-family: inherit; color: var(--text-primary); transition: border-color 0.15s ease;
+}
+.export-btn:hover { border-color: #93b4f0; }
+.export-btn .material-icons { font-size: 17px; }
+
+/* Requests list */
+.req-list { display: flex; flex-direction: column; gap: 12px; }
+
+.req-card {
+  background: #fff; border: 0.5px solid var(--border);
+  border-radius: 12px; padding: 16px 18px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.req-card:hover { border-color: #93b4f0; box-shadow: 0 6px 20px rgba(17,24,39,0.04); }
+.req-card.is-new { border-left: 3px solid var(--new); }
+
+.req-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.req-head .who { display: flex; flex-direction: column; gap: 2px; }
+.req-head .who .name { font-weight: 700; font-size: 1rem; }
+.req-head .who .company { font-size: 0.8rem; color: var(--text-secondary); }
+.req-head .meta-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.req-head .ref { font-size: 0.74rem; color: var(--text-secondary); font-weight: 600; letter-spacing: 0.03em; }
+.req-head .time { font-size: 0.74rem; color: var(--text-secondary); }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700; text-transform: capitalize;
+}
+.status-badge .material-icons { font-size: 13px; }
+.status-badge.new { background: var(--new-bg); color: var(--new); }
+.status-badge.contacted { background: var(--contacted-bg); color: var(--contacted); }
+.status-badge.closed { background: var(--closed-bg); color: var(--closed); }
+
+.req-body {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 18px; margin: 14px 0;
+  padding: 12px 0; border-top: 0.5px solid var(--border); border-bottom: 0.5px solid var(--border);
+}
+.req-field .k { font-size: 0.7rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.req-field .v { font-size: 0.88rem; margin-top: 1px; word-break: break-word; }
+.req-field .v a { color: var(--primary); text-decoration: none; }
+.req-field .v a:hover { text-decoration: underline; }
+.svc-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+.svc-tags span {
+  background: #e8f0fe; color: #1e3a8a; border: 0.5px solid #c5d5f8;
+  font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+}
+.req-message {
+  background: #f8f9fb; border: 0.5px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; font-size: 0.85rem;
+  color: var(--text-primary); margin-bottom: 14px; white-space: pre-wrap;
+}
+.req-message .k { font-size: 0.7rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 3px; }
+
+.req-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.act-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 12px; border-radius: 7px; border: 0.5px solid var(--border);
+  background: #fff; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  font-family: inherit; color: var(--text-primary); transition: all 0.15s ease;
+}
+.act-btn .material-icons { font-size: 15px; }
+.act-btn:hover { border-color: #93b4f0; }
+.act-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.act-btn.primary:hover { background: var(--primary-strong); }
+.act-btn.done { background: var(--closed-bg); color: var(--closed); border-color: #bbf7d0; }
+.act-btn.danger { color: #dc2626; margin-left: auto; }
+.act-btn.danger:hover { border-color: #fca5a5; background: #fef2f2; }
+
+/* Empty / loading states */
+.state-msg {
+  text-align: center; padding: 60px 20px; color: var(--text-secondary);
+}
+.state-msg .material-icons { font-size: 44px; color: #c7cfdb; margin-bottom: 10px; }
+.state-msg h3 { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.state-msg p { font-size: 0.85rem; }
+
+.spinner {
+  width: 34px; height: 34px; margin: 0 auto 14px;
+  border: 3px solid #e2e5eb; border-top-color: var(--primary);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 560px) {
+  .header-actions .header-btn span:not(.material-icons) { display: none; }
+  .req-actions { gap: 6px; }
+  .act-btn.danger { margin-left: 0; }
+}
+  </style>
+</head>
+
+<body>
+
+  <!-- ============================================================
+       LOGIN GATE
+  ============================================================ -->
+  <div class="gate" id="gate">
+    <div class="gate-card">
+      <div class="lock"><span class="material-icons">lock</span></div>
+      <h2>Admin access</h2>
+      <p>Enter the access code to view quote requests.</p>
+      <input type="password" id="gatePass" placeholder="Access code" autocomplete="off" />
+      <button id="gateBtn"><span class="material-icons">login</span> Unlock</button>
+      <div class="gate-err" id="gateErr">Incorrect code — try again.</div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       APP
+  ============================================================ -->
+  <div class="app" id="app">
+    <div class="page-wrap">
+
+      <!-- HEADER -->
+      <header class="header-bar">
+        <div class="brand">
+          <span class="logo-wrapper">
+            <img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png" alt="LeuvenFlyers logo" />
+          </span>
+          <span class="brand-titlee">
+            <strong>LeuvenFlyers</strong>
+            <span>Quote requests · Admin</span>
+          </span>
+        </div>
+        <nav class="header-actions">
+          <a href="https://www.leuvenflyers.com/newport/" target="_blank" class="header-btn">
+            <span class="material-icons">dashboard</span><span>Campaigns</span>
+          </a>
+          <button class="header-btn" id="logoutBtn">
+            <span class="material-icons">logout</span><span>Lock</span>
+          </button>
+        </nav>
+      </header>
+
+      <div class="dash">
+        <h1 class="dash-title">Quote requests</h1>
+        <p class="dash-sub">Live feed from your website's request form. New entries appear automatically.</p>
+
+        <!-- STATS -->
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-box"><div class="lbl"><span class="material-icons">inbox</span> Total</div><div class="val" id="statTotal">—</div></div>
+          <div class="stat-box s-new"><div class="lbl"><span class="material-icons">fiber_new</span> New</div><div class="val" id="statNew">—</div></div>
+          <div class="stat-box s-contacted"><div class="lbl"><span class="material-icons">call</span> Contacted</div><div class="val" id="statContacted">—</div></div>
+          <div class="stat-box s-closed"><div class="lbl"><span class="material-icons">check_circle</span> Closed</div><div class="val" id="statClosed">—</div></div>
+        </div>
+
+        <!-- TOOLBAR -->
+        <div class="toolbar">
+          <div class="search-box">
+            <span class="material-icons">search</span>
+            <input type="text" id="searchInput" placeholder="Search name, email, city, ref…" />
+          </div>
+          <div class="filter-tabs" id="filterTabs">
+            <button class="filter-tab active" data-filter="all">All</button>
+            <button class="filter-tab" data-filter="new">New</button>
+            <button class="filter-tab" data-filter="contacted">Contacted</button>
+            <button class="filter-tab" data-filter="closed">Closed</button>
+          </div>
+          <button class="export-btn" id="exportBtn"><span class="material-icons">download</span> Export CSV</button>
+        </div>
+
+        <!-- LIST -->
+        <div id="reqContainer">
+          <div class="state-msg" id="loadingState">
+            <div class="spinner"></div>
+            <p>Loading requests…</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================
+       FIREBASE  (compat SDK — same project as the quote form)
+  ============================================================ -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+      authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+      databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+      projectId: "tokentransfer-4a9b3",
+      storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+      messagingSenderId: "205455490321",
+      appId: "1:205455490321:web:9919f5dde059316c9320b0",
+      measurementId: "G-Y6CVEDL9XH"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+  </script>
+
+  <!-- ============================================================
+       DASHBOARD LOGIC
+  ============================================================ -->
+  <script>
+  (function () {
+    /* ---------- Access gate (client-side only) ---------- */
+    const ACCESS_CODE = "leuven2026";  // change this to your own code
+    const gate = document.getElementById('gate');
+    const app = document.getElementById('app');
+    const gatePass = document.getElementById('gatePass');
+    const gateErr = document.getElementById('gateErr');
+
+    function unlock() {
+      gate.style.display = 'none';
+      app.classList.add('show');
+      startListening();
+    }
+    function tryUnlock() {
+      if (gatePass.value === ACCESS_CODE) {
+        try { sessionStorage.setItem('lf_admin', '1'); } catch (e) {}
+        unlock();
+      } else {
+        gateErr.classList.add('show');
+        gatePass.value = '';
+      }
+    }
+    document.getElementById('gateBtn').addEventListener('click', tryUnlock);
+    gatePass.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      try { sessionStorage.removeItem('lf_admin'); } catch (e) {}
+      location.reload();
+    });
+    // stay unlocked for the session
+    try { if (sessionStorage.getItem('lf_admin') === '1') unlock(); } catch (e) {}
+
+    /* ---------- State ---------- */
+    let allRequests = [];      // [{ id, ...data }]
+    let activeFilter = 'all';
+    let searchTerm = '';
+    let listenerStarted = false;
+
+    /* ---------- Helpers ---------- */
+    function escapeHtml(str) {
+      return String(str == null ? '' : str).replace(/[&<>"']/g, c =>
+        ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    }
+    function timeAgo(iso) {
+      if (!iso) return '';
+      const then = new Date(iso).getTime();
+      if (isNaN(then)) return '';
+      const diff = Math.floor((Date.now() - then) / 1000);
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+      if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+      if (diff < 604800) return Math.floor(diff/86400) + 'd ago';
+      return new Date(iso).toLocaleDateString();
+    }
+    function fullDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return isNaN(d) ? '' : d.toLocaleString();
+    }
+
+    /* ---------- Firebase listener ---------- */
+    function startListening() {
+      if (listenerStarted) return;
+      listenerStarted = true;
+      db.ref('quoteRequests').on('value', snapshot => {
+        const data = snapshot.val() || {};
+        allRequests = Object.entries(data).map(([id, v]) => ({ id, ...v }));
+        // newest first
+        allRequests.sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+        updateStats();
+        render();
+      }, err => {
+        console.error('Firebase read error:', err);
+        document.getElementById('reqContainer').innerHTML =
+          `<div class="state-msg"><span class="material-icons">error_outline</span>
+           <h3>Couldn't load requests</h3>
+           <p>Check your database read permissions for the quoteRequests node.</p></div>`;
+      });
+    }
+
+    /* ---------- Stats ---------- */
+    function updateStats() {
+      const counts = { new: 0, contacted: 0, closed: 0 };
+      allRequests.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
+      document.getElementById('statTotal').textContent = allRequests.length;
+      document.getElementById('statNew').textContent = counts.new || 0;
+      document.getElementById('statContacted').textContent = counts.contacted || 0;
+      document.getElementById('statClosed').textContent = counts.closed || 0;
+    }
+
+    /* ---------- Render ---------- */
+    function render() {
+      const container = document.getElementById('reqContainer');
+      let list = allRequests;
+
+      if (activeFilter !== 'all') list = list.filter(r => r.status === activeFilter);
+      if (searchTerm) {
+        const t = searchTerm.toLowerCase();
+        list = list.filter(r =>
+          [r.name, r.company, r.email, r.city, r.ref, (r.services||[]).join(' ')]
+            .filter(Boolean).join(' ').toLowerCase().includes(t)
+        );
+      }
+
+      if (allRequests.length === 0) {
+        container.innerHTML = `<div class="state-msg"><span class="material-icons">inbox</span>
+          <h3>No requests yet</h3><p>New quote requests from your website will show up here automatically.</p></div>`;
+        return;
+      }
+      if (list.length === 0) {
+        container.innerHTML = `<div class="state-msg"><span class="material-icons">search_off</span>
+          <h3>No matches</h3><p>No requests match your current filter or search.</p></div>`;
+        return;
+      }
+
+      container.innerHTML = '<div class="req-list">' + list.map(cardHtml).join('') + '</div>';
+      wireCardActions();
+    }
+
+    function cardHtml(r) {
+      const status = r.status || 'new';
+      const statusIcon = status === 'new' ? 'fiber_new' : status === 'contacted' ? 'call' : 'check_circle';
+      const services = Array.isArray(r.services) ? r.services : (r.services ? [r.services] : []);
+      const svcHtml = services.length
+        ? `<div class="svc-tags">${services.map(s => `<span>${escapeHtml(s)}</span>`).join('')}</div>`
+        : '<div class="v">—</div>';
+
+      return `
+      <div class="req-card ${status === 'new' ? 'is-new' : ''}" data-id="${escapeHtml(r.id)}">
+        <div class="req-head">
+          <div class="who">
+            <span class="name">${escapeHtml(r.name) || 'Unknown'}</span>
+            ${r.company ? `<span class="company">${escapeHtml(r.company)}</span>` : ''}
+          </div>
+          <div class="meta-right">
+            <span class="status-badge ${status}"><span class="material-icons">${statusIcon}</span>${escapeHtml(status)}</span>
+            <span class="ref">${escapeHtml(r.ref || '')}</span>
+            <span class="time" title="${escapeHtml(fullDate(r.submittedAt))}">${escapeHtml(timeAgo(r.submittedAt))}</span>
+          </div>
+        </div>
+
+        <div class="req-body">
+          <div class="req-field"><div class="k">Email</div><div class="v"><a href="mailto:${escapeHtml(r.email)}">${escapeHtml(r.email) || '—'}</a></div></div>
+          <div class="req-field"><div class="k">Phone</div><div class="v">${r.phone ? `<a href="tel:${escapeHtml(r.phone)}">${escapeHtml(r.phone)}</a>` : '—'}</div></div>
+          <div class="req-field"><div class="k">City</div><div class="v">${escapeHtml(r.city) || '—'}</div></div>
+          <div class="req-field"><div class="k">Services</div>${svcHtml}</div>
+          <div class="req-field"><div class="k">Flyers</div><div class="v">${escapeHtml(r.quantity) || '—'}</div></div>
+          <div class="req-field"><div class="k">Timing</div><div class="v">${escapeHtml(r.timing) || '—'}</div></div>
+          <div class="req-field"><div class="k">Budget</div><div class="v">${escapeHtml(r.budget) || '—'}</div></div>
+        </div>
+
+        ${r.message ? `<div class="req-message"><span class="k">Message</span>${escapeHtml(r.message)}</div>` : ''}
+
+        <div class="req-actions">
+          ${status !== 'contacted' ? `<button class="act-btn" data-action="contacted"><span class="material-icons">call</span> Mark contacted</button>` : ''}
+          ${status !== 'closed' ? `<button class="act-btn done" data-action="closed"><span class="material-icons">check</span> Mark closed</button>` : ''}
+          ${status !== 'new' ? `<button class="act-btn" data-action="new"><span class="material-icons">undo</span> Reopen</button>` : ''}
+          <a class="act-btn primary" href="mailto:${escapeHtml(r.email)}?subject=Your%20LeuvenFlyers%20quote%20(${encodeURIComponent(r.ref||'')})"><span class="material-icons">reply</span> Reply</a>
+          <button class="act-btn danger" data-action="delete"><span class="material-icons">delete</span> Delete</button>
+        </div>
+      </div>`;
+    }
+
+    /* ---------- Card actions ---------- */
+    function wireCardActions() {
+      document.querySelectorAll('.req-card').forEach(card => {
+        const id = card.dataset.id;
+        card.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const action = btn.dataset.action;
+            if (action === 'delete') {
+              if (confirm('Delete this request permanently?')) {
+                db.ref('quoteRequests/' + id).remove().catch(e => alert('Delete failed: ' + e.message));
+              }
+            } else {
+              db.ref('quoteRequests/' + id + '/status').set(action)
+                .catch(e => alert('Update failed: ' + e.message));
+            }
+          });
+        });
+      });
+    }
+
+    /* ---------- Filters & search ---------- */
+    document.getElementById('filterTabs').addEventListener('click', e => {
+      const tab = e.target.closest('.filter-tab');
+      if (!tab) return;
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      activeFilter = tab.dataset.filter;
+      render();
+    });
+    let searchTimer;
+    document.getElementById('searchInput').addEventListener('input', e => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { searchTerm = e.target.value.trim(); render(); }, 180);
+    });
+
+    /* ---------- CSV export ---------- */
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      if (!allRequests.length) { alert('Nothing to export yet.'); return; }
+      const cols = ['ref','name','company','email','phone','city','services','quantity','timing','budget','status','submittedAt','message'];
+      const esc = v => {
+        const s = Array.isArray(v) ? v.join('; ') : (v == null ? '' : String(v));
+        return '"' + s.replace(/"/g, '""') + '"';
+      };
+      const rows = [cols.join(',')].concat(
+        allRequests.map(r => cols.map(c => esc(r[c])).join(','))
+      );
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `leuvenflyers-quotes-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  })();
+  </script>
+</body>
+</html>
