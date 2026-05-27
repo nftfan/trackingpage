@@ -1,4 +1,6 @@
 
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -569,6 +571,44 @@ a { color: inherit; }
   flex-shrink: 0;
 }
 
+/* Editable cost input on the right side of an ac-row */
+.cost-input-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.cost-input-wrap .euro-prefix {
+  position: absolute;
+  left: 10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--primary);
+  font-weight: 800;
+  font-size: clamp(0.95rem, 2.4vw, 1.1rem);
+  pointer-events: none;
+  line-height: 1;
+}
+.cost-input {
+  width: 110px;
+  background: #fff;
+  border: 0.5px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 8px 10px 8px 24px;
+  font-size: clamp(0.95rem, 2.4vw, 1.1rem);
+  font-family: inherit;
+  font-weight: 800;
+  color: var(--text-primary);
+  outline: none;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.cost-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+}
+.cost-input::-webkit-outer-spin-button,
+.cost-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cost-input { -moz-appearance: textfield; }
+
 /* ============================================================
    SCENARIOS
 ============================================================ */
@@ -846,7 +886,7 @@ a { color: inherit; }
         <!-- COSTS -->
         <div class="ctrl-block">
           <div class="ctrl-block-title"><span class="material-icons-round">payments</span> Campaign Costs</div>
-          <div class="ctrl-block-sub">Distribution and printing scale with your flyer count. Design is a one-off.</div>
+          <div class="ctrl-block-sub">Edit distribution and printing totals directly, or let them scale automatically with your flyer count. Design is a one-off.</div>
 
           <div class="auto-cost">
             <div class="ac-row">
@@ -854,10 +894,13 @@ a { color: inherit; }
                 <span class="material-icons-round">local_shipping</span>
                 <div>
                   <div class="ac-name">Distribution</div>
-                  <div class="ac-rate">€0.10 × <span id="distQty">5,000</span> flyers</div>
+                  <div class="ac-rate">Suggested: €0.10 × <span id="distQty">5,000</span> flyers</div>
                 </div>
               </div>
-              <div class="ac-val" id="distCostDisplay">€500</div>
+              <div class="cost-input-wrap">
+                <span class="euro-prefix">€</span>
+                <input type="number" class="cost-input" id="distCost" min="0" step="10" value="500">
+              </div>
             </div>
 
             <div class="ac-row">
@@ -865,10 +908,13 @@ a { color: inherit; }
                 <span class="material-icons-round">print</span>
                 <div>
                   <div class="ac-name">Printing</div>
-                  <div class="ac-rate">€0.05 × <span id="printQty">5,000</span> flyers</div>
+                  <div class="ac-rate">Suggested: €0.05 × <span id="printQty">5,000</span> flyers</div>
                 </div>
               </div>
-              <div class="ac-val" id="printCostDisplay">€250</div>
+              <div class="cost-input-wrap">
+                <span class="euro-prefix">€</span>
+                <input type="number" class="cost-input" id="printCost" min="0" step="10" value="250">
+              </div>
             </div>
           </div>
 
@@ -1092,7 +1138,8 @@ a { color: inherit; }
   const fmtN = (n) => Math.round(n).toLocaleString('en-US');
 
   /* ============================================================
-     PER-FLYER COST RATES
+     PER-FLYER SUGGESTED RATES (used to auto-fill totals
+     until the user manually edits them)
   ============================================================ */
   const DIST_RATE = 0.10;   // €0.10 per flyer
   const PRINT_RATE = 0.05;  // €0.05 per flyer
@@ -1103,8 +1150,14 @@ a { color: inherit; }
   const DEFAULTS = {
     artCost: 0,
     leaflets: 5000, perK: 7,
-    spend: 25, ltv: 80, margin: 40
+    spend: 25, ltv: 80, margin: 40,
+    distCost: 500,
+    printCost: 250
   };
+
+  // Track whether the user has manually edited each cost.
+  // While untouched, the cost auto-fills from leaflets * rate.
+  const userEdited = { distCost: false, printCost: false };
 
   /* ============================================================
      ANIMATED NUMBER
@@ -1159,9 +1212,13 @@ a { color: inherit; }
     const ltv = num('ltv');
     const margin = num('marginSlider');
 
-    // Compute distribution + printing from flyer count
-    const distCost = leaflets * DIST_RATE;
-    const printCost = leaflets * PRINT_RATE;
+    // Distribution + printing totals: auto-fill from leaflets unless user has edited
+    const distInput = document.getElementById('distCost');
+    const printInput = document.getElementById('printCost');
+    if (!userEdited.distCost) distInput.value = Math.round(leaflets * DIST_RATE);
+    if (!userEdited.printCost) printInput.value = Math.round(leaflets * PRINT_RATE);
+    const distCost = num('distCost');
+    const printCost = num('printCost');
 
     // Build calc context
     const ctx = {
@@ -1174,8 +1231,6 @@ a { color: inherit; }
     // Update auto-cost display rows
     document.getElementById('distQty').textContent = fmtN(leaflets);
     document.getElementById('printQty').textContent = fmtN(leaflets);
-    document.getElementById('distCostDisplay').textContent = euro(distCost);
-    document.getElementById('printCostDisplay').textContent = euro(printCost);
 
     // Live labels next to sliders/inputs
     document.getElementById('leafletsLive').textContent = fmtN(leaflets);
@@ -1286,6 +1341,16 @@ a { color: inherit; }
     el.addEventListener('input', () => render(false));
   });
 
+  // Distribution / Printing totals: flag as user-edited on change, then re-render
+  document.getElementById('distCost').addEventListener('input', () => {
+    userEdited.distCost = true;
+    render(false);
+  });
+  document.getElementById('printCost').addEventListener('input', () => {
+    userEdited.printCost = true;
+    render(false);
+  });
+
   // Quick-set buttons
   document.querySelectorAll('.quick-set').forEach(group => {
     const target = group.dataset.target;
@@ -1326,6 +1391,9 @@ a { color: inherit; }
     document.getElementById('spend').value = DEFAULTS.spend;
     document.getElementById('ltv').value = DEFAULTS.ltv;
     document.getElementById('marginSlider').value = DEFAULTS.margin;
+    // Clear user-edit flags so distribution & printing auto-fill from leaflets again
+    userEdited.distCost = false;
+    userEdited.printCost = false;
     syncQuickSetActive();
     render(true);
   });
