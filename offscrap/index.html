@@ -1,0 +1,787 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Email Scraper</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #090b10;
+    --bg2:      #0e1118;
+    --bg3:      #141820;
+    --bg4:      #1a1f2c;
+    --border:   rgba(255,255,255,0.06);
+    --border2:  rgba(255,255,255,0.10);
+    --text:     #dde1f0;
+    --text2:    #7a8099;
+    --text3:    #3f4459;
+    --cyan:     #00e5c8;
+    --cyan-dim: rgba(0,229,200,0.08);
+    --cyan-brd: rgba(0,229,200,0.22);
+    --green:    #39e87a;
+    --green-dim:rgba(57,232,122,0.08);
+    --green-brd:rgba(57,232,122,0.22);
+    --amber:    #f0b429;
+    --amber-dim:rgba(240,180,41,0.08);
+    --amber-brd:rgba(240,180,41,0.22);
+    --red:      #ff5e5e;
+    --red-dim:  rgba(255,94,94,0.08);
+    --red-brd:  rgba(255,94,94,0.22);
+    --purple:   #b57bff;
+    --radius:   8px;
+    --radius-lg:12px;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: 0.5;
+  }
+
+  .container { max-width: 860px; margin: 0 auto; position: relative; }
+
+  /* ── Header ── */
+  .header {
+    margin-bottom: 36px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 10px;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .logo-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .logo-text h1 {
+    font-size: 20px; font-weight: 800; letter-spacing: -0.3px; color: #fff;
+  }
+  .logo-text p {
+    font-size: 12px; color: var(--text3); font-family: 'JetBrains Mono', monospace; margin-top: 1px;
+  }
+  .header-note {
+    font-size: 13px; color: var(--text2); line-height: 1.65; max-width: 560px;
+  }
+  .tag {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 4px;
+    border: 1px solid var(--border2); color: var(--text3); vertical-align: middle;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    margin-bottom: 14px;
+  }
+  .card-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-label::before {
+    content: ''; display: block;
+    width: 14px; height: 2px;
+    background: var(--cyan); border-radius: 2px;
+  }
+
+  /* ── URL Input area ── */
+  .url-input-wrap { position: relative; }
+
+  textarea {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    padding: 14px 16px;
+    resize: vertical;
+    min-height: 160px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea::placeholder { color: var(--text3); }
+  textarea:focus { border-color: var(--cyan); }
+
+  .url-hint {
+    position: absolute; bottom: 10px; right: 12px;
+    font-size: 11px; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    pointer-events: none;
+  }
+
+  /* ── Controls ── */
+  .controls-row {
+    display: flex; align-items: center; gap: 14px;
+    flex-wrap: wrap; margin-top: 12px;
+  }
+
+  .concurrency-wrap {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 12px; color: var(--text2);
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 8px 14px;
+  }
+  .concurrency-wrap strong { color: var(--cyan); font-family: 'JetBrains Mono', monospace; }
+
+  input[type=range] {
+    -webkit-appearance: none; height: 3px;
+    border-radius: 3px; background: var(--bg4);
+    outline: none; cursor: pointer; width: 90px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px;
+    border-radius: 50%; background: var(--cyan);
+    cursor: pointer; box-shadow: 0 0 8px rgba(0,229,200,0.4);
+  }
+
+  .url-count-badge {
+    font-size: 11px; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 12px;
+  }
+  .url-count-badge span { color: var(--cyan); font-weight: 600; }
+
+  /* ── Buttons ── */
+  button {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    border-radius: var(--radius); transition: all 0.15s;
+    border: none; outline: none; letter-spacing: 0.2px;
+  }
+  .btn-primary {
+    background: var(--cyan); color: #000; padding: 10px 22px;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #00ffdf; box-shadow: 0 0 20px rgba(0,229,200,0.3);
+  }
+  .btn-primary:disabled { background: #0a2622; color: #1a4a44; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent; color: var(--text2);
+    border: 1px solid var(--border2); padding: 9px 16px;
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--bg3); color: var(--text); border-color: var(--border2); }
+  .btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-danger {
+    background: transparent; color: var(--red);
+    border: 1px solid var(--red-brd); padding: 9px 16px;
+  }
+  .btn-danger:hover:not(:disabled) { background: var(--red-dim); }
+  .btn-danger:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-sm { font-size: 11px; padding: 6px 12px; }
+
+  /* ── Stats ── */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin-bottom: 14px;
+  }
+  @media(max-width:600px){ .stats-grid { grid-template-columns: repeat(2,1fr); } }
+
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .stat-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace; margin-bottom: 7px;
+  }
+  .stat-value { font-size: 28px; font-weight: 800; color: #fff; font-feature-settings: 'tnum'; }
+  .stat-value.cyan   { color: var(--cyan); }
+  .stat-value.green  { color: var(--green); }
+  .stat-value.amber  { color: var(--amber); }
+  .stat-value.red    { color: var(--red); }
+
+  /* ── Progress ── */
+  .progress-wrap { margin-bottom: 14px; }
+  .progress-bar-bg {
+    background: var(--bg3); border-radius: 3px; height: 4px;
+    overflow: hidden; margin-bottom: 6px;
+  }
+  .progress-bar-fill {
+    height: 100%; border-radius: 3px; width: 0%;
+    transition: width 0.4s ease;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    box-shadow: 0 0 12px rgba(0,229,200,0.4);
+  }
+  .progress-meta {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Status bar ── */
+  .status-bar {
+    font-size: 12px; color: var(--text2);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 18px;
+  }
+
+  /* ── Log ── */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-title {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::before {
+    content: ''; display: block;
+    width: 14px; height: 2px;
+    background: var(--cyan); border-radius: 2px;
+  }
+
+  .log-box {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+    max-height: 340px; overflow-y: auto;
+  }
+  .log-box::-webkit-scrollbar { width: 3px; }
+  .log-box::-webkit-scrollbar-track { background: transparent; }
+  .log-box::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  .log-empty {
+    padding: 32px; text-align: center;
+    color: var(--text3); font-size: 13px; line-height: 1.7;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .log-empty span { color: var(--text2); }
+
+  .log-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 16px; border-bottom: 1px solid var(--border);
+    font-size: 12px; animation: slideIn 0.18s ease;
+  }
+  .log-row:last-child { border-bottom: none; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .log-status {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  }
+  .ls-running { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); animation: blink 1s infinite; }
+  .ls-success { background: var(--green); }
+  .ls-none    { background: var(--amber); }
+  .ls-error   { background: var(--red); }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .log-url {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text2); flex: 1; font-size: 11.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .log-url strong { color: var(--text); }
+
+  .log-pill {
+    font-size: 10px; font-weight: 700; padding: 2px 8px;
+    border-radius: 4px; white-space: nowrap; flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;
+  }
+  .pill-running { background: var(--cyan-dim);   color: var(--cyan);   border: 1px solid var(--cyan-brd); }
+  .pill-found   { background: var(--green-dim);  color: var(--green);  border: 1px solid var(--green-brd); }
+  .pill-none    { background: var(--amber-dim);  color: var(--amber);  border: 1px solid var(--amber-brd); }
+  .pill-error   { background: var(--red-dim);    color: var(--red);    border: 1px solid var(--red-brd); }
+
+  /* ── Email results ── */
+  .email-list-box {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .email-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 16px; border-bottom: 1px solid var(--border);
+    font-size: 12px; animation: slideIn 0.18s ease;
+  }
+  .email-row:last-child { border-bottom: none; }
+  .email-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .email-addr {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--green); flex: 1;
+  }
+  .email-src {
+    font-size: 10.5px; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  .spinner {
+    display: inline-block; width: 13px; height: 13px;
+    border: 2px solid rgba(0,0,0,0.2); border-top-color: #000;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .btn-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .gap-fill { flex: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">
+          <h1>Email Scraper</h1>
+          <p>local · no storage · no firebase</p>
+        </div>
+      </div>
+      <span class="tag">standalone</span>
+    </div>
+    <p class="header-note">
+      Paste your list of websites below, one per line. The scraper will visit each site and extract any email addresses found. Nothing is saved — all results stay in your browser session only.
+    </p>
+  </div>
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="card-label">Website list — one URL per line</div>
+
+    <div class="url-input-wrap">
+      <textarea
+        id="urlInput"
+        placeholder="example.com&#10;https://another-site.org&#10;mywebsite.net&#10;..."
+        oninput="onInputChange()"
+      ></textarea>
+      <span class="url-hint" id="urlHint">0 URLs</span>
+    </div>
+
+    <div class="controls-row">
+      <div class="concurrency-wrap">
+        Parallel:
+        <input type="range" id="concurrency" min="1" max="10" value="3"
+               oninput="document.getElementById('concVal').textContent=this.value" />
+        <strong id="concVal">3</strong>
+      </div>
+
+      <div class="url-count-badge" id="urlCountBadge">
+        <span id="urlCountNum">0</span> URLs ready
+      </div>
+
+      <span class="gap-fill"></span>
+
+      <button class="btn-ghost btn-sm" onclick="clearAll()" id="clearBtn" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Clear
+      </button>
+
+      <button class="btn-ghost btn-sm" onclick="pasteExample()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Load example
+      </button>
+    </div>
+  </div>
+
+  <!-- Run controls -->
+  <div class="card">
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn-primary" onclick="startScraping()" id="scrapeBtn" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Start Scraping
+      </button>
+      <button class="btn-danger" onclick="stopScraping()" id="stopBtn" disabled>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Stop
+      </button>
+      <div class="status-bar" id="statusBar"></div>
+    </div>
+
+    <div id="progressWrap" style="display:none">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-meta">
+        <span id="progressLeft">0 / 0</span>
+        <span id="progressPct">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Processed</div>
+      <div class="stat-value cyan" id="statProcessed">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Emails found</div>
+      <div class="stat-value green" id="statEmails">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">No emails</div>
+      <div class="stat-value amber" id="statEmpty">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Errors</div>
+      <div class="stat-value red" id="statErrors">0</div>
+    </div>
+  </div>
+
+  <!-- Scrape log -->
+  <div style="margin-bottom:14px">
+    <div class="section-header">
+      <span class="section-title">Scrape log</span>
+      <span id="logMeta" style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">—</span>
+    </div>
+    <div class="log-box" id="logBox">
+      <div class="log-empty">
+        <span>Add URLs above and click Start Scraping</span><br>
+        results will appear here in real-time
+      </div>
+    </div>
+  </div>
+
+  <!-- Email results -->
+  <div id="emailsSection" style="display:none;margin-bottom:16px">
+    <div class="section-header">
+      <span class="section-title">Emails found this session</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn-ghost btn-sm" onclick="downloadCSV()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download CSV
+        </button>
+        <button class="btn-ghost btn-sm" onclick="copyEmails()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          <span id="copyBtnLabel">Copy all</span>
+        </button>
+      </div>
+    </div>
+    <div class="email-list-box" id="emailListBox"></div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  Config
+// ═══════════════════════════════════════════
+const API_URL = "https://allbe-production.up.railway.app/scrape";
+
+// ═══════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════
+let running = false;
+let stopRequested = false;
+let sessionEmails = [];   // { email, source }
+let processed = 0, errCount = 0, emptyCount = 0;
+let totalBatch = 0;
+
+// ═══════════════════════════════════════════
+//  Parse URL list from textarea
+// ═══════════════════════════════════════════
+function parseUrls() {
+  const raw = document.getElementById('urlInput').value;
+  return raw
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+    .map(normalizeUrl)
+    .filter(u => u);
+}
+
+function normalizeUrl(u) {
+  if (!u) return '';
+  u = u.trim();
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  return u;
+}
+
+// ═══════════════════════════════════════════
+//  Input change handler
+// ═══════════════════════════════════════════
+function onInputChange() {
+  const urls = parseUrls();
+  const n = urls.length;
+  document.getElementById('urlHint').textContent    = n + ' URL' + (n !== 1 ? 's' : '');
+  document.getElementById('urlCountNum').textContent = n;
+  document.getElementById('scrapeBtn').disabled = (n === 0 || running);
+  document.getElementById('clearBtn').disabled  = (document.getElementById('urlInput').value.trim() === '');
+}
+
+// ═══════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════
+function clearAll() {
+  document.getElementById('urlInput').value = '';
+  onInputChange();
+}
+
+function pasteExample() {
+  document.getElementById('urlInput').value =
+    'github.com\nhackerrank.com\ncodesandbox.io\nnpmjs.com\nvercel.com';
+  onInputChange();
+}
+
+function setStatus(html) {
+  document.getElementById('statusBar').innerHTML = html;
+}
+
+function updateStats() {
+  document.getElementById('statProcessed').textContent = processed;
+  document.getElementById('statEmails').textContent    = sessionEmails.length;
+  document.getElementById('statErrors').textContent    = errCount;
+  document.getElementById('statEmpty').textContent     = emptyCount;
+}
+
+function updateProgress() {
+  const pct = totalBatch ? Math.round((processed / totalBatch) * 100) : 0;
+  document.getElementById('progressFill').style.width  = pct + '%';
+  document.getElementById('progressLeft').textContent  = processed + ' / ' + totalBatch;
+  document.getElementById('progressPct').textContent   = pct + '%';
+  document.getElementById('logMeta').textContent       = processed + ' of ' + totalBatch + ' done';
+}
+
+function escHtml(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════════════
+//  Log rows
+// ═══════════════════════════════════════════
+function addLogRow(url) {
+  const box = document.getElementById('logBox');
+  const ph = box.querySelector('.log-empty');
+  if (ph) ph.remove();
+
+  const short = url.replace(/^https?:\/\/(www\.)?/, '');
+  const id = 'lr-' + Math.random().toString(36).slice(2, 10);
+
+  const row = document.createElement('div');
+  row.className = 'log-row';
+  row.id = id;
+  row.innerHTML = `
+    <div class="log-status ls-running"></div>
+    <div class="log-url"><strong>${escHtml(short)}</strong></div>
+    <span class="log-pill pill-running">scanning…</span>
+  `;
+  box.appendChild(row);
+  box.scrollTop = box.scrollHeight;
+  return id;
+}
+
+function updateLogRow(rowId, status, count) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  const dot  = row.querySelector('.log-status');
+  const pill = row.querySelector('.log-pill');
+
+  if (status === 'success') {
+    dot.className  = 'log-status ls-success';
+    pill.className = 'log-pill pill-found';
+    pill.textContent = '+' + count + ' email' + (count !== 1 ? 's' : '');
+  } else if (status === 'none') {
+    dot.className  = 'log-status ls-none';
+    pill.className = 'log-pill pill-none';
+    pill.textContent = 'no emails';
+  } else {
+    dot.className  = 'log-status ls-error';
+    pill.className = 'log-pill pill-error';
+    pill.textContent = 'error';
+  }
+}
+
+// ═══════════════════════════════════════════
+//  Email list
+// ═══════════════════════════════════════════
+function addEmailRow(email, source) {
+  const box = document.getElementById('emailListBox');
+  const short = source.replace(/^https?:\/\/(www\.)?/, '');
+  const row = document.createElement('div');
+  row.className = 'email-row';
+  row.innerHTML = `
+    <div class="email-dot"></div>
+    <div class="email-addr">${escHtml(email)}</div>
+    <div class="email-src">${escHtml(short)}</div>
+  `;
+  box.appendChild(row);
+  document.getElementById('emailsSection').style.display = 'block';
+}
+
+// ═══════════════════════════════════════════
+//  Scrape one URL
+// ═══════════════════════════════════════════
+async function scrapeOne(url, seenEmails) {
+  const rowId = addLogRow(url);
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: [url] }),
+      signal: AbortSignal.timeout(20000)
+    });
+
+    let data;
+    try { data = await res.json(); } catch { throw new Error('Bad JSON'); }
+
+    const raw = data.emails || data.data || [];
+    const found = [];
+    for (const e of (Array.isArray(raw) ? raw : [])) {
+      const addr = (typeof e === 'string' ? e : e.email || '').toLowerCase().trim();
+      if (addr && !seenEmails.has(addr)) {
+        found.push(addr);
+        seenEmails.add(addr);
+      }
+    }
+
+    if (found.length > 0) {
+      sessionEmails.push(...found.map(e => ({ email: e, source: url })));
+      found.forEach(e => addEmailRow(e, url));
+      updateLogRow(rowId, 'success', found.length);
+    } else {
+      emptyCount++;
+      updateLogRow(rowId, 'none', 0);
+    }
+  } catch (err) {
+    errCount++;
+    updateLogRow(rowId, 'error', 0);
+  }
+
+  processed++;
+  updateProgress();
+  updateStats();
+}
+
+// ═══════════════════════════════════════════
+//  Concurrency pool
+// ═══════════════════════════════════════════
+async function runWithConcurrency(items, concurrency) {
+  const queue = [...items];
+  const seenEmails = new Set();
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (queue.length && !stopRequested) {
+      const url = queue.shift();
+      if (!url) break;
+      await scrapeOne(url, seenEmails);
+    }
+  });
+  await Promise.all(workers);
+}
+
+// ═══════════════════════════════════════════
+//  Start
+// ═══════════════════════════════════════════
+async function startScraping() {
+  if (running) return;
+
+  const urls = parseUrls();
+  if (!urls.length) { alert('Please enter at least one URL.'); return; }
+
+  const concurrency = parseInt(document.getElementById('concurrency').value);
+
+  running = true;
+  stopRequested = false;
+  sessionEmails = [];
+  processed = 0; errCount = 0; emptyCount = 0;
+  totalBatch = urls.length;
+
+  // Reset UI
+  document.getElementById('logBox').innerHTML = '';
+  document.getElementById('emailListBox').innerHTML = '';
+  document.getElementById('emailsSection').style.display = 'none';
+  document.getElementById('progressWrap').style.display  = 'block';
+  document.getElementById('scrapeBtn').disabled  = true;
+  document.getElementById('stopBtn').disabled    = false;
+  document.getElementById('clearBtn').disabled   = true;
+  document.getElementById('scrapeBtn').innerHTML =
+    '<span class="spinner"></span> Running…';
+
+  updateStats(); updateProgress();
+  setStatus(`<span style="color:var(--cyan)">▶ Scraping ${urls.length.toLocaleString()} sites · ${concurrency} parallel workers</span>`);
+
+  await runWithConcurrency(urls, concurrency);
+
+  // Done
+  running = false;
+  document.getElementById('scrapeBtn').disabled = false;
+  document.getElementById('stopBtn').disabled   = true;
+  document.getElementById('clearBtn').disabled  = false;
+  document.getElementById('scrapeBtn').innerHTML =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Scraping';
+
+  const stopped = stopRequested ? ' · stopped early' : '';
+  if (sessionEmails.length > 0) {
+    setStatus(`<span style="color:var(--green)">✓ Done${stopped} · ${sessionEmails.length} email${sessionEmails.length!==1?'s':''} found</span>`);
+  } else {
+    setStatus(`<span style="color:var(--amber)">✓ Done${stopped} · no emails found</span>`);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  Stop
+// ═══════════════════════════════════════════
+function stopScraping() {
+  stopRequested = true;
+  document.getElementById('stopBtn').disabled = true;
+  setStatus('<span style="color:var(--amber)">⏹ Stopping after current requests…</span>');
+}
+
+// ═══════════════════════════════════════════
+//  Export
+// ═══════════════════════════════════════════
+async function copyEmails() {
+  if (!sessionEmails.length) return;
+  await navigator.clipboard.writeText(sessionEmails.map(e => e.email).join('\n'));
+  const lbl = document.getElementById('copyBtnLabel');
+  lbl.textContent = 'Copied!';
+  setTimeout(() => { lbl.textContent = 'Copy all'; }, 2000);
+}
+
+function downloadCSV() {
+  if (!sessionEmails.length) return;
+  const header = 'email,source\n';
+  const rows   = sessionEmails.map(e => `"${e.email}","${e.source}"`).join('\n');
+  const blob   = new Blob([header + rows], { type: 'text/csv' });
+  const a      = document.createElement('a');
+  a.href       = URL.createObjectURL(blob);
+  a.download   = 'scraped-emails-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+</script>
+</body>
+</html>
