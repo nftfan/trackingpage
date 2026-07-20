@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Email Checker — WebVault</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #090b10;
+    --bg2:      #0e1118;
+    --bg3:      #141820;
+    --bg4:      #1a1f2c;
+    --border:   rgba(255,255,255,0.06);
+    --border2:  rgba(255,255,255,0.10);
+    --text:     #dde1f0;
+    --text2:    #7a8099;
+    --text3:    #3f4459;
+    --cyan:     #00e5c8;
+    --cyan-dim: rgba(0,229,200,0.08);
+    --cyan-brd: rgba(0,229,200,0.22);
+    --green:    #39e87a;
+    --green-dim:rgba(57,232,122,0.08);
+    --green-brd:rgba(57,232,122,0.22);
+    --amber:    #f0b429;
+    --amber-dim:rgba(240,180,41,0.08);
+    --amber-brd:rgba(240,180,41,0.22);
+    --red:      #ff5e5e;
+    --red-dim:  rgba(255,94,94,0.08);
+    --red-brd:  rgba(255,94,94,0.22);
+    --purple:   #b57bff;
+    --radius:   8px;
+    --radius-lg:12px;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: 0.5;
+  }
+
+  .container { max-width: 860px; margin: 0 auto; position: relative; }
+
+  /* ── Header ── */
+  .header {
+    margin-bottom: 36px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 10px;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .logo-text h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; color: #fff; }
+  .logo-text p { font-size: 12px; color: var(--text3); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
+  .header-note { font-size: 13px; color: var(--text2); line-height: 1.65; max-width: 580px; }
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px;
+    text-transform: uppercase; padding: 4px 10px; border-radius: 20px;
+    border: 1px solid var(--border2); color: var(--text3); vertical-align: middle;
+    transition: .3s;
+  }
+  .tag.ok  { border-color: var(--green-brd); color: var(--green); }
+  .tag.err { border-color: var(--red-brd);   color: var(--red);   }
+
+  /* ── Card ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    margin-bottom: 14px;
+  }
+  .card-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-label::before {
+    content: ''; display: block; width: 14px; height: 2px;
+    background: var(--cyan); border-radius: 2px;
+  }
+
+  /* ── Input area ── */
+  .input-wrap { position: relative; }
+  textarea {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    padding: 14px 16px;
+    resize: vertical;
+    min-height: 180px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea::placeholder { color: var(--text3); }
+  textarea:focus { border-color: var(--cyan); }
+  .input-hint {
+    position: absolute; bottom: 10px; right: 12px;
+    font-size: 11px; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace; pointer-events: none;
+  }
+
+  /* ── Controls ── */
+  .controls-row {
+    display: flex; align-items: center; gap: 14px;
+    flex-wrap: wrap; margin-top: 12px;
+  }
+  .count-badge {
+    font-size: 11px; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 12px;
+  }
+  .count-badge span { color: var(--cyan); font-weight: 600; }
+
+  /* ── Buttons ── */
+  button {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    border-radius: var(--radius); transition: all 0.15s;
+    border: none; outline: none; letter-spacing: 0.2px;
+  }
+  .btn-primary { background: var(--cyan); color: #000; padding: 10px 22px; }
+  .btn-primary:hover:not(:disabled) { background: #00ffdf; box-shadow: 0 0 20px rgba(0,229,200,0.3); }
+  .btn-primary:disabled { background: #0a2622; color: #1a4a44; cursor: not-allowed; }
+
+  .btn-green { background: var(--green); color: #000; padding: 10px 22px; font-weight: 700; }
+  .btn-green:hover:not(:disabled) { background: #4dff8c; box-shadow: 0 0 20px rgba(57,232,122,0.3); }
+  .btn-green:disabled { background: #0a2618; color: #1a4a30; cursor: not-allowed; }
+
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border2); padding: 9px 16px; }
+  .btn-ghost:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
+  .btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-sm { font-size: 11px; padding: 6px 12px; }
+
+  /* ── Stats ── */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin-bottom: 14px;
+  }
+  @media(max-width:600px){ .stats-grid { grid-template-columns: repeat(2,1fr); } }
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .stat-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace; margin-bottom: 7px;
+  }
+  .stat-value { font-size: 28px; font-weight: 800; color: #fff; font-feature-settings: 'tnum'; }
+  .stat-value.cyan  { color: var(--cyan); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.amber { color: var(--amber); }
+  .stat-value.red   { color: var(--red); }
+
+  /* ── Status bar ── */
+  .status-bar {
+    font-size: 12px; color: var(--text2);
+    font-family: 'JetBrains Mono', monospace; min-height: 18px;
+  }
+
+  /* ── Section header ── */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+  }
+  .section-title {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::before {
+    content: ''; display: block; width: 14px; height: 2px;
+    background: var(--cyan); border-radius: 2px;
+  }
+
+  /* ── Result list ── */
+  .list-box {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+    max-height: 420px; overflow-y: auto;
+  }
+  .list-box::-webkit-scrollbar { width: 3px; }
+  .list-box::-webkit-scrollbar-track { background: transparent; }
+  .list-box::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  .list-empty {
+    padding: 32px; text-align: center;
+    color: var(--text3); font-size: 13px; line-height: 1.7;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .list-empty span { color: var(--text2); }
+
+  .email-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 16px; border-bottom: 1px solid var(--border);
+    font-size: 12px; animation: slideIn 0.18s ease;
+  }
+  .email-row:last-child { border-bottom: none; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+  .email-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .email-dot.new { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .email-dot.dup { background: var(--amber); }
+  .email-dot.bad { background: var(--red); }
+
+  .email-addr { font-family: 'JetBrains Mono', monospace; flex: 1; }
+  .email-addr.new { color: var(--green); }
+  .email-addr.dup { color: var(--text3); text-decoration: line-through; }
+  .email-addr.bad { color: var(--red); }
+
+  .email-pill {
+    font-size: 10px; font-weight: 700; padding: 2px 8px;
+    border-radius: 4px; white-space: nowrap; flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;
+  }
+  .pill-new { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-brd); }
+  .pill-dup { background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber-brd); }
+  .pill-bad { background: var(--red-dim);   color: var(--red);   border: 1px solid var(--red-brd); }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  .spinner {
+    display: inline-block; width: 13px; height: 13px;
+    border: 2px solid rgba(0,0,0,0.2); border-top-color: #000;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+  .spinner.dark { border: 2px solid rgba(255,255,255,0.2); border-top-color: #fff; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .btn-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .gap-fill { flex: 1; }
+
+  /* Filter tabs */
+  .filter-tabs { display: flex; gap: 6px; }
+  .filter-tab {
+    font-size: 10px; font-weight: 700; padding: 4px 10px;
+    border-radius: 20px; cursor: pointer; transition: .15s;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.5px;
+    border: 1px solid var(--border2); background: transparent; color: var(--text3);
+  }
+  .filter-tab.active { border-color: var(--cyan-brd); background: var(--cyan-dim); color: var(--cyan); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">
+        <div class="logo-icon">✦</div>
+        <div class="logo-text">
+          <h1>Email Checker</h1>
+          <p>trackingclients · dedup against firebase</p>
+        </div>
+      </div>
+      <span class="tag" id="fbStatus">⬤ connecting…</span>
+    </div>
+    <p class="header-note">
+      Paste a list of email addresses below, one per line. Each is checked against every email already stored in the
+      <strong>trackingclients</strong> Firebase database. You'll get back only the addresses that are <strong style="color:#39e87a">not yet in the database</strong> —
+      then hit <strong>Save new emails</strong> to push them into that same database.
+    </p>
+  </div>
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="card-label">Email list — one address per line</div>
+    <div class="input-wrap">
+      <textarea id="emailInput"
+        placeholder="jane@example.com&#10;info@another-site.org&#10;contact@mywebsite.net&#10;..."
+        oninput="onInputChange()"></textarea>
+      <span class="input-hint" id="inputHint">0 emails</span>
+    </div>
+
+    <div class="controls-row">
+      <div class="count-badge"><span id="countNum">0</span> emails ready</div>
+      <span class="gap-fill"></span>
+      <button class="btn-ghost btn-sm" onclick="clearAll()" id="clearBtn" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Clear
+      </button>
+      <button class="btn-ghost btn-sm" onclick="pasteExample()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Load example
+      </button>
+    </div>
+  </div>
+
+  <!-- Run controls -->
+  <div class="card">
+    <div class="btn-row">
+      <button class="btn-primary" onclick="checkEmails()" id="checkBtn" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        Compare with database
+      </button>
+      <div class="status-bar" id="statusBar"></div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Pasted</div><div class="stat-value cyan"  id="statPasted">0</div></div>
+    <div class="stat-card"><div class="stat-label">New</div>    <div class="stat-value green" id="statNew">0</div></div>
+    <div class="stat-card"><div class="stat-label">Already in DB</div><div class="stat-value amber" id="statDup">0</div></div>
+    <div class="stat-card"><div class="stat-label">In database</div><div class="stat-value" id="statDbTotal">—</div></div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsSection" style="display:none;margin-bottom:16px">
+    <div class="section-header">
+      <span class="section-title">Results</span>
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="new" onclick="setFilter('new', this)">New</button>
+        <button class="filter-tab" data-filter="dup" onclick="setFilter('dup', this)">In DB</button>
+        <button class="filter-tab" data-filter="all" onclick="setFilter('all', this)">All</button>
+      </div>
+    </div>
+    <div class="list-box" id="resultBox"></div>
+
+    <div class="divider"></div>
+
+    <div class="btn-row">
+      <button class="btn-green" onclick="saveNewEmails()" id="saveBtn" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save new emails
+      </button>
+      <button class="btn-ghost btn-sm" onclick="copyNew()" id="copyBtn" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        <span id="copyLabel">Copy new</span>
+      </button>
+      <button class="btn-ghost btn-sm" onclick="downloadNew()" id="dlBtn" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download CSV
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+// ═══════════════════════════════════════════
+//  Firebase — trackingclients (email store)
+// ═══════════════════════════════════════════
+const trackingConfig = {
+  apiKey: "AIzaSyA6w6auszWRniQfZCjb4nXE_bq9Mzt9dOs",
+  databaseURL: "https://trackingclients-default-rtdb.firebaseio.com",
+  projectId: "trackingclients"
+};
+const trackingApp = firebase.initializeApp(trackingConfig, 'trackingApp');
+const trackingDb  = trackingApp.database();
+const emailsRef   = trackingDb.ref('emails');
+
+// ═══════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════
+let dbEmails = new Set();     // all emails currently in Firebase (lowercased)
+let dbLoaded = false;
+let results  = [];            // { email, status: 'new'|'dup'|'bad' }
+let currentFilter = 'new';
+let saving = false;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// ═══════════════════════════════════════════
+//  Firebase status pill + live DB load
+// ═══════════════════════════════════════════
+function setFbStatus(state, text) {
+  const el = document.getElementById('fbStatus');
+  el.className = 'tag ' + state;
+  el.textContent = '⬤ ' + text;
+}
+
+// Keep a live copy of every email in the database
+emailsRef.on('value', snap => {
+  setFbStatus('ok', 'connected');
+  const data = snap.val() || {};
+  const set = new Set();
+  for (const v of Object.values(data)) {
+    const addr = (v && v.email ? String(v.email) : '').toLowerCase().trim();
+    if (addr) set.add(addr);
+  }
+  dbEmails = set;
+  dbLoaded = true;
+  document.getElementById('statDbTotal').textContent = set.size.toLocaleString();
+}, err => {
+  setFbStatus('err', 'disconnected');
+  document.getElementById('statDbTotal').textContent = '!';
+});
+
+// ═══════════════════════════════════════════
+//  Parse emails from textarea
+// ═══════════════════════════════════════════
+function parseEmails() {
+  const raw = document.getElementById('emailInput').value;
+  // split on newlines, commas, semicolons, or whitespace
+  return raw
+    .split(/[\n,;]+/)
+    .map(l => l.trim().toLowerCase())
+    .filter(l => l.length > 0);
+}
+
+function onInputChange() {
+  const emails = parseEmails();
+  const n = emails.length;
+  document.getElementById('inputHint').textContent = n + ' email' + (n !== 1 ? 's' : '');
+  document.getElementById('countNum').textContent  = n;
+  document.getElementById('checkBtn').disabled = (n === 0);
+  document.getElementById('clearBtn').disabled = (document.getElementById('emailInput').value.trim() === '');
+}
+
+function clearAll() {
+  document.getElementById('emailInput').value = '';
+  onInputChange();
+}
+
+function pasteExample() {
+  document.getElementById('emailInput').value =
+    'jane@example.com\ninfo@acme.io\ncontact@studio.net\nhello@brandworks.co\nsales@example.com';
+  onInputChange();
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setStatus(html) {
+  document.getElementById('statusBar').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+//  Compare pasted list against database
+// ═══════════════════════════════════════════
+async function checkEmails() {
+  const emails = parseEmails();
+  if (!emails.length) return;
+
+  const btn = document.getElementById('checkBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Comparing…';
+
+  // Make sure we have a fresh DB snapshot (in case realtime listener hasn't fired yet)
+  if (!dbLoaded) {
+    setStatus('<span style="color:var(--cyan)">Loading database…</span>');
+    try {
+      const snap = await emailsRef.once('value');
+      const data = snap.val() || {};
+      const set = new Set();
+      for (const v of Object.values(data)) {
+        const addr = (v && v.email ? String(v.email) : '').toLowerCase().trim();
+        if (addr) set.add(addr);
+      }
+      dbEmails = set; dbLoaded = true;
+      document.getElementById('statDbTotal').textContent = set.size.toLocaleString();
+    } catch (e) {
+      setStatus('<span style="color:var(--red)">✕ Could not load database: ' + escHtml(e.message) + '</span>');
+      resetCheckBtn();
+      return;
+    }
+  }
+
+  // Dedup the pasted list itself, then classify
+  results = [];
+  const seenInPaste = new Set();
+  for (const email of emails) {
+    if (seenInPaste.has(email)) continue;     // ignore repeats within the paste
+    seenInPaste.add(email);
+
+    let status;
+    if (!EMAIL_RE.test(email))      status = 'bad';
+    else if (dbEmails.has(email))   status = 'dup';
+    else                            status = 'new';
+
+    results.push({ email, status });
+  }
+
+  renderResults();
+
+  const newCount = results.filter(r => r.status === 'new').length;
+  const dupCount = results.filter(r => r.status === 'dup').length;
+  const badCount = results.filter(r => r.status === 'bad').length;
+
+  document.getElementById('statPasted').textContent = results.length;
+  document.getElementById('statNew').textContent    = newCount;
+  document.getElementById('statDup').textContent    = dupCount;
+
+  document.getElementById('resultsSection').style.display = 'block';
+  document.getElementById('saveBtn').disabled = (newCount === 0);
+  document.getElementById('copyBtn').disabled = (newCount === 0);
+  document.getElementById('dlBtn').disabled   = (newCount === 0);
+
+  const badNote = badCount ? ` · <span style="color:var(--red)">${badCount} invalid</span>` : '';
+  setStatus(`<span style="color:var(--green)">✓ ${newCount} new</span> · <span style="color:var(--amber)">${dupCount} already in DB</span>${badNote}`);
+
+  resetCheckBtn();
+}
+
+function resetCheckBtn() {
+  const btn = document.getElementById('checkBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Compare with database';
+  onInputChange();
+}
+
+// ═══════════════════════════════════════════
+//  Render results (respecting current filter)
+// ═══════════════════════════════════════════
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderResults();
+}
+
+function renderResults() {
+  const box = document.getElementById('resultBox');
+  let rows = results;
+  if (currentFilter === 'new') rows = results.filter(r => r.status === 'new');
+  else if (currentFilter === 'dup') rows = results.filter(r => r.status === 'dup' || r.status === 'bad');
+
+  if (!rows.length) {
+    box.innerHTML = '<div class="list-empty"><span>Nothing to show</span><br>try a different filter</div>';
+    return;
+  }
+
+  box.innerHTML = '';
+  for (const r of rows) {
+    const row = document.createElement('div');
+    row.className = 'email-row';
+    let pillClass, pillText, cls;
+    if (r.status === 'new')      { cls = 'new'; pillClass = 'pill-new'; pillText = 'NEW'; }
+    else if (r.status === 'dup') { cls = 'dup'; pillClass = 'pill-dup'; pillText = 'IN DB'; }
+    else                         { cls = 'bad'; pillClass = 'pill-bad'; pillText = 'INVALID'; }
+    row.innerHTML = `
+      <div class="email-dot ${cls}"></div>
+      <div class="email-addr ${cls}">${escHtml(r.email)}</div>
+      <span class="email-pill ${pillClass}">${pillText}</span>
+    `;
+    box.appendChild(row);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  Save new emails to the same Firebase DB
+// ═══════════════════════════════════════════
+async function saveNewEmails() {
+  if (saving) return;
+  const newOnes = results.filter(r => r.status === 'new').map(r => r.email);
+  if (!newOnes.length) return;
+
+  saving = true;
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner dark"></span> Saving…';
+
+  try {
+    const updates = {};
+    for (const email of newOnes) {
+      const key = emailsRef.push().key;
+      updates[key] = { email, source: 'manual-import', savedAt: Date.now() };
+    }
+    await emailsRef.update(updates);
+
+    // Reflect locally so a re-check now marks them as in-DB
+    newOnes.forEach(e => dbEmails.add(e));
+    results.forEach(r => { if (r.status === 'new') r.status = 'dup'; });
+
+    document.getElementById('statNew').textContent = '0';
+    document.getElementById('statDup').textContent =
+      results.filter(r => r.status === 'dup').length;
+    document.getElementById('statDbTotal').textContent = dbEmails.size.toLocaleString();
+
+    renderResults();
+    document.getElementById('copyBtn').disabled = true;
+    document.getElementById('dlBtn').disabled   = true;
+
+    btn.innerHTML = '✓ Saved ' + newOnes.length + ' email' + (newOnes.length !== 1 ? 's' : '');
+    setStatus(`<span style="color:var(--green)">✓ ${newOnes.length} new email${newOnes.length!==1?'s':''} saved to database</span>`);
+  } catch (e) {
+    btn.disabled = false;
+    btn.innerHTML = '✕ Save failed — retry';
+    setStatus('<span style="color:var(--red)">✕ Save failed: ' + escHtml(e.message) + '</span>');
+  }
+  saving = false;
+}
+
+// ═══════════════════════════════════════════
+//  Copy / download new emails
+// ═══════════════════════════════════════════
+async function copyNew() {
+  const newOnes = results.filter(r => r.status === 'new').map(r => r.email);
+  if (!newOnes.length) return;
+  await navigator.clipboard.writeText(newOnes.join('\n'));
+  const lbl = document.getElementById('copyLabel');
+  lbl.textContent = 'Copied!';
+  setTimeout(() => { lbl.textContent = 'Copy new'; }, 2000);
+}
+
+function downloadNew() {
+  const newOnes = results.filter(r => r.status === 'new').map(r => r.email);
+  if (!newOnes.length) return;
+  const blob = new Blob(['email\n' + newOnes.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'new-emails-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+</script>
+</body>
+</html>
