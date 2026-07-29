@@ -396,7 +396,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, push, query, orderByChild, onValue, set, update, get, off } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, push, query, orderByChild, onValue, set, update, get, off, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
@@ -430,6 +430,91 @@
   };
   const polyApp = initializeApp(polyAppConfig, "polygonSaver");
   const polyDb = getDatabase(polyApp);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // STORAGE OPTIMIZATION HELPERS
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // GPS precision: 5 decimals ≈ 1.1 m accuracy — plenty for dots/proofs.
+  // Full-precision floats double the stored string length for nothing.
+  function roundCoord(v) { return Math.round(v * 1e5) / 1e5; }
+
+  // Client-side image compression before upload.
+  // Phone photos are 3–8 MB; a proof needs ~150–300 KB.
+  // Resizes to max 1280px on the longest side and re-encodes as JPEG q0.72.
+  // The canvas re-encode also strips ALL EXIF metadata (incl. embedded GPS)
+  // for free. Falls back to the original file if anything goes wrong.
+  const PROOF_MAX_DIM = 1280;
+  const PROOF_JPEG_QUALITY = 0.72;
+
+  function compressImage(file) {
+    return new Promise(resolve => {
+      // Tiny files (< 300 KB) aren't worth re-encoding
+      if (file.size < 300 * 1024) { resolve(file); return; }
+
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+
+      img.onload = () => {
+        try {
+          let { width, height } = img;
+          if (width > PROOF_MAX_DIM || height > PROOF_MAX_DIM) {
+            const scale = PROOF_MAX_DIM / Math.max(width, height);
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(blob => {
+            URL.revokeObjectURL(objectUrl);
+            // Only use the compressed version if it's actually smaller
+            if (blob && blob.size < file.size) {
+              const name = (file.name || 'proof').replace(/\.[^.]+$/, '') + '.jpg';
+              resolve(new File([blob], name, { type: 'image/jpeg' }));
+            } else {
+              resolve(file);
+            }
+          }, 'image/jpeg', PROOF_JPEG_QUALITY);
+        } catch (e) {
+          URL.revokeObjectURL(objectUrl);
+          resolve(file);
+        }
+      };
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+      img.src = objectUrl;
+    });
+  }
+
+  // Chat auto-expiry: display already filters to today, but old messages
+  // kept accumulating in the DB forever. Delete anything older than 48h
+  // once per page load (cheap, and keeps the chats node from growing).
+  const CHAT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+  let chatCleanupDone = false;
+
+  function cleanupOldChat(id) {
+    if (chatCleanupDone) return;
+    chatCleanupDone = true;
+    get(ref(db, `chats/${id}`)).then(snap => {
+      const cutoff = Date.now() - CHAT_MAX_AGE_MS;
+      const deletions = [];
+      snap.forEach(child => {
+        const msg = child.val();
+        if (msg && msg.timestamp && msg.timestamp < cutoff) {
+          deletions.push(remove(ref(db, `chats/${id}/${child.key}`)));
+        }
+      });
+      if (deletions.length) {
+        Promise.allSettled(deletions).then(() =>
+          console.log(`Chat cleanup: removed ${deletions.length} old message(s)`)
+        );
+      }
+    }).catch(() => { chatCleanupDone = false; });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
 
   // ── DOM refs ──────────────────────────────────────────────────────────────
   const loaderOverlay    = document.getElementById('loaderOverlay');
@@ -707,8 +792,6 @@
   // Small red square at start, green square at end of a segment.
   // The marker element is a large 40x40 invisible touch target with the
   // visible square drawn inside it, so tapping is easy on mobile.
-  // Both click AND touchend are handled so one tap always focuses the
-  // full segment (line + labels + km markers).
   function addSegmentEndpointSquares(s) {
     const start = s.coords[0];
     const end   = s.coords[s.coords.length - 1];
@@ -1070,6 +1153,7 @@
   // ── Chat ──────────────────────────────────────────────────────────────────
   function attachChatListener(id) {
     if (typeof chatUnsub==='function'){chatUnsub();chatUnsub=null;}
+    cleanupOldChat(id); // storage: purge messages older than 48h
     const chatRef=query(ref(db,`chats/${id}`),orderByChild('timestamp'));
     const handler=snap=>{
       chatMessages.innerHTML=''; let unread=0, hasMsgs=false;
@@ -1183,13 +1267,15 @@
   });
   chatInput.addEventListener('keyup',e=>{if(e.key==='Enter')chatSendBtn.click();});
 
-  // ── Photo Proof — direct camera/gallery upload (popup removed) ────────────
+  // ── Photo Proof — direct camera/gallery upload with compression ───────────
   // Tapping the camera icon opens the device chooser (Camera or Gallery).
-  // The selected image is uploaded to Cloudflare R2 via the worker proxy,
-  // then the public URL + GPS location is pushed to the proof database.
+  // The image is compressed client-side (max 1280px, JPEG q0.72 — typically
+  // a 90-95% size reduction vs raw phone photos, EXIF stripped), uploaded
+  // to Cloudflare R2 via the worker proxy, then the public URL + GPS
+  // location is pushed to the proof database.
   const PROOF_PROXY_URL = 'https://upload-proxy.gotshotu.workers.dev';
   const PROOF_R2_PUBLIC = 'https://pub-09d49e1729be4c218a60f330ac3b61b2.r2.dev/';
-  const PROOF_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+  const PROOF_MAX_BYTES = 10 * 1024 * 1024; // 10 MB (pre-compression cap)
 
   async function uploadProofToCloudflare(file) {
     const formData = new FormData();
@@ -1220,23 +1306,29 @@
     if (!currentLatLng) { showToast('No location — enable GPS'); return; }
 
     cameraBtn.classList.add('uploading');
-    showToast('Uploading proof…');
+    showToast('Compressing…');
 
     let cId = currentUserId;
     if (cId.startsWith('FF')) cId = 'XX' + cId.substring(2);
 
     try {
-      const url = await uploadProofToCloudflare(file);
+      // Storage: shrink before it ever leaves the phone
+      const compressed = await compressImage(file);
+      const savedPct = file.size > 0 ? Math.round((1 - compressed.size / file.size) * 100) : 0;
+      console.log(`Proof: ${(file.size/1024).toFixed(0)} KB → ${(compressed.size/1024).toFixed(0)} KB (${savedPct}% smaller)`);
+
+      showToast('Uploading proof…');
+      const url = await uploadProofToCloudflare(compressed);
+
       await push(ref(proofDb, `campaigns/${cId}/proofs`), {
         url,
-        lat: currentLatLng[0],
-        lng: currentLatLng[1],
+        lat: roundCoord(currentLatLng[0]),
+        lng: roundCoord(currentLatLng[1]),
         timestamp: Date.now(),
-        workerName: currentWorkerName || null,
-        filename: file.name || null
+        workerName: currentWorkerName || null
       });
       showToast('✅ Proof submitted!');
-      addLocalClick && localClicks.push({ type: 'upload' });
+      localClicks.push({ type: 'upload' });
       renderLocalClicks();
     } catch (err) {
       console.error('Proof upload failed:', err);
@@ -1357,10 +1449,11 @@
     if(color==='red')countLeft.textContent=parseInt(countLeft.textContent||0)+1;
     if(color==='blue')countBonus.textContent=parseInt(countBonus.textContent||0)+1;
     addLocalClick(color);
-    const [lat,lng]=currentLatLng,now=Date.now();
+    // Storage: 5-decimal GPS (~1 m) instead of full-precision floats
+    const lat=roundCoord(currentLatLng[0]),lng=roundCoord(currentLatLng[1]),now=Date.now();
     try{
       const newKey=push(ref(db,`userPosts/${currentUserId}`)).key;
-      const upd={[`userPosts/${currentUserId}/${newKey}`]:{lat,lng,userId:currentUserId,color,timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostAt`]:now};
+      const upd={[`userPosts/${currentUserId}/${newKey}`]:{lat,lng,color,timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostAt`]:now};
       update(ref(db),upd).catch(e=>{});
     }catch(e){}
   }
@@ -1370,10 +1463,11 @@
     if(!currentLatLng){await goToCurrentLocation({focus:true});if(!currentLatLng)return;}
     countPost.textContent=parseInt(countPost.textContent||0)+1;
     addLocalClick('orange');
-    const [lat,lng]=currentLatLng,now=Date.now();
+    // Storage: 5-decimal GPS (~1 m) instead of full-precision floats
+    const lat=roundCoord(currentLatLng[0]),lng=roundCoord(currentLatLng[1]),now=Date.now();
     try{
       const newKey=push(ref(db,`userPostClicks/${currentUserId}`)).key;
-      const upd={[`userPostClicks/${currentUserId}/${newKey}`]:{lat,lng,userId:currentUserId,color:'orange',timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostClickAt`]:now};
+      const upd={[`userPostClicks/${currentUserId}/${newKey}`]:{lat,lng,color:'orange',timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostClickAt`]:now};
       update(ref(db),upd).catch(e=>{});
     }catch(e){}
   }
