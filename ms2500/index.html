@@ -162,6 +162,9 @@
     .ml-seg-label{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;font-size:8px;font-weight:800;color:#000;font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.02em;white-space:nowrap;pointer-events:none;}
     .ml-seg-label.start{background:#facc15;border:1px solid #eab308;}
     .ml-seg-label.end{background:#60a5fa;border:1px solid #3b82f6;color:#0f172a;}
+    /* Selected-segment distance milestones — restored every 0.5 km. */
+    .ml-dist-marker{width:18px;height:18px;background:#7a5cff;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;pointer-events:none;}
+    .ml-dist-text{transform:rotate(45deg);font-family:Menlo,Monaco,Consolas,monospace;font-size:9px;font-weight:800;color:#fff;line-height:1;}
     /* Segment start/end square markers — intentionally compact to reduce accidental taps. */
     .ml-seg-sq{
       width:26px;height:26px;
@@ -1256,6 +1259,26 @@
 
     // Add detail markers (labels + squares) for the selected segment
     addSegmentDetailMarkers(s);
+
+    // Restore segment milestones every 0.5 km.
+    // Marker 1 = 0.5 km, marker 2 = 1.0 km, marker 3 = 1.5 km, etc.
+    const totalLen = pathLengthKm(s.coords);
+    let milestoneDistance = 0.5, milestoneIndex = 1;
+    while (milestoneDistance < totalLen) {
+      const pt = getPointAtDistance(s.coords, milestoneDistance);
+      if (pt) {
+        const el = document.createElement('div');
+        el.className = 'ml-dist-marker';
+        el.title = `${milestoneDistance.toFixed(1)} km`;
+        el.innerHTML = `<div class="ml-dist-text">${milestoneIndex}</div>`;
+        const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+          .setLngLat([pt.lng, pt.lat])
+          .addTo(map);
+        distMarkers.push(marker);
+        milestoneIndex++;
+      }
+      milestoneDistance += 0.5;
+    }
 
     const lngs = s.coords.map(c => c.lng), lats = s.coords.map(c => c.lat);
     map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 50, duration: 900 });
