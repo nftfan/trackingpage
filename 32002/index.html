@@ -1,0 +1,2321 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>LEUVENFLYERS – Campaign (Belgium Map + Search · Saved Area First)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"/>
+  <meta name="theme-color" content="#2563eb">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com/" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+  <link rel="dns-prefetch" href="https://public.opendatasoft.com/">
+
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined&display=swap" rel="stylesheet">
+
+  <style>
+  /* ════════════════════════════════════════════════════════════
+     LEUVENFLYERS · BE — bright theme
+     ════════════════════════════════════════════════════════════ */
+  :root {
+    --brand: #1877F2;
+    --accent-soft: #E7F3FF;
+    --success: #31A24C;
+    --warning: #F5C33B;
+    --danger: #E41E3F;
+    --purple: #7c3aed;
+    --saved: #c6613f;
+    --ink-900: #1C1E21;
+    --ink-800: #4B4F56;
+    --ink-700: #606770;
+    --ink-600: #8A8D91;
+    --ink-500: #BEC3C9;
+    --ink-300: #E4E6EB;
+    --ink-200: #F0F2F5;
+    --ink-100: #F5F6F7;
+    --surface: #ffffff;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.10);
+    --focus-ring: 0 0 0 2px rgba(24,119,242,0.28);
+    --footer-h: 0px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    font-size: 10px; line-height: 1.3;
+    background: var(--ink-200); color: var(--ink-900);
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  body { display: flex; flex-direction: column; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── MapLibre overrides ── */
+  .maplibregl-ctrl-attrib { display: none !important; }
+  .maplibregl-popup-content {
+    background: var(--surface) !important;
+    color: var(--ink-900) !important;
+    font-size: 11px !important;
+    border: 1px solid var(--ink-300) !important;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+    box-shadow: var(--shadow-md) !important;
+    font-family: 'Inter', sans-serif !important;
+    max-width: 260px;
+  }
+  .maplibregl-popup-tip {
+    border-top-color: var(--surface) !important;
+    border-bottom-color: var(--surface) !important;
+  }
+  .maplibregl-popup-close-button {
+    color: var(--ink-600) !important;
+    font-size: 16px !important;
+    padding: 4px 6px !important;
+  }
+  .maplibregl-canvas { touch-action: none; }
+
+  /* ── Popup internals ── */
+  .pp-title { display:flex; align-items:center; gap:4px; font-size:12px; font-weight:700; }
+  .pp-title .material-icons-outlined { font-size:14px; }
+  .pp-title.muni { color:#5b21b6; }
+  .pp-title.muni .material-icons-outlined { color: var(--purple); }
+  .pp-title.zone { color:#0e3450; }
+  .pp-title.zone .material-icons-outlined { color: #1976d2; }
+  .pp-row { margin-top:5px; font-size:11px; color:var(--ink-800); display:flex; align-items:center; gap:4px; }
+  .pp-row .material-icons-outlined { font-size:12px; }
+  .pp-row strong { color: var(--ink-900); }
+  .pp-note { margin-top:6px; font-size:10px; color:#6b7280; line-height:1.45; }
+  .pp-actions { margin-top:9px; display:flex; gap:6px; flex-wrap:wrap; }
+
+  /* ── Top bar ── */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--ink-300);
+    color: var(--ink-900); z-index: 600;
+    box-shadow: var(--shadow-sm);
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; flex-direction: column;
+    padding: 5px 8px; gap: 3px;
+  }
+  .brand-row { display:flex; align-items:center; gap:6px; min-width:0; position:relative; }
+  .brand-mark {
+    width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
+    background: var(--brand);
+  }
+  .brand-title { color: var(--brand); font-weight: 700; font-size: 11px; letter-spacing: .2px; white-space: nowrap; }
+  .brand-title span { color: var(--ink-600); font-weight: 600; }
+  .campaign-badge {
+    background: var(--accent-soft); color: var(--brand); font-weight: 600;
+    border-radius: 5px; padding: 1px 6px; font-size: 9px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+
+  /* ── Compact municipality / address search ── */
+  .search-wrap {
+    position: relative; margin-left: auto; min-width: 150px; max-width: 280px;
+    flex: 1 1 230px;
+  }
+  .search-box {
+    height: 28px; display: flex; align-items: center; gap: 3px;
+    background: var(--ink-100); border: 1px solid var(--ink-300);
+    border-radius: 8px; padding: 0 3px 0 7px; transition: .15s ease;
+  }
+  .search-box:focus-within {
+    background: #fff; border-color: var(--brand); box-shadow: var(--focus-ring);
+  }
+  .search-box > .material-icons-outlined { color: var(--ink-600); font-size: 14px; flex-shrink: 0; }
+  #mapSearchInput {
+    min-width: 0; width: 100%; border: 0; outline: 0; background: transparent;
+    color: var(--ink-900); font: 600 10px/1.2 'Inter', sans-serif;
+  }
+  #mapSearchInput::placeholder { color: var(--ink-600); font-weight: 500; }
+  #mapSearchBtn {
+    width: 24px; height: 22px; border: 0; border-radius: 6px; cursor: pointer;
+    display: grid; place-items: center; flex-shrink: 0;
+    background: var(--brand); color: #fff;
+  }
+  #mapSearchBtn:hover { filter: brightness(1.06); }
+  #mapSearchBtn:disabled { opacity: .55; cursor: default; }
+  #mapSearchBtn .material-icons-outlined { font-size: 13px; }
+  .search-results {
+    display: none; position: absolute; right: 0; top: calc(100% + 5px);
+    width: min(360px, 92vw); max-height: 290px; overflow-y: auto;
+    background: #fff; border: 1px solid var(--ink-300); border-radius: 10px;
+    box-shadow: var(--shadow-md); z-index: 780; padding: 4px;
+  }
+  .search-results.visible { display: block; }
+  .search-result {
+    width: 100%; border: 0; background: transparent; cursor: pointer;
+    display: flex; align-items: flex-start; gap: 7px; padding: 7px 8px;
+    text-align: left; border-radius: 7px; font-family: 'Inter', sans-serif;
+  }
+  .search-result:hover, .search-result:focus { background: var(--ink-100); outline: none; }
+  .search-result .material-icons-outlined { font-size: 15px; color: var(--brand); margin-top: 1px; }
+  .search-result.muni-result .material-icons-outlined { color: var(--purple); }
+  .search-result-main { min-width: 0; }
+  .search-result-title { font-size: 10px; font-weight: 700; color: var(--ink-900); line-height: 1.25; }
+  .search-result-sub { margin-top: 2px; font-size: 9px; color: var(--ink-700); line-height: 1.35; }
+  .search-state { padding: 9px 10px; font-size: 10px; color: var(--ink-700); }
+  .search-attribution {
+    border-top: 1px solid var(--ink-200); margin: 3px 5px 0; padding: 5px 3px 2px;
+    font-size: 8px; color: var(--ink-600); text-align: right;
+  }
+  .search-attribution a { color: var(--ink-700); text-decoration: underline; }
+  .search-pin {
+    width: 20px; height: 20px; border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg); background: var(--brand); border: 2px solid #fff;
+    box-shadow: 0 2px 7px rgba(0,0,0,.28);
+  }
+  .search-pin::after {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: #fff;
+    position: absolute; left: 5px; top: 5px;
+  }
+
+  /* ── Toolbar ── */
+  .toolbar-row {
+    display: flex; align-items: center; gap: 6px;
+    overflow-x: auto; padding: 2px 0;
+    border-top: 1px solid var(--ink-300);
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .toolbar-row::-webkit-scrollbar { display: none; }
+  button.tool-btn {
+    flex: 1 1 0; min-width: max-content;
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    background: var(--ink-200); border: 1px solid var(--ink-300);
+    color: var(--ink-800); border-radius: 8px;
+    padding: 6px 9px; height: 32px; cursor: pointer; position: relative;
+    font-family: 'Inter', sans-serif; font-weight: 700; font-size: 10px;
+    letter-spacing: .1px; white-space: nowrap; line-height: 1;
+  }
+  button.tool-btn .material-icons-outlined { font-size: 16px; flex-shrink: 0; }
+  button.tool-btn:hover { background: var(--ink-300); }
+  button.tool-btn:active { transform: scale(0.97); }
+  button.tool-btn.active { background: var(--accent-soft); border-color: var(--brand); color: var(--brand); }
+  button.tool-btn.active .material-icons-outlined { color: var(--brand); }
+  button.tool-btn.draw-active { background:#f3e8ff; border-color: var(--purple); color: var(--purple); }
+  button.tool-btn.draw-active .material-icons-outlined { color: var(--purple); }
+  .notif-badge {
+    position: absolute; top: -3px; right: -3px;
+    min-width: 14px; height: 14px; border-radius: 999px;
+    color: #fff; background-color: var(--danger);
+    font-size: 8px; font-weight: 700; line-height: 14px; text-align: center;
+    padding: 0 3px; box-shadow: 0 0 0 1.5px var(--surface);
+  }
+
+  /* ── Metric chips ── */
+  .metrics-scroll {
+    display: flex; align-items: center; gap: 5px; overflow-x: auto;
+    padding: 3px 0; background: var(--surface);
+    border-top: 1px solid var(--ink-300);
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .metrics-scroll::-webkit-scrollbar { display: none; }
+  .metric-chip {
+    flex: 1 1 0; min-width: 0;
+    display: flex; align-items: center;
+    gap: 8px; padding: 5px 9px; height: 38px;
+    border: 1px solid var(--ink-300); border-radius: 7px;
+    background: var(--surface); box-shadow: var(--shadow-sm); white-space: nowrap;
+  }
+  .metric-chip .led { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .metric-chip .stack { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .metric-chip .label { font-size: 8px; color: var(--ink-700); font-weight: 600; letter-spacing: .1px; line-height: 1; text-transform: uppercase; }
+  .metric-chip .value { font-weight: 800; font-size: 13px; color: var(--ink-900); line-height: 1; font-variant-numeric: tabular-nums; }
+  .metric-chip.success { border-color: #bfe8cc; background: #f2fbf5; }
+  .metric-chip.success .led { background: #2e7d32; }
+  .metric-chip.success .value { color: #1f6f33; }
+  .metric-chip.warning { border-color: #f5e2ad; background: #fff9e8; }
+  .metric-chip.warning .led { background: #b38700; }
+  .metric-chip.warning .value { color: #8a6500; }
+  .metric-chip.purple { border-color: #ddd6fe; background: #faf5ff; }
+  .metric-chip.purple .led { background: #7c3aed; }
+  .metric-chip.purple .value { color: #7c3aed; }
+
+  /* ── Chat panel ── */
+  .chat-panel {
+    background: var(--surface); border: 1px solid var(--ink-300);
+    border-radius: 10px; box-shadow: var(--shadow-md);
+    position: fixed; top: calc(var(--topbar-total-height) + 5px); right: 8px;
+    display: none; flex-direction: column; overflow: hidden; z-index: 650;
+    width: 300px; max-width: 90vw; height: 55vh; max-height: 420px; min-height: 280px;
+  }
+  .chat-header { padding: 8px 12px; border-bottom: 1px solid var(--ink-300); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
+  .chat-title { font-size: 11px; font-weight: 700; color: var(--ink-900); display: flex; align-items: center; gap: 4px; }
+  .chat-title .material-icons-outlined { font-size: 13px; }
+  .chat-mark-btn { border:1px solid var(--ink-300); background:var(--surface); color:var(--ink-700); font-size:9px; font-weight:700; padding:3px 6px; border-radius:6px; cursor:pointer; }
+  .chat-mark-btn:hover { background:var(--ink-200); }
+  .chat-list { flex-grow: 1; overflow-y: auto; padding: 8px; background: var(--surface); }
+  .chat-empty { padding:8px; color:#667883; font-size:11px; text-align:center; }
+  .chat-row { display:flex; gap:5px; align-items:flex-end; }
+  .chat-row + .chat-row { margin-top: 7px; }
+  .chat-row.mine { justify-content:flex-end; }
+  .chat-msg { border: 1px solid var(--ink-300); border-radius: 8px; padding: 5px 8px; background: var(--ink-100); max-width: 82%; box-shadow: var(--shadow-sm); }
+  .chat-row.mine .chat-msg { background: var(--brand); color: #fff; border-color: transparent; }
+  .chat-row .avatar { width: 20px; height: 20px; border-radius: 5px; background: var(--ink-300); color: var(--ink-800); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 9px; }
+  .chat-msg .chat-text { font-size:10px; white-space:pre-wrap; word-break:break-word; line-height:1.4; }
+  .chat-msg .chat-meta { margin-top:3px; font-size:8px; color:var(--ink-500); display:flex; gap:4px; align-items:center; }
+  .chat-msg .chat-meta .material-icons-outlined { font-size:10px; color:#94a3b8; }
+  .chat-input-row { display: flex; align-items: center; gap: 5px; padding: 6px 8px; border-top: 1px solid var(--ink-300); background: var(--surface); flex-shrink: 0; }
+  .chat-input { flex-grow: 1; background: var(--ink-100); border: 1px solid var(--ink-300); border-radius: 7px; color: var(--ink-900); padding: 5px 8px; font-size: 10px; }
+  .chat-input:focus { border-color: var(--brand); box-shadow: var(--focus-ring); background: #fff; outline: none; }
+  .send-btn { background: var(--brand); color: #fff; border-radius: 7px; width: 28px; height: 27px; flex-shrink: 0; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .send-btn .material-icons-outlined { font-size: 14px; }
+  .send-btn:hover { filter: brightness(1.08); }
+  .send-btn:disabled { opacity: .5; cursor: default; }
+
+  /* ── Map ── */
+  #map {
+    position: fixed;
+    top: var(--topbar-total-height, 110px);
+    left: 0; right: 0;
+    bottom: var(--footer-h);
+  }
+  body.drawing #map .maplibregl-canvas { cursor: crosshair !important; }
+
+  /* ── Zone labels ── */
+  .zone-label-wrapper { background: transparent !important; border: none !important; }
+  .zone-label {
+    background: var(--surface); border: 1px solid var(--ink-300); color: var(--ink-900);
+    border-radius: 10px; font-weight: 700; font-size: 9px; padding: 1px 5px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    white-space: nowrap; cursor: pointer; line-height: 1.2;
+    font-family: 'Inter', sans-serif;
+  }
+  .zone-label .zone-num { font-weight: 800; }
+  .zone-label.status-booked { background: var(--warning); color: var(--ink-900); border-color: transparent; }
+  .zone-label.status-completed { background: var(--success); color: #fff !important; border-color: transparent; }
+  .zone-label.muni { background:#f3e8ff; color: var(--purple); border-color:#ddd6fe; }
+  .zone-label .flyers-badge {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 0 4px; border-radius: 999px; height: 14px;
+    background: #fff; color: var(--brand); border: 1px solid var(--ink-300);
+    font-size: 8px; font-weight: 700;
+  }
+  .zone-label .flyers-badge .material-icons-outlined { font-size: 9px; color: var(--brand); }
+  .zone-label .dots-badge {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 0 4px; border-radius: 999px; height: 14px;
+    background: #fff; color: #1f6feb; border: 1px solid var(--ink-300);
+    font-size: 8px; font-weight: 800;
+  }
+  .zone-label .dots-badge .material-icons-outlined { font-size: 9px; color: green; }
+
+  /* ── Proof camera marker ── */
+  .proof-ml-icon {
+    width: 22px; height: 22px; display: grid; place-items: center;
+    background: #fff; border: 1.5px solid #1976d2; border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: pointer;
+  }
+  .proof-ml-icon:hover { background: #e3f2fd; }
+  .proof-ml-icon .material-icons-outlined { font-size: 13px; color: #1976d2; }
+
+  /* ── Latest dot marker ── */
+  .latest-marker-container { position: relative; display: flex; flex-direction: column; align-items: center; }
+  .latest-dot-marker {
+    background: linear-gradient(135deg,#22c55e,#16a34a); color: #fff; font-weight: 800; font-size: 13px;
+    padding: 6px 12px; border-radius: 20px; border: 2px solid #fff; box-shadow: 0 4px 12px rgba(22,163,74,0.4);
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    animation: pop-in 0.4s cubic-bezier(0.175,0.885,0.32,1.275); position: relative; transform: translateY(-8px);
+  }
+  .latest-dot-marker::after {
+    content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+    border-width: 6px 6px 0; border-style: solid; border-color: #16a34a transparent transparent;
+  }
+  .latest-dot-marker .material-icons-outlined { font-size: 16px; }
+  .pulse-ring {
+    position: absolute; bottom: -4px; width: 14px; height: 14px; background-color: #22c55e;
+    border-radius: 50%; animation: pulse-ring 2s cubic-bezier(0.215,0.61,0.355,1) infinite; z-index: -1;
+  }
+  @keyframes pop-in { 0%{transform:translateY(0) scale(0.5);opacity:0;} 100%{transform:translateY(-8px) scale(1);opacity:1;} }
+  @keyframes pulse-ring { 0%{transform:scale(0.8);opacity:0.8;} 100%{transform:scale(3.5);opacity:0;} }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-ring, .latest-dot-marker { animation: none; }
+  }
+
+  /* ── Proof strip ── */
+  .proof-strip {
+    border: 1px solid var(--ink-300); border-radius: 8px;
+    position: fixed; left: 8px; right: 8px; bottom: 5px; height: 42px;
+    align-items: center; gap: 4px; z-index: 580; display: none;
+    background: var(--surface); padding: 0 5px;
+  }
+  .proof-strip.visible { display: flex; }
+  .proof-strip-inner {
+    display: flex; align-items: center; gap: 5px;
+    overflow-x: auto; flex: 1; scrollbar-width: none; padding: 3px 2px;
+  }
+  .proof-strip-inner::-webkit-scrollbar { display: none; }
+  .proof-item {
+    flex: 0 0 auto; width: 28px; height: 28px;
+    border-radius: 6px; overflow: hidden; cursor: pointer;
+    border: 1px solid var(--ink-300); background: #fff;
+  }
+  .proof-item:hover { border-color: var(--brand); }
+  .proof-item.selected { outline: 2px solid var(--brand); outline-offset: 1px; }
+  .proof-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ps-btn {
+    background: transparent; border: none; color: var(--ink-600);
+    border-radius: 5px; height: 24px; width: 22px;
+    display: grid; place-items: center; cursor: pointer; flex-shrink: 0;
+  }
+  .ps-btn:hover { color: var(--ink-900); background: var(--ink-100); }
+  .ps-btn .material-icons-outlined { font-size: 14px; }
+
+  /* ── Loading overlay ── */
+  #loadingOverlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    background: var(--surface); color: var(--ink-900); z-index: 800;
+  }
+  #loadingOverlay.fade-out { opacity: 0; pointer-events: none; transition: opacity .28s ease; }
+  .load-brand { font-size: 13px; font-weight: 700; }
+  .load-brand span { color: var(--ink-700); font-weight: 600; }
+  .load-box { width: min(320px, 78vw); display: flex; flex-direction: column; gap: 8px; }
+  .load-track { position: relative; height: 8px; border-radius: 99px; background: var(--ink-300); overflow: hidden; }
+  .load-fill {
+    position: absolute; inset: 0 auto 0 0; width: 0%;
+    background: linear-gradient(90deg, var(--brand), #4d94ff);
+    border-radius: 99px;
+    transition: width .35s ease;
+  }
+  .load-fill::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+    animation: shimmer 1.1s linear infinite;
+  }
+  @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+  .load-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; }
+  #loadStatus { font-weight: 600; color: var(--ink-800); }
+  #loadPct { font-variant-numeric: tabular-nums; color: var(--ink-700); font-weight: 700; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  body > *:not(#loadingOverlay) { opacity: 0; }
+  body.app-ready > *:not(#loadingOverlay) { opacity: 1; transition: opacity .35s ease; }
+  .mini-hint { margin-top: 4px; font-size: 10px; opacity: .85; line-height: 1.4; text-align: center; color: var(--ink-700); }
+
+  /* ── Modal ── */
+  .modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    z-index: 900; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-content { position: relative; border-radius: 16px; overflow: hidden; max-width: 90vw; }
+  .modal-close {
+    position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
+    background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 50%;
+    font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 1;
+  }
+  .img-modal img { display: block; max-width: 85vw; max-height: 80vh; border-radius: 16px; }
+
+  /* ── Popup action buttons ── */
+  .zp-btn {
+    display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;
+    font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--ink-300);
+    background:var(--ink-100);color:var(--ink-800);
+    font-family:'Inter',sans-serif;
+  }
+  .zp-btn .material-icons-outlined { font-size: 14px; }
+  .zp-btn:hover { background:var(--ink-200); }
+  .zp-btn.warn { background:#fff9e8;border-color:#f5e2ad;color:#92670a; }
+  .zp-btn.danger { background:#fff0f2;border-color:#f3b6bf;color:#b3261e; }
+  .zp-btn.verify-btn { background:#f0fdf4;border-color:#bfe8cc;color:#15803d; }
+  .zp-btn.save-btn { background:#f3e8ff;border-color:#ddd6fe;color:#6d28d9; }
+  .zp-btn.primary { background:var(--brand);border-color:var(--brand);color:#fff; }
+  .zp-btn:disabled { opacity:.5;cursor:not-allowed; }
+
+  /* ── Draw helper bar ── */
+  #drawHint {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--footer-h) + 10px);
+    background: rgba(124,58,237,.95); color: #fff; font-size: 11px; font-weight: 600;
+    border-radius: 9px; padding: 8px 14px; z-index: 700; display: none;
+    box-shadow: var(--shadow-md); align-items: center; gap: 10px;
+  }
+  #drawHint.visible { display: flex; }
+  #drawHint .dh-actions { display: flex; gap: 6px; }
+  #drawHint button {
+    border: none; border-radius: 7px; font-size: 11px; font-weight: 700;
+    padding: 5px 10px; cursor: pointer;
+  }
+  #dhFinish { background: #fff; color: var(--purple); }
+  #dhCancel { background: rgba(255,255,255,.18); color: #fff; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: calc(var(--footer-h) + 56px); left: 50%;
+    transform: translateX(-50%); background: #1a1a1a; color: #fff;
+    font-size: 11px; border-radius: 8px; padding: 8px 18px; z-index: 999;
+    pointer-events: none; animation: toastAnim 1.9s forwards;
+  }
+  @keyframes toastAnim {
+    0%{opacity:0;transform:translateX(-50%) translateY(6px);}
+    12%{opacity:1;transform:translateX(-50%) translateY(0);}
+    80%{opacity:1;} 100%{opacity:0;}
+  }
+
+  /* ── PIN modal ── */
+  #pinModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:950; align-items:center; justify-content:center; }
+  #pinModal.visible { display:flex; }
+  #pinCard { background:#fff; border-radius:12px; padding:20px; min-width:240px; text-align:center; box-shadow:var(--shadow-md); }
+  #pinCard h3 { font-size:13px; margin-bottom:12px; }
+  #pinInput { font-size:15px; padding:8px 12px; border:1.5px solid var(--ink-300); border-radius:8px; width:70%; text-align:center; letter-spacing:.2em; outline:none; margin-bottom:10px; }
+  #pinInput:focus { border-color:var(--brand); }
+  #pinErr { color:var(--danger); font-size:10px; margin-bottom:8px; display:none; }
+  .pin-acts { display:flex; gap:8px; justify-content:center; }
+  .pin-acts button { padding:7px 16px; border-radius:8px; border:none; font-size:12px; font-weight:600; cursor:pointer; }
+  #pinOk { background:var(--brand); color:#fff; } #pinCancel { background:var(--ink-200); color:var(--ink-800); }
+
+  /* ── Mobile compact ── */
+  @media (max-width: 480px) {
+    html, body { font-size: 10px; }
+    .topbar { padding: 4px 6px; gap: 3px; }
+    .brand-title { font-size: 10px; }
+    .campaign-badge { font-size: 8px; padding: 1px 4px; border-radius: 4px; }
+    .search-wrap { min-width: 105px; max-width: none; flex: 1 1 130px; }
+    .search-box { height: 26px; padding-left: 5px; }
+    #mapSearchInput { font-size: 9px; }
+    #mapSearchBtn { width: 21px; height: 20px; }
+    .search-results { width: min(330px, 96vw); right: -2px; }
+    .toolbar-row { gap: 4px; }
+    button.tool-btn { padding: 5px 6px; height: 30px; font-size: 9px; gap: 4px; border-radius: 7px; }
+    button.tool-btn .material-icons-outlined { font-size: 14px; }
+    .metric-chip { padding: 4px 6px; gap: 5px; }
+    .metric-chip .label { font-size: 7px; }
+    .metric-chip .value { font-size: 11px; }
+    .zone-label { font-size: 8px; padding: 1px 4px; border-radius: 8px; gap: 3px; }
+    .zone-label .flyers-badge, .zone-label .dots-badge { font-size: 7px; padding: 0 3px; height: 12px; }
+    .zone-label .flyers-badge .material-icons-outlined,
+    .zone-label .dots-badge .material-icons-outlined { font-size: 8px; }
+    .proof-ml-icon { width: 18px; height: 18px; }
+    .proof-ml-icon .material-icons-outlined { font-size: 11px; }
+    .proof-strip { height: 36px; left: 4px; right: 4px; bottom: 3px; }
+    .proof-item { width: 24px; height: 24px; border-radius: 5px; }
+    .ps-btn { width: 18px; height: 20px; }
+    .ps-btn .material-icons-outlined { font-size: 12px; }
+    .latest-dot-marker { font-size: 10px; padding: 4px 8px; }
+    .latest-dot-marker .material-icons-outlined { font-size: 12px; }
+    .pulse-ring { width: 10px; height: 10px; }
+    .maplibregl-popup-content { padding: 7px 9px !important; font-size: 10px !important; max-width: 220px; }
+    .zp-btn { font-size: 10px; padding: 4px 8px; }
+    .chat-panel { width: 88vw; max-width: 320px; }
+  }
+  </style>
+</head>
+<body>
+  <div id="loadingOverlay" aria-live="polite">
+    <div class="load-brand">LEUVENFLYERS <span>· BE CAMPAIGN</span></div>
+    <div class="load-box">
+      <div class="load-row">
+        <span id="loadStatus">Loading libraries…</span>
+        <span id="loadPct">0%</span>
+      </div>
+      <div class="load-track"><div class="load-fill" id="loadFill"></div></div>
+    </div>
+    <div class="mini-hint">Auto-zooming to latest completed zone</div>
+  </div>
+
+  <header class="topbar" id="topbar">
+    <div class="brand-row">
+      <div class="brand-mark"></div>
+      <span class="brand-title">LEUVENFLYERS <span>· BE</span></span>
+      <span class="campaign-badge" id="campaignBadge"></span>
+      <div class="search-wrap" id="searchWrap">
+        <div class="search-box">
+          <span class="material-icons-outlined">search</span>
+          <input id="mapSearchInput" type="search" autocomplete="off" spellcheck="false"
+                 placeholder="Municipality or address" aria-label="Search municipality or address"/>
+          <button id="mapSearchBtn" type="button" title="Search Belgium" aria-label="Search">
+            <span class="material-icons-outlined">arrow_forward</span>
+          </button>
+        </div>
+        <div id="searchResults" class="search-results" role="listbox" aria-label="Search results"></div>
+      </div>
+    </div>
+
+    <div class="toolbar-row" id="toolbarRow">
+      <button id="tbMunis" class="tool-btn" title="Show all Belgian municipality boundaries">
+        <span class="material-icons-outlined">layers</span>
+        <span class="tool-label">Show all municipalities</span>
+      </button>
+      <button id="tbCampaign" class="tool-btn" title="Show this campaign's saved area">
+        <span class="material-icons-outlined">flag</span>
+        <span class="tool-label">Show campaign area</span>
+      </button>
+      <button id="tbDraw" class="tool-btn" title="Draw a sub-zone">
+        <span class="material-icons-outlined">edit</span>
+        <span class="tool-label">Draw subzones</span>
+      </button>
+      <button id="tbChat" class="tool-btn" title="Open chat">
+        <span class="material-icons-outlined">chat</span>
+        <span class="tool-label">Chat</span>
+        <span id="tbChatBadge" class="notif-badge" style="display:none;"></span>
+      </button>
+    </div>
+
+    <div class="metrics-scroll" id="metricsScroll">
+      <div class="metric-chip success" title="Delivered flyers">
+        <span class="led"></span>
+        <div class="stack">
+          <span class="label">Delivered</span>
+          <span class="value" id="completedFlyersCount">0</span>
+        </div>
+      </div>
+      <div id="qrCounter" class="metric-chip purple" style="cursor:pointer;" title="QR scans">
+        <span class="led"></span>
+        <div class="stack">
+          <span class="label">QR scans</span>
+          <span class="value" id="qrScanCount">0</span>
+        </div>
+      </div>
+      <div class="metric-chip warning" title="Required flyers">
+        <span class="led"></span>
+        <div class="stack">
+          <span class="label">Est. flyers</span>
+          <span class="value" id="flyersRequired">0</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div id="chatPanel" class="chat-panel" role="dialog" aria-label="Chat">
+    <div class="chat-header">
+      <div class="chat-title"><span class="material-icons-outlined">chat</span>Chat</div>
+      <button id="chatMarkReadBtn" class="chat-mark-btn">Mark all read</button>
+    </div>
+    <div id="chatList" class="chat-list"></div>
+    <div class="chat-input-row">
+      <input id="chatInput" class="chat-input" type="text" placeholder="Type a message…">
+      <button id="chatSendBtn" class="send-btn" title="Send">
+        <span class="material-icons-outlined">send</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Draw helper -->
+  <div id="drawHint">
+    <span id="dhText">Tap anywhere to add points · double-click to close</span>
+    <span class="dh-actions">
+      <button id="dhFinish">Finish</button>
+      <button id="dhCancel">Cancel</button>
+    </span>
+  </div>
+
+  <div id="proofStrip" class="proof-strip">
+    <button id="psLeft" class="ps-btn"><span class="material-icons-outlined">chevron_left</span></button>
+    <div id="proofStripInner" class="proof-strip-inner"></div>
+    <button id="psRight" class="ps-btn"><span class="material-icons-outlined">chevron_right</span></button>
+  </div>
+
+  <div id="imgModal" class="modal">
+    <div class="modal-content img-modal">
+      <button id="modalCloseBtn" class="modal-close">&times;</button>
+      <img id="modalImg" alt="Proof preview" loading="lazy">
+    </div>
+  </div>
+
+  <!-- PIN modal (for deletions) -->
+  <div id="pinModal">
+    <div id="pinCard">
+      <h3>Enter PIN</h3>
+      <input id="pinInput" type="password" maxlength="6" placeholder="PIN" autocomplete="off"/>
+      <div id="pinErr">Incorrect PIN.</div>
+      <div class="pin-acts">
+        <button id="pinOk">Confirm</button>
+        <button id="pinCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script defer src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, onValue, get, update, push, set, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  /* ── Firebase ── */
+  const campaignApp = initializeApp({
+    apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+    authDomain:"trackingclients.firebaseapp.com",
+    projectId:"trackingclients",
+    storageBucket:"trackingclients.appspot.com",
+    messagingSenderId:"27490943622",
+    appId:"1:27490943622:web:d6c87547aa5df440508707",
+    databaseURL:"https://trackingclients-default-rtdb.firebaseio.com/"
+  }, 'campaignApp');
+  const db = getDatabase(campaignApp);
+
+  const polygonsApp = initializeApp({
+    apiKey:"AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+    authDomain:"leuvenflyers-23584.firebaseapp.com",
+    databaseURL:"https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+    projectId:"leuvenflyers-23584",
+    storageBucket:"leuvenflyers-23584.firebasestorage.app",
+    messagingSenderId:"1077790950414",
+    appId:"1:1077790950414:web:036fafe06df86f41ed285f"
+  }, 'polygonsApp');
+  const polygonsDb = getDatabase(polygonsApp);
+
+  const dotsApp = initializeApp({
+    apiKey:"AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain:"tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL:"https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId:"tokentransfer-4a9b3",
+    storageBucket:"tokentransfer-4a9b3.firebasestorage.app",
+    messagingSenderId:"205455490321",
+    appId:"1:205455490321:web:9919f5dde059316c9320b0"
+  }, 'dotsApp');
+  const dotsDb = getDatabase(dotsApp);
+
+  /* ════════════════════════════════════════════════════════════════════
+     CAMPAIGN CODE — change this ONE value to spin up a new BE dashboard.
+       • its own saved "campaign area"   (campaigns/<CODE>/belgizones)
+       • its own QR scans / blue dots     (XX<CODE> / FF<CODE>)
+       • its own zone statuses & chat     (campaigns/XX<CODE>/…)
+     Drawn SUB-ZONES are shared across all BE dashboards (belgisubzones).
+     NOTE: if you also run a Netherlands dashboard, use a DIFFERENT campaign
+     code there — statuses/chat/proofs are keyed by campaign code only.
+     ════════════════════════════════════════════════════════════════════ */
+  const CAMPAIGN     = '32002';
+  const CAMPAIGN_XX  = 'XX' + CAMPAIGN;   // QR promo / statuses / chat / proofs
+  const CAMPAIGN_FF  = 'FF' + CAMPAIGN;   // live blue dots
+
+  /* ── Firebase folders ──
+   *  belgizones    → per-campaign saved municipality area (the "campaign area")
+   *  belgisubzones → user-drawn subdivisions. SHARED across BE dashboards.
+   */
+  const FB_SUBZONES = 'belgisubzones';
+  const FB_MUNI     = 'campaigns/' + CAMPAIGN + '/belgizones';
+  const DELETE_PIN  = '000888';
+
+  // Polygon-Saver zones ('polygons' path) are merged in and fully bookable,
+  // so booked P-zones survive page reloads and view toggles.
+  const includeSaverZones = true;
+  const FB_SAVER = 'polygons';
+
+  /* ── Belgian municipality boundaries ──
+     Opendatasoft georef-belgium-municipality — all Belgian communes/gemeenten,
+     NGI-IGN source, WGS84. Free, no key, CORS-enabled. ~581 features. */
+  const BE_MUNI_URLS = [
+    'https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/georef-belgium-municipality/exports/geojson?lang=en&timezone=UTC'
+  ];
+  const MUNI_CACHE_KEY = 'be_munis_v1';
+
+  /* ════════════════════════════════════════════════════════════════════
+     STORAGE OPTIMIZATION HELPERS
+     ════════════════════════════════════════════════════════════════════ */
+  // GPS precision: 5 decimals ≈ 1.1 m — plenty for zone boundaries.
+  // Municipality rings from Opendatasoft carry 13+ decimal places; rounding
+  // before saving roughly halves the stored bytes of every boundary point.
+  const roundCoord = v => Math.round(v * 1e5) / 1e5;
+
+  /* ── DOM ── */
+  const completedFlyersCountEl = document.getElementById('completedFlyersCount');
+  const qrScanCountEl   = document.getElementById('qrScanCount');
+  const qrCounter       = document.getElementById('qrCounter');
+  const topbar          = document.getElementById('topbar');
+  const loadingOverlay  = document.getElementById('loadingOverlay');
+  const proofStrip      = document.getElementById('proofStrip');
+  const proofStripInner = document.getElementById('proofStripInner');
+  const psLeft          = document.getElementById('psLeft');
+  const psRight         = document.getElementById('psRight');
+  const flyersRequiredEl= document.getElementById('flyersRequired');
+  const chatPanel       = document.getElementById('chatPanel');
+  const chatListEl      = document.getElementById('chatList');
+  const chatInputEl     = document.getElementById('chatInput');
+  const chatSendBtn     = document.getElementById('chatSendBtn');
+  const chatMarkReadBtn = document.getElementById('chatMarkReadBtn');
+  const drawHint        = document.getElementById('drawHint');
+  const dhText          = document.getElementById('dhText');
+  const dhFinish        = document.getElementById('dhFinish');
+  const dhCancel        = document.getElementById('dhCancel');
+  const pinModal        = document.getElementById('pinModal');
+  const pinInput        = document.getElementById('pinInput');
+  const pinErr          = document.getElementById('pinErr');
+  const tbMunis         = document.getElementById('tbMunis');
+  const tbCampaign      = document.getElementById('tbCampaign');
+  const tbDraw          = document.getElementById('tbDraw');
+  const tbChat          = document.getElementById('tbChat');
+  const tbChatBadge     = document.getElementById('tbChatBadge');
+  const searchWrap      = document.getElementById('searchWrap');
+  const mapSearchInput  = document.getElementById('mapSearchInput');
+  const mapSearchBtn    = document.getElementById('mapSearchBtn');
+  const searchResultsEl = document.getElementById('searchResults');
+
+  /* ── State ── */
+  let map;
+  let polygonMeta = [];                 // [{zoneNumber, turfPoly, bounds, firebaseKey, center}]
+  let polygonsByZone = new Map();       // zoneNumber → index in polygonMeta
+  const ZONE_STATUS_PATH = 'campaigns/' + CAMPAIGN_XX + '/zone_statuses';
+  const zoneStatusByZone = new Map();
+  const zoneStatusKeyByZone = new Map();
+  let firstFullLoad = true;
+  let labelMarkers = new Map();
+  let proofMarkerMap = new Map();
+  let proofsList = [];
+  let latestDotMarker = null;
+  let lastLatestFocusedZone = null;
+  let lastLatestFocusTs = 0;
+  const dotsCountByZone = new Map();
+  const CHAT_PATH = 'campaigns/' + CAMPAIGN_XX + '/chat/messages';
+  let chatMessages = [];
+  const deviceIdKey = CAMPAIGN_XX + '_chat_device_id';
+  const myDeviceId = getOrCreateDeviceId();
+  const myName = 'Viewer';
+  const lastReadKey = CAMPAIGN_XX + '_chat_last_read_ts';
+  const buildingDataByZone = new Map();
+  const buildingFetchPromises = new Map();
+
+  // Municipalities (purple, save-only)
+  let muniByName = new Map();   // name → { name, geometry, savedKey|null, savedExtraKeys:[] }
+  let muniLoaded = false;
+  let showAllZones = false;
+  let showCampaignArea = false;
+
+  // Drawing
+  let drawing = false;
+  let drawPts = [];
+  let drawParentMuni = null;
+  let pinPendingAction = null;
+  let activePopup = null;
+
+  // Search (municipalities are local; addresses use submit-only geocoding)
+  const GEOCODER_URL = 'https://nominatim.openstreetmap.org/search';
+  const GEOCODER_MIN_INTERVAL_MS = 1100; // public service limit: stay below 1 req/sec
+  const GEOCODER_CACHE_PREFIX = 'lf_be_geocode_v1:';
+  const GEOCODER_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  let lastGeocodeRequestAt = 0;
+  let searchMarker = null;
+
+  /* ── GeoJSON helpers ── */
+  const fc   = (features=[]) => ({ type:'FeatureCollection', features });
+  const feat = (type, coords, props={}) => ({ type:'Feature', properties:props, geometry:{ type, coordinates:coords } });
+
+  /* ── Header height ── */
+  function setHeaderHeightVar(){
+    const h = topbar.getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--topbar-total-height', h + 'px');
+    if(map) map.resize();
+    chatPanel.style.top = (h + 6) + 'px';
+  }
+  new ResizeObserver(() => requestAnimationFrame(setHeaderHeightVar)).observe(topbar);
+  window.addEventListener('orientationchange', () => setTimeout(setHeaderHeightVar, 150), { passive:true });
+  window.addEventListener('resize', () => setHeaderHeightVar(), { passive:true });
+
+  const idle = (fn) => 'requestIdleCallback' in window
+    ? requestIdleCallback(fn, { timeout:400 })
+    : setTimeout(fn, 0);
+
+  async function waitForGlobals(keys, ms=8000){
+    const t = Date.now();
+    return new Promise((res,rej)=>{
+      (function check(){
+        if(keys.every(k=>!!window[k])) return res();
+        if(Date.now()-t>ms) return rej(new Error('libs timeout'));
+        setTimeout(check, 20);
+      })();
+    });
+  }
+
+  function toast(msg){
+    const t = Object.assign(document.createElement('div'), { className:'toast', innerText:msg });
+    document.body.appendChild(t); setTimeout(()=>t.remove(), 1900);
+  }
+
+  /* ── Loading progress ── */
+  let _loadPct = 0;
+  function setLoadProgress(pct, label){
+    _loadPct = Math.max(_loadPct, Math.min(100, pct));
+    const fill = document.getElementById('loadFill');
+    const pctEl = document.getElementById('loadPct');
+    const statusEl = document.getElementById('loadStatus');
+    if(fill) fill.style.width = _loadPct + '%';
+    if(pctEl) pctEl.textContent = Math.round(_loadPct) + '%';
+    if(label && statusEl) statusEl.textContent = label;
+  }
+
+  /* First-snapshot tracking — reveal the dashboard only after every Firebase
+     source delivered its initial data. */
+  const _dfd = () => { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve }; };
+  const firstLoad = {
+    statuses: _dfd(),
+    dots:     _dfd(),
+    proofs:   _dfd(),
+    qr:       _dfd(),
+    chat:     _dfd()
+  };
+
+  /* ── Init ── */
+  window.addEventListener('DOMContentLoaded', async () => {
+    try {
+      document.title = 'LEUVENFLYERS – Campaign ' + CAMPAIGN_XX + ' (Belgium Map)';
+      const cb = document.getElementById('campaignBadge');
+      if(cb) cb.textContent = CAMPAIGN_XX;
+    } catch(e){}
+    setHeaderHeightVar();
+    setLoadProgress(8, 'Loading libraries…');
+    try { await waitForGlobals(['maplibregl','turf']); } catch(e){ console.error(e); }
+    if(!window.maplibregl || !window.turf){
+      setLoadProgress(100, 'Map libraries failed to load — check your connection');
+      toast('Could not load map libraries');
+      hideLoader();
+      return;
+    }
+    setLoadProgress(20, 'Initializing map…');
+
+    map = new maplibregl.Map({
+      container: 'map',
+      style: {
+        version: 8,
+        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+        sources: {
+          osm: {
+            type: 'raster',
+            tiles: [
+              'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+            ],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors'
+          }
+        },
+        layers: [{ id: 'osm', type: 'raster', source: 'osm', paint: { 'raster-fade-duration': 0 } }]
+      },
+      center: [4.35, 50.85],   // Belgium
+      zoom: 8,
+      maxZoom: 19,
+      attributionControl: false,
+      fadeDuration: 0
+    });
+
+    map.on('load', async () => {
+      setLoadProgress(38, 'Preparing map layers…');
+
+      // ── Municipalities: purple borders, near-invisible fill (catches clicks).
+      //    Added first so sub-zones render above. ──
+      map.addSource('muni-src', { type:'geojson', data: fc() });
+      map.addLayer({
+        id: 'muni-fill', type: 'fill', source: 'muni-src',
+        paint: {
+          'fill-color': ['case',['==',['get','saved'],1], '#c6613f', '#7c3aed'],
+          'fill-opacity': ['case',['==',['get','saved'],1], 0.30, 0.06]
+        }
+      });
+      map.addLayer({
+        id: 'muni-line', type: 'line', source: 'muni-src',
+        paint: {
+          'line-color': ['case',['==',['get','saved'],1], '#c6613f', '#7c3aed'],
+          'line-width': 2,
+          'line-opacity': ['case',['==',['get','saved'],1],1,0.8]
+        }
+      });
+
+      // ── Search highlight (independent of municipality view toggles) ──
+      map.addSource('search-highlight-src', { type:'geojson', data: fc() });
+      map.addLayer({ id:'search-highlight-fill', type:'fill', source:'search-highlight-src',
+        paint:{ 'fill-color':'#1877F2', 'fill-opacity':0.10 } });
+      map.addLayer({ id:'search-highlight-line', type:'line', source:'search-highlight-src',
+        paint:{ 'line-color':'#1877F2', 'line-width':3, 'line-opacity':0.95 } });
+
+      // ── Sub-zones (drawn, bookable) ──
+      map.addSource('zones-fill-src', { type:'geojson', data: fc() });
+      map.addLayer({
+        id: 'zones-fill', type: 'fill', source: 'zones-fill-src',
+        paint: { 'fill-color': ['get','fillColor'], 'fill-opacity': ['get','fillOpacity'] }
+      });
+      map.addLayer({
+        id: 'zones-line', type: 'line', source: 'zones-fill-src',
+        paint: { 'line-color': ['get','lineColor'], 'line-width': 1.5, 'line-opacity': 0.85 }
+      });
+
+      // ── Draw preview ──
+      map.addSource('draw-src', { type:'geojson', data: fc() });
+      map.addLayer({ id:'draw-fill', type:'fill', source:'draw-src', filter:['==','$type','Polygon'],
+        paint:{ 'fill-color':'#7c3aed','fill-opacity':0.2 } });
+      map.addLayer({ id:'draw-line', type:'line', source:'draw-src', filter:['==','$type','LineString'],
+        paint:{ 'line-color':'#7c3aed','line-width':2,'line-dasharray':[2,1.5] } });
+      map.addLayer({ id:'draw-pt', type:'circle', source:'draw-src', filter:['==','$type','Point'],
+        paint:{ 'circle-radius':4,'circle-color':'#7c3aed','circle-stroke-color':'#fff','circle-stroke-width':2 } });
+
+      // ── Live blue dots + trail ──
+      map.addSource('blue-dots-src', { type:'geojson', data: fc() });
+      map.addLayer({ id:'blue-trail', type:'line', source:'blue-dots-src',
+        paint:{ 'line-color':'#888','line-width':1,'line-opacity':0.6 } });
+      map.addLayer({ id:'blue-dots', type:'circle', source:'blue-dots-src',
+        paint:{ 'circle-radius':3,'circle-color':'#1f6feb','circle-stroke-color':'#1f6feb','circle-stroke-width':1,'circle-opacity':0.9 } });
+
+      // ── Building dots ──
+      map.addSource('building-dots-src', { type:'geojson', data: fc() });
+      map.addLayer({ id:'building-dots', type:'circle', source:'building-dots-src',
+        paint:{ 'circle-radius':2.5,'circle-color':'#000','circle-opacity':0.85,'circle-stroke-width':0 } });
+
+      // ── Click / hover handlers ──
+      map.on('mouseenter', 'zones-fill', () => { if(!drawing) map.getCanvas().style.cursor='pointer'; });
+      map.on('mouseleave', 'zones-fill', () => { if(!drawing) map.getCanvas().style.cursor=''; });
+      map.on('mouseenter', 'muni-fill', () => { if(!drawing) map.getCanvas().style.cursor='pointer'; });
+      map.on('mouseleave', 'muni-fill', () => { if(!drawing) map.getCanvas().style.cursor=''; });
+
+      map.on('click', e => {
+        if(drawing){ handleDrawClick(e); return; }
+        const subHits = map.queryRenderedFeatures(e.point, { layers:['zones-fill'] });
+        if(subHits.length){
+          showZonePopup(subHits[0].properties.zoneNumber, e.lngLat);
+          return;
+        }
+        const muniHits = map.queryRenderedFeatures(e.point, { layers:['muni-fill'] });
+        if(muniHits.length){
+          const nm = muniHits[0].properties.name;
+          if(nm) showMuniPopup(nm, e.lngLat);
+        }
+      });
+
+      map.on('mousemove', e => { if(drawing) renderDrawPreview(e.lngLat.lng, e.lngLat.lat); });
+      map.on('dblclick', e => { if(drawing){ e.preventDefault(); finishDraw(); } });
+
+      try {
+        // 1) FIRST: reconstruct the already-planned municipality area directly
+        // from Firebase. No Opendatasoft request is needed for this.
+        setLoadProgress(46, 'Loading saved campaign area…');
+        const hasSavedArea = await loadSavedCampaignArea();
+        if(hasSavedArea){
+          showCampaignArea=true; showAllZones=false;
+          syncToolbar();
+          renderMunicipalities();
+          fitToSavedMunis();
+        } else {
+          renderMunicipalities();
+        }
+
+        // 2) Then load the shared/custom sub-zones. Campaign-owned free-drawn
+        // zones are kept visible even when they sit outside selected municipalities.
+        setLoadProgress(54, 'Loading zones…');
+        await loadSubZones();
+        if(showCampaignArea) updateZonesVisual();
+
+        // If this campaign has free-drawn zones but no saved municipality at all,
+        // still open directly in Campaign Area view.
+        const hasOwnedDrawnZone = polygonMeta.some(meta=>String(meta.campaign||'')===String(CAMPAIGN));
+        if(!showCampaignArea && hasOwnedDrawnZone){
+          showCampaignArea=true; showAllZones=false;
+          syncToolbar();
+          renderMunicipalities();
+          updateZonesVisual();
+          fitToSavedMunis();
+        }
+
+        // 3) Connect real-time campaign data after the planned geography is visible.
+        setLoadProgress(62, 'Connecting live data…');
+        listenZoneStatuses();
+        listenProofs();
+        listenQrScans();
+        listenChat();
+        listenLiveDots();
+
+        // Full Belgian municipality data is intentionally lazy-loaded later:
+        // - when "Show all municipalities" is clicked, or
+        // - when a municipality search is performed.
+        setLoadProgress(72, 'Loading Firebase data…');
+        const sources = [
+          [firstLoad.statuses.promise, 'Zone statuses loaded'],
+          [firstLoad.dots.promise,     'Live dots loaded'],
+          [firstLoad.proofs.promise,   'Proof photos loaded'],
+          [firstLoad.qr.promise,       'QR scans loaded'],
+          [firstLoad.chat.promise,     'Chat loaded']
+        ];
+        let arrived = 0;
+        sources.forEach(([p,label]) => p.then(() => { arrived++; setLoadProgress(72 + arrived*5.4, label); }));
+        await Promise.race([
+          Promise.all(sources.map(s => s[0])),
+          new Promise(res => setTimeout(res, 20000))  // safety valve
+        ]);
+      } catch(err) {
+        console.error(err);
+      } finally {
+        hideLoader();
+      }
+    });
+  });
+
+  /* ════════════════════════════════════════════════════════════════════
+     MUNICIPALITIES (purple, save-only)
+     ════════════════════════════════════════════════════════════════════ */
+  // The Opendatasoft georef-belgium-municipality GeoJSON exposes localized
+  // names in a few possible shapes. Try them all and pick a sensible one.
+  function beMuniName(p){
+    if(!p) return null;
+    // mun_name can be an array of strings or of {lang,name} objects
+    const fromArr = (v) => {
+      if(!Array.isArray(v) || !v.length) return null;
+      if(typeof v[0] === 'string') return v[0];
+      if(typeof v[0] === 'object') return v[0].name || v[0].label || null;
+      return null;
+    };
+    return p.mun_name_nl || p.mun_name_fr
+        || fromArr(p.mun_name)
+        || (typeof p.mun_name === 'string' ? p.mun_name : null)
+        || p.commune || p.gemeente || p.name
+        || p.mun_refnis || null;
+  }
+
+  async function fetchBeMunis(){
+    // Session cache — instant reloads within a tab.
+    try {
+      const cached = sessionStorage.getItem(MUNI_CACHE_KEY);
+      if(cached) return JSON.parse(cached);
+    } catch(e){}
+    let geo = null;
+    for(const url of BE_MUNI_URLS){
+      try {
+        const r = await fetch(url, { mode:'cors' });
+        if(!r.ok) continue;
+        const j = await r.json();
+        if(j && Array.isArray(j.features) && j.features.length){ geo = j; break; }
+      } catch(e){ /* try next source */ }
+    }
+    if(geo){
+      try { sessionStorage.setItem(MUNI_CACHE_KEY, JSON.stringify(geo)); } catch(e){}
+    }
+    return geo;
+  }
+
+  // Convert one saved Firebase municipality ring back into GeoJSON coordinates.
+  // Saved belgizones are enough to display an already-planned campaign; the
+  // nationwide Opendatasoft dataset is NOT required for this.
+  function savedMuniRing(raw){
+    if(!raw || typeof raw!=='object') return null;
+    const pts = Object.keys(raw)
+      .filter(k=>!isNaN(Number(k)))
+      .sort((a,b)=>Number(a)-Number(b))
+      .map(k=>{
+        const p=raw[k];
+        if(Array.isArray(p)) return [Number(p[1]),Number(p[0])];
+        return [Number(p&&p.lng),Number(p&&p.lat)];
+      })
+      .filter(([lng,lat])=>Number.isFinite(lng)&&Number.isFinite(lat));
+    if(pts.length<3) return null;
+    const a=pts[0], b=pts[pts.length-1];
+    if(a[0]!==b[0] || a[1]!==b[1]) pts.push([a[0],a[1]]);
+    return pts;
+  }
+
+  async function loadSavedCampaignArea(){
+    const grouped = new Map();
+    try {
+      const snap = await get(ref(polygonsDb, FB_MUNI));
+      if(snap.exists()){
+        snap.forEach(ch=>{
+          const raw=ch.val()||{};
+          const name=String(raw._name||'').trim();
+          const ring=savedMuniRing(raw);
+          if(!name || !ring) return;
+          if(!grouped.has(name)) grouped.set(name,{rings:[],keys:[]});
+          const g=grouped.get(name);
+          g.rings.push(ring);
+          g.keys.push(ch.key);
+        });
+      }
+
+      // Clear stale saved flags before applying what Firebase currently contains.
+      muniByName.forEach((m,name)=>{
+        if(m.savedKey && !grouped.has(name)){
+          m.savedKey=null;
+          m.savedExtraKeys=[];
+        }
+      });
+
+      grouped.forEach((g,name)=>{
+        const storedGeometry = g.rings.length===1
+          ? {type:'Polygon',coordinates:[g.rings[0]]}
+          : {type:'MultiPolygon',coordinates:g.rings.map(r=>[r])};
+        const existing=muniByName.get(name);
+        muniByName.set(name,{
+          name,
+          // If full municipality data is already loaded, keep its better geometry.
+          // Otherwise the saved Firebase geometry is enough to render the campaign.
+          geometry: existing?.geometry || storedGeometry,
+          savedKey: g.keys[0] || null,
+          savedExtraKeys: g.keys.slice(1)
+        });
+      });
+
+      if(map?.getSource('muni-src')) renderMunicipalities();
+      return grouped.size>0;
+    } catch(e){
+      console.warn('Saved campaign area read failed',e);
+      return false;
+    }
+  }
+
+  async function loadMunicipalities(){
+    if(muniLoaded){ renderMunicipalities(); return true; }
+
+    // Keep any campaign area that was already reconstructed from Firebase.
+    const savedBefore = new Map();
+    muniByName.forEach((m,name)=>{
+      if(m.savedKey) savedBefore.set(name,{
+        geometry:m.geometry,
+        savedKey:m.savedKey,
+        savedExtraKeys:[...(m.savedExtraKeys||[])]
+      });
+    });
+
+    const geo = await fetchBeMunis();
+    if(!geo || !geo.features){
+      toast('Municipality boundary data unavailable — saved campaign area is still available');
+      renderMunicipalities();
+      return false;
+    }
+
+    const next = new Map();
+    let polyCount = 0;
+    geo.features.forEach(f => {
+      const name = beMuniName(f.properties);
+      const geometry = f.geometry;
+      if(!name || !geometry) return;
+      if(geometry.type!=='Polygon' && geometry.type!=='MultiPolygon') return;
+      const nm=String(name);
+      const saved=savedBefore.get(nm);
+      polyCount++;
+      next.set(nm,{
+        name:nm,
+        geometry,
+        savedKey:saved?.savedKey || null,
+        savedExtraKeys:saved?.savedExtraKeys || []
+      });
+    });
+
+    // Retain any saved campaign entry whose name is missing from the current
+    // external dataset (for example after a municipality rename/merge).
+    savedBefore.forEach((saved,name)=>{
+      if(!next.has(name)){
+        next.set(name,{
+          name,
+          geometry:saved.geometry,
+          savedKey:saved.savedKey,
+          savedExtraKeys:saved.savedExtraKeys
+        });
+      }
+    });
+
+    muniByName = next;
+    muniLoaded = true;
+    console.log(`[BE] municipalities loaded lazily: ${polyCount}`);
+    renderMunicipalities();
+    return true;
+  }
+
+  function renderMunicipalities(){
+    if(!map.getSource('muni-src')) return;
+    if(!showAllZones && !showCampaignArea){ map.getSource('muni-src').setData(fc()); clearMuniLabels(); return; }
+    const features = [];
+    muniByName.forEach(m => {
+      const saved = !!m.savedKey;
+      if(!showAllZones && showCampaignArea && !saved) return;
+      features.push({
+        type:'Feature',
+        properties:{ name:m.name, saved: saved ? 1 : 0 },
+        geometry: m.geometry
+      });
+    });
+    map.getSource('muni-src').setData(fc(features));
+    renderMuniLabels();
+  }
+
+  let muniLabelMarkers = new Map();
+  function clearMuniLabels(){ muniLabelMarkers.forEach(m=>m.remove()); muniLabelMarkers.clear(); }
+  function renderMuniLabels(){
+    clearMuniLabels();
+    if(!showAllZones && !showCampaignArea) return;
+    muniByName.forEach(m => {
+      const saved = !!m.savedKey;
+      if(!showAllZones && showCampaignArea && !saved) return;
+      let center;
+      try { center = turf.centroid({type:'Feature',geometry:m.geometry,properties:{}}).geometry.coordinates; }
+      catch { return; }
+      const el = document.createElement('div');
+      el.innerHTML = `<div class="zone-label muni"><span class="zone-num">${m.name}</span>${m.savedKey?'<span class="material-icons-outlined" style="font-size:10px;color:var(--saved);">check_circle</span>':''}</div>`;
+      el.style.cursor='pointer';
+      el.addEventListener('click', ev => { ev.stopPropagation(); showMuniPopup(m.name, { lng:center[0], lat:center[1] }); });
+      const mk = new maplibregl.Marker({ element:el, anchor:'center' }).setLngLat(center).addTo(map);
+      muniLabelMarkers.set(m.name, mk);
+    });
+  }
+
+  function showMuniPopup(name, lngLat){
+    if(activePopup){ activePopup.remove(); activePopup=null; }
+    const m = muniByName.get(name);
+    if(!m) return;
+    const isSaved = !!m.savedKey;
+    const html = `
+      <div style="text-align:left;">
+        <div class="pp-title muni">
+          <span class="material-icons-outlined">location_city</span>${name}
+        </div>
+        <div class="pp-note">
+          Municipality boundary. ${isSaved?'Selected as campaign area.':'Select it to add it to this campaign\u2019s area.'}
+        </div>
+        <div class="pp-actions">
+          ${isSaved
+            ? `<button class="zp-btn danger" data-act="muni-del" data-name="${name}"><span class="material-icons-outlined">delete</span>Remove from area</button>`
+            : `<button class="zp-btn save-btn" data-act="muni-save" data-name="${name}"><span class="material-icons-outlined">add_location_alt</span>Select</button>`}
+        </div>
+      </div>`;
+    activePopup = new maplibregl.Popup({ closeButton:true, closeOnClick:false, offset:[0,-8], maxWidth:'280px' })
+      .setLngLat(lngLat).setHTML(html).addTo(map);
+    activePopup.on('close', ()=>{ activePopup=null; });
+
+    setTimeout(()=>{
+      const el = activePopup?.getElement(); if(!el) return;
+      el.querySelectorAll('.zp-btn[data-act]').forEach(btn=>{
+        btn.addEventListener('click', async ev=>{
+          ev.preventDefault();
+          const act = btn.dataset.act, nm = btn.dataset.name;
+          if(act==='muni-save'){
+            btn.disabled=true; btn.innerHTML='<span class="material-icons-outlined" style="animation:spin 1s linear infinite;">refresh</span>Selecting…';
+            await saveMunicipality(nm);
+            if(activePopup){ activePopup.remove(); activePopup=null; }
+            updateZonesVisual();
+          } else if(act==='muni-del'){
+            requestPin(async ()=>{ await deleteMunicipality(nm); if(activePopup){activePopup.remove();activePopup=null;} updateZonesVisual(); });
+          }
+        });
+      });
+    },60);
+  }
+
+  function muniRings(geo){
+    if(!geo) return [];
+    if(geo.type==='Polygon')      return [geo.coordinates[0]];
+    if(geo.type==='MultiPolygon') return geo.coordinates.map(p=>p[0]);
+    if(geo.type==='GeometryCollection' && Array.isArray(geo.geometries)){
+      let out=[];
+      geo.geometries.forEach(g=>{ out = out.concat(muniRings(g)); });
+      return out;
+    }
+    return [];
+  }
+  function simplifyRing(ring, MAX=120){
+    let pts = ring.slice();
+    if(pts.length>1 && pts[0][0]===pts[pts.length-1][0] && pts[0][1]===pts[pts.length-1][1]) pts=pts.slice(0,-1);
+    if(pts.length<=MAX) return pts;
+    const step = pts.length/MAX, out=[];
+    for(let i=0;i<MAX;i++) out.push(pts[Math.floor(i*step)]);
+    return out;
+  }
+
+  async function saveMunicipality(name){
+    const m = muniByName.get(name);
+    if(!m) return;
+    try {
+      const rings = muniRings(m.geometry);
+      if(!rings.length){ toast('No usable geometry'); return; }
+      const keys=[];
+      for(const ring of rings){
+        const simp = simplifyRing(ring);
+        if(simp.length<3) continue;
+        const payload = { _name:name };
+        // Storage: round boundary points to 5 decimals (~1 m) before saving —
+        // Opendatasoft coords carry 13+ decimals, roughly double the bytes.
+        simp.forEach(([lng,lat],i)=>{ payload[i]={lat:roundCoord(lat),lng:roundCoord(lng)}; });
+        const r = await push(ref(polygonsDb, FB_MUNI), payload);
+        keys.push(r.key);
+      }
+      if(!keys.length){ toast('Boundary too small'); return; }
+      m.savedKey = keys[0]; m.savedExtraKeys = keys.slice(1);
+      toast('Saved '+name+(keys.length>1?` (${keys.length} parts)`:''));
+      renderMunicipalities();
+    } catch(err){
+      console.error('saveMunicipality error:', err);
+      toast('Save failed: ' + (err.code || err.message || 'unknown'));
+    }
+  }
+
+  async function deleteMunicipality(name){
+    const m = muniByName.get(name);
+    if(!m) return;
+    try {
+      const snap = await get(ref(polygonsDb, FB_MUNI));
+      const dels = [];
+      if(snap.exists()){
+        snap.forEach(ch=>{ if((ch.val()||{})._name===name) dels.push(remove(ref(polygonsDb, FB_MUNI+'/'+ch.key))); });
+      }
+      await Promise.all(dels);
+      m.savedKey=null; m.savedExtraKeys=[];
+      toast('Deleted '+name);
+      renderMunicipalities();
+    } catch(err){ console.error(err); toast('Delete failed'); }
+  }
+
+  async function deleteSubZone(zoneNumber){
+    const idx = polygonsByZone.get(zoneNumber);
+    if(idx===undefined){ toast('Sub-zone not found'); return; }
+    const meta = polygonMeta[idx];
+    const key = meta && meta.firebaseKey;
+    if(!key){ toast('Cannot delete this sub-zone'); return; }
+    try {
+      await remove(ref(polygonsDb, (meta.sourcePath||FB_SUBZONES)+'/'+key));
+      const statusKey = zoneStatusKeyByZone.get(zoneNumber);
+      if(statusKey){ try { await remove(ref(db, ZONE_STATUS_PATH+'/'+statusKey)); } catch(e){} }
+      toast('Sub-zone '+((meta&&meta.displayName)||zoneNumber)+' deleted');
+      if(activePopup){ activePopup.remove(); activePopup=null; }
+      await loadSubZones();
+      updateZonesVisual();
+    } catch(err){ console.error('deleteSubZone error:', err); toast('Delete failed'); }
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     SEARCH — municipality locally, address via Nominatim on submit only
+     Public Nominatim usage rules: no autocomplete / bulk queries; keep under
+     1 request per second and show OpenStreetMap attribution. For high-traffic
+     production use, point GEOCODER_URL at your own or a commercial geocoder.
+     ════════════════════════════════════════════════════════════════════ */
+  function normalizeSearchText(v){
+    return String(v||'').trim().toLocaleLowerCase('nl-BE')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
+  }
+
+  function localMunicipalityMatches(query, max=6){
+    const q=normalizeSearchText(query);
+    if(!q) return [];
+    const ranked=[];
+    muniByName.forEach(m=>{
+      const n=normalizeSearchText(m.name);
+      let score=99;
+      if(n===q) score=0;
+      else if(n.startsWith(q)) score=1;
+      else if(n.includes(q)) score=2;
+      if(score<99) ranked.push({m,score});
+    });
+    ranked.sort((a,b)=>a.score-b.score || a.m.name.localeCompare(b.m.name,'nl-BE'));
+    return ranked.slice(0,max).map(x=>x.m);
+  }
+
+  function clearSearchResults(){
+    searchResultsEl.classList.remove('visible');
+    searchResultsEl.innerHTML='';
+  }
+
+  function clearSearchVisual(){
+    try{ if(map?.getSource('search-highlight-src')) map.getSource('search-highlight-src').setData(fc()); }catch(e){}
+    if(searchMarker){ searchMarker.remove(); searchMarker=null; }
+  }
+
+  function showSearchState(text){
+    searchResultsEl.innerHTML=`<div class="search-state">${escapeHtml(text)}</div>`;
+    searchResultsEl.classList.add('visible');
+  }
+
+  function escapeHtml(v){
+    return String(v??'').replace(/[&<>'"]/g,c=>({
+      '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'
+    })[c]);
+  }
+
+  function focusMunicipality(m){
+    if(!m || !map) return;
+    clearSearchVisual();
+    try{
+      const f={type:'Feature',properties:{name:m.name},geometry:m.geometry};
+      const b=turf.bbox(f);
+      if(map.getSource('search-highlight-src')) map.getSource('search-highlight-src').setData(fc([f]));
+      map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:55,maxZoom:13,duration:750});
+      const c=turf.centroid(f).geometry.coordinates;
+      setTimeout(()=>showMuniPopup(m.name,{lng:c[0],lat:c[1]}),420);
+    }catch(e){
+      console.warn('Municipality focus failed',e);
+      toast('Could not focus municipality');
+    }
+    mapSearchInput.value=m.name;
+    clearSearchResults();
+  }
+
+  function geocodeCacheGet(query){
+    try{
+      const raw=localStorage.getItem(GEOCODER_CACHE_PREFIX+normalizeSearchText(query));
+      if(!raw) return null;
+      const obj=JSON.parse(raw);
+      if(!obj || !Array.isArray(obj.data) || Date.now()-obj.ts>GEOCODER_CACHE_TTL_MS){
+        localStorage.removeItem(GEOCODER_CACHE_PREFIX+normalizeSearchText(query));
+        return null;
+      }
+      return obj.data;
+    }catch(e){ return null; }
+  }
+
+  function geocodeCacheSet(query,data){
+    try{
+      localStorage.setItem(GEOCODER_CACHE_PREFIX+normalizeSearchText(query),JSON.stringify({ts:Date.now(),data}));
+    }catch(e){}
+  }
+
+  async function geocodeBelgium(query){
+    const cached=geocodeCacheGet(query);
+    if(cached) return cached;
+    const since=Date.now()-lastGeocodeRequestAt;
+    if(since<GEOCODER_MIN_INTERVAL_MS) await new Promise(r=>setTimeout(r,GEOCODER_MIN_INTERVAL_MS-since));
+    const u=new URL(GEOCODER_URL);
+    u.searchParams.set('q',query);
+    u.searchParams.set('format','jsonv2');
+    u.searchParams.set('countrycodes','be');
+    u.searchParams.set('layer','address');
+    u.searchParams.set('addressdetails','1');
+    u.searchParams.set('limit','5');
+    lastGeocodeRequestAt=Date.now();
+    const r=await fetch(u.toString(),{mode:'cors',headers:{'Accept':'application/json'}});
+    if(!r.ok) throw new Error('Geocoder HTTP '+r.status);
+    const data=await r.json();
+    const rows=Array.isArray(data)?data:[];
+    geocodeCacheSet(query,rows);
+    return rows;
+  }
+
+  function focusAddressResult(r){
+    if(!r || !map) return;
+    clearSearchVisual();
+    const lat=Number(r.lat),lng=Number(r.lon);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return;
+    const pin=document.createElement('div'); pin.className='search-pin';
+    searchMarker=new maplibregl.Marker({element:pin,anchor:'bottom'}).setLngLat([lng,lat]).addTo(map);
+    const bb=Array.isArray(r.boundingbox)?r.boundingbox.map(Number):null;
+    if(bb && bb.length===4 && bb.every(Number.isFinite)){
+      map.fitBounds([[bb[2],bb[0]],[bb[3],bb[1]]],{padding:70,maxZoom:17,duration:750});
+    }else{
+      map.flyTo({center:[lng,lat],zoom:16,duration:750});
+    }
+    if(activePopup){activePopup.remove();activePopup=null;}
+    const label=escapeHtml(r.display_name||'Search result');
+    activePopup=new maplibregl.Popup({closeButton:true,closeOnClick:false,offset:[0,-22],maxWidth:'310px'})
+      .setLngLat([lng,lat])
+      .setHTML(`<div style="text-align:left"><div class="pp-title zone"><span class="material-icons-outlined">place</span>Address</div><div class="pp-note">${label}</div><div class="pp-note" style="margin-top:7px">Search data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></div></div>`)
+      .addTo(map);
+    mapSearchInput.value=r.display_name||mapSearchInput.value;
+    clearSearchResults();
+  }
+
+  function renderSearchResults(munis,addresses){
+    searchResultsEl.innerHTML='';
+    const frag=document.createDocumentFragment();
+    munis.forEach(m=>{
+      const b=document.createElement('button');
+      b.type='button'; b.className='search-result muni-result'; b.setAttribute('role','option');
+      b.innerHTML=`<span class="material-icons-outlined">location_city</span><span class="search-result-main"><span class="search-result-title">${escapeHtml(m.name)}</span><span class="search-result-sub">Municipality</span></span>`;
+      b.addEventListener('click',()=>focusMunicipality(m)); frag.appendChild(b);
+    });
+    addresses.forEach(r=>{
+      const b=document.createElement('button');
+      b.type='button'; b.className='search-result'; b.setAttribute('role','option');
+      const a=r.address||{};
+      const title=a.road ? ((a.house_number?escapeHtml(a.house_number)+' ':'')+escapeHtml(a.road)) : escapeHtml(r.name||String(r.display_name||'').split(',')[0]||'Address');
+      b.innerHTML=`<span class="material-icons-outlined">place</span><span class="search-result-main"><span class="search-result-title">${title}</span><span class="search-result-sub">${escapeHtml(r.display_name||'')}</span></span>`;
+      b.addEventListener('click',()=>focusAddressResult(r)); frag.appendChild(b);
+    });
+    if(!munis.length && !addresses.length){
+      const d=document.createElement('div'); d.className='search-state'; d.textContent='No Belgian municipality or address found.'; frag.appendChild(d);
+    }
+    if(addresses.length){
+      const att=document.createElement('div'); att.className='search-attribution';
+      att.innerHTML='Address search © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>';
+      frag.appendChild(att);
+    }
+    searchResultsEl.appendChild(frag);
+    searchResultsEl.classList.add('visible');
+  }
+
+  async function runMapSearch(){
+    const q=(mapSearchInput.value||'').trim();
+    if(!q){ clearSearchResults(); return; }
+    mapSearchBtn.disabled=true;
+    try{
+      if(!muniLoaded) await loadMunicipalities();
+      const munis=localMunicipalityMatches(q,6);
+      const nq=normalizeSearchText(q);
+      const exact=munis.find(m=>normalizeSearchText(m.name)===nq);
+      if(exact){ focusMunicipality(exact); return; }
+      // A short partial municipality query is handled locally and never sent out.
+      if(munis.length && q.length<8){ renderSearchResults(munis,[]); return; }
+      showSearchState('Searching Belgium…');
+      let addresses=[];
+      try{ addresses=await geocodeBelgium(q); }
+      catch(e){ console.warn('Address search failed',e); }
+      renderSearchResults(munis,addresses);
+    }finally{ mapSearchBtn.disabled=false; }
+  }
+
+  mapSearchBtn.addEventListener('click',runMapSearch);
+  mapSearchInput.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();runMapSearch();}
+    else if(e.key==='Escape'){clearSearchResults();mapSearchInput.blur();}
+  });
+  document.addEventListener('click',e=>{ if(!searchWrap.contains(e.target)) clearSearchResults(); });
+
+  /* ════════════════════════════════════════════════════════════════════
+     DRAWING SUB-ZONES (bookable, saved to belgisubzones)
+     ════════════════════════════════════════════════════════════════════ */
+  // Drawing is allowed ANYWHERE on the map — no municipality is required and
+  // nothing is ever blocked or clipped. If the zone happens to start inside a
+  // municipality, its name is remembered only for the campaign-area filter.
+  function startDraw(parentMuniName=null){
+    drawing = true; drawPts = []; drawParentMuni = parentMuniName;
+    if(map.doubleClickZoom) map.doubleClickZoom.disable();
+    document.body.classList.add('drawing');
+    syncToolbar();
+    drawHint.classList.add('visible');
+    dhText.textContent = 'Draw anywhere on the map · tap to add points · double-click or Finish to close';
+    map.getSource('draw-src').setData(fc());
+    if(activePopup){ activePopup.remove(); activePopup=null; }
+  }
+
+  function cancelDraw(){
+    drawing=false; drawPts=[]; drawParentMuni=null;
+    if(map.doubleClickZoom) map.doubleClickZoom.enable();
+    document.body.classList.remove('drawing');
+    syncToolbar();
+    drawHint.classList.remove('visible');
+    if(map.getSource('draw-src')) map.getSource('draw-src').setData(fc());
+  }
+
+  function handleDrawClick(e){
+    const lng=e.lngLat.lng, lat=e.lngLat.lat;
+    // Free drawing: only tag the parent municipality (if any) for the
+    // campaign-area filter — never restrict where points can go.
+    if(drawPts.length===0 && !drawParentMuni){
+      const hit = muniAtPoint(lng,lat);
+      if(hit) drawParentMuni = hit;
+    }
+    drawPts.push([lng,lat]);
+    renderDrawPreview(lng,lat);
+  }
+
+  function renderDrawPreview(mx,my){
+    const f=[];
+    drawPts.forEach(p=>f.push(feat('Point',p)));
+    if(drawPts.length){
+      const ln=[...drawPts,[mx,my]];
+      f.push(feat('LineString',ln));
+      if(drawPts.length>=2) f.push(feat('Polygon',[[...ln,drawPts[0]]]));
+    }
+    if(map.getSource('draw-src')) map.getSource('draw-src').setData(fc(f));
+  }
+
+  async function finishDraw(){
+    if(drawPts.length<3){ toast('Need at least 3 points'); return; }
+    const parent = drawParentMuni;
+    const ringLngLat = [...drawPts, drawPts[0]];
+    // Storage: round drawn points to 5 decimals (~1 m) before saving
+    const coords = simplifyRing(ringLngLat, 200).map(([lng,lat])=>({lat:roundCoord(lat),lng:roundCoord(lng)}));
+    if(coords.length<3){ toast('Sub-zone invalid'); cancelDraw(); return; }
+
+    // Auto-number: max existing numeric sub-zone + 1
+    let maxN=0;
+    polygonsByZone.forEach((_,zn)=>{ const n=parseInt(zn,10); if(!isNaN(n)&&n>maxN) maxN=n; });
+    const zoneName = String(maxN+1);
+
+    // New free-drawn zones belong to this campaign even when they sit outside
+    // every selected municipality. This keeps them visible in Campaign Area view
+    // without forcing the user to select/book another municipality.
+    const payload = { zoneName, _parent: parent || '', _campaign: CAMPAIGN };
+    coords.forEach((p,i)=>{ payload[i]=p; });
+    try {
+      await push(ref(polygonsDb, FB_SUBZONES), payload);
+      toast('Sub-zone '+zoneName+' saved to campaign '+CAMPAIGN+(parent?` · ${parent}`:' · outside selected municipalities'));
+    } catch(err){ console.error(err); toast('Save failed'); }
+    cancelDraw();
+    await loadSubZones();
+    updateZonesVisual();
+  }
+
+  function muniAtPoint(lng,lat){
+    for(const [name,m] of muniByName){
+      try {
+        const g=m.geometry;
+        const poly = g.type==='MultiPolygon'? turf.multiPolygon(g.coordinates): turf.polygon(g.coordinates);
+        if(turf.booleanPointInPolygon([lng,lat], poly)) return name;
+      } catch {}
+    }
+    return null;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     SUB-ZONES load + render (bookable)
+     ════════════════════════════════════════════════════════════════════ */
+  function parseZoneCoords(raw){
+    return Object.keys(raw)
+      .filter(k=>!isNaN(Number(k)))
+      .sort((a,b)=>Number(a)-Number(b))
+      .map(k=>{ const pt=raw[k]; return Array.isArray(pt)?{lat:pt[0],lng:pt[1]}:{lat:pt&&pt.lat,lng:pt&&pt.lng}; })
+      .filter(pt=>typeof pt.lat==='number'&&typeof pt.lng==='number');
+  }
+
+  function addZoneMeta(raw, firebaseKey, sourcePath, zoneName, displayName, collect){
+    const coordsLatLng = parseZoneCoords(raw);
+    if(coordsLatLng.length<3) return false;
+    const ring = coordsLatLng.map(p=>[p.lng,p.lat]);
+    if(ring[0][0]!==ring[ring.length-1][0]||ring[0][1]!==ring[ring.length-1][1]) ring.push(ring[0]);
+    let turfPoly;
+    try { turfPoly = turf.polygon([ring]); } catch(e){ return false; }
+    let center;
+    try { center = turf.centroid(turfPoly).geometry.coordinates; } catch(e){ return false; }
+    const lngs=ring.map(r=>r[0]), lats=ring.map(r=>r[1]);
+    const bounds={ minLng:Math.min(...lngs),maxLng:Math.max(...lngs),minLat:Math.min(...lats),maxLat:Math.max(...lats) };
+    collect.lngs.push(...lngs); collect.lats.push(...lats);
+    polygonMeta.push({ zoneNumber:zoneName, displayName:displayName||zoneName, turfPoly, bounds, firebaseKey, center, parent: raw._parent||'', campaign: raw._campaign||'', sourcePath });
+    polygonsByZone.set(zoneName, polygonMeta.length-1);
+    return true;
+  }
+
+  async function loadSubZones(){
+    labelMarkers.forEach(m=>m.remove()); labelMarkers.clear();
+    polygonMeta = []; polygonsByZone.clear();
+    const collect = { lngs:[], lats:[] };
+
+    // 1) Drawn sub-zones (belgisubzones — shared, bookable)
+    try {
+      const snap = await get(ref(polygonsDb, FB_SUBZONES));
+      if(snap.exists()){
+        snap.forEach(child=>{
+          const raw=child.val();
+          if(!raw||typeof raw!=='object') return;
+          let zoneName = raw.zoneName||raw.zoneNumber;
+          if(zoneName===undefined||zoneName===null||String(zoneName).trim()==='') zoneName=String(polygonMeta.length+1);
+          else zoneName=String(zoneName).trim();
+          addZoneMeta(raw, child.key, FB_SUBZONES, zoneName, zoneName, collect);
+        });
+      }
+    } catch(e){ console.warn('belgisubzones read failed', e); }
+
+    // 2) Polygon-Saver zones ('polygons' path) — merged in, fully bookable
+    if(includeSaverZones){
+      try {
+        const saverCollect = { lngs:[], lats:[] };
+        const snap2 = await get(ref(polygonsDb, FB_SAVER));
+        if(snap2.exists()){
+          const entries=[];
+          snap2.forEach(ch=>{ entries.push({ key:ch.key, raw:ch.val() }); });
+          entries.sort((a,b)=> a.key<b.key ? -1 : 1);
+          let n=0;
+          entries.forEach(({key,raw})=>{
+            if(!raw||typeof raw!=='object') return;
+            if(addZoneMeta(raw, key, FB_SAVER, 'P_'+key, 'P'+(n+1), saverCollect)) n++;
+          });
+          console.log('[Saver] zones merged:', n);
+        }
+      } catch(e){ console.warn('polygons read failed', e); }
+    }
+
+    if(map.getSource('zones-fill-src')) map.getSource('zones-fill-src').setData(fc());
+    updateZonesVisual();
+
+    if(firstFullLoad && collect.lngs.length && !showAllZones){
+      map.fitBounds([[Math.min(...collect.lngs),Math.min(...collect.lats)],[Math.max(...collect.lngs),Math.max(...collect.lats)]],{padding:50,duration:900});
+    }
+  }
+
+  function addOrUpdateLabelMarker(zoneNumber, center, status, flyersCount, displayName){
+    const existing = labelMarkers.get(zoneNumber);
+    if(existing) existing.remove();
+    const el = document.createElement('div');
+    el.innerHTML = zoneLabelHtml(zoneNumber, status, flyersCount, displayName);
+    el.style.pointerEvents='all'; el.style.cursor='pointer';
+    el.addEventListener('click', ()=>{ if(!drawing) showZonePopup(zoneNumber,{lng:center[0],lat:center[1]}); });
+    const m = new maplibregl.Marker({ element:el, anchor:'center' }).setLngLat(center).addTo(map);
+    labelMarkers.set(zoneNumber, m);
+  }
+
+  function zoneLabelHtml(z, status='', flyersCount=0, display=null){
+    const classes=['zone-label'];
+    if(status==='booked') classes.push('status-booked');
+    if(status==='completed') classes.push('status-completed');
+    const flyersHtml = status==='completed'&&flyersCount>0
+      ? `<span class="flyers-badge"><span class="material-icons-outlined">mail</span>${flyersCount}</span>`:'';
+    const dotsCount = dotsCountByZone.get(z)||0;
+    const dotsHtml = dotsCount>0
+      ? `<span class="dots-badge"><span class="material-icons-outlined">trip_origin</span>${dotsCount}</span>`:'';
+    return `<div class="${classes.join(' ')}"><span class="zone-num">${display||z}</span>${flyersHtml}${dotsHtml}</div>`;
+  }
+
+  function listenZoneStatuses(){
+    onValue(ref(db, ZONE_STATUS_PATH), snap => {
+      const newlyCompleted=[]; const existingCompleted=new Set();
+      zoneStatusByZone.forEach((s,z)=>{ if(s.status==='completed') existingCompleted.add(z); });
+      zoneStatusByZone.clear(); zoneStatusKeyByZone.clear();
+      if(snap.exists()){
+        snap.forEach(child=>{
+          const key=child.key; const data=child.val()||{};
+          const fieldZone = data.zoneName||String(data.zoneNumber||'');
+          const keyNum = safeInt(key);
+          let zName=null;
+          if(fieldZone && polygonsByZone.has(fieldZone)) zName=fieldZone;
+          else if(keyNum && polygonsByZone.has(String(keyNum))) zName=String(keyNum);
+          else if((keyNum||key==='0') && polygonsByZone.has(String(keyNum+1))) zName=String(keyNum+1);
+          else if(safeInt(data.zone)&&polygonsByZone.has(String(safeInt(data.zone)))) zName=String(safeInt(data.zone));
+          if(zName!=null){
+            if(data.status==='completed'&&!existingCompleted.has(zName)){
+              data.completedAt=data.completedAt||Date.now();
+              newlyCompleted.push({zoneNum:zName,timestamp:data.completedAt});
+            }
+            zoneStatusByZone.set(zName,data);
+            zoneStatusKeyByZone.set(zName,key);
+          }
+        });
+      }
+      idle(updateZonesVisual);
+      if(firstFullLoad){
+        firstFullLoad=false;
+        const last=newlyCompleted.sort((a,b)=>b.timestamp-a.timestamp)[0];
+        if(last) setTimeout(()=>focusZone(last.zoneNum),250);
+      } else if(newlyCompleted.length){
+        const last=newlyCompleted.sort((a,b)=>b.timestamp-a.timestamp)[0];
+        if(last) focusZone(last.zoneNum);
+      }
+      firstLoad.statuses.resolve();
+    });
+  }
+
+  function subzoneInSavedArea(meta){
+    if(!meta) return false;
+    // A zone drawn by this campaign remains part of the campaign area even if
+    // it lies completely outside every selected municipality.
+    if(String(meta.campaign||'')===String(CAMPAIGN)) return true;
+    if(meta.parent && muniByName.has(meta.parent) && muniByName.get(meta.parent).savedKey) return true;
+    try {
+      const c = meta.center;
+      for(const [,m] of muniByName){
+        if(!m.savedKey) continue;
+        const g=m.geometry;
+        const poly = g.type==='MultiPolygon' ? turf.multiPolygon(g.coordinates) : turf.polygon(g.coordinates);
+        if(turf.booleanPointInPolygon(c, poly)) return true;
+      }
+    } catch(e){}
+    return false;
+  }
+
+  function updateZonesVisual(){
+    const fillFeatures=[];
+    polygonMeta.forEach((metaObj)=>{
+      const {zoneNumber, turfPoly, center}=metaObj;
+      const z=zoneStatusByZone.get(zoneNumber)||{};
+      const dotCount=dotsCountByZone.get(zoneNumber)||0;
+      const hasBlueDots=dotCount>0;
+      const isBooked=z.status==='booked';
+      const isCompleted=z.status==='completed';
+      const isRelevant=isBooked||isCompleted||hasBlueDots;
+
+      // Campaign-area mode → zones in the saved area PLUS anything booked /
+      // completed / live. All other modes → everything visible.
+      let visible;
+      if(showCampaignArea) visible = isRelevant || subzoneInSavedArea(metaObj);
+      else                 visible = true;
+
+      if(!visible){
+        const existing=labelMarkers.get(zoneNumber);
+        if(existing){ existing.remove(); labelMarkers.delete(zoneNumber); }
+        return;
+      }
+
+      let fillColor, lineColor;
+      if(hasBlueDots||isCompleted){ fillColor='#2e7d32'; lineColor='#1b5e20'; }
+      else if(isBooked){ fillColor='#F5C33B'; lineColor='#b38700'; }
+      else { fillColor='#60a5fa'; lineColor='#2563eb'; }   // available (blue)
+
+      const ring=turfPoly.geometry.coordinates[0];
+      fillFeatures.push(feat('Polygon',[ring],{
+        zoneNumber, fillColor, fillOpacity:isRelevant?0.34:0.2, lineColor
+      }));
+      addOrUpdateLabelMarker(zoneNumber, center, z.status||'', safeInt(z.flyers), metaObj.displayName);
+    });
+    if(map.getSource('zones-fill-src')) map.getSource('zones-fill-src').setData(fc(fillFeatures));
+    recalcFlyersRequired();
+  }
+
+  function recalcFlyersRequired(){
+    let total=0;
+    zoneStatusByZone.forEach(z=>{ if(z.status==='booked'&&z.flyersRequired) total+=safeInt(z.flyersRequired); });
+    flyersRequiredEl.textContent=total.toLocaleString();
+  }
+
+  /* ── Zone popup ── */
+  function clearBuildingDots(){ if(map.getSource('building-dots-src')) map.getSource('building-dots-src').setData(fc()); }
+  function showBuildingDots(centers){
+    if(!map.getSource('building-dots-src')) return;
+    map.getSource('building-dots-src').setData(fc(centers.map(([lat,lng])=>feat('Point',[lng,lat]))));
+  }
+
+  function showZonePopup(zoneNumber, lngLat, autoLoadBuildings=true){
+    clearBuildingDots();
+    if(activePopup){ activePopup.remove(); activePopup=null; }
+
+    const z=zoneStatusByZone.get(zoneNumber)||{};
+    const idxMeta=polygonsByZone.get(zoneNumber);
+    const zoneMeta=idxMeta!==undefined?polygonMeta[idxMeta]:null;
+    const displayName=(zoneMeta&&zoneMeta.displayName)||zoneNumber;
+    const meta=statusMeta(z.status);
+    const flyers=safeInt(z.flyers);
+    const canBook = z.status!=='booked'&&z.status!=='completed';
+    const canUnbook = z.status==='booked';
+
+    let actionButtons='';
+    if(canBook) actionButtons+=`<button class="zp-btn warn" data-act="book" data-zone="${zoneNumber}"><span class="material-icons-outlined">bookmark_add</span>Book</button>`;
+    if(canUnbook) actionButtons+=`<button class="zp-btn danger" data-act="unbook" data-zone="${zoneNumber}"><span class="material-icons-outlined">bookmark_remove</span>Unbook</button>`;
+    if(z.status==='completed'){
+      if(z.verifiedAt) actionButtons+=`<button class="zp-btn" disabled><span class="material-icons-outlined">verified</span>Verified</button>`;
+      else actionButtons+=`<button class="zp-btn verify-btn" data-act="verify" data-zone="${zoneNumber}"><span class="material-icons-outlined">check_circle</span>Verify</button>`;
+    }
+    actionButtons+=`<button class="zp-btn danger" data-act="del-subzone" data-zone="${zoneNumber}"><span class="material-icons-outlined">delete</span>Delete</button>`;
+
+    const flyersReqHtml = z.flyersRequired
+      ? `<div class="pp-row"><span class="material-icons-outlined" style="color:var(--warning);">group</span>Required: <strong>${z.flyersRequired.toLocaleString()}</strong></div>`:'';
+    const proofImgHtml = z.proofImage
+      ? `<div style="margin-top:10px;"><img src="${z.proofImage}" data-proof="${z.proofImage}" loading="lazy" style="max-width:110px;border-radius:8px;cursor:pointer;border:1px solid var(--ink-300);"></div>`:'';
+    const gpsHtml = (z.gpsProof||z.gpsUrl)
+      ? `<div style="margin-top:8px;"><a href="${z.gpsProof||z.gpsUrl}" target="_blank" rel="noopener" style="background:#1976d2;color:#fff;font-size:10px;padding:5px 12px;border-radius:10px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;"><span class="material-icons-outlined" style="font-size:14px;">assistant_navigation</span>GPS Route</a></div>`:'';
+
+    const buildingStatusId=`bld-status-${zoneNumber}`;
+    const buildingHtml = autoLoadBuildings
+      ? `<div id="${buildingStatusId}" class="pp-row"><span class="material-icons-outlined" style="animation:spin 1s linear infinite;">refresh</span>Loading building dots…</div>`
+      : `<div id="${buildingStatusId}" style="margin-top:6px;"><button class="zp-btn" data-act="load-buildings" data-zone="${zoneNumber}" style="font-size:9px;padding:4px 8px;"><span class="material-icons-outlined" style="font-size:12px;">grid_on</span>Show buildings</button></div>`;
+
+    const html=`
+      <div style="text-align:left;">
+        <div class="pp-title zone">
+          <span class="material-icons-outlined">layers</span>Sub-zone ${displayName}
+        </div>
+        <div class="pp-row"><span class="material-icons-outlined" style="color:#1976d2;">mail</span>Flyers: <strong>${flyers||'-'}</strong></div>
+        ${flyersReqHtml}
+        <div class="pp-row"><span class="material-icons-outlined" style="color:${meta.color};">info</span>Status: <strong>${meta.text}</strong></div>
+        ${buildingHtml}
+        <div class="pp-actions">${actionButtons}</div>
+        ${gpsHtml}${proofImgHtml}
+      </div>`;
+
+    activePopup=new maplibregl.Popup({ closeButton:true, closeOnClick:false, offset:[0,-8], maxWidth:'280px' })
+      .setLngLat(lngLat).setHTML(html).addTo(map);
+    activePopup.on('close', ()=>{ clearBuildingDots(); activePopup=null; });
+
+    if(autoLoadBuildings){
+      computeBuildingCount(zoneNumber).then(count=>{
+        const data=buildingDataByZone.get(zoneNumber);
+        if(data&&data.centers.length>0) showBuildingDots(data.centers);
+        const statusEl=document.getElementById(buildingStatusId);
+        if(statusEl){
+          if(count>0) statusEl.innerHTML=`<span class="material-icons-outlined">location_on</span><strong>${count}</strong>&nbsp;buildings shown`;
+          else statusEl.innerHTML=`<span class="material-icons-outlined">info</span>No building data found`;
+        }
+      }).catch(()=>{ const s=document.getElementById(buildingStatusId); if(s) s.innerHTML=`<span style="color:#e41e3f;">Building data unavailable</span>`; });
+    }
+
+    setTimeout(()=>{
+      const popupEl=activePopup?.getElement(); if(!popupEl) return;
+      const img=popupEl.querySelector('[data-proof]');
+      if(img) img.addEventListener('click', ()=>showModal('imgModal',img.dataset.proof));
+      popupEl.querySelectorAll('.zp-btn[data-act]').forEach(btn=>{
+        btn.addEventListener('click', async e=>{
+          e.preventDefault();
+          const act=btn.dataset.act, znum=btn.dataset.zone;
+          if(act==='load-buildings'){
+            btn.disabled=true; btn.innerHTML='<span class="material-icons-outlined" style="font-size:12px;animation:spin 1s linear infinite;">refresh</span>Loading…';
+            const count=await computeBuildingCount(znum);
+            const data=buildingDataByZone.get(znum);
+            if(data&&data.centers.length>0) showBuildingDots(data.centers);
+            const statusEl=document.getElementById(buildingStatusId);
+            if(statusEl){
+              if(count>0) statusEl.innerHTML=`<span class="material-icons-outlined" style="font-size:12px;">location_on</span><strong>${count}</strong>&nbsp;buildings shown`;
+              else statusEl.innerHTML=`<span style="font-size:10px;color:#6b7280;">No building data found</span>`;
+            }
+            return;
+          }
+          if(act==='del-subzone'){
+            requestPin(()=>{ deleteSubZone(znum); });
+            return;
+          }
+          btn.disabled=true; btn.textContent='Working…';
+          if(act==='book'){
+            btn.innerHTML='<span class="material-icons-outlined" style="font-size:13px;animation:spin 1s linear infinite;">refresh</span> Loading…';
+            const count=await computeBuildingCount(znum);
+            if(count) showBuildingDots(buildingDataByZone.get(znum)?.centers||[]);
+            else toast('No building data — booked without flyer estimate');
+            await applyStatusToZones([znum],'booked');
+          } else if(act==='unbook'){
+            await applyStatusToZones([znum],'pending');
+          } else if(act==='verify'){
+            await verifyZone(znum);
+          }
+          if(activePopup){ activePopup.remove(); activePopup=null; }
+        });
+      });
+    },60);
+  }
+
+  async function applyStatusToZones(zones, newStatus){
+    const updates={};
+    zones.forEach(zoneNum=>{
+      let nodeKey=zoneStatusKeyByZone.get(zoneNum)||String(zoneNum);
+      updates[`${nodeKey}/status`]=newStatus;
+      updates[`${nodeKey}/zoneName`]=zoneNum;
+      updates[`${nodeKey}/zoneNumber`]=zoneNum;
+      if(newStatus==='completed') updates[`${nodeKey}/completedAt`]=serverTimestamp();
+    });
+    await update(ref(db, ZONE_STATUS_PATH), updates);
+    if(newStatus==='booked'){
+      for(const z of zones){
+        const statusObj=zoneStatusByZone.get(z)||{};
+        if(typeof statusObj.flyersRequired==='number') continue;
+        const count=await computeBuildingCount(z);
+        if(count){
+          const nodeKey=zoneStatusKeyByZone.get(z)||String(z);
+          await update(ref(db,`${ZONE_STATUS_PATH}/${nodeKey}`),{ flyersRequired: count*2 });
+        }
+      }
+    }
+  }
+
+  async function verifyZone(zoneNum){
+    const key=zoneStatusKeyByZone.get(zoneNum);
+    if(!key) return;
+    try { await update(ref(db,`${ZONE_STATUS_PATH}/${key}`),{ verifiedAt: serverTimestamp() }); }
+    catch(e){ alert('Verify failed.'); }
+  }
+
+  window.focusZone = function(zoneNum){
+    const idx=polygonsByZone.get(zoneNum); if(idx===undefined) return;
+    const meta=polygonMeta[idx]; if(!meta) return;
+    const b=meta.bounds;
+    map.fitBounds([[b.minLng,b.minLat],[b.maxLng,b.maxLat]],{padding:60,duration:900});
+    setTimeout(()=>{ map.flyTo({center:meta.center,zoom:Math.max(map.getZoom(),15),duration:600}); },200);
+  };
+
+  /* ── Building dots (Overpass) ── */
+  async function computeBuildingCount(zoneNum){
+    if(buildingDataByZone.has(zoneNum)) return buildingDataByZone.get(zoneNum).count;
+    if(buildingFetchPromises.has(zoneNum)){ await buildingFetchPromises.get(zoneNum); return buildingDataByZone.get(zoneNum)?.count||0; }
+    const idx=polygonsByZone.get(zoneNum);
+    if(idx===undefined){ buildingDataByZone.set(zoneNum,{centers:[],count:0}); return 0; }
+    const meta=polygonMeta[idx];
+    const ring=meta.turfPoly.geometry.coordinates[0];
+    const polyStr=ring.map(([lng,lat])=>`${lat} ${lng}`).join(' ');
+    const query=`[out:json][timeout:25];(node["building"](poly:"${polyStr}");way["building"](poly:"${polyStr}");relation["building"](poly:"${polyStr}"););out center;`;
+    const prom=fetch('https://overpass-api.de/api/interpreter',{
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(query)
+    }).then(r=>{ if(!r.ok) throw new Error('Overpass error'); return r.json(); })
+    .then(data=>{
+      const elements=data?.elements||[]; const centers=[]; const seen=new Set();
+      elements.forEach(el=>{
+        let lat,lon;
+        if(el.type==='node'&&typeof el.lat==='number'){lat=el.lat;lon=el.lon;}
+        else if(el.center){lat=el.center.lat;lon=el.center.lon;}
+        if(typeof lat==='number'){ const k=el.type+':'+el.id; if(!seen.has(k)){seen.add(k);centers.push([lat,lon]);} }
+      });
+      buildingDataByZone.set(zoneNum,{centers,count:centers.length});
+      return centers.length;
+    }).catch(()=>{ buildingDataByZone.set(zoneNum,{centers:[],count:0}); return 0; })
+    .finally(()=>buildingFetchPromises.delete(zoneNum));
+    buildingFetchPromises.set(zoneNum,prom);
+    return prom;
+  }
+
+  /* ── Live blue dots (FF<CODE>) ── */
+  function listenLiveDots(){
+    onValue(ref(dotsDb,`userPosts/${CAMPAIGN_FF}`), snap => {
+      const dotsList=[];
+      if(snap.exists()){
+        snap.forEach(child=>{ const v=child.val(); if(v&&typeof v.lat==='number'&&typeof v.lng==='number') dotsList.push({lat:v.lat,lng:v.lng,ts:v.timestamp||Date.now()}); });
+      }
+      dotsList.sort((a,b)=>a.ts-b.ts);
+      const ptFeatures=dotsList.map(d=>feat('Point',[d.lng,d.lat]));
+      if(map.getSource('blue-dots-src')){
+        const trailCoords=dotsList.map(d=>[d.lng,d.lat]);
+        map.getSource('blue-dots-src').setData(fc([...ptFeatures,...(dotsList.length>=2?[feat('LineString',trailCoords)]:[])]));
+      }
+      dotsCountByZone.clear();
+      dotsList.forEach(dot=>{
+        const pt=[dot.lng,dot.lat];
+        for(const meta of polygonMeta){
+          if(dot.lng<meta.bounds.minLng||dot.lng>meta.bounds.maxLng||dot.lat<meta.bounds.minLat||dot.lat>meta.bounds.maxLat) continue;
+          if(turf.booleanPointInPolygon(pt, meta.turfPoly)){ dotsCountByZone.set(meta.zoneNumber,(dotsCountByZone.get(meta.zoneNumber)||0)+1); break; }
+        }
+      });
+      idle(updateZonesVisual);
+      updateLatestDotUI(dotsList.length, dotsList[dotsList.length-1]||null);
+      firstLoad.dots.resolve();
+    });
+  }
+
+  function updateLatestDotUI(total, latest){
+    completedFlyersCountEl.textContent=total.toLocaleString();
+    if(!latest){ if(latestDotMarker){latestDotMarker.remove();latestDotMarker=null;} return; }
+    const html=`<div class="latest-marker-container"><div class="latest-dot-marker"><span class="material-icons-outlined">task_alt</span>${total}</div><div class="pulse-ring"></div></div>`;
+    if(!latestDotMarker){
+      const el=document.createElement('div'); el.innerHTML=html;
+      latestDotMarker=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([latest.lng,latest.lat]).addTo(map);
+    } else { latestDotMarker.setLngLat([latest.lng,latest.lat]); latestDotMarker.getElement().innerHTML=html; }
+    const now=Date.now();
+    if(latest&&(now-lastLatestFocusTs)>8000){
+      lastLatestFocusTs=now;
+      for(const meta of polygonMeta){
+        if(latest.lng<meta.bounds.minLng||latest.lng>meta.bounds.maxLng||latest.lat<meta.bounds.minLat||latest.lat>meta.bounds.maxLat) continue;
+        if(turf.booleanPointInPolygon([latest.lng,latest.lat], meta.turfPoly)){
+          if(lastLatestFocusedZone!==meta.zoneNumber){ lastLatestFocusedZone=meta.zoneNumber; setTimeout(()=>focusZone(meta.zoneNumber),120); }
+          break;
+        }
+      }
+    }
+  }
+
+  /* ── Proofs ── */
+  const PROOFS_PATH='campaigns/' + CAMPAIGN_XX + '/proofs';
+  function listenProofs(){
+    onValue(ref(db, PROOFS_PATH), snap=>{
+      proofMarkerMap.forEach(m=>m.remove()); proofMarkerMap.clear(); proofsList=[];
+      const val=snap.val();
+      if(val){ for(const id in val){ const p=val[id]; if(p&&typeof p.lat==='number'&&typeof p.lng==='number'&&p.url) proofsList.push({id,url:p.url,lat:p.lat,lng:p.lng,timestamp:p.timestamp||0}); } }
+      proofsList.sort((a,b)=>b.timestamp-a.timestamp);
+      proofsList.forEach(p=>{
+        const el=document.createElement('div'); el.className='proof-ml-icon';
+        el.innerHTML='<span class="material-icons-outlined">photo_camera</span>';
+        const m=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([p.lng,p.lat]).addTo(map);
+        el.addEventListener('mousedown',e=>e.stopPropagation());
+        el.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+        el.addEventListener('click',(e)=>{
+          e.stopPropagation(); clearBuildingDots();
+          if(activePopup){activePopup.remove();activePopup=null;}
+          activePopup=new maplibregl.Popup({closeButton:true,offset:[0,-14]})
+            .setLngLat([p.lng,p.lat])
+            .setHTML(`<img src="${p.url}" data-proof="${p.url}" loading="lazy" style="max-width:240px;max-height:240px;border-radius:8px;cursor:pointer;display:block;">`).addTo(map);
+          setTimeout(()=>{ const img=activePopup.getElement()?.querySelector('[data-proof]'); if(img) img.addEventListener('click',()=>showModal('imgModal',img.dataset.proof)); },60);
+        });
+        proofMarkerMap.set(p.id,m);
+      });
+      renderProofSlider();
+      firstLoad.proofs.resolve();
+    });
+  }
+
+  function renderProofSlider(){
+    proofStripInner.innerHTML='';
+    if(!proofsList.length){ proofStrip.classList.remove('visible'); return; }
+    proofStrip.classList.add('visible');
+    const frag=document.createDocumentFragment();
+    proofsList.forEach((p,i)=>{
+      const div=document.createElement('div'); div.className='proof-item'; div.dataset.id=p.id;
+      div.title=p.timestamp?formatDateTime(p.timestamp):`Proof ${i+1}`;
+      div.innerHTML=`<img class="proof-thumb" src="${p.url}" alt="Proof ${i+1}" loading="lazy">`;
+      div.addEventListener('click',()=>{
+        const m=proofMarkerMap.get(p.id);
+        if(m) map.flyTo({center:[p.lng,p.lat],zoom:Math.max(map.getZoom(),16),duration:700});
+        document.querySelectorAll('.proof-item').forEach(el=>el.classList.toggle('selected',el.dataset.id===p.id));
+        setTimeout(()=>{
+          if(activePopup){activePopup.remove();activePopup=null;}
+          activePopup=new maplibregl.Popup({closeButton:true,offset:[0,-14]})
+            .setLngLat([p.lng,p.lat])
+            .setHTML(`<img src="${p.url}" data-proof="${p.url}" loading="lazy" style="max-width:240px;max-height:240px;border-radius:8px;cursor:pointer;display:block;">`).addTo(map);
+          setTimeout(()=>{ const img=activePopup.getElement()?.querySelector('[data-proof]'); if(img) img.addEventListener('click',()=>showModal('imgModal',img.dataset.proof)); },60);
+        },750);
+      });
+      frag.appendChild(div);
+    });
+    proofStripInner.appendChild(frag);
+    psLeft.onclick=()=>proofStripInner.scrollBy({left:-200,behavior:'smooth'});
+    psRight.onclick=()=>proofStripInner.scrollBy({left:200,behavior:'smooth'});
+  }
+
+  /* ── QR scans ── */
+  function listenQrScans(){
+    onValue(ref(db,'qr_scans'),snap=>{
+      let count=0; const val=snap.val();
+      if(val) for(const k in val){ if(val[k].promoCode===CAMPAIGN_XX) count++; }
+      qrScanCountEl.textContent=count;
+      firstLoad.qr.resolve();
+    });
+    qrCounter.addEventListener('click',()=>alert('QR scans list is only available if active for this campaign.'));
+  }
+
+  /* ── Toolbar ── */
+  function syncToolbar(){
+    tbMunis.classList.toggle('active', showAllZones);
+    tbMunis.querySelector('.tool-label').textContent = showAllZones ? 'Hide municipalities' : 'Show all municipalities';
+    tbCampaign.classList.toggle('active', showCampaignArea);
+    tbCampaign.querySelector('.tool-label').textContent = showCampaignArea ? 'Hide campaign area' : 'Show campaign area';
+    tbDraw.classList.toggle('draw-active', drawing);
+    tbDraw.querySelector('.tool-label').textContent = drawing ? 'Stop drawing' : 'Draw subzones';
+  }
+
+  function fitToSavedMunis(){
+    let minLng=Infinity,minLat=Infinity,maxLng=-Infinity,maxLat=-Infinity,any=false;
+    muniByName.forEach(m=>{
+      if(!m.savedKey) return;
+      muniRings(m.geometry).forEach(ring=>{
+        ring.forEach(([lng,lat])=>{
+          any=true;
+          if(lng<minLng)minLng=lng; if(lng>maxLng)maxLng=lng;
+          if(lat<minLat)minLat=lat; if(lat>maxLat)maxLat=lat;
+        });
+      });
+    });
+    polygonMeta.forEach(meta=>{
+      const st=zoneStatusByZone.get(meta.zoneNumber)||{};
+      const ownedByCampaign = String(meta.campaign||'')===String(CAMPAIGN);
+      if(!ownedByCampaign && st.status!=='booked' && st.status!=='completed') return;
+      any=true;
+      const b=meta.bounds;
+      if(b.minLng<minLng)minLng=b.minLng; if(b.maxLng>maxLng)maxLng=b.maxLng;
+      if(b.minLat<minLat)minLat=b.minLat; if(b.maxLat>maxLat)maxLat=b.maxLat;
+    });
+    if(any){ try{ map.fitBounds([[minLng,minLat],[maxLng,maxLat]],{padding:60,maxZoom:14,duration:700}); }catch(e){} }
+    return any;
+  }
+
+  tbMunis.addEventListener('click', async e=>{
+    e.stopPropagation();
+    showAllZones=!showAllZones;
+    if(showAllZones) showCampaignArea=false;   // mutually exclusive views
+    syncToolbar();
+    if(showAllZones) await loadMunicipalities();
+    renderMunicipalities();
+    updateZonesVisual();
+  });
+
+  tbCampaign.addEventListener('click', async e=>{
+    e.stopPropagation();
+    showCampaignArea=!showCampaignArea;
+    if(showCampaignArea) showAllZones=false;   // mutually exclusive views
+    syncToolbar();
+    if(showCampaignArea){
+      // Saved campaign geometry is already in Firebase; do not make campaign
+      // viewing depend on the external municipality service.
+      if(![...muniByName.values()].some(m=>m.savedKey)) await loadSavedCampaignArea();
+      renderMunicipalities();
+      if(!fitToSavedMunis()) toast('No campaign area yet — select a municipality or draw/book a zone');
+    } else {
+      renderMunicipalities();
+    }
+    updateZonesVisual();
+  });
+
+  tbDraw.addEventListener('click', e=>{
+    e.stopPropagation();
+    if(drawing) cancelDraw();
+    else startDraw(null);
+  });
+  dhFinish.addEventListener('click', e=>{ e.stopPropagation(); finishDraw(); });
+  dhCancel.addEventListener('click', e=>{ e.stopPropagation(); cancelDraw(); });
+
+  tbChat.addEventListener('click', e=>{
+    e.stopPropagation();
+    const show=chatPanel.style.display!=='flex';
+    chatPanel.style.display=show?'flex':'none';
+    if(show){ setHeaderHeightVar(); setTimeout(()=>{scrollChatBottom();chatInputEl.focus();},60); }
+  });
+  document.addEventListener('click',e=>{
+    if(!chatPanel.contains(e.target)&&!tbChat.contains(e.target)) chatPanel.style.display='none';
+  },{passive:true});
+
+  /* ── PIN modal ── */
+  function requestPin(action){
+    pinPendingAction=action; pinInput.value=''; pinErr.style.display='none';
+    pinModal.classList.add('visible'); setTimeout(()=>pinInput.focus(),80);
+  }
+  function closePin(){ pinModal.classList.remove('visible'); pinPendingAction=null; }
+  document.getElementById('pinCancel').addEventListener('click', closePin);
+  pinModal.addEventListener('click', e=>{ if(e.target===pinModal) closePin(); });
+  document.getElementById('pinOk').addEventListener('click', ()=>{
+    if(pinInput.value===DELETE_PIN){ const a=pinPendingAction; closePin(); if(a) a(); }
+    else { pinErr.style.display='block'; pinInput.value=''; pinInput.focus(); }
+  });
+
+  /* ── Chat ── */
+  function getOrCreateDeviceId(){ let id=localStorage.getItem(deviceIdKey); if(!id){id='dev_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);localStorage.setItem(deviceIdKey,id);} return id; }
+  function getLastReadTs(){ const v=parseInt(localStorage.getItem(lastReadKey)||'0',10); return isNaN(v)?0:v; }
+  function setLastReadTs(ts){ localStorage.setItem(lastReadKey,String(ts||0)); updateChatBadge(); }
+
+  function listenChat(){
+    onValue(ref(db,CHAT_PATH),snap=>{
+      chatMessages=[]; const val=snap.val();
+      if(val) Object.keys(val).forEach(k=>{const m=val[k];if(m&&m.text)chatMessages.push({id:k,text:String(m.text),ts:m.timestamp||0,authorId:m.authorId||'unknown',authorName:m.authorName||'User'});});
+      chatMessages.sort((a,b)=>a.ts-b.ts);
+      renderChat(); updateChatBadge();
+      firstLoad.chat.resolve();
+    });
+    chatSendBtn.addEventListener('click',sendChatMsg);
+    chatInputEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMsg();}});
+    chatMarkReadBtn.addEventListener('click',()=>setLastReadTs(chatMessages.length?chatMessages[chatMessages.length-1].ts||Date.now():Date.now()));
+  }
+
+  function renderChat(){
+    chatListEl.innerHTML='';
+    if(!chatMessages.length){ chatListEl.innerHTML='<div class="chat-empty">No messages yet.</div>'; return; }
+    const frag=document.createDocumentFragment();
+    chatMessages.forEach(m=>{
+      const isMine=m.authorId===myDeviceId;
+      const row=document.createElement('div'); row.className='chat-row'+(isMine?' mine':'');
+      const avatar=document.createElement('div'); avatar.className='avatar'; avatar.textContent=(isMine?myName:m.authorName||'U')[0].toUpperCase();
+      const bubble=document.createElement('div'); bubble.className='chat-msg';
+      bubble.innerHTML=`<div class="chat-text">${m.text}</div><div class="chat-meta"><span class="material-icons-outlined">schedule</span><span>${formatDateTime(m.ts)}</span></div>`;
+      if(isMine){row.appendChild(bubble);row.appendChild(avatar);} else {row.appendChild(avatar);row.appendChild(bubble);}
+      frag.appendChild(row);
+    });
+    chatListEl.appendChild(frag); scrollChatBottom();
+  }
+  function scrollChatBottom(){ chatListEl.scrollTop=chatListEl.scrollHeight+1000; }
+  async function sendChatMsg(){
+    const text=(chatInputEl.value||'').trim(); if(!text) return;
+    chatSendBtn.disabled=true;
+    try{
+      const now=Date.now();
+      // Storage: dropped the redundant _serverTs field — the client `timestamp`
+      // is the only one ever read, so _serverTs was pure duplication per message.
+      await set(push(ref(db,CHAT_PATH)),{text,authorId:myDeviceId,authorName:myName,timestamp:now});
+      chatInputEl.value=''; setLastReadTs(now); setTimeout(scrollChatBottom,60);
+    }catch(e){alert('Failed to send.');}
+    finally{chatSendBtn.disabled=false;}
+  }
+  function updateChatBadge(){
+    const lr=getLastReadTs();
+    const n=chatMessages.filter(m=>m.authorId!==myDeviceId&&(m.ts||0)>lr).length;
+    tbChatBadge.textContent=String(n);
+    tbChatBadge.style.display=n>0?'inline-block':'none';
+  }
+
+  /* ── Modal ── */
+  function showModal(id,imgUrl){ const m=document.getElementById(id);if(!m)return;if(id==='imgModal'){const img=document.getElementById('modalImg');if(img)img.src=imgUrl||'';}m.style.display='flex';document.body.style.overflow='hidden'; }
+  function hideModal(id){ const m=document.getElementById(id);if(!m)return;m.style.display='none';if(id==='imgModal')document.getElementById('modalImg').src='';const any=Array.from(document.querySelectorAll('.modal')).some(mm=>mm.style.display==='flex');if(!any)document.body.style.overflow=''; }
+  document.getElementById('modalCloseBtn').addEventListener('click',()=>hideModal('imgModal'));
+  document.getElementById('imgModal').addEventListener('click',e=>{if(e.target.id==='imgModal')hideModal('imgModal');});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){hideModal('imgModal'); if(drawing) cancelDraw();}});
+
+  /* ── Helpers ── */
+  function hideLoader(){
+    if(!loadingOverlay||loadingOverlay.classList.contains('fade-out'))return;
+    setLoadProgress(100, 'Ready');
+    setTimeout(()=>{
+      document.body.classList.add('app-ready');
+      loadingOverlay.classList.add('fade-out');
+      setTimeout(()=>{
+        loadingOverlay.remove();
+        try{ if(map) map.resize(); }catch(e){}
+      }, 280);
+    }, 300);
+  }
+  function safeInt(v){ const n=parseInt(v); return isNaN(n)?0:n; }
+  function statusMeta(status){
+    switch(status){
+      case 'completed': return{text:'Done',color:'#2e7d32',icon:'task_alt'};
+      case 'inprogress': return{text:'Active',color:'#F5C33B',icon:'play_arrow'};
+      case 'booked': return{text:'Booked',color:'#F5C33B',icon:'bookmark_added'};
+      default: return{text:'Pending',color:'#d32f2f',icon:'hourglass_empty'};
+    }
+  }
+  function formatDateTime(ts){ if(!ts)return''; const d=new Date(ts),p=n=>String(n).padStart(2,'0'); return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+
+  // Last-resort failsafe (must outlast the 20s Firebase first-snapshot window)
+  setTimeout(()=>{ try{hideLoader();}catch{} },30000);
+  </script>
+</body>
+</html>
+
