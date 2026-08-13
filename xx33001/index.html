@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>LEUVENFLYERS – Campaign (Netherlands Map)</title>
+  <title>LEUVENFLYERS – Campaign (Netherlands Map · Saved Area First)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"/>
   <meta name="theme-color" content="#2563eb">
 
@@ -888,29 +888,45 @@
       map.on('dblclick', e => { if(drawing){ e.preventDefault(); finishDraw(); } });
 
       try {
-        setLoadProgress(48, 'Loading zones…');
+        // 1) FIRST: reconstruct the already-planned gemeente area directly
+        // from Firebase. No nationwide municipality download is needed for this.
+        setLoadProgress(46, 'Loading saved campaign area…');
+        const hasSavedArea = await loadSavedCampaignArea();
+        if(hasSavedArea){
+          showCampaignArea=true; showAllZones=false;
+          syncToolbar();
+          renderMunicipalities();
+          fitToSavedMunis();
+        } else {
+          renderMunicipalities();
+        }
+
+        // 2) Then load shared/custom sub-zones. Campaign-owned free-drawn zones
+        // stay visible even when they are outside every selected gemeente.
+        setLoadProgress(54, 'Loading zones…');
         await loadSubZones();
-        setLoadProgress(58, 'Connecting live data…');
+        if(showCampaignArea) updateZonesVisual();
+
+        // A campaign may consist only of free-drawn zones and no saved gemeente.
+        const hasOwnedDrawnZone = polygonMeta.some(meta=>String(meta.campaign||'')===String(CAMPAIGN));
+        if(!showCampaignArea && hasOwnedDrawnZone){
+          showCampaignArea=true; showAllZones=false;
+          syncToolbar();
+          renderMunicipalities();
+          updateZonesVisual();
+          fitToSavedMunis();
+        }
+
+        // 3) Connect real-time data after planned geography is already visible.
+        setLoadProgress(62, 'Connecting live data…');
         listenZoneStatuses();
         listenProofs();
         listenQrScans();
         listenChat();
         listenLiveDots();
 
-        setLoadProgress(64, 'Loading gemeenten…');
-        await loadMunicipalities();
-        let hasSavedArea=false;
-        muniByName.forEach(m=>{ if(m.savedKey) hasSavedArea=true; });
-        if(hasSavedArea){
-          showCampaignArea=true; showAllZones=false;
-          syncToolbar();
-          renderMunicipalities();
-          fitToSavedMunis();
-          updateZonesVisual();
-        } else {
-          renderMunicipalities();
-        }
-
+        // The full Netherlands gemeente dataset is lazy-loaded only when
+        // "Show all gemeenten" is requested.
         setLoadProgress(72, 'Loading Firebase data…');
         const sources = [
           [firstLoad.statuses.promise, 'Zone statuses loaded'],
@@ -972,39 +988,127 @@
     return geo;
   }
 
+  // Convert one saved Firebase gemeente ring back into GeoJSON coordinates.
+  // Saved nlzones are enough to display an already-planned campaign; the
+  // nationwide Cartomap/Opendatasoft dataset is NOT required for this.
+  function savedMuniRing(raw){
+    if(!raw || typeof raw!=='object') return null;
+    const pts = Object.keys(raw)
+      .filter(k=>!isNaN(Number(k)))
+      .sort((a,b)=>Number(a)-Number(b))
+      .map(k=>{
+        const p=raw[k];
+        if(Array.isArray(p)) return [Number(p[1]),Number(p[0])];
+        return [Number(p&&p.lng),Number(p&&p.lat)];
+      })
+      .filter(([lng,lat])=>Number.isFinite(lng)&&Number.isFinite(lat));
+    if(pts.length<3) return null;
+    const a=pts[0], b=pts[pts.length-1];
+    if(a[0]!==b[0] || a[1]!==b[1]) pts.push([a[0],a[1]]);
+    return pts;
+  }
+
+  async function loadSavedCampaignArea(){
+    const grouped = new Map();
+    try {
+      const snap = await get(ref(polygonsDb, FB_MUNI));
+      if(snap.exists()){
+        snap.forEach(ch=>{
+          const raw=ch.val()||{};
+          const name=String(raw._name||'').trim();
+          const ring=savedMuniRing(raw);
+          if(!name || !ring) return;
+          if(!grouped.has(name)) grouped.set(name,{rings:[],keys:[]});
+          const g=grouped.get(name);
+          g.rings.push(ring);
+          g.keys.push(ch.key);
+        });
+      }
+
+      muniByName.forEach((m,name)=>{
+        if(m.savedKey && !grouped.has(name)){
+          m.savedKey=null;
+          m.savedExtraKeys=[];
+        }
+      });
+
+      grouped.forEach((g,name)=>{
+        const storedGeometry = g.rings.length===1
+          ? {type:'Polygon',coordinates:[g.rings[0]]}
+          : {type:'MultiPolygon',coordinates:g.rings.map(r=>[r])};
+        const existing=muniByName.get(name);
+        muniByName.set(name,{
+          name,
+          geometry: existing?.geometry || storedGeometry,
+          savedKey: g.keys[0] || null,
+          savedExtraKeys: g.keys.slice(1)
+        });
+      });
+
+      if(map?.getSource('muni-src')) renderMunicipalities();
+      return grouped.size>0;
+    } catch(e){
+      console.warn('Saved campaign area read failed',e);
+      return false;
+    }
+  }
+
   async function loadMunicipalities(){
-    if(muniLoaded){ renderMunicipalities(); return; }
+    if(muniLoaded){ renderMunicipalities(); return true; }
+
+    // Preserve campaign geometry already reconstructed from Firebase.
+    const savedBefore = new Map();
+    muniByName.forEach((m,name)=>{
+      if(m.savedKey) savedBefore.set(name,{
+        geometry:m.geometry,
+        savedKey:m.savedKey,
+        savedExtraKeys:[...(m.savedExtraKeys||[])]
+      });
+    });
+
     const geo = await fetchNlMunis();
-    if(!geo || !geo.features){ toast('Gemeente boundary data unavailable'); return; }
+    if(!geo || !geo.features){
+      toast('Gemeente boundary data unavailable — saved campaign area is still available');
+      renderMunicipalities();
+      return false;
+    }
+
+    const next = new Map();
     let polyCount = 0;
     geo.features.forEach(f => {
       const name = nlMuniName(f.properties);
       const geometry = f.geometry;
       if(!name || !geometry) return;
       if(geometry.type!=='Polygon' && geometry.type!=='MultiPolygon') return;
+      const nm=String(name);
+      const saved=savedBefore.get(nm);
       polyCount++;
-      muniByName.set(String(name), { name:String(name), geometry, savedKey:null, savedExtraKeys:[] });
+      next.set(nm,{
+        name:nm,
+        geometry,
+        savedKey:saved?.savedKey || null,
+        savedExtraKeys:saved?.savedExtraKeys || []
+      });
     });
-    console.log(`[NL] gemeenten loaded: ${polyCount}`);
 
-    // Which are already saved in nlzones (match by _name)
-    try {
-      const snap = await get(ref(polygonsDb, FB_MUNI));
-      if(snap.exists()){
-        snap.forEach(ch => {
-          const raw = ch.val() || {};
-          const nm = raw._name;
-          if(nm && muniByName.has(nm)){
-            const m = muniByName.get(nm);
-            if(!m.savedKey) m.savedKey = ch.key;
-            else m.savedExtraKeys.push(ch.key);
-          }
+    // Keep saved campaign entries even if an external dataset later renames or
+    // merges a gemeente, so old campaigns continue to render correctly.
+    savedBefore.forEach((saved,name)=>{
+      if(!next.has(name)){
+        next.set(name,{
+          name,
+          geometry:saved.geometry,
+          savedKey:saved.savedKey,
+          savedExtraKeys:saved.savedExtraKeys
         });
       }
-    } catch(e){ console.warn('nlzones read failed', e); }
+    });
 
+    muniByName = next;
     muniLoaded = true;
+    console.log(`[NL] gemeenten loaded lazily: ${polyCount}`);
     renderMunicipalities();
+    return true;
   }
 
   function renderMunicipalities(){
@@ -1227,11 +1331,13 @@
     polygonsByZone.forEach((_,zn)=>{ const n=parseInt(zn,10); if(!isNaN(n)&&n>maxN) maxN=n; });
     const zoneName = String(maxN+1);
 
-    const payload = { zoneName, _parent: parent || '' };
+    // New free-drawn zones belong to this campaign even when they sit outside
+    // every selected gemeente. This keeps them visible in Campaign Area view.
+    const payload = { zoneName, _parent: parent || '', _campaign: CAMPAIGN };
     coords.forEach((p,i)=>{ payload[i]=p; });
     try {
       await push(ref(polygonsDb, FB_SUBZONES), payload);
-      toast('Sub-zone '+zoneName+' saved'+(parent?` in ${parent}`:''));
+      toast('Sub-zone '+zoneName+' saved to campaign '+CAMPAIGN+(parent?` · ${parent}`:' · outside selected gemeenten'));
     } catch(err){ console.error(err); toast('Save failed'); }
     cancelDraw();
     await loadSubZones();
@@ -1272,7 +1378,7 @@
     const lngs=ring.map(r=>r[0]), lats=ring.map(r=>r[1]);
     const bounds={ minLng:Math.min(...lngs),maxLng:Math.max(...lngs),minLat:Math.min(...lats),maxLat:Math.max(...lats) };
     collect.lngs.push(...lngs); collect.lats.push(...lats);
-    polygonMeta.push({ zoneNumber:zoneName, displayName:displayName||zoneName, turfPoly, bounds, firebaseKey, center, parent: raw._parent||'', sourcePath });
+    polygonMeta.push({ zoneNumber:zoneName, displayName:displayName||zoneName, turfPoly, bounds, firebaseKey, center, parent: raw._parent||'', campaign: raw._campaign||'', sourcePath });
     polygonsByZone.set(zoneName, polygonMeta.length-1);
     return true;
   }
@@ -1319,7 +1425,7 @@
     if(map.getSource('zones-fill-src')) map.getSource('zones-fill-src').setData(fc());
     updateZonesVisual();
 
-    if(firstFullLoad && collect.lngs.length && !showAllZones){
+    if(firstFullLoad && collect.lngs.length && !showAllZones && !showCampaignArea){
       map.fitBounds([[Math.min(...collect.lngs),Math.min(...collect.lats)],[Math.max(...collect.lngs),Math.max(...collect.lats)]],{padding:50,duration:900});
     }
   }
@@ -1387,6 +1493,9 @@
 
   function subzoneInSavedArea(meta){
     if(!meta) return false;
+    // A zone drawn by this campaign remains part of the campaign area even if
+    // it lies completely outside every selected gemeente.
+    if(String(meta.campaign||'')===String(CAMPAIGN)) return true;
     if(meta.parent && muniByName.has(meta.parent) && muniByName.get(meta.parent).savedKey) return true;
     try {
       const c = meta.center;
@@ -1763,7 +1872,8 @@
     });
     polygonMeta.forEach(meta=>{
       const st=zoneStatusByZone.get(meta.zoneNumber)||{};
-      if(st.status!=='booked'&&st.status!=='completed') return;
+      const owned = String(meta.campaign||'')===String(CAMPAIGN);
+      if(!owned && st.status!=='booked' && st.status!=='completed') return;
       any=true;
       const b=meta.bounds;
       if(b.minLng<minLng)minLng=b.minLng; if(b.maxLng>maxLng)maxLng=b.maxLng;
@@ -1789,9 +1899,11 @@
     if(showCampaignArea) showAllZones=false;   // mutually exclusive views
     syncToolbar();
     if(showCampaignArea){
-      await loadMunicipalities();
+      // Saved campaign geometry comes from Firebase; no nationwide gemeente
+      // download is required just to display an existing campaign.
+      await loadSavedCampaignArea();
       renderMunicipalities();
-      if(!fitToSavedMunis()) toast('No campaign area yet — select a gemeente or book a zone');
+      if(!fitToSavedMunis()) toast('No campaign area yet — select a gemeente or draw/book a zone');
     } else {
       renderMunicipalities();
     }
