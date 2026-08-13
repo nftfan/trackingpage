@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>LEUVENFLYERS – Campaign (Germany Map)</title>
+  <title>LEUVENFLYERS – Campaign (Germany Map · Saved Area First)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"/>
   <meta name="theme-color" content="#2563eb">
 
@@ -893,29 +894,46 @@
       map.on('dblclick', e => { if(drawing){ e.preventDefault(); finishDraw(); } });
 
       try {
-        setLoadProgress(48, 'Loading zones…');
+        // 1) FIRST: reconstruct the already-planned Gemeinde area directly
+        // from Firebase. No Opendatasoft request is needed for this.
+        setLoadProgress(46, 'Loading saved campaign area…');
+        const hasSavedArea = await loadSavedCampaignArea();
+        if(hasSavedArea){
+          showCampaignArea=true; showAllZones=false;
+          syncToolbar();
+          renderMunicipalities();
+          fitToSavedMunis();
+        } else {
+          renderMunicipalities();
+        }
+
+        // 2) Then load shared/custom sub-zones. Campaign-owned free-drawn
+        // zones stay visible even when outside every selected Gemeinde.
+        setLoadProgress(54, 'Loading zones…');
         await loadSubZones();
-        setLoadProgress(58, 'Connecting live data…');
+        if(showCampaignArea) updateZonesVisual();
+
+        // A campaign can consist only of free-drawn zones, with no Gemeinde
+        // selected at all. In that case still open directly in Campaign Area.
+        const hasOwnedDrawnZone = polygonMeta.some(meta=>String(meta.campaign||'')===String(CAMPAIGN));
+        if(!showCampaignArea && hasOwnedDrawnZone){
+          showCampaignArea=true; showAllZones=false;
+          syncToolbar();
+          renderMunicipalities();
+          updateZonesVisual();
+          fitToSavedMunis();
+        }
+
+        // 3) Connect real-time campaign data after planned geography is visible.
+        setLoadProgress(62, 'Connecting live data…');
         listenZoneStatuses();
         listenProofs();
         listenQrScans();
         listenChat();
         listenLiveDots();
 
-        setLoadProgress(64, 'Loading Gemeinden…');
-        await loadMunicipalities();
-        let hasSavedArea=false;
-        muniByKey.forEach(m=>{ if(m.savedKey) hasSavedArea=true; });
-        if(hasSavedArea){
-          showCampaignArea=true; showAllZones=false;
-          syncToolbar();
-          renderMunicipalities();
-          fitToSavedMunis();
-          updateZonesVisual();
-        } else {
-          renderMunicipalities();
-        }
-
+        // Nationwide German Gemeinde data is intentionally lazy-loaded later:
+        // only when the user clicks "Show all Gemeinden".
         setLoadProgress(72, 'Loading Firebase data…');
         const sources = [
           [firstLoad.statuses.promise, 'Zone statuses loaded'],
@@ -970,10 +988,108 @@
     return geo;
   }
 
+  function savedMuniRing(raw){
+    const pts = Object.keys(raw||{})
+      .filter(k=>!isNaN(Number(k)))
+      .sort((a,b)=>Number(a)-Number(b))
+      .map(k=>{
+        const p=raw[k];
+        if(Array.isArray(p)) return [Number(p[1]),Number(p[0])];
+        return [Number(p&&p.lng),Number(p&&p.lat)];
+      })
+      .filter(([lng,lat])=>Number.isFinite(lng)&&Number.isFinite(lat));
+    if(pts.length<3) return null;
+    const a=pts[0], b=pts[pts.length-1];
+    if(a[0]!==b[0] || a[1]!==b[1]) pts.push([a[0],a[1]]);
+    return pts;
+  }
+
+  async function loadSavedCampaignArea(){
+    // Group Firebase entries by official Germany key. MultiPolygon Gemeinden are
+    // stored as multiple Firebase children, so they must be rebuilt together.
+    const grouped = new Map();
+    try {
+      const snap = await get(ref(polygonsDb, FB_MUNI));
+      if(snap.exists()){
+        snap.forEach(ch=>{
+          const raw=ch.val()||{};
+          const code=String(raw._code||'').trim();
+          const name=String(raw._name||'').trim();
+          const id=String(raw._id || (code ? ('DE-'+code) : (name ? ('DE-NAME-'+name) : ''))).trim();
+          const ring=savedMuniRing(raw);
+          if(!id || !ring) return;
+          if(!grouped.has(id)) grouped.set(id,{id,code,name,rings:[],keys:[]});
+          const g=grouped.get(id);
+          if(!g.code && code) g.code=code;
+          if(!g.name && name) g.name=name;
+          g.rings.push(ring);
+          g.keys.push(ch.key);
+        });
+      }
+
+      // Clear stale saved flags before applying what Firebase currently contains.
+      muniByKey.forEach((m,key)=>{
+        if(m.savedKey && !grouped.has(key)){
+          m.savedKey=null;
+          m.savedExtraKeys=[];
+        }
+      });
+
+      grouped.forEach((g,key)=>{
+        const storedGeometry = g.rings.length===1
+          ? {type:'Polygon',coordinates:[g.rings[0]]}
+          : {type:'MultiPolygon',coordinates:g.rings.map(r=>[r])};
+        const existing=muniByKey.get(key);
+        let center=existing?.center || null;
+        if(!center){
+          try { center=turf.centroid({type:'Feature',geometry:storedGeometry,properties:{}}).geometry.coordinates; } catch(e){}
+        }
+        muniByKey.set(key,{
+          key,
+          code: existing?.code || g.code || key.replace(/^DE-/,''),
+          name: existing?.name || g.name || g.code || key,
+          // If the full external dataset is already loaded, keep its detailed
+          // geometry. Otherwise the Firebase-saved geometry is enough to render.
+          geometry: existing?.geometry || storedGeometry,
+          center,
+          savedKey: g.keys[0] || null,
+          savedExtraKeys: g.keys.slice(1)
+        });
+      });
+
+      if(map?.getSource('muni-src')) renderMunicipalities();
+      return grouped.size>0;
+    } catch(e){
+      console.warn('Saved Germany campaign area read failed',e);
+      return false;
+    }
+  }
+
   async function loadMunicipalities(){
-    if(muniLoaded){ renderMunicipalities(); return; }
+    if(muniLoaded){ renderMunicipalities(); return true; }
+
+    // Preserve any campaign geometry reconstructed from Firebase while the
+    // nationwide external dataset is being loaded.
+    const savedBefore = new Map();
+    muniByKey.forEach((m,key)=>{
+      if(m.savedKey) savedBefore.set(key,{
+        geometry:m.geometry,
+        center:m.center,
+        code:m.code,
+        name:m.name,
+        savedKey:m.savedKey,
+        savedExtraKeys:[...(m.savedExtraKeys||[])]
+      });
+    });
+
     const geo = await fetchDeMunis();
-    if(!geo || !geo.features){ toast('Gemeinde boundary data unavailable'); return; }
+    if(!geo || !geo.features){
+      toast('Gemeinde boundary data unavailable — saved campaign area is still available');
+      renderMunicipalities();
+      return false;
+    }
+
+    const next = new Map();
     let polyCount = 0;
     geo.features.forEach(f => {
       const info = deMuniInfo(f.properties);
@@ -987,35 +1103,36 @@
       } else {
         try { center = turf.centroid({type:'Feature',geometry,properties:{}}).geometry.coordinates; } catch(e){}
       }
+      const saved=savedBefore.get(info.key);
       polyCount++;
-      muniByKey.set(info.key, { ...info, geometry, center, savedKey:null, savedExtraKeys:[] });
+      next.set(info.key,{
+        ...info,
+        geometry,
+        center: center || saved?.center || null,
+        savedKey:saved?.savedKey || null,
+        savedExtraKeys:saved?.savedExtraKeys || []
+      });
     });
+
+    // Retain a saved campaign entry even if a later external dataset no longer
+    // contains that exact key (for example after an administrative change).
+    savedBefore.forEach((saved,key)=>{
+      if(!next.has(key)) next.set(key,{
+        key,
+        code:saved.code||key.replace(/^DE-/,''),
+        name:saved.name||saved.code||key,
+        geometry:saved.geometry,
+        center:saved.center||null,
+        savedKey:saved.savedKey,
+        savedExtraKeys:saved.savedExtraKeys||[]
+      });
+    });
+
+    muniByKey = next;
     console.log(`[DE] Gemeinden loaded: ${polyCount}`);
-
-    // Restore this campaign's saved Gemeinde boundaries. New DE entries use _id
-    // (official code key); _name is kept as human-readable metadata.
-    try {
-      const snap = await get(ref(polygonsDb, FB_MUNI));
-      if(snap.exists()){
-        snap.forEach(ch => {
-          const raw = ch.val() || {};
-          let id = raw._id || (raw._code ? ('DE-' + raw._code) : null);
-          if(!id && raw._name){
-            const matches=[];
-            muniByKey.forEach(m=>{ if(m.name===raw._name) matches.push(m.key); });
-            if(matches.length===1) id=matches[0];
-          }
-          if(id && muniByKey.has(id)){
-            const m = muniByKey.get(id);
-            if(!m.savedKey) m.savedKey = ch.key;
-            else m.savedExtraKeys.push(ch.key);
-          }
-        });
-      }
-    } catch(e){ console.warn('germanyzones read failed', e); }
-
     muniLoaded = true;
     renderMunicipalities();
+    return true;
   }
 
   function renderMunicipalities(){
@@ -1258,12 +1375,12 @@
     polygonsByZone.forEach((_,zn)=>{ const n=parseInt(zn,10); if(!isNaN(n)&&n>maxN) maxN=n; });
     const zoneName = String(maxN+1);
 
-    const payload = { zoneName, _parent: parent || '' };
+    const payload = { zoneName, _parent: parent || '', _campaign: CAMPAIGN };
     coords.forEach((p,i)=>{ payload[i]=p; });
     try {
       await push(ref(polygonsDb, FB_SUBZONES), payload);
       const parentLabel = parent && muniByKey.has(parent) ? muniByKey.get(parent).name : parent;
-      toast('Sub-zone '+zoneName+' saved'+(parentLabel?` in ${parentLabel}`:''));
+      toast('Sub-zone '+zoneName+' saved to campaign '+CAMPAIGN+(parentLabel?` · ${parentLabel}`:' · outside selected Gemeinden'));
     } catch(err){ console.error(err); toast('Save failed'); }
     cancelDraw();
     await loadSubZones();
@@ -1304,7 +1421,7 @@
     const lngs=ring.map(r=>r[0]), lats=ring.map(r=>r[1]);
     const bounds={ minLng:Math.min(...lngs),maxLng:Math.max(...lngs),minLat:Math.min(...lats),maxLat:Math.max(...lats) };
     collect.lngs.push(...lngs); collect.lats.push(...lats);
-    polygonMeta.push({ zoneNumber:zoneName, displayName:displayName||zoneName, turfPoly, bounds, firebaseKey, center, parent: raw._parent||'', sourcePath });
+    polygonMeta.push({ zoneNumber:zoneName, displayName:displayName||zoneName, turfPoly, bounds, firebaseKey, center, parent: raw._parent||'', campaign: raw._campaign||'', sourcePath });
     polygonsByZone.set(zoneName, polygonMeta.length-1);
     return true;
   }
@@ -1419,6 +1536,9 @@
 
   function subzoneInSavedArea(meta){
     if(!meta) return false;
+    // A zone drawn by this campaign remains part of the campaign area even if
+    // it lies completely outside every selected Gemeinde.
+    if(String(meta.campaign||'')===String(CAMPAIGN)) return true;
     if(meta.parent && muniByKey.has(meta.parent) && muniByKey.get(meta.parent).savedKey) return true;
     try {
       const c = meta.center;
@@ -1795,7 +1915,8 @@
     });
     polygonMeta.forEach(meta=>{
       const st=zoneStatusByZone.get(meta.zoneNumber)||{};
-      if(st.status!=='booked'&&st.status!=='completed') return;
+      const ownedByCampaign = String(meta.campaign||'')===String(CAMPAIGN);
+      if(!ownedByCampaign && st.status!=='booked' && st.status!=='completed') return;
       any=true;
       const b=meta.bounds;
       if(b.minLng<minLng)minLng=b.minLng; if(b.maxLng>maxLng)maxLng=b.maxLng;
@@ -1821,9 +1942,11 @@
     if(showCampaignArea) showAllZones=false;   // mutually exclusive views
     syncToolbar();
     if(showCampaignArea){
-      await loadMunicipalities();
+      // Saved campaign geometry is already in Firebase; viewing the campaign
+      // must not depend on the external nationwide Gemeinde service.
+      if(![...muniByKey.values()].some(m=>m.savedKey)) await loadSavedCampaignArea();
       renderMunicipalities();
-      if(!fitToSavedMunis()) toast('No campaign area yet — select a Gemeinde or book a zone');
+      if(!fitToSavedMunis()) toast('No campaign area yet — select a Gemeinde or draw/book a zone');
     } else {
       renderMunicipalities();
     }
