@@ -1,0 +1,659 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0c10" />
+  <title>LeuvenFlyers — Worker Earnings</title>
+  <style>
+    :root{
+      --bg:#0b0c10;
+      --panel:#111319;
+      --panel-2:#151821;
+      --line:#232733;
+      --text:#f5f7fb;
+      --muted:#8f96a8;
+      --soft:#b9c0cf;
+      --green:#36c98f;
+      --orange:#ff8a3d;
+      --blue:#5a91ff;
+      --red:#ff6666;
+      --radius:12px;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;}
+    body{overscroll-behavior-y:none;}
+    button,input{font:inherit;}
+    button{appearance:none;border:0;outline:0;}
+
+    .app{width:100%;max-width:480px;min-height:100vh;margin:0 auto;background:var(--bg);}
+    .hidden{display:none!important;}
+
+    /* Login */
+    .login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px;}
+    .login-card{width:100%;max-width:360px;border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:18px;}
+    .brand-row{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+    .brand-mark{width:34px;height:34px;border-radius:9px;background:#315ee8;display:grid;place-items:center;flex:none;}
+    .brand-mark svg{width:18px;height:18px;}
+    .brand-name{font-size:15px;font-weight:800;letter-spacing:.1px;}
+    .brand-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+    .login-title{font-size:22px;font-weight:850;letter-spacing:-.5px;margin-bottom:5px;}
+    .login-copy{font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:16px;}
+    .field-label{display:block;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0 0 5px 2px;}
+    .field{width:100%;height:44px;border:1px solid var(--line);border-radius:10px;background:#0d0f14;color:var(--text);padding:0 12px;font-size:14px;font-weight:650;outline:none;margin-bottom:10px;}
+    .field:focus{border-color:#48536d;}
+    .login-btn{width:100%;height:44px;border-radius:10px;background:#315ee8;color:#fff;font-weight:800;cursor:pointer;margin-top:2px;}
+    .login-btn:disabled{opacity:.55;cursor:default;}
+    .login-error{min-height:17px;padding-top:8px;color:#ff7b7b;font-size:11px;text-align:center;}
+
+    /* Loading */
+    .loading-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted);font-size:12px;}
+    .spinner{width:30px;height:30px;border:3px solid #242936;border-top-color:#6c90ff;border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Dashboard */
+    .topbar{height:48px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;gap:9px;position:sticky;top:0;background:rgba(11,12,16,.97);z-index:20;}
+    .topbar-title{flex:1;min-width:0;}
+    .topbar-name{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .topbar-sub{font-size:9px;color:var(--muted);margin-top:1px;}
+    .icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:#111319;color:var(--soft);display:grid;place-items:center;cursor:pointer;}
+    .icon-btn svg{width:15px;height:15px;}
+
+    .dashboard-body{padding:10px;}
+    .lifetime-card{background:#141821;border:1px solid #262b39;border-radius:14px;padding:14px;margin-bottom:10px;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;}
+    .lifetime-label{font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;}
+    .lifetime-value{font-size:31px;line-height:1;font-weight:900;letter-spacing:-1.2px;color:#fff;font-variant-numeric:tabular-nums;}
+    .lifetime-meta{text-align:right;font-size:10px;color:var(--muted);line-height:1.55;white-space:nowrap;}
+    .lifetime-meta b{color:var(--soft);font-weight:800;}
+
+    .section-head{height:32px;display:flex;align-items:center;justify-content:space-between;padding:0 2px;}
+    .section-title{font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);}
+    .section-count{font-size:10px;color:#777f92;font-variant-numeric:tabular-nums;}
+
+    .campaign-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .campaign-card{min-height:116px;border-radius:12px;border:1px solid var(--card-line);background:var(--card-bg);padding:11px;display:flex;flex-direction:column;text-align:left;color:var(--text);cursor:pointer;overflow:hidden;position:relative;}
+    .campaign-card:active{transform:scale(.985);}
+    .campaign-accent{width:22px;height:3px;border-radius:999px;background:var(--card-accent);margin-bottom:9px;}
+    .campaign-id{font-size:11px;font-weight:850;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#f5f7fb;}
+    .campaign-small{font-size:9px;color:var(--card-muted);margin-top:3px;}
+    .campaign-earn{font-size:21px;font-weight:900;letter-spacing:-.6px;margin-top:auto;color:#fff;font-variant-numeric:tabular-nums;}
+    .campaign-footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;font-size:8px;color:var(--card-muted);}
+    .campaign-arrow{font-size:13px;color:var(--card-accent);font-weight:900;}
+
+    .empty-state{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:26px 18px;text-align:center;color:var(--muted);font-size:12px;line-height:1.5;}
+    .empty-state strong{display:block;color:var(--text);font-size:14px;margin-bottom:5px;}
+
+    /* Campaign detail */
+    .detail-topbar{height:48px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 10px;gap:8px;position:sticky;top:0;background:rgba(11,12,16,.98);z-index:20;}
+    .back-btn{height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--soft);font-size:11px;font-weight:800;display:flex;align-items:center;gap:5px;cursor:pointer;}
+    .detail-title-wrap{min-width:0;flex:1;}
+    .detail-title{font-size:12px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .detail-sub{font-size:9px;color:var(--muted);margin-top:2px;}
+    .detail-body{padding:10px;}
+    .campaign-total{border:1px solid var(--detail-line);background:var(--detail-bg);border-radius:13px;padding:12px;margin-bottom:10px;}
+    .campaign-total-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+    .campaign-total-label{font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.7px;color:var(--detail-muted);}
+    .campaign-total-value{font-size:28px;font-weight:900;letter-spacing:-1px;margin-top:4px;font-variant-numeric:tabular-nums;}
+    .campaign-total-badge{font-size:9px;font-weight:800;padding:4px 7px;border-radius:6px;background:var(--detail-chip);color:var(--detail-accent);white-space:nowrap;}
+    .campaign-total-meta{display:grid;grid-template-columns:repeat(3,1fr);margin-top:11px;border-top:1px solid var(--detail-line);padding-top:9px;}
+    .mini-stat{text-align:center;border-right:1px solid var(--detail-line);}
+    .mini-stat:last-child{border-right:0;}
+    .mini-stat b{display:block;font-size:12px;color:#f3f6fa;font-variant-numeric:tabular-nums;}
+    .mini-stat span{font-size:8px;text-transform:uppercase;letter-spacing:.45px;color:var(--detail-muted);}
+
+    .shift-list{display:flex;flex-direction:column;gap:6px;}
+    .shift-row{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;}
+    .shift-date{font-size:11px;font-weight:850;color:#f1f4f8;}
+    .shift-time{font-size:9px;color:var(--muted);margin-top:3px;}
+    .shift-meta{font-size:8px;color:#747c8e;margin-top:5px;display:flex;gap:7px;flex-wrap:wrap;}
+    .shift-meta .orange{color:#e6955f;}
+    .shift-earn{text-align:right;font-size:16px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;}
+    .shift-paid{font-size:8px;color:var(--muted);text-align:right;margin-top:3px;}
+
+    .bottom-note{padding:14px 6px calc(14px + env(safe-area-inset-bottom));font-size:9px;color:#61697a;text-align:center;line-height:1.45;}
+
+    @media(max-width:350px){
+      .dashboard-body,.detail-body{padding:8px;}
+      .campaign-grid{gap:6px;}
+      .campaign-card{min-height:108px;padding:9px;}
+      .campaign-earn{font-size:19px;}
+      .lifetime-value{font-size:27px;}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="brand-row">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14v12H9l-4 4V4Z" stroke="white" stroke-width="2" stroke-linejoin="round"/><path d="M9 9h6M9 12h4" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">LeuvenFlyers</div>
+          <div class="brand-sub">Worker earnings</div>
+        </div>
+      </div>
+
+      <div class="login-title">Your earnings</div>
+      <div class="login-copy">Log in with your first name to see earnings from every campaign and shift.</div>
+
+      <label class="field-label" for="firstNameInput">First name</label>
+      <input id="firstNameInput" class="field" type="text" autocomplete="given-name" autocapitalize="words" maxlength="32" placeholder="e.g. Tom" />
+
+      <label class="field-label" for="pinInput">PIN</label>
+      <input id="pinInput" class="field" type="password" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" />
+
+      <button id="loginBtn" class="login-btn" type="button">View earnings</button>
+      <div id="loginError" class="login-error" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="loadingScreen" class="loading-screen hidden">
+    <div class="spinner"></div>
+    <div id="loadingText">Loading earnings…</div>
+  </section>
+
+  <section id="dashboardScreen" class="hidden">
+    <header class="topbar">
+      <div class="brand-mark" style="width:28px;height:28px;border-radius:8px;">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14v12H9l-4 4V4Z" stroke="white" stroke-width="2" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="topbar-title">
+        <div id="workerGreeting" class="topbar-name">Earnings</div>
+        <div class="topbar-sub">All campaigns</div>
+      </div>
+      <button id="refreshBtn" class="icon-btn" type="button" title="Refresh" aria-label="Refresh earnings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+      </button>
+      <button id="logoutBtn" class="icon-btn" type="button" title="Log out" aria-label="Log out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 17l5-5-5-5M15 12H3M14 3h6a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-6"/></svg>
+      </button>
+    </header>
+
+    <main class="dashboard-body">
+      <section class="lifetime-card">
+        <div>
+          <div class="lifetime-label">Lifetime earnings</div>
+          <div id="lifetimeEarnings" class="lifetime-value">€0.00</div>
+        </div>
+        <div class="lifetime-meta">
+          <div><b id="lifetimeCampaigns">0</b> campaigns</div>
+          <div><b id="lifetimeShifts">0</b> shifts</div>
+        </div>
+      </section>
+
+      <div class="section-head">
+        <div class="section-title">Campaigns</div>
+        <div id="campaignCount" class="section-count">0</div>
+      </div>
+
+      <div id="campaignGrid" class="campaign-grid"></div>
+      <div id="dashboardEmpty" class="empty-state hidden"><strong>No earnings found</strong>No campaign shifts were found for this first name.</div>
+      <div class="bottom-note">Earnings are calculated from paid green, red and blue dots recorded in each shift.</div>
+    </main>
+  </section>
+
+  <section id="detailScreen" class="hidden">
+    <header class="detail-topbar">
+      <button id="backBtn" class="back-btn" type="button">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        Back
+      </button>
+      <div class="detail-title-wrap">
+        <div id="detailTitle" class="detail-title">Campaign</div>
+        <div id="detailSub" class="detail-sub">Shift earnings</div>
+      </div>
+    </header>
+
+    <main class="detail-body">
+      <section id="campaignTotalCard" class="campaign-total">
+        <div class="campaign-total-top">
+          <div>
+            <div class="campaign-total-label">Campaign earnings</div>
+            <div id="detailEarnings" class="campaign-total-value">€0.00</div>
+          </div>
+          <div id="detailShiftBadge" class="campaign-total-badge">0 shifts</div>
+        </div>
+        <div class="campaign-total-meta">
+          <div class="mini-stat"><b id="detailPaidDots">0</b><span>Paid dots</span></div>
+          <div class="mini-stat"><b id="detailOrangeDots">0</b><span>Orange</span></div>
+          <div class="mini-stat"><b id="detailHours">0h</b><span>Time</span></div>
+        </div>
+      </section>
+
+      <div class="section-head">
+        <div class="section-title">Shifts</div>
+        <div id="detailShiftCount" class="section-count">0</div>
+      </div>
+      <div id="shiftList" class="shift-list"></div>
+      <div class="bottom-note">Newest shifts are shown first.</div>
+    </main>
+  </section>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+    messagingSenderId: "205455490321",
+    appId: "1:205455490321:web:9919f5dde059316c9320b0"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const WORKER_PIN = "000320";
+  const EUR_PER_PAID_DOT = 0.036;
+  const SHIFT_GAP_MS = 4 * 60 * 60 * 1000;
+  const LOGIN_NAME_KEY = "lf_earnings_worker_first_name";
+
+  const loginScreen = document.getElementById('loginScreen');
+  const loadingScreen = document.getElementById('loadingScreen');
+  const dashboardScreen = document.getElementById('dashboardScreen');
+  const detailScreen = document.getElementById('detailScreen');
+  const firstNameInput = document.getElementById('firstNameInput');
+  const pinInput = document.getElementById('pinInput');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginError = document.getElementById('loginError');
+  const loadingText = document.getElementById('loadingText');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const backBtn = document.getElementById('backBtn');
+  const campaignGrid = document.getElementById('campaignGrid');
+  const dashboardEmpty = document.getElementById('dashboardEmpty');
+
+  let currentFirstName = '';
+  let campaignData = [];
+
+  const palette = [
+    {bg:'#171d2b',line:'#29364f',accent:'#6f9cff',muted:'#8998b7',chip:'#202a3e'},
+    {bg:'#1b211c',line:'#304136',accent:'#62cf8f',muted:'#8fa595',chip:'#253129'},
+    {bg:'#241c19',line:'#4a3329',accent:'#f49a62',muted:'#ae9385',chip:'#33251f'},
+    {bg:'#201b27',line:'#40324e',accent:'#b287e8',muted:'#a08dae',chip:'#2d2437'},
+    {bg:'#20201a',line:'#41402d',accent:'#d7be5a',muted:'#aaa487',chip:'#2d2c21'},
+    {bg:'#181f22',line:'#2d3d43',accent:'#67bfd0',muted:'#8da5aa',chip:'#202d31'},
+    {bg:'#241b21',line:'#49303e',accent:'#de82ae',muted:'#aa8c9b',chip:'#32232b'},
+    {bg:'#1c1e25',line:'#333744',accent:'#9da9c8',muted:'#9096a6',chip:'#272a33'}
+  ];
+
+  function showOnly(screen){
+    [loginScreen,loadingScreen,dashboardScreen,detailScreen].forEach(el=>el.classList.add('hidden'));
+    screen.classList.remove('hidden');
+  }
+
+  function normalizeName(value){
+    return String(value||'').trim().replace(/\s+/g,' ');
+  }
+
+  function nameKey(value){
+    return normalizeName(value).toLowerCase().replace(/[^a-z0-9à-ž]/gi,'');
+  }
+
+  function stripJobSuffix(value){
+    return normalizeName(value)
+      .toLowerCase()
+      .replace(/[\s_-]*\d+\s*$/,'')
+      .trim();
+  }
+
+  function workerMatchesFirstName(workerName, firstName){
+    const worker = normalizeName(workerName).toLowerCase();
+    const first = normalizeName(firstName).toLowerCase();
+    if(!worker || !first) return false;
+    if(worker === first) return true;
+    if(stripJobSuffix(worker) === first) return true;
+    return false;
+  }
+
+  function registryMatchesFirstName(registryKey, record, firstName){
+    const candidates = [registryKey, record?.firstName, record?.workerName, record?.name].filter(Boolean);
+    return candidates.some(v=>workerMatchesFirstName(v,firstName));
+  }
+
+  function euro(value){
+    return '€' + Number(value||0).toFixed(2);
+  }
+
+  function safeTimestamp(value){
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  function dateKey(ts){
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function formatDate(ts){
+    return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  }
+
+  function formatTime(ts){
+    return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false});
+  }
+
+  function formatDuration(ms){
+    const totalMin = Math.max(0,Math.round(ms/60000));
+    const h = Math.floor(totalMin/60);
+    const m = totalMin%60;
+    return h ? `${h}h ${String(m).padStart(2,'0')}m` : `${m}m`;
+  }
+
+  function formatTotalHours(ms){
+    const hours = Math.max(0,ms)/3600000;
+    if(hours < 10) return `${hours.toFixed(1)}h`;
+    return `${Math.round(hours)}h`;
+  }
+
+  function hashString(str){
+    let h=0;
+    for(let i=0;i<str.length;i++) h=((h<<5)-h+str.charCodeAt(i))|0;
+    return Math.abs(h);
+  }
+
+  function colorsForCampaign(id){
+    return palette[hashString(id)%palette.length];
+  }
+
+  function allValues(node){
+    if(!node || typeof node !== 'object') return [];
+    return Object.values(node).filter(v=>v && typeof v === 'object');
+  }
+
+  function normalizeDot(dot, fallbackColor){
+    if(!dot || typeof dot !== 'object') return null;
+    const timestamp = safeTimestamp(dot.timestamp);
+    const workerName = normalizeName(dot.workerName);
+    if(!timestamp || !workerName) return null;
+    return {
+      timestamp,
+      workerName,
+      color: String(dot.color || fallbackColor || '').toLowerCase()
+    };
+  }
+
+  function splitWorkerIntoShifts(workerDots){
+    const sorted = workerDots.slice().sort((a,b)=>a.timestamp-b.timestamp);
+    const shifts=[];
+    let current=[];
+
+    for(const dot of sorted){
+      if(!current.length){
+        current=[dot];
+        continue;
+      }
+      const prev=current[current.length-1];
+      const newDay=dateKey(dot.timestamp)!==dateKey(prev.timestamp);
+      const longGap=(dot.timestamp-prev.timestamp)>SHIFT_GAP_MS;
+      if(newDay || longGap){
+        shifts.push(current);
+        current=[dot];
+      }else{
+        current.push(dot);
+      }
+    }
+    if(current.length) shifts.push(current);
+    return shifts;
+  }
+
+  function summarizeShift(dots, workerName){
+    const sorted=dots.slice().sort((a,b)=>a.timestamp-b.timestamp);
+    const green=sorted.filter(d=>d.color==='green').length;
+    const red=sorted.filter(d=>d.color==='red').length;
+    const blue=sorted.filter(d=>d.color==='blue').length;
+    const orange=sorted.filter(d=>d.color==='orange').length;
+    const paidDots=green+red+blue;
+    const firstTs=sorted[0]?.timestamp||0;
+    const lastTs=sorted[sorted.length-1]?.timestamp||firstTs;
+    return {
+      workerName,
+      firstTs,
+      lastTs,
+      durationMs:Math.max(0,lastTs-firstTs),
+      green,red,blue,orange,paidDots,
+      earnings:paidDots*EUR_PER_PAID_DOT
+    };
+  }
+
+  async function fetchCampaignDots(campaignId){
+    const [normalSnap,orangeSnap] = await Promise.all([
+      get(ref(db,`userPosts/${campaignId}`)),
+      get(ref(db,`userPostClicks/${campaignId}`))
+    ]);
+
+    const normal=allValues(normalSnap.val()).map(v=>normalizeDot(v,v.color)).filter(Boolean);
+    const orange=allValues(orangeSnap.val()).map(v=>normalizeDot(v,'orange')).filter(Boolean).map(d=>({...d,color:'orange'}));
+    return [...normal,...orange];
+  }
+
+  function campaignHasWorkerRegistry(campaign, firstName){
+    const workers=campaign?.workers;
+    if(!workers || typeof workers!=='object') return false;
+    return Object.entries(workers).some(([key,record])=>registryMatchesFirstName(key,record,firstName));
+  }
+
+  async function loadEarnings(firstName){
+    loadingText.textContent='Finding your campaigns…';
+    const usersSnap=await get(ref(db,'users'));
+    const users=usersSnap.val()||{};
+
+    let candidates=Object.entries(users)
+      .filter(([,campaign])=>campaignHasWorkerRegistry(campaign,firstName))
+      .map(([campaignId])=>campaignId);
+
+    // Older campaigns may not have a worker registry. If no registry match exists,
+    // fall back to scanning campaign IDs already known under /users.
+    if(!candidates.length) candidates=Object.keys(users);
+
+    loadingText.textContent=`Loading ${candidates.length} campaign${candidates.length===1?'':'s'}…`;
+
+    const results=[];
+    const concurrency=6;
+    let cursor=0;
+
+    async function worker(){
+      while(cursor<candidates.length){
+        const index=cursor++;
+        const campaignId=candidates[index];
+        try{
+          const dots=await fetchCampaignDots(campaignId);
+          const mine=dots.filter(d=>workerMatchesFirstName(d.workerName,firstName));
+          if(!mine.length) continue;
+
+          const byWorker={};
+          mine.forEach(dot=>{
+            const key=normalizeName(dot.workerName).toLowerCase();
+            if(!byWorker[key]) byWorker[key]={name:dot.workerName,dots:[]};
+            byWorker[key].dots.push(dot);
+          });
+
+          const shifts=[];
+          Object.values(byWorker).forEach(group=>{
+            splitWorkerIntoShifts(group.dots).forEach(part=>shifts.push(summarizeShift(part,group.name)));
+          });
+          shifts.sort((a,b)=>b.firstTs-a.firstTs);
+
+          const earnings=shifts.reduce((sum,s)=>sum+s.earnings,0);
+          const paidDots=shifts.reduce((sum,s)=>sum+s.paidDots,0);
+          const orangeDots=shifts.reduce((sum,s)=>sum+s.orange,0);
+          const durationMs=shifts.reduce((sum,s)=>sum+s.durationMs,0);
+          const lastTs=Math.max(...shifts.map(s=>s.lastTs));
+
+          results.push({campaignId,shifts,earnings,paidDots,orangeDots,durationMs,lastTs});
+        }catch(err){
+          console.warn('Campaign load failed:',campaignId,err);
+        }
+      }
+    }
+
+    await Promise.all(Array.from({length:Math.min(concurrency,Math.max(1,candidates.length))},()=>worker()));
+
+    results.sort((a,b)=>b.lastTs-a.lastTs);
+    return results;
+  }
+
+  function renderDashboard(){
+    document.getElementById('workerGreeting').textContent=`${currentFirstName}'s earnings`;
+    const lifetime=campaignData.reduce((sum,c)=>sum+c.earnings,0);
+    const shifts=campaignData.reduce((sum,c)=>sum+c.shifts.length,0);
+    document.getElementById('lifetimeEarnings').textContent=euro(lifetime);
+    document.getElementById('lifetimeCampaigns').textContent=campaignData.length;
+    document.getElementById('lifetimeShifts').textContent=shifts;
+    document.getElementById('campaignCount').textContent=campaignData.length;
+
+    campaignGrid.innerHTML='';
+    dashboardEmpty.classList.toggle('hidden',campaignData.length>0);
+
+    campaignData.forEach((campaign,index)=>{
+      const c=colorsForCampaign(campaign.campaignId);
+      const card=document.createElement('button');
+      card.type='button';
+      card.className='campaign-card';
+      card.style.setProperty('--card-bg',c.bg);
+      card.style.setProperty('--card-line',c.line);
+      card.style.setProperty('--card-accent',c.accent);
+      card.style.setProperty('--card-muted',c.muted);
+      card.innerHTML=`
+        <div class="campaign-accent"></div>
+        <div class="campaign-id">${escapeHtml(campaign.campaignId)}</div>
+        <div class="campaign-small">${campaign.shifts.length} shift${campaign.shifts.length===1?'':'s'}</div>
+        <div class="campaign-earn">${euro(campaign.earnings)}</div>
+        <div class="campaign-footer"><span>${campaign.paidDots.toLocaleString()} paid dots</span><span class="campaign-arrow">›</span></div>
+      `;
+      card.addEventListener('click',()=>openCampaign(index));
+      campaignGrid.appendChild(card);
+    });
+  }
+
+  function openCampaign(index){
+    const campaign=campaignData[index];
+    if(!campaign) return;
+    const c=colorsForCampaign(campaign.campaignId);
+
+    document.getElementById('detailTitle').textContent=campaign.campaignId;
+    document.getElementById('detailSub').textContent='Shift earnings';
+    document.getElementById('detailEarnings').textContent=euro(campaign.earnings);
+    document.getElementById('detailShiftBadge').textContent=`${campaign.shifts.length} shift${campaign.shifts.length===1?'':'s'}`;
+    document.getElementById('detailPaidDots').textContent=campaign.paidDots.toLocaleString();
+    document.getElementById('detailOrangeDots').textContent=campaign.orangeDots.toLocaleString();
+    document.getElementById('detailHours').textContent=formatTotalHours(campaign.durationMs);
+    document.getElementById('detailShiftCount').textContent=campaign.shifts.length;
+
+    const totalCard=document.getElementById('campaignTotalCard');
+    totalCard.style.setProperty('--detail-bg',c.bg);
+    totalCard.style.setProperty('--detail-line',c.line);
+    totalCard.style.setProperty('--detail-accent',c.accent);
+    totalCard.style.setProperty('--detail-muted',c.muted);
+    totalCard.style.setProperty('--detail-chip',c.chip);
+
+    const list=document.getElementById('shiftList');
+    list.innerHTML='';
+    campaign.shifts.forEach((shift,i)=>{
+      const row=document.createElement('div');
+      row.className='shift-row';
+      row.innerHTML=`
+        <div>
+          <div class="shift-date">${formatDate(shift.firstTs)}</div>
+          <div class="shift-time">${formatTime(shift.firstTs)} – ${formatTime(shift.lastTs)} · ${formatDuration(shift.durationMs)}</div>
+          <div class="shift-meta">
+            <span>${shift.paidDots.toLocaleString()} paid</span>
+            <span class="orange">${shift.orange.toLocaleString()} orange</span>
+            <span>${escapeHtml(shift.workerName)}</span>
+          </div>
+        </div>
+        <div>
+          <div class="shift-earn">${euro(shift.earnings)}</div>
+          <div class="shift-paid">Shift ${campaign.shifts.length-i}</div>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+
+    showOnly(detailScreen);
+    window.scrollTo({top:0,behavior:'auto'});
+  }
+
+  function escapeHtml(value){
+    return String(value??'').replace(/[&<>'"]/g,ch=>({
+      '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'
+    }[ch]));
+  }
+
+  async function performLogin(firstName,pin,{remember=true}={}){
+    const clean=normalizeName(firstName);
+    loginError.textContent='';
+    if(!clean || clean.length<2){
+      loginError.textContent='Enter your first name.';
+      return;
+    }
+    if(pin!==WORKER_PIN){
+      loginError.textContent='Incorrect PIN.';
+      pinInput.value='';
+      pinInput.focus();
+      return;
+    }
+
+    currentFirstName=clean;
+    loginBtn.disabled=true;
+    showOnly(loadingScreen);
+
+    try{
+      campaignData=await loadEarnings(clean);
+      if(remember) localStorage.setItem(LOGIN_NAME_KEY,clean);
+      renderDashboard();
+      showOnly(dashboardScreen);
+    }catch(err){
+      console.error(err);
+      showOnly(loginScreen);
+      loginError.textContent='Could not load earnings. Check the connection and try again.';
+    }finally{
+      loginBtn.disabled=false;
+    }
+  }
+
+  loginBtn.addEventListener('click',()=>performLogin(firstNameInput.value,pinInput.value));
+  pinInput.addEventListener('keydown',e=>{if(e.key==='Enter')performLogin(firstNameInput.value,pinInput.value);});
+  firstNameInput.addEventListener('keydown',e=>{if(e.key==='Enter')pinInput.focus();});
+
+  refreshBtn.addEventListener('click',async()=>{
+    if(!currentFirstName) return;
+    showOnly(loadingScreen);
+    try{
+      campaignData=await loadEarnings(currentFirstName);
+      renderDashboard();
+      showOnly(dashboardScreen);
+    }catch(err){
+      console.error(err);
+      showOnly(dashboardScreen);
+    }
+  });
+
+  logoutBtn.addEventListener('click',()=>{
+    localStorage.removeItem(LOGIN_NAME_KEY);
+    currentFirstName='';
+    campaignData=[];
+    firstNameInput.value='';
+    pinInput.value='';
+    loginError.textContent='';
+    showOnly(loginScreen);
+    setTimeout(()=>firstNameInput.focus(),50);
+  });
+
+  backBtn.addEventListener('click',()=>showOnly(dashboardScreen));
+
+  // Remember only the name for convenience. The PIN is never stored.
+  const remembered=normalizeName(localStorage.getItem(LOGIN_NAME_KEY));
+  if(remembered) firstNameInput.value=remembered;
+  setTimeout(()=>remembered?pinInput.focus():firstNameInput.focus(),80);
+</script>
+</body>
+</html>
