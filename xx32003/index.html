@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -243,6 +244,10 @@
   .metric-chip.no { border-color:#f3b6bf; background:#fff3f5; }
   .metric-chip.no .led { background:#ef4444; }
   .metric-chip.no .value { color:#b3261e; }
+  .metric-chip.b2b { border-color:#b8d7ff; background:#f2f7ff; }
+  .metric-chip.b2b .led { background:#2563eb; }
+  .metric-chip.b2b .value { color:#1d4ed8; }
+  .b2b-short { display:none; }
 
   .replay-speed {
     flex:0 0 auto; height:32px; min-width:52px; padding:0 22px 0 8px;
@@ -264,6 +269,7 @@
     background:#22c55e; outline:2px solid #15803d;
   }
   .replay-focus-dot.no { background:#ef4444; outline-color:#b91c1c; }
+  .replay-focus-dot.blue { background:#1877F2; outline-color:#145DBF; }
   .outcome-flag { font-size:13px; line-height:1; flex-shrink:0; font-weight:900; }
   .metric-chip.purple { border-color: #ddd6fe; background: #faf5ff; }
   .metric-chip.purple .led { background: #7c3aed; }
@@ -575,10 +581,10 @@
       font-size: 8px;
     }
 
-    /* Five campaign metrics fit in one row on phones—no horizontal metric scrolling. */
+    /* Six campaign metrics fit in one row on phones—no horizontal metric scrolling. */
     .metrics-scroll {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 2px;
       padding: 1px 0 0;
       overflow: hidden;
@@ -608,6 +614,8 @@
       text-overflow: ellipsis;
       font-size: 10px;
     }
+    .metric-chip.b2b .b2b-full { display:none; }
+    .metric-chip.b2b .b2b-short { display:inline; }
 
     .zone-label {
       max-width: min(94vw, 310px);
@@ -798,6 +806,13 @@
           <span class="value" id="noDotsCount">0</span>
         </div>
       </div>
+      <div class="metric-chip b2b" title="B2B Delivery: blue worker clicks">
+        <span class="led" aria-hidden="true"></span>
+        <div class="stack">
+          <span class="label"><span class="b2b-full">B2B Delivery</span><span class="b2b-short">B2B</span></span>
+          <span class="value" id="b2bDotsCount">0</span>
+        </div>
+      </div>
       <div id="qrCounter" class="metric-chip purple" style="cursor:pointer;" title="QR scans">
         <span class="led"></span>
         <div class="stack">
@@ -954,6 +969,7 @@
   const completedFlyersCountEl = document.getElementById('completedFlyersCount');
   const yesDotsCountEl  = document.getElementById('yesDotsCount');
   const noDotsCountEl   = document.getElementById('noDotsCount');
+  const b2bDotsCountEl  = document.getElementById('b2bDotsCount');
   const qrScanCountEl   = document.getElementById('qrScanCount');
   const qrCounter       = document.getElementById('qrCounter');
   const topbar          = document.getElementById('topbar');
@@ -1198,10 +1214,13 @@
 
       // ── Worker clicks: chronological route + always-visible delivery dots ──
       // Every saved non-orange click is connected in timestamp order by one very thin
-      // blue route line. YES and NO points remain separate so their colors stay clear.
-      map.addSource('blue-dots-src', { type:'geojson', data: fc() });
-      map.addSource('yes-dots-src',  { type:'geojson', data: fc() });
-      map.addSource('no-dots-src',   { type:'geojson', data: fc() });
+      // blue route line. Worker click colors stay visually distinct:
+      // green → green dot, blue → blue dot, red → red dot.
+      // Green + blue still count together as YES / Delivered.
+      map.addSource('blue-dots-src',        { type:'geojson', data: fc() }); // route only
+      map.addSource('yes-dots-src',         { type:'geojson', data: fc() }); // green worker clicks
+      map.addSource('worker-blue-dots-src', { type:'geojson', data: fc() }); // blue worker clicks
+      map.addSource('no-dots-src',          { type:'geojson', data: fc() }); // red worker clicks
 
       // ── Building dots ──
       map.addSource('building-dots-src', { type:'geojson', data: fc() });
@@ -1227,6 +1246,12 @@
         paint:{
           'circle-radius':['interpolate',['linear'],['zoom'],7,3.1,12,3.7,17,4.2],
           'circle-color':'#22c55e','circle-stroke-color':'#ffffff','circle-stroke-width':1.15,
+          'circle-opacity':1,'circle-stroke-opacity':0.95
+        } });
+      map.addLayer({ id:'worker-blue-dots', type:'circle', source:'worker-blue-dots-src',
+        paint:{
+          'circle-radius':['interpolate',['linear'],['zoom'],7,3.1,12,3.7,17,4.2],
+          'circle-color':'#1877F2','circle-stroke-color':'#ffffff','circle-stroke-width':1.15,
           'circle-opacity':1,'circle-stroke-opacity':0.95
         } });
       map.addLayer({ id:'no-dots', type:'circle', source:'no-dots-src',
@@ -2223,18 +2248,25 @@
       });
       liveDotsHistory=dotsList;
 
-      const yesDots=dotsList.filter(d=>d.outcome==='yes');
+      const yesDots=dotsList.filter(d=>d.outcome==='yes'); // green + blue, used for Delivered/YES totals
+      const greenDots=yesDots.filter(d=>d.color!=='blue');
+      const blueWorkerDots=yesDots.filter(d=>d.color==='blue');
       const noDots=dotsList.filter(d=>d.outcome==='no');
-      const yesFeatures=yesDots.map(d=>feat('Point',[d.lng,d.lat],{
+
+      const greenFeatures=greenDots.map(d=>feat('Point',[d.lng,d.lat],{
         outcome:'yes',color:d.color,seq:d.seq,deliveredSeq:d.deliveredSeq,ts:d.ts
+      }));
+      const blueWorkerFeatures=blueWorkerDots.map(d=>feat('Point',[d.lng,d.lat],{
+        outcome:'yes',color:'blue',seq:d.seq,deliveredSeq:d.deliveredSeq,ts:d.ts
       }));
       const noFeatures=noDots.map(d=>feat('Point',[d.lng,d.lat],{
         outcome:'no',color:d.color,seq:d.seq,deliveredSeq:d.deliveredSeq,ts:d.ts
       }));
 
-      // Always publish EVERY saved point to its dedicated source.
-      // The tiny point layers are never progressively filtered during replay.
-      if(map.getSource('yes-dots-src')) map.getSource('yes-dots-src').setData(fc(yesFeatures));
+      // Always publish EVERY saved point to its dedicated visual source.
+      // Replay never filters these tiny point layers.
+      if(map.getSource('yes-dots-src')) map.getSource('yes-dots-src').setData(fc(greenFeatures));
+      if(map.getSource('worker-blue-dots-src')) map.getSource('worker-blue-dots-src').setData(fc(blueWorkerFeatures));
       if(map.getSource('no-dots-src')) map.getSource('no-dots-src').setData(fc(noFeatures));
       if(map.getSource('blue-dots-src')){
         const trailCoords=dotsList.map(d=>[d.lng,d.lat]);
@@ -2251,6 +2283,7 @@
         // ordinary map/building layers.
         if(map.getLayer('blue-trail')) map.moveLayer('blue-trail');
         if(map.getLayer('yes-dots')) map.moveLayer('yes-dots');
+        if(map.getLayer('worker-blue-dots')) map.moveLayer('worker-blue-dots');
         if(map.getLayer('no-dots')) map.moveLayer('no-dots');
       }catch(e){}
 
@@ -2285,6 +2318,7 @@
 
       yesDotsCountEl.textContent=yesDots.length.toLocaleString();
       noDotsCountEl.textContent=noDots.length.toLocaleString();
+      b2bDotsCountEl.textContent=blueWorkerDots.length.toLocaleString();
 
       idle(updateZonesVisual);
       updateLatestDotUI(yesDots.length, dotsList[dotsList.length-1]||null);
@@ -2292,16 +2326,19 @@
     });
   }
 
-  // All tiny YES/NO dots stay visible before, during and after history playback.
+  // All tiny green/blue/red worker dots stay visible before, during and after history playback.
   // There are no replay filters on these layers; this function only makes sure
   // they are visible and on top of the map's normal data layers.
   function restoreFullDotView(){
     if(!map) return;
     if(map.getLayer('yes-dots')) map.setLayoutProperty('yes-dots','visibility','visible');
+    if(map.getLayer('worker-blue-dots')) map.setLayoutProperty('worker-blue-dots','visibility','visible');
     if(map.getLayer('no-dots')) map.setLayoutProperty('no-dots','visibility','visible');
     if(map.getLayer('blue-trail')) map.setLayoutProperty('blue-trail','visibility','visible');
     try{
+      if(map.getLayer('blue-trail')) map.moveLayer('blue-trail');
       if(map.getLayer('yes-dots')) map.moveLayer('yes-dots');
+      if(map.getLayer('worker-blue-dots')) map.moveLayer('worker-blue-dots');
       if(map.getLayer('no-dots')) map.moveLayer('no-dots');
     }catch(e){}
   }
@@ -2345,6 +2382,7 @@
       }
     }
     focus.classList.toggle('no',dot.outcome==='no');
+    focus.classList.toggle('blue',dot.outcome==='yes' && dot.color==='blue');
     marker.setLngLat([dot.lng,dot.lat]);
     if(!marker.getElement().isConnected) marker.addTo(map);
 
