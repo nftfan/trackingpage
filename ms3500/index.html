@@ -1,0 +1,2651 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dot Poster - Action View · Shift Sort</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <style>
+    :root { --bg:#0b0b0e; --panel:#141419; --muted:#8b8b95; --text:#f2f2f7; --accent:#4f8cff; --accent-2:#7a5cff; --shadow:none; --radius-lg:12px; --radius-md:10px; }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    html,body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:0;padding-bottom:env(safe-area-inset-bottom,4px);}
+    .app-inner{display:flex;flex-direction:column;gap:4px;padding:0 4px;}
+
+    .loader-overlay{position:fixed;inset:0;background:var(--bg);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;transition:opacity 0.3s ease;}
+    .loader-overlay.hidden{opacity:0;pointer-events:none;}
+    .spinner{width:40px;height:40px;border:4px solid rgba(255,255,255,0.1);border-left-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;}
+    .loader-text{font-weight:600;color:var(--muted);font-size:13px;letter-spacing:0.5px;}
+    @keyframes spin{100%{transform:rotate(360deg);}}
+
+    header{display:flex;align-items:center;gap:6px;padding:5px 7px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);flex-shrink:0;}
+    .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#4f8cff,#7a5cff);border-radius:7px;flex-shrink:0;}
+    .btn-start-worker{appearance:none;border:0;cursor:pointer;padding:5px 10px;border-radius:6px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;transition:transform 0.2s cubic-bezier(0.4,0,0.2,1);outline:none;}
+    .btn-start-worker:active{transform:scale(.95);}
+    .header-title{font-size:13px;font-weight:700;flex:1;}
+    .user-pill{font-size:11px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px;flex-shrink:0;}
+    .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600;font-size:11px;outline:none;}
+
+    .session-strip{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);flex-shrink:0;}
+    .session-timer{font-family:Menlo,Monaco,Consolas,monospace;font-size:12px;font-weight:700;color:#e5e7ff;letter-spacing:.5px;}
+    .session-timer.inactive{color:var(--muted);}
+    .session-meta{font-size:10px;color:var(--muted);display:flex;gap:12px;}
+    .session-meta span{display:flex;flex-direction:row;align-items:center;gap:3px;}
+    .session-meta b{font-size:10px;font-weight:700;color:#e5e7ff;font-family:Menlo,monospace;}
+
+    .map-card{position:relative;overflow:hidden;background:#0f0f12;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.08);}
+    #map{height:230px;width:100%;}
+    .maplibregl-ctrl-attrib{display:none!important;}
+    .maplibregl-ctrl-group{background:rgba(20,20,28,0.85)!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:8px!important;}
+    .maplibregl-ctrl-group button{background:transparent!important;color:#aab7ff!important;}
+    .maplibregl-ctrl-group button:hover{background:rgba(255,255,255,.08)!important;}
+    .maplibregl-popup-content{background:rgba(20,20,28,0.95)!important;color:#f2f2f7!important;font-size:11px!important;font-weight:600!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:8px!important;padding:6px 10px!important;box-shadow:none;}
+    .maplibregl-popup-tip{border-top-color:rgba(20,20,28,0.95)!important;border-bottom-color:rgba(20,20,28,0.95)!important;}
+
+    .map-notif-container{position:absolute;bottom:39px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;flex-direction:column-reverse;gap:4px;pointer-events:none;align-items:center;width:90%;}
+    .map-notif{background:rgba(20,20,25,0.9);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;animation:mapNotifIn 0.2s cubic-bezier(0.175,0.885,0.32,1.275) forwards,mapNotifOut 0.3s ease 1.5s forwards;box-shadow:none;}
+    @keyframes mapNotifIn{from{opacity:0;transform:translateY(10px) scale(0.9);}to{opacity:1;transform:translateY(0) scale(1);}}
+    @keyframes mapNotifOut{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(10px);}}
+
+    /* Sleek live shift coach — full-width, compact single-worker motivation feed */
+    .shift-coach{position:relative;height:30px;margin:0;border-radius:0;overflow:hidden;display:flex;align-items:center;gap:6px;padding:0 7px;background:linear-gradient(110deg,rgba(79,140,255,.13),rgba(122,92,255,.08),rgba(255,255,255,.035));border:0;border-bottom:1px solid rgba(255,255,255,.09);isolation:isolate;flex-shrink:0;}
+    .shift-coach::before{content:"";position:absolute;inset:-70% -15%;z-index:-2;background:radial-gradient(circle at 15% 40%,rgba(79,140,255,.22),transparent 34%),radial-gradient(circle at 78% 45%,rgba(122,92,255,.16),transparent 38%);opacity:.85;transition:background .35s ease,opacity .35s ease;}
+    .shift-coach::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(105deg,transparent 15%,rgba(255,255,255,.05) 42%,transparent 65%);transform:translateX(-120%);animation:coachSheen 7s ease-in-out infinite;}
+    @keyframes coachSheen{0%,68%{transform:translateX(-120%);}84%,100%{transform:translateX(120%);}}
+    .coach-icon{width:20px;height:20px;flex:0 0 20px;display:grid;place-items:center;border-radius:6px;background:rgba(255,255,255,.075);font-size:13px;transition:transform .25s ease,background .25s ease;}
+    .coach-copy{min-width:0;flex:1;display:flex;flex-direction:column;justify-content:center;gap:0;}
+    .coach-title{font-size:9.5px;line-height:1.08;font-weight:900;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.05px;}
+    .coach-detail{font-size:7.5px;line-height:1.05;font-weight:700;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .coach-side{flex:0 0 auto;font-family:Menlo,Monaco,Consolas,monospace;font-size:8px;font-weight:900;color:#c7d2fe;padding:3px 5px;border-radius:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06);white-space:nowrap;}
+    .coach-progress{position:absolute;left:0;bottom:0;height:2px;width:0%;background:linear-gradient(90deg,#60a5fa,#a78bfa,#22d3ee);transition:width .45s cubic-bezier(.22,1,.36,1),background .25s ease;}
+    .shift-coach.flash{animation:coachPop .48s cubic-bezier(.2,1.45,.35,1);}
+    @keyframes coachPop{0%{filter:brightness(.92);}45%{filter:brightness(1.22);}100%{filter:brightness(1);}}
+    .shift-coach.flash .coach-icon{animation:coachIconPop .6s cubic-bezier(.2,1.5,.3,1);}
+    @keyframes coachIconPop{0%{transform:scale(.72) rotate(-10deg);}55%{transform:scale(1.18) rotate(5deg);}100%{transform:scale(1) rotate(0);}}
+    .shift-coach.tone-star{border-bottom-color:rgba(250,204,21,.35);background:linear-gradient(110deg,rgba(250,204,21,.12),rgba(249,115,22,.06),rgba(255,255,255,.035));}
+    .shift-coach.tone-star .coach-icon{background:rgba(250,204,21,.13);}
+    .shift-coach.tone-star .coach-side{color:#fde68a;}
+    .shift-coach.tone-diamond{border-bottom-color:rgba(34,211,238,.38);background:linear-gradient(110deg,rgba(34,211,238,.13),rgba(59,130,246,.08),rgba(255,255,255,.035));}
+    .shift-coach.tone-diamond .coach-icon{background:rgba(34,211,238,.13);}
+    .shift-coach.tone-diamond .coach-side{color:#a5f3fc;}
+    .shift-coach.tone-good{border-bottom-color:rgba(52,211,153,.32);background:linear-gradient(110deg,rgba(52,211,153,.11),rgba(34,211,238,.055),rgba(255,255,255,.035));}
+    .shift-coach.tone-good .coach-side{color:#86efac;}
+    .shift-coach.tone-warn{border-bottom-color:rgba(251,146,60,.34);background:linear-gradient(110deg,rgba(251,146,60,.11),rgba(244,63,94,.045),rgba(255,255,255,.035));}
+    .shift-coach.tone-warn .coach-side{color:#fdba74;}
+    .shift-coach.tone-milestone{border-bottom-color:rgba(192,132,252,.36);background:linear-gradient(110deg,rgba(192,132,252,.13),rgba(236,72,153,.07),rgba(255,255,255,.035));}
+    .shift-coach.tone-milestone .coach-side{color:#e9d5ff;}
+    .shift-coach.tone-clock{border-bottom-color:rgba(244,114,182,.34);background:linear-gradient(110deg,rgba(244,114,182,.11),rgba(168,85,247,.08),rgba(255,255,255,.035));}
+    .shift-coach.tone-clock .coach-side{color:#fbcfe8;}
+
+    /* 3-hour / 1,000-post challenge: compact mobile map chips */
+    .challenge-chip{position:absolute;bottom:8px;z-index:1001;display:flex;align-items:center;gap:5px;height:25px;padding:0 8px;border-radius:8px;background:rgba(11,11,14,.84);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);box-shadow:none;font-family:Menlo,Monaco,Consolas,monospace;font-size:10px;font-weight:800;color:#f8fafc;pointer-events:none;}
+    .challenge-chip.left{left:8px;}
+    .challenge-chip.right{right:8px;}
+    .challenge-chip .challenge-icon{font-size:12px;line-height:1;}
+    .challenge-chip .challenge-value{letter-spacing:.2px;}
+    .challenge-chip.inactive{opacity:.62;color:#a1a1aa;}
+    .challenge-chip.done{border-color:rgba(52,211,153,.48);color:#6ee7b7;}
+
+    /* Admin-defined orange pace score: compact map counters only, no visible labels. */
+    .pace-score-box{
+      position:absolute;top:8px;right:8px;z-index:1004;
+      display:flex;align-items:center;gap:4px;pointer-events:none;
+      font-family:Menlo,Monaco,Consolas,monospace;
+    }
+    .pace-score-box.inactive{opacity:.38;}
+    .pace-minute{
+      min-width:32px;height:25px;padding:0 6px;
+      display:flex;align-items:center;justify-content:center;gap:3px;
+      border-radius:7px;color:#fff;font-size:10px;font-weight:900;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(20,20,25,.9);
+    }
+    .pace-minute svg{width:11px;height:11px;stroke-width:3;flex:0 0 11px;}
+    .pace-minute.up{background:rgba(22,163,74,.92);border-color:rgba(134,239,172,.42);}
+    .pace-minute.down{background:rgba(220,38,38,.94);border-color:rgba(252,165,165,.42);}
+    .admin-mode .pace-score-box{opacity:.35;}
+
+    /* One-minute micro challenge: 60s drain + 10 orange dots */
+    .minute-timer-track{height:4px;width:100%;background:rgba(255,255,255,.055);overflow:hidden;position:relative;flex-shrink:0;}
+    .minute-timer-fill{height:100%;width:100%;transform-origin:left center;background:#ef4444;transition:width 1s linear,opacity .2s ease,background-color .22s ease;}
+    .minute-timer-fill.star-state{background:#22c55e;}
+    .minute-timer-fill.diamond-state{background:#3b82f6;}
+    .minute-timer-fill.idle{opacity:.28;}
+    .minute-timer-fill.urgent{animation:minuteUrgent .7s ease-in-out infinite;}
+    .minute-timer-fill.no-transition{transition:none!important;}
+    @keyframes minuteUrgent{0%,100%{opacity:1;}50%{opacity:.55;}}
+
+    .minute-reward-bar{height:28px;margin:0;padding:0 6px;border-radius:0;display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.024);border:0;border-bottom:1px solid rgba(255,255,255,.065);overflow:hidden;flex-shrink:0;transition:background .22s ease,border-color .22s ease;}
+    .minute-meta{display:flex;align-items:center;gap:4px;flex:0 0 auto;white-space:nowrap;}
+    .minute-reward-label,.minute-seconds{font-family:Menlo,Monaco,Consolas,monospace;font-size:7px;font-weight:900;line-height:1;}
+    .minute-reward-label{color:#8b8b95;}
+    .minute-seconds{min-width:22px;text-align:right;color:#f87171;}
+    .minute-ladder{min-width:0;flex:1;display:flex;align-items:center;justify-content:center;gap:3px;}
+    .minute-reward-pairs{display:flex;align-items:center;gap:2px;flex:0 0 auto;}
+    .minute-pair{display:flex;align-items:center;gap:1px;padding-left:2px;border-left:1px solid rgba(255,255,255,.07);transition:opacity .18s ease,max-width .18s ease;}
+    .minute-pair.hidden{display:none;}
+    .minute-dot{width:9px;height:9px;flex:0 0 9px;border-radius:50%;border:1.4px solid rgba(249,115,22,.33);background:rgba(249,115,22,.055);transition:transform .16s cubic-bezier(.2,1.5,.3,1),background .18s ease,border-color .18s ease;}
+    .minute-dot.filled{background:#f97316;border-color:#fdba74;transform:scale(1.07);}
+    .minute-reward-icon{font-size:10px;line-height:1;filter:grayscale(1);opacity:.18;transform:scale(.86);transition:opacity .22s ease,filter .22s ease,transform .28s cubic-bezier(.2,1.6,.3,1);}
+    .minute-reward-icon.unlocked{filter:none;opacity:1;transform:scale(1.07);}
+    .minute-count{font-family:Menlo,Monaco,Consolas,monospace;font-size:7px;font-weight:900;color:#a1a1aa;white-space:nowrap;min-width:22px;text-align:right;}
+    .minute-reward-bar.star-hit{background:linear-gradient(90deg,rgba(22,163,74,.20),rgba(34,197,94,.08));border-bottom-color:rgba(74,222,128,.42);}
+    .minute-reward-bar.star-hit .minute-reward-label,.minute-reward-bar.star-hit .minute-count{color:#bbf7d0;}
+    .minute-reward-bar.star-hit .minute-seconds{color:#86efac;}
+    .minute-reward-bar.diamond-hit{background:linear-gradient(90deg,rgba(37,99,235,.22),rgba(59,130,246,.09));border-bottom-color:rgba(96,165,250,.48);}
+    .minute-reward-bar.diamond-hit .minute-reward-label,.minute-reward-bar.diamond-hit .minute-count{color:#dbeafe;}
+    .minute-reward-bar.diamond-hit .minute-seconds{color:#93c5fd;}
+    @media(max-width:360px){.minute-ladder{gap:2px}.minute-dot{width:8px;height:8px;flex-basis:8px}.minute-reward-bar{gap:3px;padding:0 4px}.minute-reward-label,.minute-seconds,.minute-count{font-size:6.5px}.minute-seconds{min-width:20px}.minute-count{min-width:20px}}
+
+    /* Stars live inside the dot-pattern bar above the buttons */
+    .click-pattern-bar{position:relative;}
+    .star-summary{height:22px;display:flex;align-items:center;gap:6px;flex-shrink:0;padding:0 6px 0 2px;border-radius:0;background:transparent;border:0;border-right:1px solid rgba(255,255,255,.07);font-family:Menlo,Monaco,Consolas,monospace;white-space:nowrap;}
+    .star-earned{font-size:9px;font-weight:900;color:#fde68a;}
+    .diamond-earned{font-size:9px;font-weight:900;color:#93c5fd;}
+    .dead-earned{font-size:9px;font-weight:900;color:#a1a1aa;}
+    .click-pattern-stream{display:flex;align-items:center;gap:5px;overflow-x:auto;min-width:0;flex:1;height:23px;}
+    .click-pattern-stream::-webkit-scrollbar{display:none;}
+
+    /* Reward animation: each 10-post round gives star at 5, upgraded to diamond at 10 */
+    .star-burst{position:absolute;left:50%;top:48%;z-index:1200;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(.45);display:flex;align-items:center;justify-content:center;gap:4px;font-weight:900;font-size:13px;color:#fff3a5;text-shadow:none;}
+    .star-burst .main-star{font-size:42px;line-height:1;filter:none;}
+    .star-burst .spark{position:absolute;font-size:13px;opacity:0;}
+    .star-burst.play{animation:starBurstMain .9s cubic-bezier(.16,1,.3,1) both;}
+    .star-burst.play .spark.s1{animation:starSpark1 .9s ease-out both;}
+    .star-burst.play .spark.s2{animation:starSpark2 .9s ease-out both;}
+    .star-burst.play .spark.s3{animation:starSpark3 .9s ease-out both;}
+    @keyframes starBurstMain{0%{opacity:0;transform:translate(-50%,-50%) scale(.35) rotate(-12deg);}25%{opacity:1;transform:translate(-50%,-50%) scale(1.12) rotate(4deg);}70%{opacity:1;transform:translate(-50%,-56%) scale(.96);}100%{opacity:0;transform:translate(-50%,-70%) scale(.82);}}
+    @keyframes starSpark1{0%,20%{opacity:0;transform:translate(0,0) scale(.2);}35%{opacity:1;}100%{opacity:0;transform:translate(-48px,-34px) scale(1);}}
+    @keyframes starSpark2{0%,20%{opacity:0;transform:translate(0,0) scale(.2);}35%{opacity:1;}100%{opacity:0;transform:translate(50px,-28px) scale(.9);}}
+    @keyframes starSpark3{0%,20%{opacity:0;transform:translate(0,0) scale(.2);}35%{opacity:1;}100%{opacity:0;transform:translate(4px,42px) scale(.85);}}
+
+    .ml-flag-marker{width:22px;height:34px;position:relative;pointer-events:none;}
+    .ml-flag-pole{position:absolute;left:3px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,rgba(255,255,255,0.95),rgba(255,255,255,0.4));border-radius:1px;}
+    .ml-flag-cloth{position:absolute;left:5px;top:2px;width:14px;height:10px;border-radius:2px;border:1px solid rgba(0,0,0,0.1);}
+    .ml-flag-cloth.red{background:linear-gradient(135deg,#ef4444,#b91c1c);}
+    .ml-flag-cloth.green{background:linear-gradient(135deg,#22c55e,#15803d);}
+    .ml-flag-cloth.blue{background:linear-gradient(135deg,#3b82f6,#1d4ed8);}
+    .ml-flag-cloth.orange{background:linear-gradient(135deg,#f97316,#c2410c);}
+    .ml-flag-dot{position:absolute;left:-1px;bottom:0;width:6px;height:6px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.85);}
+    .ml-flag-dot.red{background:#ef4444;}
+    .ml-flag-dot.green{background:#22c55e;}
+    .ml-flag-dot.blue{background:#3b82f6;}
+    .ml-flag-dot.orange{background:#f97316;}
+    .ml-pin-marker{width:24px;height:32px;position:relative;display:flex;justify-content:center;}
+    .ml-pin-head{width:24px;height:24px;background:linear-gradient(135deg,#c084fc,#7e22ce);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:1.5px solid rgba(255,255,255,0.9);}
+    .ml-pin-dot{position:absolute;top:8px;width:8px;height:8px;background:#ffffff;border-radius:50%;}
+    .ml-name-label{font-size:7px;font-weight:600;color:#f8fafc;background:rgba(15,23,42,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.15);border-radius:999px;padding:3px 6px;white-space:nowrap;letter-spacing:0.05em;text-transform:uppercase;pointer-events:none;}
+    .ml-seg-label{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;font-size:8px;font-weight:800;color:#000;font-family:Menlo,Monaco,Consolas,monospace;letter-spacing:.02em;white-space:nowrap;pointer-events:none;}
+    .ml-seg-label.start{background:#facc15;border:1px solid #eab308;}
+    .ml-seg-label.end{background:#60a5fa;border:1px solid #3b82f6;color:#0f172a;}
+    /* Selected-segment distance milestones — restored every 0.5 km. */
+    .ml-dist-marker{width:18px;height:18px;background:#7a5cff;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;pointer-events:none;}
+    .ml-dist-text{transform:rotate(45deg);font-family:Menlo,Monaco,Consolas,monospace;font-size:9px;font-weight:800;color:#fff;line-height:1;}
+    /* Segment start/end square markers — intentionally compact to reduce accidental taps. */
+    .ml-seg-sq{
+      width:26px;height:26px;
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;pointer-events:all;
+      background:transparent;border:0;
+    }
+    .ml-seg-sq::before{
+      content:"";
+      width:11px;height:11px;
+      border:1.5px solid rgba(255,255,255,0.95);
+      border-radius:3px;
+      box-shadow:none;
+      transition:transform .12s ease;
+    }
+    .ml-seg-sq.start-sq::before{background:#ef4444;}
+    .ml-seg-sq.end-sq::before{background:#22c55e;}
+    .ml-seg-sq:active::before{transform:scale(1.15);}
+
+    .icon-bar{display:flex;align-items:center;justify-content:space-evenly;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius-md);padding:6px;flex-shrink:0;gap:2px;}
+    .icon-btn{position:relative;background:transparent;border:0;color:#aab7ff;cursor:pointer;padding:6px 10px;display:flex;align-items:center;justify-content:center;transition:color 0.2s,transform 0.2s cubic-bezier(0.4,0,0.2,1);outline:none;border-radius:6px;}
+    .icon-btn:hover{color:#fff;background:rgba(255,255,255,0.05);}
+    .icon-btn:active{transform:scale(0.92);}
+    .icon-btn.uploading{color:#fcd34d;pointer-events:none;}
+    .icon-btn.uploading svg{animation:spin 1s linear infinite;}
+    .badge{position:absolute;top:0;right:0;background:#ef4444;color:#fff;font-size:9px;font-weight:800;padding:1px 4px;border-radius:999px;transform:translate(-10%,10%);display:none;}
+    .badge.show{display:block;}
+    .icon-bar-divider{width:1px;height:20px;background:rgba(255,255,255,.1);margin:0 2px;flex-shrink:0;}
+    .icon-bar-select-group{display:flex;align-items:center;gap:4px;padding:0 4px;}
+    .icon-bar-label{font-size:10px;font-weight:600;color:var(--muted);white-space:nowrap;}
+    .icon-bar-select{width:44px;height:28px;border-radius:7px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:var(--text);font-weight:700;font-size:12px;text-align:center;padding:0 4px;outline:none;}
+    .icon-bar-select option{background:#141419;color:#f2f2f7;}
+
+    .click-pattern-bar{display:flex;align-items:center;gap:5px;overflow:hidden;background:rgba(255,255,255,.018);border:0;border-bottom:1px solid rgba(255,255,255,.06);border-radius:0;padding:2px 5px;height:29px;margin:0;flex-shrink:0;}
+    .cp-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;flex-shrink:0;min-width:14px;animation:cp-slide-in 0.25s cubic-bezier(0.22,1,0.36,1) both;}
+    @keyframes cp-slide-in{from{opacity:0;transform:translateX(16px) scale(0.6);}to{opacity:1;transform:translateX(0) scale(1);}}
+    .cp-dot{width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);}
+    .cp-square{width:11px;height:11px;border-radius:3px;background:linear-gradient(135deg,#fb923c,#f97316);border:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;}
+    .cp-pause{background:#facc15;color:#451a03;font-size:8px;font-weight:800;padding:2px 4px;border-radius:4px;text-transform:uppercase;margin:0 4px;box-shadow:none;}
+    .cp-upload{background:#4f8cff;color:#fff;font-size:8px;font-weight:800;padding:3px 6px;border-radius:4px;text-transform:uppercase;margin:0 4px;box-shadow:none;}
+    .cp-trophy{background:#9333ea;color:#fff;font-size:14px;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;margin:0 4px;box-shadow:none;}
+
+    .controls{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;flex-shrink:0;}
+    .btn-ja,.btn-nee,.btn-post,.btn-bonus{appearance:none;cursor:pointer;border-radius:8px;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#ffffff;font-weight:600;font-size:7px;letter-spacing:0.5px;text-transform:uppercase;background:linear-gradient(180deg,rgba(255,255,255,0.15),rgba(255,255,255,0.05));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);transition:transform 0.1s cubic-bezier(0.4,0,0.2,1),filter 0.1s,border-color 0.1s;outline:none;box-shadow:none;}
+    .btn-content{display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;width:100%;}
+    .btn-count{font-size:11px;font-weight:900;background:rgba(0,0,0,0.3);padding:2px 8px;border-radius:6px;min-width:28px;text-align:center;border:1px solid rgba(255,255,255,0.1);}
+    .btn-ja:hover,.btn-nee:hover,.btn-post:hover,.btn-bonus:hover{border:1px solid rgba(255,255,255,0.3);}
+    .btn-ja:active,.btn-nee:active,.btn-post:active,.btn-bonus:active{transform:scale(0.85);filter:brightness(1.3) contrast(1.1);border-color:rgba(255,255,255,0.6);}
+    .btn-ja[disabled],.btn-nee[disabled],.btn-post[disabled],.btn-bonus[disabled]{opacity:0.4;cursor:not-allowed;transform:none;filter:none;}
+    .btn-post{background:linear-gradient(135deg,#fb923c,#f97316);position:relative;}
+    .btn-post::after{content:"";position:absolute;inset:-2px;border-radius:10px;border:2px solid rgba(249,115,22,.5);animation:pulse 1.4s ease-in-out infinite;pointer-events:none;}
+    .btn-nee{background:linear-gradient(135deg,#dc2626,#ef4444);}
+    .btn-ja{background:linear-gradient(135deg,#16a34a,#22c55e);}
+    .btn-bonus{background:linear-gradient(135deg,#1f84f7,#3b82f6);}
+    @keyframes pulse{0%{opacity:.9;transform:scale(1);}50%{opacity:.25;transform:scale(1.05);}100%{opacity:.9;transform:scale(1);}}
+
+    .stats-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);padding:10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;margin-top:2px;}
+    .stat-box{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;}
+    .stat-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;text-align:center;}
+    .stat-value{font-size:14px;font-weight:800;color:#f2f2f7;font-family:Menlo,Monaco,Consolas,monospace;}
+    .stat-value.earned{color:#fcd34d;}
+    .stat-value.total{color:#10b981;}
+    .stat-value.dots{color:#4f8cff;}
+    .stat-value.conns{color:#f97316;}
+    .stat-divider{width:1px;height:28px;background:rgba(255,255,255,.1);}
+
+    .campaign-progress{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius-md);padding:12px;display:flex;flex-direction:column;gap:8px;flex-shrink:0;margin-bottom:20px;margin-top:4px;}
+    .camp-header{display:flex;justify-content:space-between;font-size:12px;font-weight:600;align-items:center;}
+    .camp-title{color:#f2f2f7;display:flex;align-items:center;gap:6px;}
+    .camp-percent{color:#34d399;font-weight:700;font-family:Menlo,monospace;}
+    .prog-bar-container{width:100%;height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;}
+    .prog-bar{height:100%;background:linear-gradient(90deg,#10b981,#34d399);transition:width 0.3s ease;width:0%;}
+    .camp-footer{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);}
+    .cpc-info{background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);border-radius:8px;padding:10px 12px;margin-top:6px;font-size:10px;color:#d5d7ff;line-height:1.5;}
+
+    .toast{position:fixed;z-index:9999;left:50%;bottom:22px;transform:translateX(-50%);background:#1a1a22;border:1px solid rgba(255,255,255,.1);padding:8px 15px;border-radius:10px;color:var(--text);font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;box-shadow:none;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+    .modal-backdrop,.worker-backdrop,.chat-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9998;}
+    .modal-backdrop.show,.worker-backdrop.show,.chat-backdrop.show{display:flex;}
+    .modal,.worker-modal,.chat-modal{width:min(90vw,380px);background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px;display:flex;flex-direction:column;box-shadow:none;}
+    .chat-modal{height:45vh;max-height:400px;padding:12px;border-radius:12px;}
+    .chat-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:8px;margin-bottom:8px;}
+    .chat-header h2{font-size:13px;margin:0;}
+    .close-btn{background:transparent;border:0;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;outline:none;}
+    .chat-messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;}
+    .chat-messages::-webkit-scrollbar{width:4px;}
+    .chat-messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:4px;}
+    .chat-msg{background:rgba(255,255,255,.05);padding:5px 8px;border-radius:8px;font-size:10px;color:#e5e7ff;line-height:1.3;max-width:85%;align-self:flex-start;}
+    .chat-msg.mine{background:rgba(79,140,255,.2);align-self:flex-end;border-bottom-right-radius:2px;}
+    .chat-msg-meta{font-size:7px;color:var(--muted);margin-bottom:2px;font-weight:600;}
+    .chat-input-area{display:flex;gap:6px;margin-top:8px;}
+    .input-row{display:flex;gap:8px;}
+    .input{flex:1;height:44px;border-radius:10px;padding:0 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);font-weight:700;letter-spacing:.4px;font-size:14px;outline:none;transition:transform 0.2s cubic-bezier(0.4,0,0.2,1);}
+    .input:focus{border-color:rgba(255,255,255,.12);transform:scale(1.02);}
+    .chat-input{height:36px;font-size:11px;font-weight:500;border-radius:8px;}
+    .btn-modal{height:44px;border-radius:10px;border:0;cursor:pointer;padding:0 16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));outline:none;transition:transform 0.2s;}
+    .btn-modal:active{transform:scale(0.95);}
+    .btn-chat-send{height:36px;padding:0 12px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:0;color:#fff;cursor:pointer;font-weight:700;font-size:10px;outline:none;transition:transform 0.2s;}
+    .btn-chat-send:active{transform:scale(0.95);}
+    .btn-modal:disabled,.btn-chat-send:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+    .error{color:#ff8a8a;font-size:11px;min-height:14px;padding-top:5px;}
+
+    @media(max-width:600px){
+      .controls{gap:4px;}
+      #map{height:200px;}
+    }
+
+
+    /* Unified compact visual pass — flat, edge-to-edge, shadow-free */
+    .app-inner{gap:0;padding:0;}
+    header,.session-strip,.stats-card,.campaign-progress,.icon-bar{margin:0!important;border-radius:0!important;border-left:0!important;border-right:0!important;box-shadow:none!important;}
+    header{padding:4px 6px;border-top:0;}
+    .session-strip{padding:3px 6px;border-top:0;}
+    .stats-card{padding:7px 6px;border-top:0;}
+    .campaign-progress{padding:8px 6px;gap:6px;margin:0!important;border-top:0;border-bottom:1px solid rgba(255,255,255,.07);}
+    .cpc-info{margin-top:0;border-radius:6px;padding:7px 8px;box-shadow:none!important;}
+    .icon-bar{padding:4px 6px;border-top:0;}
+    .controls{padding:3px 4px 0!important;gap:3px;}
+    .btn-ja,.btn-nee,.btn-post,.btn-bonus{border-radius:7px;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none!important;}
+    .btn-post::after{display:none;}
+    .challenge-chip{border-radius:6px;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none!important;}
+    .maplibregl-popup-content,.maplibregl-ctrl-group{box-shadow:none!important;}
+    .modal,.worker-modal,.chat-modal,#shiftDashModal{box-shadow:none!important;}
+    #shiftDashModal{border-radius:12px 12px 0 0!important;padding:12px!important;max-height:88vh!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch;}
+    .toast,.map-notif,.star-burst{box-shadow:none!important;text-shadow:none!important;}
+    .click-pattern-bar{height:28px;padding:2px 4px;gap:4px;}
+    .click-pattern-stream{height:22px;gap:4px;}
+    .cp-pause,.cp-upload,.cp-trophy{box-shadow:none!important;}
+
+
+    #shiftDashModal>div{margin-bottom:6px!important;}
+    #shiftDashModal [style*="padding:10px"]{padding:7px!important;}
+    #shiftDashModal [style*="padding:12px"]{padding:8px!important;}
+    #shiftDashModal [style*="border-radius:10px"],#shiftDashModal [style*="border-radius:12px"]{border-radius:6px!important;}
+    .modal,.worker-modal{padding:14px;border-radius:10px;}
+    .input{height:40px;border-radius:7px;}
+    .btn-modal{height:40px;border-radius:7px;}
+
+
+    /* Final unified polish */
+    .shift-picker-btn{appearance:none;cursor:pointer;display:flex;align-items:center;justify-content:center;min-width:44px;color:#c4b5fd!important;}
+    .cp-star,.cp-diamond{width:15px;height:15px;border-radius:5px;display:grid;place-items:center;font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.12);}
+    .cp-star{background:rgba(250,204,21,.14);color:#fde68a;border-color:rgba(250,204,21,.28);}
+    .cp-diamond{background:rgba(59,130,246,.16);color:#bfdbfe;border-color:rgba(96,165,250,.3);}
+    .sheet-backdrop{align-items:flex-end!important;padding:0!important;background:rgba(0,0,0,.72)!important;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);}
+    .bottom-sheet{width:100%;max-width:480px;max-height:88vh;overflow-y:auto;background:#0d0d12;border:1px solid rgba(255,255,255,.08);border-bottom:0;border-radius:14px 14px 0 0;padding:10px 10px calc(10px + env(safe-area-inset-bottom,0px));box-shadow:none!important;}
+    .sheet-handle{width:34px;height:3px;border-radius:99px;background:rgba(255,255,255,.18);margin:0 auto 8px;}
+    .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 1px 9px;border-bottom:1px solid rgba(255,255,255,.07);}
+    .sheet-kicker{font-size:8px;font-weight:900;letter-spacing:1.1px;color:#7c83a1;text-transform:uppercase;}
+    .sheet-title{font-size:16px;font-weight:900;color:#f7f7fb;letter-spacing:-.2px;margin-top:1px;}
+    .sheet-close{width:30px;height:30px;border:1px solid rgba(255,255,255,.09);border-radius:7px;background:rgba(255,255,255,.04);color:#a9adc4;font-size:19px;line-height:1;cursor:pointer;box-shadow:none;}
+    .shift-picker-sheet{overflow:hidden!important;display:flex;flex-direction:column;}
+    .shift-picker-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 1px;border-bottom:1px solid rgba(255,255,255,.065);flex-shrink:0;}
+    .shift-picker-tools span{font-size:8px;font-weight:850;letter-spacing:.55px;text-transform:uppercase;color:#73788d;}
+    .shift-sort-select{height:30px;min-width:128px;border:1px solid rgba(255,255,255,.08);border-radius:6px;background:#141419;color:#d8daea;padding:0 7px;font-size:9px;font-weight:750;outline:none;}
+    .shift-picker-list{display:flex;flex-direction:column;gap:0;margin-top:0;max-height:min(62vh,520px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent;}
+    .shift-picker-list::-webkit-scrollbar{width:4px}.shift-picker-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:99px;}
+    .shift-picker-row{width:100%;display:grid;grid-template-columns:32px 1fr auto 14px;align-items:center;gap:8px;padding:9px 2px;border:0;border-bottom:1px solid rgba(255,255,255,.065);background:transparent;color:#f3f4f6;text-align:left;cursor:pointer;flex-shrink:0;}
+    .shift-picker-row:last-child{border-bottom:0;}
+    .shift-picker-row.selected{background:rgba(79,140,255,.055);}
+    .shift-picker-index{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;background:rgba(122,92,255,.11);border:1px solid rgba(122,92,255,.18);font:800 9px Menlo,monospace;color:#c4b5fd;}
+    .shift-picker-main{min-width:0;}
+    .shift-picker-name{font-size:11px;font-weight:800;color:#f5f5f8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .shift-picker-date{font-size:8px;color:#7e8399;margin-top:2px;font-family:Menlo,monospace;}
+    .shift-picker-orange{display:inline-flex;align-items:center;gap:4px;min-width:48px;justify-content:flex-end;font:850 9px Menlo,monospace;color:#fdba74;white-space:nowrap;}
+    .shift-picker-orange i{width:7px;height:7px;border-radius:2px;background:#f97316;display:block;}
+    .shift-picker-arrow{font-size:13px;color:#686d82;padding-right:2px;}
+    .sheet-head-actions{display:flex;align-items:center;gap:5px;}
+    .sheet-back-btn{height:30px;padding:0 9px;border:1px solid rgba(255,255,255,.09);border-radius:7px;background:rgba(255,255,255,.04);color:#c6c9d8;font-size:9px;font-weight:850;cursor:pointer;}
+    .shift-picker-empty{padding:20px 4px;text-align:center;color:#777c90;font-size:11px;}
+
+    .summary-meta-row,.summary-value-row{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid rgba(255,255,255,.065);}
+    .summary-meta-cell,.summary-value-row>div{padding:9px 2px;display:flex;flex-direction:column;gap:2px;}
+    .summary-meta-cell+ .summary-meta-cell,.summary-value-row>div+div{border-left:1px solid rgba(255,255,255,.065);padding-left:10px;}
+    .summary-meta-cell span,.summary-value-row span{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.55px;color:#6f7489;}
+    .summary-meta-cell strong,.summary-value-row strong{font:900 12px Menlo,monospace;color:#e7e8ee;}
+    .summary-section-label{font-size:8px;font-weight:900;letter-spacing:.8px;text-transform:uppercase;color:#676c80;padding:9px 1px 5px;}
+    .summary-dot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+    .summary-dot-card{min-width:0;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025);border-radius:7px;padding:7px 5px;display:grid;grid-template-columns:8px 1fr;grid-template-rows:auto auto auto;column-gap:5px;align-items:center;}
+    .summary-dot-card i{width:7px;height:7px;border-radius:50%;grid-row:1;grid-column:1;}
+    .summary-dot-card span{grid-row:1;grid-column:2;font-size:7px;font-weight:800;color:#8b8fa0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .summary-dot-card strong{grid-row:2;grid-column:1/3;font:900 17px Menlo,monospace;margin-top:3px;}
+    .summary-dot-card small{grid-row:3;grid-column:1/3;font-size:6.5px;color:#7298d8;min-height:8px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .summary-dot-card.green i{background:#22c55e}.summary-dot-card.green strong{color:#86efac}
+    .summary-dot-card.red i{background:#ef4444}.summary-dot-card.red strong{color:#fca5a5}
+    .summary-dot-card.blue i{background:#3b82f6}.summary-dot-card.blue strong{color:#93c5fd}
+    .summary-dot-card.orange i{background:#f97316;border-radius:2px}.summary-dot-card.orange strong{color:#fdba74}
+    .summary-reward-row{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+    .summary-reward{height:48px;border-radius:7px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025);display:grid;grid-template-columns:auto auto;grid-template-rows:1fr auto;align-items:center;justify-content:center;column-gap:5px;}
+    .summary-reward span{font-size:14px;grid-row:1;grid-column:1;}
+    .summary-reward strong{font:900 17px Menlo,monospace;grid-row:1;grid-column:2;}
+    .summary-reward small{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;grid-row:2;grid-column:1/3;text-align:center;padding-bottom:5px;color:#757a8d;}
+    .summary-reward.star{border-color:rgba(250,204,21,.15)}.summary-reward.star strong{color:#fde68a}
+    .summary-reward.diamond{border-color:rgba(59,130,246,.17)}.summary-reward.diamond strong{color:#93c5fd}
+    .summary-reward.dead strong{color:#b4b4bd}
+    .summary-value-row{margin-top:0;border-top:1px solid rgba(255,255,255,.065);}
+    .summary-value-row strong{font-size:14px;}
+    #sdEarned{color:#fde68a}.summary-value-row #sdCPC{color:#fdba74}
+
+    .compact-sheet-card{gap:0!important;}
+    .modal-kicker{font-size:8px;font-weight:900;letter-spacing:1px;color:#73788c;text-transform:uppercase;margin-bottom:2px;}
+    .compact-sheet-card h2{font-size:16px;margin-bottom:4px;}
+    .modal-helper{font-size:10px;color:#777c90;margin-bottom:9px;line-height:1.35;}
+    .admin-pin-wrap{display:none;margin-top:8px;}
+    .admin-pin-wrap.show{display:block;}
+    .admin-pin-wrap label,.admin-field-label{display:block;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#73788d;margin-bottom:4px;}
+    .admin-pin-wrap .input{width:100%;}
+    .admin-campaign-chip{height:34px;margin-top:8px;padding:0 8px;border:1px solid rgba(255,255,255,.07);border-radius:7px;background:rgba(255,255,255,.025);display:flex;align-items:center;justify-content:space-between;}
+    .admin-campaign-chip span{font-size:8px;font-weight:800;color:#70758a;text-transform:uppercase;letter-spacing:.5px;}
+    .admin-campaign-chip strong{font:900 11px Menlo,monospace;color:#c4b5fd;}
+    .admin-section{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.065);}
+    .admin-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+    .admin-section-head span{font-size:11px;font-weight:850;color:#e8e8ee;}
+    .admin-section-head strong{font:800 9px Menlo,monospace;color:#8d93aa;}
+    .admin-action-row{display:grid;grid-template-columns:1fr 74px;gap:5px;}
+    .admin-number-input{width:100%;min-width:0;height:38px!important;}
+    .admin-action-btn{height:38px!important;padding:0 8px!important;background:#3b63d8!important;}
+    .admin-note{font-size:8px;line-height:1.35;color:#6f7487;margin-top:5px;}
+    .admin-exit-btn{width:100%;height:36px;margin-top:9px;border-radius:7px;border:1px solid rgba(239,68,68,.18);background:rgba(239,68,68,.07);color:#fca5a5;font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.4px;cursor:pointer;}
+    .admin-mode .btn-ja,.admin-mode .btn-nee,.admin-mode .btn-post,.admin-mode .btn-bonus{opacity:.22!important;filter:grayscale(.45)!important;}
+    .admin-mode #btnStartWorker{background:#4c1d95;color:#e9d5ff;}
+    .admin-mode #minuteRewardBar,.admin-mode #minuteTimerTrack{opacity:.32;}
+    .admin-mode .challenge-chip{opacity:.35;}
+
+    /* Make the remainder of the app visually continuous and flat. */
+    .app,.app-inner{gap:0!important;}
+    header,.session-strip,.stats-card,.campaign-progress,.icon-bar,.minute-reward-bar,.click-pattern-bar{border-radius:0!important;box-shadow:none!important;}
+    .stats-card,.campaign-progress{margin:0!important;}
+    .stats-card+.stats-card{border-top:0!important;}
+    .campaign-progress{border-top:0!important;border-left:0!important;border-right:0!important;}
+    .session-strip{border-top:0!important;}
+    .icon-bar{border-top:0!important;}
+    .controls{margin:0!important;}
+    .modal,.worker-modal,.chat-modal,.bottom-sheet{box-shadow:none!important;}
+
+  </style>
+</head>
+<body>
+<div id="loaderOverlay" class="loader-overlay">
+  <div class="spinner"></div>
+  <div class="loader-text">Loading data...</div>
+</div>
+
+<div class="app">
+  <div id="shiftCoach" class="shift-coach" role="status" aria-live="polite">
+    <div id="coachIcon" class="coach-icon">🎯</div>
+    <div class="coach-copy">
+      <div id="coachTitle" class="coach-title">Ready for 1,000</div>
+      <div id="coachDetail" class="coach-detail">Your first orange post starts the 3-hour challenge.</div>
+    </div>
+    <div id="coachSide" class="coach-side">1K · 3H</div>
+    <div id="coachProgress" class="coach-progress"></div>
+  </div>
+
+  <div class="map-card">
+    <div id="map" role="application" aria-label="Map showing posted dots"></div>
+    <div id="mapNotifContainer" class="map-notif-container"></div>
+
+    <div id="paceScoreBox" class="pace-score-box inactive" aria-label="Orange pace score">
+      <div class="pace-minute up" aria-label="Minutes gained">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 19V5"></path><path d="m6 11 6-6 6 6"></path>
+        </svg>
+        <b id="paceGreenMinutes">0</b>
+      </div>
+      <div class="pace-minute down" aria-label="Minutes wasted">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 5v14"></path><path d="m18 13-6 6-6-6"></path>
+        </svg>
+        <b id="paceRedMinutes">0</b>
+      </div>
+    </div>
+
+    <div id="challengeDotsChip" class="challenge-chip left inactive" aria-label="Orange posts remaining">
+      <span class="challenge-icon">📮</span>
+      <span id="challengeDotsRemaining" class="challenge-value">1,000</span>
+    </div>
+    <div id="challengeTimeChip" class="challenge-chip right inactive" aria-label="Challenge time remaining">
+      <span class="challenge-icon">⏱</span>
+      <span id="challengeTimeRemaining" class="challenge-value">03:00:00</span>
+    </div>
+
+    <div id="starBurst" class="star-burst" aria-hidden="true">
+      <span class="spark s1">✦</span><span class="spark s2">◆</span><span class="spark s3">✦</span>
+      <span id="rewardBurstIcon" class="main-star">⭐</span><span id="rewardBurstLabel">+1</span>
+    </div>
+  </div>
+
+  <div id="minuteTimerTrack" class="minute-timer-track" aria-label="Current minute time remaining">
+    <div id="minuteTimerFill" class="minute-timer-fill idle"></div>
+  </div>
+
+  <div id="minuteRewardBar" class="minute-reward-bar" aria-label="Current minute reward progress">
+    <div class="minute-meta">
+      <span id="minuteRewardLabel" class="minute-reward-label">MIN —</span>
+      <span id="minuteSeconds" class="minute-seconds">60s</span>
+    </div>
+    <div class="minute-ladder">
+      <span class="minute-dot" data-minute-dot="1"></span>
+      <span class="minute-dot" data-minute-dot="2"></span>
+      <span class="minute-dot" data-minute-dot="3"></span>
+      <span class="minute-dot" data-minute-dot="4"></span>
+      <span class="minute-dot" data-minute-dot="5"></span>
+      <span class="minute-dot" data-minute-dot="6"></span>
+      <span class="minute-dot" data-minute-dot="7"></span>
+      <span class="minute-dot" data-minute-dot="8"></span>
+      <span class="minute-dot" data-minute-dot="9"></span>
+      <span class="minute-dot" data-minute-dot="10"></span>
+    </div>
+    <div id="minuteRewardPairs" class="minute-reward-pairs" aria-label="Reward rounds">
+      <span class="minute-pair" data-reward-round="0"><span class="minute-reward-icon star" data-reward-star="0">⭐</span><span class="minute-reward-icon diamond" data-reward-diamond="0">💎</span></span>
+      <span class="minute-pair hidden" data-reward-round="1"><span class="minute-reward-icon star" data-reward-star="1">⭐</span><span class="minute-reward-icon diamond" data-reward-diamond="1">💎</span></span>
+      <span class="minute-pair hidden" data-reward-round="2"><span class="minute-reward-icon star" data-reward-star="2">⭐</span><span class="minute-reward-icon diamond" data-reward-diamond="2">💎</span></span>
+    </div>
+    <div id="minuteRewardCount" class="minute-count">0/10</div>
+  </div>
+
+  <div id="clickPatternBar" class="click-pattern-bar">
+    <div id="starSummary" class="star-summary" title="Each 10-post round: 5–9 = ⭐, 10 = 💎 upgrade · max 3 rounds/min · ☠ = completed minute below 5">
+      <span id="starEarned" class="star-earned">⭐ 0</span>
+      <span id="diamondEarned" class="diamond-earned">💎 0</span>
+      <span id="deadEarned" class="dead-earned">☠ 0</span>
+    </div>
+    <div id="clickPatternStream" class="click-pattern-stream"></div>
+  </div>
+
+  <div class="controls" style="padding:4px 4px 0;">
+    <button id="btnPost" class="btn-post" title="Post action">
+      <div class="btn-content">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <div class="btn-count" id="countPost">0</div>
+      </div>
+    </button>
+    <button id="btnJa" class="btn-ja" disabled>
+      <div class="btn-content">Yes <div class="btn-count" id="countRight">0</div></div>
+    </button>
+    <button id="btnNee" class="btn-nee" disabled>
+      <div class="btn-content">No <div class="btn-count" id="countLeft">0</div></div>
+    </button>
+    <button id="btnBonus" class="btn-bonus" disabled>
+      <div class="btn-content">Bonus <div class="btn-count" id="countBonus">0</div></div>
+    </button>
+  </div>
+
+  <div class="icon-bar">
+    <button id="btnLocate" class="icon-btn" title="Locate me">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"></circle><line x1="12" y1="1" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="23"></line><line x1="1" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="23" y2="12"></line></svg>
+    </button>
+    <button id="chatBtn" class="icon-btn" title="Chat">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      <span id="chatBadge" class="badge">0</span>
+    </button>
+    <button id="cameraBtn" class="icon-btn" title="Upload Proof">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+    </button>
+    <!-- Hidden file input: on mobile the OS chooser offers Camera OR Gallery -->
+    <input type="file" id="proofFileInput" accept="image/*" style="display:none">
+    <div class="icon-bar-divider"></div>
+    <div class="icon-bar-select-group">
+      <span class="icon-bar-label">S</span>
+      <select id="segSelect" class="icon-bar-select"><option value="" disabled selected>—</option></select>
+    </div>
+    <div class="icon-bar-divider"></div>
+    <div class="icon-bar-select-group">
+      <span class="icon-bar-label">S</span>
+      <button id="shiftSelect" class="icon-bar-select shift-picker-btn" type="button" title="View shifts">—</button>
+    </div>
+  </div>
+
+  <button id="btnLatestDot" style="display:none;"></button>
+
+  <div class="app-inner">
+    <header>
+      <button id="btnDotNav" class="logo" aria-label="Navigate to last dot" style="cursor:pointer;border:0;outline:none;transition:box-shadow 0.2s,transform 0.15s;position:relative;">
+        <svg id="dotNavIcon" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" fill="white" fill-opacity=".9"/><circle cx="12" cy="12" r="3.5" fill="#4f8cff"/></svg>
+        <span id="dotNavPulse" style="position:absolute;inset:-3px;border-radius:9px;border:2px solid rgba(79,140,255,0);pointer-events:none;transition:border-color 0.3s;"></span>
+      </button>
+      <button id="btnStartWorker" class="btn-start-worker">Start</button>
+      <div class="header-title"></div>
+      <div id="userPill" class="user-pill">
+        <span id="userPillText"></span>
+        <button id="changeUserBtn">Change</button>
+      </div>
+    </header>
+
+    <div class="session-strip">
+      <div id="sessionTimer" class="session-timer inactive">00:00:00</div>
+      <div class="session-meta">
+        <span><b id="sessionAvg">—</b> avg/min</span>
+        <span><b id="sessionTotal">0</b> today</span>
+        <span><b id="earnPerHour">€0.00</b> /hr</span>
+      </div>
+    </div>
+
+    <div class="stats-card">
+      <div class="stat-box"><div class="stat-label">Today's Dots</div><div class="stat-value dots" id="todayWorkerDots">0</div></div>
+      <div class="stat-divider"></div>
+      <div class="stat-box"><div class="stat-label">Today's Earned</div><div class="stat-value earned" id="todayWorkerEarnings">€0.00</div></div>
+      <div class="stat-divider"></div>
+      <div class="stat-box"><div class="stat-label">Total Earned</div><div class="stat-value total" id="totalWorkerEarnings">€0.00</div></div>
+    </div>
+
+    <div class="stats-card">
+      <div class="stat-box"><div class="stat-label">Today's Conns</div><div class="stat-value conns" id="todayWorkerConns">0</div></div>
+      <div class="stat-divider"></div>
+      <div class="stat-box"><div class="stat-label">Total Conns</div><div class="stat-value conns" id="totalWorkerConns">0</div></div>
+      <div class="stat-divider"></div>
+      <div class="stat-box"><div class="stat-label">CPC</div><div class="stat-value total" id="cpcValue">€0.00</div></div>
+    </div>
+
+    <div class="campaign-progress">
+      <div class="camp-header">
+        <span class="camp-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+          Campaign Dots
+        </span>
+        <span class="camp-percent" id="campPercent" style="display:flex;align-items:center;gap:5px;"></span>
+      </div>
+      <div class="prog-bar-container"><div class="prog-bar" id="campBar"></div></div>
+      <div class="camp-footer">
+        <span>Target: <b id="campDotsFraction" style="color:#34d399;font-family:Menlo,monospace;">0 / —</b></span>
+        <span id="campRem">100% Remaining</span>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0 6px;"></div>
+      <div class="camp-header">
+        <span class="camp-title" style="color:#f97316;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          Total Connections
+        </span>
+        <span class="camp-percent" id="connCount" style="color:#f97316;font-size:15px;">0</span>
+      </div>
+      <div class="cpc-info">
+        <strong style="color:#fcd34d;">💡 Boost your rank!</strong>
+        A lower CPC (Cost Per Connection) indicates high efficiency and top-tier job quality. Making more connections lowers your CPC, significantly increasing your chances for <strong style="color:#fff;">more shifts and future promotions!</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- Modals -->
+<div id="loginBackdrop" class="modal-backdrop" aria-modal="true" role="dialog">
+  <div class="modal">
+    <h2>Enter User ID</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">3–10 letters/numbers, e.g. FF001.</p>
+    <div class="input-row">
+      <input id="userIdInput" class="input" type="text" placeholder="e.g. FF993" autocomplete="off" autocapitalize="characters" maxlength="12" inputmode="text">
+      <button id="userJoinBtn" class="btn-modal">Join</button>
+    </div>
+    <div id="loginError" class="error"></div>
+  </div>
+</div>
+
+<div id="workerBackdrop" class="worker-backdrop" aria-modal="true" role="dialog">
+  <div class="worker-modal compact-sheet-card">
+    <div class="modal-kicker">START SESSION</div>
+    <h2 id="workerModalTitle">Worker</h2>
+    <p class="modal-helper">Enter first name + job number, e.g. Tom1. Enter <b>admin</b> for campaign controls.</p>
+    <div class="input-row">
+      <input id="workerNameInput" class="input" type="text" placeholder="e.g. Tom1" maxlength="24" autocomplete="off">
+      <button id="workerSaveBtn" class="btn-modal">Start</button>
+    </div>
+    <div id="adminPinWrap" class="admin-pin-wrap">
+      <label for="adminPinInput">Admin PIN</label>
+      <input id="adminPinInput" class="input" type="password" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" autocomplete="off">
+    </div>
+    <div id="workerError" class="error"></div>
+  </div>
+</div>
+
+<div id="chatBackdrop" class="chat-backdrop" aria-modal="true" role="dialog">
+  <div class="chat-modal">
+    <div class="chat-header">
+      <h2>Team Chat (Today)</h2>
+      <button id="closeChatBtn" class="close-btn">&times;</button>
+    </div>
+    <div class="chat-messages" id="chatMessages"><div style="text-align:center;color:var(--muted);font-size:10px;margin-top:10px;">No messages yet today.</div></div>
+    <div class="chat-input-area">
+      <input id="chatInput" class="input chat-input" type="text" placeholder="Type a message..." autocomplete="off">
+      <button id="chatSendBtn" class="btn-chat-send">Send</button>
+    </div>
+  </div>
+</div>
+
+<div id="shiftPickerBackdrop" class="modal-backdrop sheet-backdrop" aria-modal="true" role="dialog">
+  <div class="bottom-sheet shift-picker-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div>
+        <div class="sheet-kicker">SHIFT HISTORY</div>
+        <div class="sheet-title">Choose a shift</div>
+      </div>
+      <button id="closeShiftPicker" class="sheet-close" type="button">&times;</button>
+    </div>
+    <div class="shift-picker-tools">
+      <span>Sort shifts</span>
+      <select id="shiftSortSelect" class="shift-sort-select" aria-label="Sort shifts">
+        <option value="newest">Newest</option>
+        <option value="orangeDesc">Most orange</option>
+        <option value="orangeAsc">Least orange</option>
+      </select>
+    </div>
+    <div id="shiftPickerList" class="shift-picker-list"></div>
+  </div>
+</div>
+
+<div id="adminBackdrop" class="modal-backdrop sheet-backdrop" aria-modal="true" role="dialog">
+  <div class="bottom-sheet admin-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div>
+        <div class="sheet-kicker">ADMIN MODE</div>
+        <div class="sheet-title">Campaign controls</div>
+      </div>
+      <button id="closeAdminPanel" class="sheet-close" type="button">&times;</button>
+    </div>
+
+    <div class="admin-campaign-chip"><span>Campaign ID</span><strong id="adminCampaignId">—</strong></div>
+
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <span>Campaign dot target</span>
+        <strong id="adminCurrentTarget">Not set</strong>
+      </div>
+      <div class="admin-action-row">
+        <input id="adminTargetInput" class="input admin-number-input" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 10000">
+        <button id="adminSaveTarget" class="btn-modal admin-action-btn" type="button">Save</button>
+      </div>
+      <div class="admin-note">This replaces the fixed campaign target and is saved for this campaign ID.</div>
+    </div>
+
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <span>Orange dots per minute</span>
+        <strong id="adminCurrentOrangePerMinute">Not set</strong>
+      </div>
+      <div class="admin-action-row">
+        <input id="adminOrangePerMinuteInput" class="input admin-number-input" type="number" min="1" max="1000" step="1" inputmode="numeric" placeholder="e.g. 10">
+        <button id="adminSaveOrangePerMinute" class="btn-modal admin-action-btn" type="button">Save</button>
+      </div>
+      <div class="admin-note">Completed minutes below this target become red minutes. Extra full target-minutes completed inside one minute become green minutes.</div>
+    </div>
+
+    <button id="adminExitBtn" class="admin-exit-btn" type="button">Exit admin mode</button>
+  </div>
+</div>
+
+<div id="shiftDashBackdrop" class="modal-backdrop sheet-backdrop" aria-modal="true" role="dialog">
+  <div id="shiftDashModal" class="bottom-sheet shift-summary-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head summary-head">
+      <div>
+        <div class="sheet-kicker">SHIFT SUMMARY</div>
+        <div id="sdShiftName" class="sheet-title">—</div>
+      </div>
+      <div class="sheet-head-actions">
+        <button id="backToShiftPicker" class="sheet-back-btn" type="button">← Back</button>
+        <button id="closeShiftDash" class="sheet-close" type="button">&times;</button>
+      </div>
+    </div>
+
+    <div class="summary-meta-row">
+      <div class="summary-meta-cell"><span>Date</span><strong id="sdDate">—</strong></div>
+      <div class="summary-meta-cell"><span>Time worked</span><strong id="sdTimeWorked">00h 00m</strong></div>
+    </div>
+
+    <div class="summary-section-label">Dots</div>
+    <div class="summary-dot-grid">
+      <div class="summary-dot-card green"><i></i><span>Yes</span><strong id="sdGreen">0</strong></div>
+      <div class="summary-dot-card red"><i></i><span>No</span><strong id="sdRed">0</strong></div>
+      <div class="summary-dot-card blue"><i></i><span>Bonus</span><strong id="sdBlue">0</strong><small id="sdBlueBonusNote"></small></div>
+      <div class="summary-dot-card orange"><i></i><span>Posts</span><strong id="sdOrange">0</strong></div>
+    </div>
+
+    <div class="summary-section-label">Minute rewards</div>
+    <div class="summary-reward-row">
+      <div class="summary-reward star"><span>⭐</span><strong id="sdPaceStars">0</strong><small>Stars</small></div>
+      <div class="summary-reward diamond"><span>💎</span><strong id="sdPaceDiamonds">0</strong><small>Diamonds</small></div>
+      <div class="summary-reward dead"><span>☠</span><strong id="sdDead">0</strong><small>Missed</small></div>
+    </div>
+
+    <div class="summary-section-label">Value</div>
+    <div class="summary-value-row">
+      <div><span>Earned</span><strong id="sdEarned">€0.00</strong></div>
+      <div><span>CPC</span><strong id="sdCPC">—</strong></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, push, query, orderByChild, onValue, set, update, get, off, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuBB-Cha7eLG1O7SxOTfFt8e6hVAWjkxI",
+    authDomain: "tokentransfer-4a9b3.firebaseapp.com",
+    databaseURL: "https://tokentransfer-4a9b3-default-rtdb.firebaseio.com",
+    projectId: "tokentransfer-4a9b3",
+    storageBucket: "tokentransfer-4a9b3.firebasestorage.app",
+    messagingSenderId: "205455490321",
+    appId: "1:205455490321:web:9919f5dde059316c9320b0"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const proofFirebaseConfig = {
+    apiKey: "AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
+    authDomain: "trackingclients.firebaseapp.com",
+    projectId: "trackingclients",
+    storageBucket: "trackingclients.appspot.com",
+    messagingSenderId: "27490943622",
+    appId: "1:27490943622:web:d6c87547aa5df440508707",
+    databaseURL: "https://trackingclients-default-rtdb.firebaseio.com/"
+  };
+  const proofApp = initializeApp(proofFirebaseConfig, "proofApp");
+  const proofDb = getDatabase(proofApp);
+
+  const polyAppConfig = {
+    apiKey: "AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM",
+    authDomain: "leuvenflyers-23584.firebaseapp.com",
+    databaseURL: "https://leuvenflyers-23584-default-rtdb.firebaseio.com",
+    projectId: "leuvenflyers-23584"
+  };
+  const polyApp = initializeApp(polyAppConfig, "polygonSaver");
+  const polyDb = getDatabase(polyApp);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // STORAGE OPTIMIZATION HELPERS
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // GPS precision: 5 decimals ≈ 1.1 m accuracy — plenty for dots/proofs.
+  // Full-precision floats double the stored string length for nothing.
+  function roundCoord(v) { return Math.round(v * 1e5) / 1e5; }
+
+  // Client-side image compression before upload.
+  // Phone photos are 3–8 MB; a proof needs \\\~150–300 KB.
+  // Resizes to max 1280px on the longest side and re-encodes as JPEG q0.72.
+  // The canvas re-encode also strips ALL EXIF metadata (incl. embedded GPS)
+  // for free. Falls back to the original file if anything goes wrong.
+  const PROOF_MAX_DIM = 1280;
+  const PROOF_JPEG_QUALITY = 0.72;
+
+  function compressImage(file) {
+    return new Promise(resolve => {
+      // Tiny files (< 300 KB) aren't worth re-encoding
+      if (file.size < 300 * 1024) { resolve(file); return; }
+
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+
+      img.onload = () => {
+        try {
+          let { width, height } = img;
+          if (width > PROOF_MAX_DIM || height > PROOF_MAX_DIM) {
+            const scale = PROOF_MAX_DIM / Math.max(width, height);
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(blob => {
+            URL.revokeObjectURL(objectUrl);
+            // Only use the compressed version if it's actually smaller
+            if (blob && blob.size < file.size) {
+              const name = (file.name || 'proof').replace(/\.[^.]+$/, '') + '.jpg';
+              resolve(new File([blob], name, { type: 'image/jpeg' }));
+            } else {
+              resolve(file);
+            }
+          }, 'image/jpeg', PROOF_JPEG_QUALITY);
+        } catch (e) {
+          URL.revokeObjectURL(objectUrl);
+          resolve(file);
+        }
+      };
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+      img.src = objectUrl;
+    });
+  }
+
+  // Chat auto-expiry: display already filters to today, but old messages
+  // kept accumulating in the DB forever. Delete anything older than 48h
+  // once per page load (cheap, and keeps the chats node from growing).
+  const CHAT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+  let chatCleanupDone = false;
+
+  function cleanupOldChat(id) {
+    if (chatCleanupDone) return;
+    chatCleanupDone = true;
+    get(ref(db, `chats/${id}`)).then(snap => {
+      const cutoff = Date.now() - CHAT_MAX_AGE_MS;
+      const deletions = [];
+      snap.forEach(child => {
+        const msg = child.val();
+        if (msg && msg.timestamp && msg.timestamp < cutoff) {
+          deletions.push(remove(ref(db, `chats/${id}/${child.key}`)));
+        }
+      });
+      if (deletions.length) {
+        Promise.allSettled(deletions).then(() =>
+          console.log(`Chat cleanup: removed ${deletions.length} old message(s)`)
+        );
+      }
+    }).catch(() => { chatCleanupDone = false; });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── DOM refs ──────────────────────────────────────────────────────────────
+  const loaderOverlay    = document.getElementById('loaderOverlay');
+  const btnLocate        = document.getElementById('btnLocate');
+  const btnJa            = document.getElementById('btnJa');
+  const btnNee           = document.getElementById('btnNee');
+  const btnBonus         = document.getElementById('btnBonus');
+  const btnPost          = document.getElementById('btnPost');
+  const countRight       = document.getElementById('countRight');
+  const countLeft        = document.getElementById('countLeft');
+  const countBonus       = document.getElementById('countBonus');
+  const countPost        = document.getElementById('countPost');
+  const toastEl          = document.getElementById('toast');
+  const loginBackdrop    = document.getElementById('loginBackdrop');
+  const userIdInput      = document.getElementById('userIdInput');
+  const userJoinBtn      = document.getElementById('userJoinBtn');
+  const loginError       = document.getElementById('loginError');
+  const userPill         = document.getElementById('userPill');
+  const userPillText     = document.getElementById('userPillText');
+  const changeUserBtn    = document.getElementById('changeUserBtn');
+  const sessionTimerEl   = document.getElementById('sessionTimer');
+  const sessionAvgEl     = document.getElementById('sessionAvg');
+  const sessionTotalEl   = document.getElementById('sessionTotal');
+  const earnPerHourEl    = document.getElementById('earnPerHour');
+  const segSelect        = document.getElementById('segSelect');
+  const btnStartWorker   = document.getElementById('btnStartWorker');
+  const workerBackdrop   = document.getElementById('workerBackdrop');
+  const workerNameInput  = document.getElementById('workerNameInput');
+  const workerSaveBtn    = document.getElementById('workerSaveBtn');
+  const workerError      = document.getElementById('workerError');
+  const todayWorkerDotsEl     = document.getElementById('todayWorkerDots');
+  const todayWorkerEarningsEl = document.getElementById('todayWorkerEarnings');
+  const totalWorkerEarningsEl = document.getElementById('totalWorkerEarnings');
+  const todayWorkerConnsEl    = document.getElementById('todayWorkerConns');
+  const totalWorkerConnsEl    = document.getElementById('totalWorkerConns');
+  const cpcValueEl            = document.getElementById('cpcValue');
+  const campPercentEl         = document.getElementById('campPercent');
+  const campBarEl             = document.getElementById('campBar');
+  const campRemEl             = document.getElementById('campRem');
+  const connCountEl           = document.getElementById('connCount');
+  const chatBtn          = document.getElementById('chatBtn');
+  const chatBadge        = document.getElementById('chatBadge');
+  const chatBackdrop     = document.getElementById('chatBackdrop');
+  const closeChatBtn     = document.getElementById('closeChatBtn');
+  const chatMessages     = document.getElementById('chatMessages');
+  const chatInput        = document.getElementById('chatInput');
+  const chatSendBtn      = document.getElementById('chatSendBtn');
+  const cameraBtn        = document.getElementById('cameraBtn');
+  const proofFileInput   = document.getElementById('proofFileInput');
+  const btnLatestDot     = document.getElementById('btnLatestDot');
+  const challengeDotsChip     = document.getElementById('challengeDotsChip');
+  const challengeTimeChip     = document.getElementById('challengeTimeChip');
+  const challengeDotsRemainingEl = document.getElementById('challengeDotsRemaining');
+  const challengeTimeRemainingEl = document.getElementById('challengeTimeRemaining');
+  const starEarnedEl      = document.getElementById('starEarned');
+  const diamondEarnedEl   = document.getElementById('diamondEarned');
+  const deadEarnedEl      = document.getElementById('deadEarned');
+  const starBurstEl       = document.getElementById('starBurst');
+  const rewardBurstIconEl = document.getElementById('rewardBurstIcon');
+  const rewardBurstLabelEl= document.getElementById('rewardBurstLabel');
+  const clickPatternStream= document.getElementById('clickPatternStream');
+  const shiftCoachEl      = document.getElementById('shiftCoach');
+  const coachIconEl       = document.getElementById('coachIcon');
+  const coachTitleEl      = document.getElementById('coachTitle');
+  const coachDetailEl     = document.getElementById('coachDetail');
+  const coachSideEl       = document.getElementById('coachSide');
+  const coachProgressEl   = document.getElementById('coachProgress');
+  const minuteTimerFillEl = document.getElementById('minuteTimerFill');
+  const minuteRewardBarEl = document.getElementById('minuteRewardBar');
+  const minuteRewardLabelEl = document.getElementById('minuteRewardLabel');
+  const minuteRewardCountEl = document.getElementById('minuteRewardCount');
+  const minuteSecondsEl = document.getElementById('minuteSeconds');
+  const minuteRewardPairEls = Array.from(document.querySelectorAll('[data-reward-round]'));
+  const minuteStarIconEls = Array.from(document.querySelectorAll('[data-reward-star]'));
+  const minuteDiamondIconEls = Array.from(document.querySelectorAll('[data-reward-diamond]'));
+  const minuteDotEls = Array.from(document.querySelectorAll('[data-minute-dot]'));
+  const adminPinWrap = document.getElementById('adminPinWrap');
+  const adminPinInput = document.getElementById('adminPinInput');
+  const adminBackdrop = document.getElementById('adminBackdrop');
+  const closeAdminPanel = document.getElementById('closeAdminPanel');
+  const adminCampaignIdEl = document.getElementById('adminCampaignId');
+  const adminCurrentTargetEl = document.getElementById('adminCurrentTarget');
+  const adminTargetInput = document.getElementById('adminTargetInput');
+  const adminSaveTarget = document.getElementById('adminSaveTarget');
+  const adminCurrentOrangePerMinuteEl = document.getElementById('adminCurrentOrangePerMinute');
+  const adminOrangePerMinuteInput = document.getElementById('adminOrangePerMinuteInput');
+  const adminSaveOrangePerMinute = document.getElementById('adminSaveOrangePerMinute');
+  const paceScoreBox = document.getElementById('paceScoreBox');
+  const paceGreenMinutesEl = document.getElementById('paceGreenMinutes');
+  const paceRedMinutesEl = document.getElementById('paceRedMinutes');
+  const adminExitBtn = document.getElementById('adminExitBtn');
+  const shiftPickerBackdrop = document.getElementById('shiftPickerBackdrop');
+  const shiftPickerList = document.getElementById('shiftPickerList');
+  const closeShiftPicker = document.getElementById('closeShiftPicker');
+  const shiftSortSelect = document.getElementById('shiftSortSelect');
+  const backToShiftPicker = document.getElementById('backToShiftPicker');
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let localClicks = [], globalAbsDCount = 0, globalAbsPCount = 0;
+  let globalAllDots = [], historyIndex = -1;
+  let currentLatLng = null, currentUserId = null, currentWorkerName = null;
+  let myPostsUnsub = null, chatUnsub = null, lastReadChatTs = 0;
+  let shiftRegistry = {};
+  let isAdmin = false;
+  const ADMIN_PIN = '000888';
+  let campaignTargetDots = null;
+  let orangePerMinuteTarget = null;
+  let campaignBonusBlueTotal = 0;
+  let campaignSettingsUnsub = null;
+  let lastCampaignRawDots = 0, lastCampaignPosts = 0;
+  let selectedShiftIndex = -1;
+  let segments = [];
+  let segLiveDotSelected = false;
+  const SEG_SNAP_KM = 0.25;
+
+  // ── 3h / 1,000 orange-post challenge ──────────────────────────────────────
+  const CHALLENGE_MS = 3 * 60 * 60 * 1000;
+  const CHALLENGE_TARGET_POSTS = 1000;
+  const CHALLENGE_TOTAL_STARS = 180;       // 180 one-minute challenge windows
+  const STAR_POSTS_PER_MINUTE = 5;        // threshold inside each 10-post reward round
+  const DIAMOND_POSTS_PER_MINUTE = 10;    // reaching 10 upgrades that round's star to a diamond
+  const MAX_REWARD_ROUNDS_PER_MINUTE = 3;
+  const MAX_REWARDED_POSTS_PER_MINUTE = 30;
+  const CHALLENGE_REWARD_VERSION = 2;
+  const TARGET_POSTS_PER_MINUTE = CHALLENGE_TARGET_POSTS / CHALLENGE_TOTAL_STARS;
+  const CHALLENGE_MILESTONES = [100,250,500,750,900,1000];
+  let challengeStartAt = null;
+  let challengeOrangeTimestamps = [];
+  let challengeTicker = null;
+  let lastChallengePersistSig = '';
+  let coachOverrideUntil = 0;
+  let beatClock = null;
+  let beatClockCooldownUntil = 0;
+  let lastMinuteHudIndex = -1;
+
+  // ── GeoJSON helpers ───────────────────────────────────────────────────────
+  function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+  function fc(features) { return { type: 'FeatureCollection', features: features || [] }; }
+  function feat(type, coords, props) { return { type: 'Feature', properties: props || {}, geometry: { type, coordinates: coords } }; }
+
+  // ── MapLibre ──────────────────────────────────────────────────────────────
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: {
+      version: 8,
+      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+      sources: {
+        osm: {
+          type: 'raster',
+          tiles: [
+            'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          ],
+          tileSize: 256,
+          attribution: '© OpenStreetMap contributors'
+        }
+      },
+      layers: [{ id: 'osm', type: 'raster', source: 'osm', paint: { 'raster-fade-duration': 0 } }]
+    },
+    center: [4.35, 50.85],
+    zoom: 12,
+    maxZoom: 19,
+    attributionControl: false,
+    fadeDuration: 0
+  });
+
+  // Marker arrays (DOM markers we manage manually)
+  let locationMarker = null;
+  const dotMarkers  = [];
+  const segMarkers  = [];   // segment end-point square markers + labels
+  const distMarkers = [];
+
+  // ── Map load: register all sources & layers ───────────────────────────────
+  map.on('load', () => {
+
+    // Zone polygons — outlines only, no labels.
+    map.addSource('zones', { type: 'geojson', data: fc() });
+    map.addLayer({
+      id: 'zones-fill', type: 'fill', source: 'zones',
+      paint: { 'fill-color': '#ef4444', 'fill-opacity': 0.05 }
+    });
+    map.addLayer({
+      id: 'zones-line', type: 'line', source: 'zones',
+      paint: { 'line-color': '#ef4444', 'line-width': 1.5, 'line-opacity': 0.7 }
+    });
+
+    // Segments — thin purple line (hidden at load; shown only on selection)
+    map.addSource('segments', { type: 'geojson', data: fc() });
+    map.addLayer({
+      id: 'segments-line', type: 'line', source: 'segments',
+      paint: {
+        'line-color': '#a855f7',
+        'line-width': 1.5,
+        'line-opacity': 0.85
+      },
+      layout: { 'line-cap': 'round', 'line-join': 'round' }
+    });
+
+    // Dot trails
+    map.addSource('trails', { type: 'geojson', data: fc() });
+    map.addLayer({
+      id: 'trails-line', type: 'line', source: 'trails',
+      paint: { 'line-color': '#4f8cff', 'line-width': 1.5, 'line-opacity': 0.7, 'line-dasharray': [4, 7] }
+    });
+
+    // Dots
+    map.addSource('dots', { type: 'geojson', data: fc() });
+    map.addLayer({
+      id: 'dots-circle', type: 'circle', source: 'dots',
+      paint: {
+        'circle-radius': 4,
+        'circle-color': ['get', 'fill'],
+        'circle-stroke-color': ['get', 'stroke'],
+        'circle-stroke-width': 1
+      }
+    });
+
+    // History highlight dot
+    map.addSource('histdot', { type: 'geojson', data: fc() });
+    map.addLayer({
+      id: 'histdot-circle', type: 'circle', source: 'histdot',
+      paint: {
+        'circle-radius': 10,
+        'circle-color': ['get', 'fill'],
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 3,
+        'circle-opacity': 0.9
+      }
+    });
+
+    // Popup on hover/tap
+    const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: [0, -6] });
+    map.on('mouseenter', 'dots-circle', e => {
+      map.getCanvas().style.cursor = 'pointer';
+      const p = e.features[0].properties;
+      popup.setLngLat(e.features[0].geometry.coordinates).setHTML(p.tooltip).addTo(map);
+    });
+    map.on('mouseleave', 'dots-circle', () => { map.getCanvas().style.cursor = ''; popup.remove(); });
+    map.on('click', 'dots-circle', e => {
+      const p = e.features[0].properties;
+      popup.setLngLat(e.features[0].geometry.coordinates).setHTML(p.tooltip).addTo(map);
+      setTimeout(() => popup.remove(), 2500);
+    });
+
+    // After style is ready, load Firebase data
+    loadAndDrawPolygons();
+    loadSegments();
+  });
+
+  // ── Zone polygon loading — NO zone labels drawn on map ────────────────────
+  function loadAndDrawPolygons() {
+    get(ref(polyDb, 'polygons')).then(snapshot => {
+      const features = [];
+      let idx = 1;
+
+      snapshot.forEach(child => {
+        const raw = child.val();
+
+        let coords = [];
+        const keys = Object.keys(raw).filter(k => !isNaN(Number(k)));
+        if (keys.length > 0) {
+          coords = keys.sort((a, b) => Number(a) - Number(b)).map(k => {
+            const pt = raw[k];
+            return [parseFloat(pt.lng), parseFloat(pt.lat)];
+          });
+        }
+
+        if (coords.length < 3) { idx++; return; }
+
+        const ring = [...coords];
+        if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
+          ring.push(ring[0]);
+        }
+
+        features.push(feat('Polygon', [ring], { zoneIdx: idx }));
+        idx++;
+      });
+
+      if (map.getSource('zones')) {
+        map.getSource('zones').setData(fc(features));
+      }
+
+      console.log(`Loaded ${features.length} zone polygon(s) (no labels)`);
+    }).catch(err => console.error('Polygon load error:', err));
+  }
+
+  // ── Segment loading ───────────────────────────────────────────────────────
+  function haversineKm(a, b) {
+    const R = 6371, toRad = d => d * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+    const h = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function pathLengthKm(coords) {
+    let d = 0;
+    for (let i = 1; i < coords.length; i++) d += haversineKm(coords[i-1], coords[i]);
+    return d;
+  }
+  function getPointAtDistance(coords, targetKm) {
+    let dist = 0;
+    for (let i = 1; i < coords.length; i++) {
+      const segDist = haversineKm(coords[i-1], coords[i]);
+      if (dist + segDist >= targetKm) {
+        const r = (targetKm - dist) / segDist;
+        return { lat: coords[i-1].lat + (coords[i].lat - coords[i-1].lat)*r, lng: coords[i-1].lng + (coords[i].lng - coords[i-1].lng)*r };
+      }
+      dist += segDist;
+    }
+    return null;
+  }
+  function projectOntoSegment(p, a, b) {
+    const dx = b.lat - a.lat, dy = b.lng - a.lng, lenSq = dx*dx + dy*dy;
+    if (lenSq === 0) return a;
+    const t = Math.max(0, Math.min(1, ((p.lat-a.lat)*dx + (p.lng-a.lng)*dy) / lenSq));
+    return { lat: a.lat + t*dx, lng: a.lng + t*dy };
+  }
+  function closestOnPolyline(p, coords) {
+    let best = null, bestD = Infinity;
+    for (let i = 0; i < coords.length-1; i++) {
+      const pt = projectOntoSegment(p, coords[i], coords[i+1]);
+      const d = haversineKm(p, pt);
+      if (d < bestD) { bestD = d; best = pt; }
+    }
+    return { point: best, distKm: bestD };
+  }
+
+  // ── Segment focus helper (used by squares + dropdown) ─────────────────────
+  function focusSegment(id) {
+    segSelect.value = String(id);
+    segLiveDotSelected = true;
+    isolateSegment(id);
+    updateSegLiveDot(currentLatLng);
+    showToast(`Focused Segment #${id}`);
+  }
+
+  // ── Segment start/end square markers ─────────────────────────────────────
+  // Small red square at start, green square at end of a segment.
+  // Compact hit target reduces accidental endpoint selection while walking.
+  function addSegmentEndpointSquares(s) {
+    const start = s.coords[0];
+    const end   = s.coords[s.coords.length - 1];
+
+    const mkSquare = (cls, title, coord) => {
+      const el = document.createElement('div');
+      el.className = `ml-seg-sq ${cls}`;
+      el.title = title;
+      const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([coord.lng, coord.lat])
+        .addTo(map);
+
+      const handler = e => {
+        e.stopPropagation();
+        e.preventDefault();
+        focusSegment(s.id);
+      };
+      el.addEventListener('click', handler);
+      el.addEventListener('touchend', handler, { passive: false });
+
+      segMarkers.push(m);
+    };
+
+    mkSquare('start-sq', `S#${s.id} Start`, start);
+    mkSquare('end-sq',   `S#${s.id} End`,   end);
+  }
+
+  // ── Render ALL segment endpoint squares (no lines drawn) ─────────────────
+  function renderAllSegmentEndpoints() {
+    segMarkers.forEach(m => m.remove()); segMarkers.length = 0;
+    distMarkers.forEach(m => m.remove()); distMarkers.length = 0;
+
+    // Keep segment source empty — lines shown only on selection
+    if (map.getSource('segments')) map.getSource('segments').setData(fc());
+
+    // Draw only start/end squares for every segment
+    segments.forEach(s => addSegmentEndpointSquares(s));
+  }
+
+  function addSegmentDetailMarkers(s) {
+    // Add text label markers (start/end) for the focused segment
+    const km = pathLengthKm(s.coords);
+    const start = s.coords[0], end = s.coords[s.coords.length - 1];
+
+    const mkLabel = (text, cls, coord) => {
+      const el = document.createElement('div');
+      el.className = `ml-seg-label ${cls}`;
+      el.textContent = text;
+      const m = new maplibregl.Marker({ element: el, anchor: 'bottom-left' }).setLngLat([coord.lng, coord.lat]).addTo(map);
+      segMarkers.push(m);
+    };
+
+    mkLabel(`S#${s.id} · ${km.toFixed(2)} km`, 'start', start);
+    mkLabel(`E#${s.id}`, 'end', end);
+
+    // Also keep the red/green squares for the focused segment
+    addSegmentEndpointSquares(s);
+  }
+
+  function isolateSegment(id) {
+    const s = segments.find(seg => seg.id === id);
+    if (!s) return false;
+
+    if (!map.getSource('segments')) return false;
+
+    // Clear previous markers
+    segMarkers.forEach(m => m.remove()); segMarkers.length = 0;
+    distMarkers.forEach(m => m.remove()); distMarkers.length = 0;
+
+    // Draw only the selected segment line
+    map.getSource('segments').setData(fc([feat('LineString', s.coords.map(c => [c.lng, c.lat]), { id: s.id })]));
+
+    // Add detail markers (labels + squares) for the selected segment
+    addSegmentDetailMarkers(s);
+
+    // Restore segment milestones every 0.5 km.
+    // Marker 1 = 0.5 km, marker 2 = 1.0 km, marker 3 = 1.5 km, etc.
+    const totalLen = pathLengthKm(s.coords);
+    let milestoneDistance = 0.5, milestoneIndex = 1;
+    while (milestoneDistance < totalLen) {
+      const pt = getPointAtDistance(s.coords, milestoneDistance);
+      if (pt) {
+        const el = document.createElement('div');
+        el.className = 'ml-dist-marker';
+        el.title = `${milestoneDistance.toFixed(1)} km`;
+        el.innerHTML = `<div class="ml-dist-text">${milestoneIndex}</div>`;
+        const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+          .setLngLat([pt.lng, pt.lat])
+          .addTo(map);
+        distMarkers.push(marker);
+        milestoneIndex++;
+      }
+      milestoneDistance += 0.5;
+    }
+
+    const lngs = s.coords.map(c => c.lng), lats = s.coords.map(c => c.lat);
+    map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 50, duration: 900 });
+    return true;
+  }
+
+  function loadSegments() {
+    get(ref(polyDb, 'segments')).then(snapshot => {
+      let idx = 1;
+      segSelect.innerHTML = '<option value="" disabled selected>—</option>';
+      segments.length = 0;
+
+      snapshot.forEach(child => {
+        const raw = child.val();
+        const keys = Object.keys(raw).filter(k => !isNaN(Number(k)));
+        if (keys.length < 2) { idx++; return; }
+
+        const coords = keys.sort((a, b) => Number(a) - Number(b)).map(k => ({
+          lat: parseFloat(raw[k].lat),
+          lng: parseFloat(raw[k].lng)
+        }));
+
+        segments.push({ id: idx, coords });
+
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = String(idx);
+        segSelect.appendChild(opt);
+        idx++;
+      });
+
+      // On load: show only start/end squares, no segment lines
+      renderAllSegmentEndpoints();
+      console.log(`Loaded ${segments.length} segment(s) — endpoint squares only`);
+    }).catch(err => console.error('Segment load error:', err));
+  }
+
+  // Segment snap helper intentionally does not draw a live purple dot.
+  function updateSegLiveDot(latlng) {
+    return;
+  }
+
+  segSelect.addEventListener('change', e => {
+    const n = parseInt(e.target.value, 10);
+    segLiveDotSelected = true;
+    if (isolateSegment(n)) showToast(`Focused Segment #${n}`);
+    else showToast('Segment not found');
+    updateSegLiveDot(currentLatLng);
+  });
+
+  // When clicking on blank map area: reset to endpoint-squares-only view
+  map.on('click', () => {
+    segLiveDotSelected = false;
+    renderAllSegmentEndpoints();
+    updateSegLiveDot(currentLatLng);
+  });
+
+  // ── Dots & trails rendering ───────────────────────────────────────────────
+  function colorForDot(color) {
+    if (color === 'green')  return { fill: '#22c55e', stroke: '#16a34a' };
+    if (color === 'blue')   return { fill: '#1f84f7', stroke: '#1e40af' };
+    if (color === 'orange') return { fill: '#f97316', stroke: '#c2410c' };
+    return { fill: '#ef4444', stroke: '#991b1b' };
+  }
+  function typeLabel(color) {
+    if (color === 'green') return '✓ Yes';
+    if (color === 'blue')  return '★ Bonus';
+    if (color === 'orange') return '✉ Post';
+    return '✗ No';
+  }
+
+  function rebuildMapLayer(allDots) {
+    dotMarkers.forEach(m => m.remove()); dotMarkers.length = 0;
+
+    const dotFeatures = [], trailFeatures = [];
+    const byWorker = {};
+    allDots.forEach(d => {
+      const n = d.workerName || 'Unknown';
+      if (!byWorker[n]) byWorker[n] = [];
+      byWorker[n].push(d);
+    });
+
+    Object.keys(byWorker).forEach(name => {
+      const arr = byWorker[name].sort((a, b) => a.timestamp - b.timestamp);
+      const connDots = arr.filter(d => d.color !== 'orange');
+      if (connDots.length > 1) trailFeatures.push(feat('LineString', connDots.map(d => [d.lng, d.lat])));
+
+      arr.forEach(d => {
+        const c = colorForDot(d.color);
+        dotFeatures.push(feat('Point', [d.lng, d.lat], {
+          fill: c.fill, stroke: c.stroke,
+          tooltip: `${typeLabel(d.color)} — ${formatLocalTime(d.timestamp)} · ${d.workerName || 'Unknown'}`
+        }));
+      });
+
+      const first = arr[0], last = arr[arr.length - 1];
+      [first, last].forEach(d => {
+        const color = d.color === 'green' ? 'green' : d.color === 'blue' ? 'blue' : d.color === 'orange' ? 'orange' : 'red';
+        const el = document.createElement('div');
+        el.innerHTML = `<div class="ml-flag-marker"><div class="ml-flag-pole"></div><div class="ml-flag-cloth ${color}"></div><div class="ml-flag-dot ${color}"></div></div>`;
+        const m = new maplibregl.Marker({ element: el, anchor: 'bottom-left' }).setLngLat([d.lng, d.lat]).addTo(map);
+        dotMarkers.push(m);
+
+        const nl = document.createElement('div');
+        nl.className = 'ml-name-label';
+        nl.textContent = (d.workerName || 'Unknown').toUpperCase();
+        const nm = new maplibregl.Marker({ element: nl, anchor: 'bottom-left', offset: [6, -34] }).setLngLat([d.lng, d.lat]).addTo(map);
+        dotMarkers.push(nm);
+      });
+    });
+
+    if (map.getSource('dots'))   map.getSource('dots').setData(fc(dotFeatures));
+    if (map.getSource('trails')) map.getSource('trails').setData(fc(trailFeatures));
+  }
+
+  // ── Location pin ──────────────────────────────────────────────────────────
+  function ensureLocMarker(latlng) {
+    if (!locationMarker) {
+      const el = document.createElement('div');
+      el.innerHTML = `<div class="ml-pin-marker"><div class="ml-pin-head"><div class="ml-pin-dot"></div></div></div>`;
+      locationMarker = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([latlng[1], latlng[0]]).addTo(map);
+    } else {
+      locationMarker.setLngLat([latlng[1], latlng[0]]);
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function showToast(text) {
+    toastEl.textContent = text;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 2500);
+  }
+  function formatLocalTime(ts) {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  function formatHMS(ms) {
+    if (ms < 0) ms = 0;
+    const s = Math.floor(ms / 1000);
+    return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  }
+  function isToday(ts) {
+    const d = new Date(ts), t = new Date();
+    return d.getDate()===t.getDate() && d.getMonth()===t.getMonth() && d.getFullYear()===t.getFullYear();
+  }
+  function hideLoader() { loaderOverlay.classList.add('hidden'); }
+
+  // ── Click pattern bar ─────────────────────────────────────────────────────
+  function loadLocalClicks(userId) {
+    try {
+      localClicks = JSON.parse(localStorage.getItem(`dotPoster:clicks:${userId}`)) || [];
+      globalAbsDCount = parseInt(localStorage.getItem(`dotPoster:absD:${userId}`) || '0', 10);
+      globalAbsPCount = parseInt(localStorage.getItem(`dotPoster:absP:${userId}`) || '0', 10);
+      if (localClicks.length > 50) localClicks = localClicks.slice(-50);
+      renderLocalClicks();
+    } catch(e) { localClicks = []; globalAbsDCount = 0; globalAbsPCount = 0; }
+  }
+  function addLocalClick(color) {
+    if (!currentUserId) return;
+    const lastTs = localStorage.getItem(`dotPoster:lastClickTs:${currentUserId}`) || Date.now();
+    const now = Date.now(), diff = now - lastTs;
+    if (diff > 60000 && localClicks.length > 0) localClicks.push({ type: 'pause', mins: Math.floor(diff/60000) });
+    localStorage.setItem(`dotPoster:lastClickTs:${currentUserId}`, now);
+    if (color === 'orange') {
+      globalAbsPCount++;
+      localClicks.push({ c: 'orange' });
+      if (globalAbsPCount % 1000 === 0) localClicks.push({ type: 'trophy' });
+    } else {
+      globalAbsDCount++;
+      localClicks.push({ c: color });
+      if (globalAbsDCount % 300 === 0) localClicks.push({ type: 'upload' });
+    }
+    if (localClicks.length > 50) localClicks = localClicks.slice(-50);
+    localStorage.setItem(`dotPoster:clicks:${currentUserId}`, JSON.stringify(localClicks));
+    localStorage.setItem(`dotPoster:absD:${currentUserId}`, globalAbsDCount);
+    localStorage.setItem(`dotPoster:absP:${currentUserId}`, globalAbsPCount);
+    renderLocalClicks();
+  }
+  function addLocalRewardEvent(type, minuteIndex=null, roundIndex=null) {
+    if (!currentUserId || !['star','diamond'].includes(type)) return;
+    // A diamond upgrades the star from the same 10-post round instead of stacking with it.
+    if (type === 'diamond' && Number.isInteger(minuteIndex) && Number.isInteger(roundIndex)) {
+      for (let i = localClicks.length - 1; i >= 0; i--) {
+        const ev = localClicks[i];
+        if (ev?.type === 'star' && ev.minuteIndex === minuteIndex && ev.roundIndex === roundIndex) {
+          localClicks[i] = { type:'diamond', minuteIndex, roundIndex };
+          if (localClicks.length > 50) localClicks = localClicks.slice(-50);
+          localStorage.setItem(`dotPoster:clicks:${currentUserId}`, JSON.stringify(localClicks));
+          renderLocalClicks();
+          return;
+        }
+      }
+    }
+    localClicks.push({ type, minuteIndex, roundIndex });
+    if (localClicks.length > 50) localClicks = localClicks.slice(-50);
+    localStorage.setItem(`dotPoster:clicks:${currentUserId}`, JSON.stringify(localClicks));
+    renderLocalClicks();
+  }
+  function renderLocalClicks() {
+    const stream = clickPatternStream || document.getElementById('clickPatternStream');
+    if (!stream) return;
+    stream.innerHTML = '';
+    localClicks.forEach(c => {
+      const item = document.createElement('div'); item.className = 'cp-item';
+      if (c.type === 'pause') item.innerHTML = `<div class="cp-pause">${c.mins}m</div>`;
+      else if (c.type === 'upload') item.innerHTML = `<div class="cp-upload">📷</div>`;
+      else if (c.type === 'trophy') item.innerHTML = `<div class="cp-trophy">🏆</div>`;
+      else if (c.type === 'star') item.innerHTML = `<div class="cp-star">⭐</div>`;
+      else if (c.type === 'diamond') item.innerHTML = `<div class="cp-diamond">💎</div>`;
+      else if (c.c === 'orange') item.innerHTML = `<div class="cp-square"><svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></div>`;
+      else { const bg = c.c==='green'?'#22c55e':c.c==='blue'?'#3b82f6':'#ef4444'; item.innerHTML = `<div class="cp-dot" style="background:${bg}"></div>`; }
+      stream.appendChild(item);
+    });
+    setTimeout(() => { stream.scrollTo({ left: stream.scrollWidth, behavior: 'smooth' }); }, 10);
+  }
+
+  // ── Challenge helpers ─────────────────────────────────────────────────────
+  function challengeWorkerKey() {
+    if (!currentUserId || !currentWorkerName) return null;
+    const worker = currentWorkerName.toLowerCase().replace(/[^a-z0-9]/g,'');
+    return `dotPoster:challengeStart:${currentUserId}:${worker}`;
+  }
+
+  function challengeWorkerSafe() {
+    return currentWorkerName ? currentWorkerName.toLowerCase().replace(/[^a-z0-9]/g,'') : '';
+  }
+
+  function challengeFirebaseRef() {
+    const safe = challengeWorkerSafe();
+    return currentUserId && safe ? ref(db, `users/${currentUserId}/workers/${safe}/challenge`) : null;
+  }
+
+  function persistChallengeRecord(stats) {
+    if (!challengeStartAt || !stats) return;
+    const cRef = challengeFirebaseRef();
+    if (!cRef) return;
+    const sig = `${currentUserId}|${challengeWorkerSafe()}|${challengeStartAt}|${stats.posts}|${stats.earned}|${stats.diamonds}|${stats.missed}`;
+    if (sig === lastChallengePersistSig) return;
+    lastChallengePersistSig = sig;
+    update(cRef, {
+      startAt: challengeStartAt,
+      endAt: challengeStartAt + CHALLENGE_MS,
+      starsEarned: stats.earned,
+      diamondsEarned: stats.diamonds,
+      deadMinutes: stats.missed,
+      orangePosts: stats.posts,
+      targetPosts: CHALLENGE_TARGET_POSTS,
+      starThreshold: STAR_POSTS_PER_MINUTE,
+      diamondThreshold: DIAMOND_POSTS_PER_MINUTE,
+      rewardRoundsPerMinute: MAX_REWARD_ROUNDS_PER_MINUTE,
+      maxRewardedPostsPerMinute: MAX_REWARDED_POSTS_PER_MINUTE,
+      rewardVersion: CHALLENGE_REWARD_VERSION,
+      durationMinutes: CHALLENGE_TOTAL_STARS,
+      completed: stats.remainingPosts === 0,
+      timeExpired: stats.remainingMs === 0,
+      updatedAt: Date.now()
+    }).catch(() => { lastChallengePersistSig = ''; });
+  }
+
+  function setChallengeStart(ts) {
+    if (!Number.isFinite(ts) || challengeStartAt) return;
+    challengeStartAt = ts;
+    const key = challengeWorkerKey();
+    if (key) localStorage.setItem(key, String(ts));
+    const cRef = challengeFirebaseRef();
+    if (cRef) update(cRef,{startAt:ts,endAt:ts+CHALLENGE_MS,starsEarned:0,diamondsEarned:0,deadMinutes:0,orangePosts:0,targetPosts:CHALLENGE_TARGET_POSTS,starThreshold:STAR_POSTS_PER_MINUTE,diamondThreshold:DIAMOND_POSTS_PER_MINUTE,rewardRoundsPerMinute:MAX_REWARD_ROUNDS_PER_MINUTE,maxRewardedPostsPerMinute:MAX_REWARDED_POSTS_PER_MINUTE,rewardVersion:CHALLENGE_REWARD_VERSION,durationMinutes:CHALLENGE_TOTAL_STARS,updatedAt:Date.now()}).catch(()=>{});
+  }
+
+  function resetChallengeUi() {
+    challengeStartAt = null;
+    challengeOrangeTimestamps = [];
+    beatClock = null;
+    beatClockCooldownUntil = 0;
+    lastChallengePersistSig = '';
+    challengeDotsRemainingEl.textContent = CHALLENGE_TARGET_POSTS.toLocaleString();
+    challengeTimeRemainingEl.textContent = '03:00:00';
+    starEarnedEl.textContent = '⭐ 0';
+    diamondEarnedEl.textContent = '💎 0';
+    if (deadEarnedEl) deadEarnedEl.textContent = '☠ 0';
+    challengeDotsChip.classList.add('inactive');
+    challengeTimeChip.classList.add('inactive');
+    challengeDotsChip.classList.remove('done');
+    challengeTimeChip.classList.remove('done');
+    lastMinuteHudIndex = -1;
+    renderMinuteChallenge(null);
+    updateOrangePaceScore();
+    renderCoach({icon:'🎯',title:'Ready for 1,000',detail:'Your first orange post starts the 3-hour challenge.',side:'1K · 3H',tone:'',progress:0});
+  }
+
+  function loadStoredChallengeStart() {
+    const key = challengeWorkerKey();
+    if (!key) return null;
+    const value = Number(localStorage.getItem(key));
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+
+  function rewardStateForMinuteCount(rawCount) {
+    const count = Math.max(0, Math.min(MAX_REWARDED_POSTS_PER_MINUTE, Number(rawCount) || 0));
+    const diamonds = Math.min(MAX_REWARD_ROUNDS_PER_MINUTE, Math.floor(count / 10));
+    const remainder = count % 10;
+    // If a round reaches 10, its earlier star is upgraded to a diamond and no longer counts as a star.
+    const stars = diamonds < MAX_REWARD_ROUNDS_PER_MINUTE && remainder >= 5 ? 1 : 0;
+    return { count, stars, diamonds, remainder };
+  }
+
+  function computeOrangePaceScore(now = Date.now()) {
+    const target = Number(orangePerMinuteTarget);
+    if (!challengeStartAt || !Number.isFinite(target) || target < 1) {
+      return { green:0, red:0, completedMinutes:0 };
+    }
+
+    const elapsedMs = Math.max(0, Math.min(CHALLENGE_MS, now - challengeStartAt));
+    const completedMinutes = elapsedMs >= CHALLENGE_MS
+      ? CHALLENGE_TOTAL_STARS
+      : Math.floor(elapsedMs / 60000);
+
+    if (completedMinutes <= 0) return { green:0, red:0, completedMinutes:0 };
+
+    const counts = new Array(completedMinutes).fill(0);
+    const windowEnd = challengeStartAt + completedMinutes * 60000;
+    challengeOrangeTimestamps.forEach(ts => {
+      if (!Number.isFinite(ts) || ts < challengeStartAt || ts >= windowEnd) return;
+      const minute = Math.floor((ts - challengeStartAt) / 60000);
+      if (minute >= 0 && minute < completedMinutes) counts[minute]++;
+    });
+
+    let green = 0;
+    let red = 0;
+    counts.forEach(count => {
+      if (count < target) {
+        red += 1;
+        return;
+      }
+      // Meeting the target is neutral. Every additional complete target's
+      // worth of orange dots represents one minute saved.
+      green += Math.max(0, Math.floor(count / target) - 1);
+    });
+
+    return { green, red, completedMinutes };
+  }
+
+  function updateOrangePaceScore(now = Date.now()) {
+    if (!paceScoreBox || !paceGreenMinutesEl || !paceRedMinutesEl) return;
+    const enabled = Number.isFinite(Number(orangePerMinuteTarget)) && Number(orangePerMinuteTarget) >= 1;
+    const score = computeOrangePaceScore(now);
+    paceGreenMinutesEl.textContent = String(score.green);
+    paceRedMinutesEl.textContent = String(score.red);
+    paceScoreBox.classList.toggle('inactive', !enabled || !challengeStartAt || isAdmin);
+  }
+
+  function computeChallengeStats(now = Date.now()) {
+    if (!challengeStartAt) {
+      return { posts:0,remainingPosts:CHALLENGE_TARGET_POSTS,remainingMs:CHALLENGE_MS,earned:0,diamonds:0,missed:0,elapsedMs:0,elapsedMin:0,rate:0,expectedPosts:0,paceDelta:0,projectedFinishAt:null,projectedDurationMs:null,minuteCounts:new Array(CHALLENGE_TOTAL_STARS).fill(0) };
+    }
+
+    const endAt = challengeStartAt + CHALLENGE_MS;
+    const inWindow = challengeOrangeTimestamps.filter(ts => ts >= challengeStartAt && ts < endAt);
+    const posts = inWindow.length;
+    const remainingPosts = Math.max(0, CHALLENGE_TARGET_POSTS - posts);
+    const remainingMs = Math.max(0, endAt - now);
+
+    const minuteCounts = new Array(CHALLENGE_TOTAL_STARS).fill(0);
+    inWindow.forEach(ts => {
+      const minute = Math.floor((ts - challengeStartAt) / 60000);
+      if (minute >= 0 && minute < CHALLENGE_TOTAL_STARS) minuteCounts[minute]++;
+    });
+
+    let earned = 0, diamonds = 0;
+    minuteCounts.forEach(count => {
+      const reward = rewardStateForMinuteCount(count);
+      earned += reward.stars;
+      diamonds += reward.diamonds;
+    });
+
+    const elapsedMs = Math.max(0, Math.min(CHALLENGE_MS, now - challengeStartAt));
+    const elapsedMin = elapsedMs / 60000;
+    const completedMinutes = elapsedMs >= CHALLENGE_MS ? CHALLENGE_TOTAL_STARS : Math.floor(elapsedMin);
+    let missed = 0;
+    for (let i = 0; i < completedMinutes; i++) {
+      if (minuteCounts[i] < STAR_POSTS_PER_MINUTE) missed++;
+    }
+
+    const expectedPosts = Math.min(CHALLENGE_TARGET_POSTS, elapsedMs / CHALLENGE_MS * CHALLENGE_TARGET_POSTS);
+    const paceDelta = Math.round(posts - expectedPosts);
+    const rate = elapsedMin > 0 ? posts / elapsedMin : 0;
+    let projectedFinishAt = null, projectedDurationMs = null;
+    if (posts >= 10 && elapsedMs >= 60000 && rate > 0) {
+      projectedDurationMs = (CHALLENGE_TARGET_POSTS / rate) * 60000;
+      projectedFinishAt = challengeStartAt + projectedDurationMs;
+    }
+
+    return {posts,remainingPosts,remainingMs,earned,diamonds,missed,elapsedMs,elapsedMin,rate,expectedPosts,paceDelta,projectedFinishAt,projectedDurationMs,minuteCounts};
+  }
+
+  function renderMinuteChallenge(stats, now = Date.now()) {
+    if (!minuteTimerFillEl || !minuteRewardBarEl) return;
+
+    if (!challengeStartAt || !stats) {
+      minuteTimerFillEl.classList.add('idle');
+      minuteTimerFillEl.classList.remove('urgent','no-transition','star-state','diamond-state');
+      minuteTimerFillEl.style.width = '100%';
+      minuteRewardLabelEl.textContent = 'MIN —';
+      if (minuteSecondsEl) minuteSecondsEl.textContent = '60s';
+      minuteRewardCountEl.textContent = '0/10';
+      minuteDotEls.forEach(el => el.classList.remove('filled'));
+      minuteRewardPairEls.forEach((el,i)=>el.classList.toggle('hidden', i>0));
+      minuteStarIconEls.forEach(el=>el.classList.remove('unlocked'));
+      minuteDiamondIconEls.forEach(el=>el.classList.remove('unlocked'));
+      minuteRewardBarEl.classList.remove('star-hit','diamond-hit');
+      return;
+    }
+
+    const elapsedRaw = Math.max(0, now - challengeStartAt);
+    const currentMinute = Math.min(CHALLENGE_TOTAL_STARS - 1, Math.floor(elapsedRaw / 60000));
+    const challengeEnded = elapsedRaw >= CHALLENGE_MS;
+    const count = stats.minuteCounts[currentMinute] || 0;
+    const rewardedCount = Math.min(MAX_REWARDED_POSTS_PER_MINUTE, count);
+    let activeRound = 0, roundCount = 0;
+    if (rewardedCount <= 10) { activeRound = 0; roundCount = rewardedCount; }
+    else if (rewardedCount <= 20) { activeRound = 1; roundCount = rewardedCount - 10; }
+    else { activeRound = 2; roundCount = Math.min(10, rewardedCount - 20); }
+    if (count > MAX_REWARDED_POSTS_PER_MINUTE) { activeRound = 2; roundCount = 10; }
+    const visibleRounds = count <= 10 ? 1 : count <= 20 ? 2 : 3;
+    const minuteReward = rewardStateForMinuteCount(count);
+    const intoMinute = challengeEnded ? 60000 : (elapsedRaw % 60000);
+    const remainingPct = challengeEnded ? 0 : Math.max(0, 100 - (intoMinute / 60000 * 100));
+    const remainingSeconds = challengeEnded ? 0 : Math.max(0, Math.ceil((60000 - intoMinute) / 1000));
+
+    if (currentMinute !== lastMinuteHudIndex && !challengeEnded) {
+      lastMinuteHudIndex = currentMinute;
+      minuteTimerFillEl.classList.add('no-transition');
+      minuteTimerFillEl.style.width = '100%';
+      void minuteTimerFillEl.offsetWidth;
+      minuteTimerFillEl.classList.remove('no-transition');
+    }
+
+    const currentRoundProgress = Math.max(0, Math.min(10, count - activeRound * 10));
+    const provisionalStar = currentRoundProgress >= STAR_POSTS_PER_MINUTE && currentRoundProgress < DIAMOND_POSTS_PER_MINUTE && count <= MAX_REWARDED_POSTS_PER_MINUTE;
+    const anyDiamond = minuteReward.diamonds > 0;
+
+    minuteTimerFillEl.classList.remove('idle','star-state','diamond-state');
+    minuteTimerFillEl.classList.toggle('urgent', !challengeEnded && intoMinute >= 50000);
+    minuteTimerFillEl.classList.toggle('star-state', provisionalStar && !anyDiamond);
+    minuteTimerFillEl.classList.toggle('diamond-state', anyDiamond);
+    minuteTimerFillEl.style.width = `${remainingPct}%`;
+
+    minuteRewardLabelEl.textContent = challengeEnded ? 'MIN 180' : `MIN ${currentMinute + 1}`;
+    if (minuteSecondsEl) minuteSecondsEl.textContent = `${remainingSeconds}s`;
+    minuteRewardCountEl.textContent = count > MAX_REWARDED_POSTS_PER_MINUTE ? '30+' : `${roundCount}/10`;
+    minuteDotEls.forEach((el, i) => el.classList.toggle('filled', i < roundCount));
+
+    minuteRewardPairEls.forEach((pair, i) => {
+      pair.classList.toggle('hidden', i >= visibleRounds);
+      const progress = Math.max(0, Math.min(10, count - i * 10));
+      minuteStarIconEls[i]?.classList.toggle('unlocked', progress >= STAR_POSTS_PER_MINUTE);
+      minuteDiamondIconEls[i]?.classList.toggle('unlocked', progress >= DIAMOND_POSTS_PER_MINUTE);
+    });
+    minuteRewardBarEl.classList.toggle('star-hit', provisionalStar && !anyDiamond);
+    minuteRewardBarEl.classList.toggle('diamond-hit', anyDiamond);
+  }
+
+  function coachClock(ts) {
+    if (!Number.isFinite(ts)) return '—';
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function coachDuration(ms) {
+    if (!Number.isFinite(ms)) return '—';
+    const total = Math.max(0, Math.round(ms/60000));
+    const h = Math.floor(total/60), m = total%60;
+    return `${h}h ${String(m).padStart(2,'0')}m`;
+  }
+
+  function renderCoach({icon,title,detail,side,tone='',progress=null,flash=false}) {
+    if (!shiftCoachEl) return;
+    coachIconEl.textContent = icon || '🎯';
+    coachTitleEl.textContent = title || '';
+    coachDetailEl.textContent = detail || '';
+    coachSideEl.textContent = side || '';
+    shiftCoachEl.classList.remove('tone-star','tone-diamond','tone-good','tone-warn','tone-milestone','tone-clock');
+    if (tone) shiftCoachEl.classList.add(`tone-${tone}`);
+    if (progress !== null) coachProgressEl.style.width = `${Math.max(0,Math.min(100,progress))}%`;
+    if (flash) {
+      shiftCoachEl.classList.remove('flash');
+      void shiftCoachEl.offsetWidth;
+      shiftCoachEl.classList.add('flash');
+      setTimeout(()=>shiftCoachEl.classList.remove('flash'),650);
+    }
+  }
+
+  function showCoachNotification({icon,title,detail='',side='',tone='good',duration=2600,progress=null}) {
+    coachOverrideUntil = Date.now() + duration;
+    const stats = computeChallengeStats();
+    renderCoach({icon,title,detail,side,tone,progress:progress ?? (stats.posts/CHALLENGE_TARGET_POSTS*100),flash:true});
+  }
+
+  function nextMilestone(posts) {
+    return CHALLENGE_MILESTONES.find(m => posts < m) || null;
+  }
+
+  function updateBeatClock(stats, now=Date.now()) {
+    if (!challengeStartAt || stats.remainingMs <= 0 || stats.remainingPosts <= 0) { beatClock=null; return; }
+
+    if (beatClock) {
+      const gained = stats.posts - beatClock.startPosts;
+      if (gained >= beatClock.goal) {
+        showCoachNotification({icon:'🏁',title:'Beat the Clock — WON!',detail:`${gained} posts before the timer. Great recovery.`,side:'RECOVERED',tone:'good',duration:3600});
+        beatClock = null;
+        beatClockCooldownUntil = now + 8*60000;
+        return;
+      }
+      if (now >= beatClock.deadline) {
+        showCoachNotification({icon:'↗️',title:'Recovery round complete',detail:`${gained}/${beatClock.goal} posts — keep building the pace.`,side:'KEEP GOING',tone:'warn',duration:3000});
+        beatClock = null;
+        beatClockCooldownUntil = now + 5*60000;
+        return;
+      }
+      return;
+    }
+
+    if (stats.elapsedMin >= 10 && stats.paceDelta <= -12 && now >= beatClockCooldownUntil) {
+      const deficit = Math.abs(stats.paceDelta);
+      const goal = Math.min(38, Math.max(30, Math.ceil(TARGET_POSTS_PER_MINUTE*5 + Math.min(8, deficit*0.18))));
+      beatClock = { startPosts:stats.posts, goal, deadline:now+5*60000 };
+      showCoachNotification({icon:'⏱️',title:'Beat the Clock!',detail:`Deliver ${goal} orange posts in the next 5 minutes.`,side:`0/${goal}`,tone:'clock',duration:3600});
+    }
+  }
+
+  function renderDefaultCoach(stats, now=Date.now()) {
+    if (!challengeStartAt) return;
+    const progress = stats.posts / CHALLENGE_TARGET_POSTS * 100;
+
+    if (stats.remainingPosts === 0) {
+      renderCoach({icon:'🏆',title:'1,000 complete!',detail:`Finished in ${coachDuration(stats.elapsedMs)}. Outstanding shift.`,side:'DONE',tone:'milestone',progress:100});
+      return;
+    }
+    if (stats.remainingMs === 0) {
+      renderCoach({icon:'🎯',title:`${stats.posts.toLocaleString()} / 1,000`,detail:'The 3-hour challenge is complete. Finish strong.',side:`${stats.remainingPosts} LEFT`,tone:'warn',progress});
+      return;
+    }
+
+    if (beatClock) {
+      const gained = Math.max(0, stats.posts - beatClock.startPosts);
+      const leftMs = Math.max(0, beatClock.deadline - now);
+      renderCoach({icon:'⏱️',title:`Beat the Clock · ${gained}/${beatClock.goal}`,detail:`${formatHMS(leftMs)} left in this recovery round.`,side:`${beatClock.goal-gained} LEFT`,tone:'clock',progress});
+      return;
+    }
+
+    const mode = Math.floor((now - challengeStartAt) / 6500) % 3;
+    if (mode === 0) {
+      if (stats.paceDelta >= 8) renderCoach({icon:'💎',title:`${stats.paceDelta} ahead of target`,detail:`${stats.rate.toFixed(1)}/min · Keep this smooth pace.`,side:'AHEAD',tone:'good',progress});
+      else if (stats.paceDelta <= -8) renderCoach({icon:'⚡',title:`${Math.abs(stats.paceDelta)} behind target`,detail:`${stats.rate.toFixed(1)}/min · A few stronger minutes can recover it.`,side:'CATCH UP',tone:'warn',progress});
+      else renderCoach({icon:'🎯',title:'Right on target',detail:`${stats.rate.toFixed(1)}/min · Goal pace ${TARGET_POSTS_PER_MINUTE.toFixed(1)}/min.`,side:'ON PACE',tone:'good',progress});
+    } else if (mode === 1) {
+      if (stats.projectedFinishAt) {
+        const targetAt = challengeStartAt + CHALLENGE_MS;
+        const aheadMs = targetAt - stats.projectedFinishAt;
+        const detail = aheadMs >= 0 ? `${coachDuration(aheadMs)} before the 3-hour limit.` : `${coachDuration(Math.abs(aheadMs))} over target — still recoverable.`;
+        renderCoach({icon:'🕒',title:`Projected finish ${coachClock(stats.projectedFinishAt)}`,detail,side:coachDuration(stats.projectedDurationMs),tone:aheadMs>=0?'good':'warn',progress});
+      } else {
+        renderCoach({icon:'🕒',title:'Building your projection',detail:'Keep posting — finish estimate appears after the first few minutes.',side:`${stats.posts}/1000`,tone:'',progress});
+      }
+    } else {
+      const next = nextMilestone(stats.posts);
+      if (next) renderCoach({icon:next>=900?'🚀':'✨',title:`Next milestone: ${next.toLocaleString()}`,detail:`${(next-stats.posts).toLocaleString()} orange posts to unlock it.`,side:`${Math.round(progress)}%`,tone:'milestone',progress});
+      else renderCoach({icon:'🏆',title:'Final push',detail:`${stats.remainingPosts} posts left to complete 1,000.`,side:'GO!',tone:'milestone',progress});
+    }
+  }
+
+  function updateChallengeUi() {
+    if (isAdmin) {
+      challengeStartAt=null;challengeOrangeTimestamps=[];beatClock=null;lastChallengePersistSig='';
+      challengeDotsRemainingEl.textContent='—';challengeTimeRemainingEl.textContent='—';
+      starEarnedEl.textContent='⭐ 0';diamondEarnedEl.textContent='💎 0';if(deadEarnedEl)deadEarnedEl.textContent='☠ 0';
+      challengeDotsChip.classList.add('inactive');challengeTimeChip.classList.add('inactive');
+      renderMinuteChallenge(null);
+      updateOrangePaceScore();
+      renderCoach({icon:'◆',title:'Admin mode',detail:'Set campaign and orange-per-minute targets.',side:'ADMIN',tone:'diamond',progress:0});
+      return;
+    }
+    if (!challengeStartAt) {
+      resetChallengeUi();
+      return;
+    }
+    const now = Date.now();
+    const stats = computeChallengeStats(now);
+    persistChallengeRecord(stats);
+    renderMinuteChallenge(stats, now);
+    updateOrangePaceScore(now);
+    challengeDotsRemainingEl.textContent = stats.remainingPosts.toLocaleString();
+    challengeTimeRemainingEl.textContent = formatHMS(stats.remainingMs);
+    starEarnedEl.textContent = `⭐ ${stats.earned}`;
+    diamondEarnedEl.textContent = `💎 ${stats.diamonds}`;
+    if (deadEarnedEl) deadEarnedEl.textContent = `☠ ${stats.missed}`;
+    challengeDotsChip.classList.remove('inactive');
+    challengeTimeChip.classList.remove('inactive');
+    challengeDotsChip.classList.toggle('done', stats.remainingPosts === 0);
+    challengeTimeChip.classList.toggle('done', stats.remainingMs === 0);
+    coachProgressEl.style.width = `${Math.min(100,stats.posts/CHALLENGE_TARGET_POSTS*100)}%`;
+
+    updateBeatClock(stats, now);
+    if (now >= coachOverrideUntil) renderDefaultCoach(stats, now);
+  }
+
+  function startChallengeTicker() {
+    if (challengeTicker) clearInterval(challengeTicker);
+    challengeTicker = setInterval(updateChallengeUi, 1000);
+  }
+
+  function syncChallengeFromDots(allDots) {
+    if (isAdmin) { updateChallengeUi(); return; }
+    if (!currentUserId || !currentWorkerName) {
+      resetChallengeUi();
+      return;
+    }
+    const exact = currentWorkerName.toLowerCase();
+    const oranges = (allDots || [])
+      .filter(d => d.color === 'orange' && (d.workerName || '').toLowerCase() === exact && Number.isFinite(d.timestamp))
+      .map(d => d.timestamp)
+      .sort((a,b) => a-b);
+
+    const safe = challengeWorkerSafe();
+    const firebaseStartRaw = Number(shiftRegistry[safe]?.challenge?.startAt);
+    const firebaseStart = Number.isFinite(firebaseStartRaw) && firebaseStartRaw > 0 ? firebaseStartRaw : null;
+    const storedStart = loadStoredChallengeStart();
+    const firstOrange = oranges.length ? oranges[0] : null;
+    challengeStartAt = firebaseStart || storedStart || firstOrange || null;
+    if (challengeStartAt) {
+      const key = challengeWorkerKey();
+      if (key) localStorage.setItem(key, String(challengeStartAt));
+    }
+    challengeOrangeTimestamps = challengeStartAt
+      ? oranges.filter(ts => ts >= challengeStartAt && ts < challengeStartAt + CHALLENGE_MS)
+      : [];
+    updateChallengeUi();
+  }
+
+  function triggerRewardAnimation(kind='star', label='+1') {
+    if (!starBurstEl) return;
+    const diamond = kind === 'diamond';
+    rewardBurstIconEl.textContent = diamond ? '💎' : '⭐';
+    rewardBurstLabelEl.textContent = label;
+    rewardBurstIconEl.style.filter = 'none';
+    starBurstEl.style.color = diamond ? '#cffafe' : '#fff3a5';
+    starBurstEl.classList.remove('play');
+    void starBurstEl.offsetWidth;
+    starBurstEl.classList.add('play');
+    setTimeout(() => starBurstEl.classList.remove('play'), 950);
+  }
+
+  function milestoneMessage(m) {
+    if (m===100) return {icon:'✨',title:'100 delivered!',detail:'First hundred complete — rhythm is building.',side:'10%'};
+    if (m===250) return {icon:'⭐',title:'250 delivered!',detail:'Quarter way through the 1,000 challenge.',side:'25%'};
+    if (m===500) return {icon:'💎',title:'Halfway — 500!',detail:'500 down. Keep the pace smooth and controlled.',side:'50%'};
+    if (m===750) return {icon:'⭐',title:'750 delivered!',detail:'Only 250 orange posts remain.',side:'75%'};
+    if (m===900) return {icon:'🚀',title:'Final 100!',detail:'You are in the last stretch — finish strong.',side:'90%'};
+    return {icon:'🏆',title:'1,000 COMPLETE!',detail:'Challenge target reached. Excellent shift.',side:'100%'};
+  }
+
+  function registerOrangeForChallenge(ts) {
+    if (!challengeStartAt) {
+      setChallengeStart(ts);
+      showCoachNotification({icon:'🚀',title:'Challenge started!',detail:'1,000 orange posts · 3 hours. Build a smooth rhythm.',side:'GO',tone:'good',duration:3000,progress:0});
+    }
+    if (!challengeStartAt) return;
+
+    const endAt = challengeStartAt + CHALLENGE_MS;
+    if (ts < challengeStartAt || ts >= endAt) {
+      updateChallengeUi();
+      return;
+    }
+
+    const beforeStats = computeChallengeStats(ts);
+    const minute = Math.floor((ts - challengeStartAt) / 60000);
+    const before = challengeOrangeTimestamps.filter(t => Math.floor((t - challengeStartAt) / 60000) === minute).length;
+    challengeOrangeTimestamps.push(ts);
+    const after = before + 1;
+    const afterPosts = beforeStats.posts + 1;
+
+    // Up to three independent 10-post rounds per minute.
+    // 5-9 posts in a round = provisional star; reaching 10 upgrades that same star to a diamond.
+    // Posts above 30 in the same minute do not create any further reward.
+    if (after <= MAX_REWARDED_POSTS_PER_MINUTE) {
+      const roundIndex = Math.floor((after - 1) / 10);
+      const roundProgress = ((after - 1) % 10) + 1;
+      if (roundProgress === STAR_POSTS_PER_MINUTE) {
+        triggerRewardAnimation('star','+1');
+        addLocalRewardEvent('star', minute, roundIndex);
+        showCoachNotification({icon:'⭐',title:`Star ${roundIndex + 1} unlocked!`,detail:`Round ${roundIndex + 1}: 5/10 filled. Reach 10 to upgrade it to a diamond.`,side:'STAR',tone:'star',duration:2200});
+      }
+      if (roundProgress === DIAMOND_POSTS_PER_MINUTE) {
+        triggerRewardAnimation('diamond','UPGRADE');
+        addLocalRewardEvent('diamond', minute, roundIndex);
+        showCoachNotification({icon:'💎',title:`Diamond ${roundIndex + 1}!`,detail:`Round ${roundIndex + 1} complete — its star is upgraded to a diamond.`,side:'DIAMOND',tone:'diamond',duration:2500});
+      }
+    }
+
+    for (const m of CHALLENGE_MILESTONES) {
+      if (beforeStats.posts < m && afterPosts >= m) {
+        const msg = milestoneMessage(m);
+        triggerRewardAnimation(m===1000?'diamond':'star',m===1000?'1K!':'');
+        showCoachNotification({...msg,tone:'milestone',duration:m===1000?4800:3400,progress:m/CHALLENGE_TARGET_POSTS*100});
+        break;
+      }
+    }
+    updateChallengeUi();
+  }
+
+  startChallengeTicker();
+
+  // ── Session & earnings display ────────────────────────────────────────────
+  function updateSessionAndEarningsDisplay(allDots) {
+    let sessionDurationMs=0, sessionDots=0, isActive=false, sessionAvg=0;
+    let greenC=0, redC=0, blueC=0, orangeC=0;
+    let todayGroupDots=0, totalGroupDots=0, todayGroupPosts=0, totalGroupPosts=0;
+    const baseName = currentWorkerName ? currentWorkerName.replace(/[0-9]/g,'').toLowerCase() : '';
+    const exactSafe = currentWorkerName ? currentWorkerName.toLowerCase().replace(/[^a-z0-9]/g,'') : '';
+    const exactBonusBlue = Number(shiftRegistry[exactSafe]?.adminBonusBlue)||0;
+    let groupBonusTotal=0, groupBonusToday=0;
+    if(baseName){
+      Object.entries(shiftRegistry).forEach(([safe,reg])=>{
+        const dn=((reg&&reg.firstName)||safe||'').toString();
+        if(dn.replace(/[0-9]/g,'').toLowerCase()!==baseName)return;
+        groupBonusTotal += Number(reg?.adminBonusBlue)||0;
+        const grants=reg?.adminBonusGrants||{};
+        Object.values(grants).forEach(g=>{if(g&&Number(g.amount)>0&&isToday(Number(g.timestamp)))groupBonusToday+=Number(g.amount)||0;});
+      });
+    }
+
+    if (currentWorkerName && allDots?.length) {
+      const exactLow = currentWorkerName.toLowerCase();
+      allDots.forEach(p => {
+        const pLow = (p.workerName||'').toLowerCase();
+        if (pLow===exactLow) {
+          if(p.color==='green')greenC++;
+          else if(p.color==='red')redC++;
+          else if(p.color==='blue')blueC++;
+          else if(p.color==='orange')orangeC++;
+        }
+        const wBase = pLow.replace(/[0-9]/g,'');
+        if (wBase===baseName) {
+          if(p.color!=='orange'){totalGroupDots++;if(isToday(p.timestamp))todayGroupDots++;}
+          else{totalGroupPosts++;if(isToday(p.timestamp))todayGroupPosts++;}
+        }
+      });
+      const workerDots = allDots.filter(p=>(p.workerName||'').toLowerCase()===exactLow&&p.color!=='orange');
+      if (workerDots.length > 0) {
+        isActive = true; sessionDots = workerDots.length;
+        const ts = workerDots.map(p=>p.timestamp).sort((a,b)=>a-b);
+        sessionDurationMs = Math.max(0, ts[ts.length-1]-ts[0]);
+        const mins = sessionDurationMs/60000;
+        sessionAvg = mins > 0 ? sessionDots/mins : 0;
+      }
+    }
+
+    countRight.textContent=greenC; countLeft.textContent=redC; countBonus.textContent=blueC+exactBonusBlue; countPost.textContent=orangeC;
+    sessionTimerEl.classList.toggle('inactive', !isActive);
+    sessionTimerEl.textContent = isActive ? formatHMS(sessionDurationMs) : '00:00:00';
+    sessionAvgEl.textContent = isActive ? sessionAvg.toFixed(2) : '—';
+    sessionTotalEl.textContent = isActive ? String(sessionDots) : '0';
+    earnPerHourEl.textContent = '€'+(sessionAvg*0.036*60).toFixed(2);
+    const todayDotsWithBonus = todayGroupDots + groupBonusToday;
+    const totalDotsWithBonus = totalGroupDots + groupBonusTotal;
+    todayWorkerDotsEl.textContent = todayDotsWithBonus;
+    todayWorkerEarningsEl.textContent = '€'+(todayDotsWithBonus*0.036).toFixed(2);
+    const totalEarned = totalDotsWithBonus*0.036;
+    totalWorkerEarningsEl.textContent = '€'+totalEarned.toFixed(2);
+    todayWorkerConnsEl.textContent = todayGroupPosts;
+    totalWorkerConnsEl.textContent = totalGroupPosts;
+    cpcValueEl.textContent = totalGroupPosts>0 ? '€'+(totalEarned/totalGroupPosts).toFixed(2) : '—';
+  }
+
+  function updateCampaignProgress(totalTeamDots, totalTeamPosts) {
+    lastCampaignRawDots = Number(totalTeamDots)||0;
+    lastCampaignPosts = Number(totalTeamPosts)||0;
+    const effectiveDots = Math.max(0,lastCampaignRawDots + campaignBonusBlueTotal);
+    const target = Number(campaignTargetDots);
+    const hasTarget = Number.isFinite(target) && target > 0;
+    const pct = hasTarget ? Math.min(100,(effectiveDots/target)*100) : 0;
+    if(campPercentEl){
+      campPercentEl.innerHTML = hasTarget
+        ? `<span style="font-size:15px;font-weight:900;color:#34d399;font-family:Menlo,monospace;">${effectiveDots.toLocaleString()}</span><span style="font-size:9px;color:#6b7280;margin-left:4px;">${pct.toFixed(1)}%</span>`
+        : `<span style="font-size:15px;font-weight:900;color:#e5e7eb;font-family:Menlo,monospace;">${effectiveDots.toLocaleString()}</span><span style="font-size:9px;color:#6b7280;margin-left:4px;">TARGET NOT SET</span>`;
+    }
+    campBarEl.style.width = pct+'%';
+    campRemEl.textContent = hasTarget ? Math.max(0,100-pct).toFixed(1)+'% Remaining' : 'Admin sets target';
+    const fr=document.getElementById('campDotsFraction');
+    if(fr) fr.textContent = hasTarget ? `${effectiveDots.toLocaleString()} / ${target.toLocaleString()}` : `${effectiveDots.toLocaleString()} / —`;
+    connCountEl.textContent=lastCampaignPosts;
+  }
+
+  // ── Chat ──────────────────────────────────────────────────────────────────
+  function attachChatListener(id) {
+    if (typeof chatUnsub==='function'){chatUnsub();chatUnsub=null;}
+    cleanupOldChat(id); // storage: purge messages older than 48h
+    const chatRef=query(ref(db,`chats/${id}`),orderByChild('timestamp'));
+    const handler=snap=>{
+      chatMessages.innerHTML=''; let unread=0, hasMsgs=false;
+      const isChatOpen=chatBackdrop.classList.contains('show');
+      snap.forEach(child=>{
+        const msg=child.val(); if(!isToday(msg.timestamp))return; hasMsgs=true;
+        const isMe=msg.workerName===currentWorkerName;
+        const el=document.createElement('div'); el.className=`chat-msg ${isMe?'mine':''}`;
+        el.innerHTML=`<div class="chat-msg-meta">${msg.workerName} · ${formatLocalTime(msg.timestamp)}</div><div>${msg.text}</div>`;
+        chatMessages.appendChild(el);
+        if(msg.timestamp>lastReadChatTs&&!isChatOpen&&!isMe)unread++;
+      });
+      if(!hasMsgs)chatMessages.innerHTML='<div style="text-align:center;color:var(--muted);font-size:10px;margin-top:10px;">No messages yet today.</div>';
+      else setTimeout(()=>chatMessages.scrollTop=chatMessages.scrollHeight,10);
+      if(unread>0){chatBadge.textContent=unread;chatBadge.classList.add('show');}else chatBadge.classList.remove('show');
+    };
+    onValue(chatRef,handler);
+    chatUnsub=()=>off(chatRef,'value',handler);
+  }
+
+  // ── Posts listener ────────────────────────────────────────────────────────
+  function attachMyPostsListener(id) {
+    if (typeof myPostsUnsub==='function'){myPostsUnsub();myPostsUnsub=null;}
+    let normalDots=[], orangeDots=[];
+    const combine=()=>{
+      hideLoader();
+      const allDots=[...normalDots,...orangeDots].sort((a,b)=>a.timestamp-b.timestamp);
+      globalAllDots=allDots;
+      if(historyIndex===-1&&globalAllDots.length>0)historyIndex=globalAllDots.length-1;
+      let teamDots=0, teamPosts=0;
+      allDots.forEach(d=>{if(d.color!=='orange')teamDots++;else teamPosts++;});
+      rebuildMapLayer(allDots);
+      updateSessionAndEarningsDisplay(allDots);
+      syncChallengeFromDots(allDots);
+      updateCampaignProgress(teamDots,teamPosts);
+      populateShiftSelect(allDots);
+    };
+    const nRef=query(ref(db,`userPosts/${id}`),orderByChild('timestamp'));
+    const oRef=query(ref(db,`userPostClicks/${id}`),orderByChild('timestamp'));
+    const nH=snap=>{normalDots=[];snap.forEach(ch=>{const v=ch.val();if(v&&typeof v.lat==='number')normalDots.push(v);});combine();};
+    const oH=snap=>{orangeDots=[];snap.forEach(ch=>{const v=ch.val();if(v&&typeof v.lat==='number')orangeDots.push(v);});combine();};
+    onValue(nRef,nH); onValue(oRef,oH);
+    myPostsUnsub=()=>{off(nRef,'value',nH);off(oRef,'value',oH);};
+  }
+
+  // ── User ──────────────────────────────────────────────────────────────────
+  const LS_KEY='dotPoster:userId';
+  function normalizeUserId(id){return(id||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+  function validateUserId(id){return /^[A-Z0-9]{3,10}$/.test(id);}
+
+  function showLogin(){
+    hideLoader(); loginBackdrop.classList.add('show'); userIdInput.value=''; loginError.textContent=''; setPostEnabled(false);
+    if(typeof myPostsUnsub==='function')myPostsUnsub(); if(typeof chatUnsub==='function')chatUnsub();
+    currentUserId=null; currentWorkerName=null; isAdmin=false; document.body.classList.remove('admin-mode'); updateWorkerUi();
+    if(typeof campaignSettingsUnsub==='function'){campaignSettingsUnsub();campaignSettingsUnsub=null;}
+    campaignTargetDots=null;orangePerMinuteTarget=null;campaignBonusBlueTotal=0;selectedShiftIndex=-1;
+    updateOrangePaceScore();
+    if(map.getSource('dots'))map.getSource('dots').setData(fc());
+    if(map.getSource('trails'))map.getSource('trails').setData(fc());
+    dotMarkers.forEach(m=>m.remove()); dotMarkers.length=0;
+    sessionTimerEl.textContent='00:00:00'; sessionAvgEl.textContent='—'; sessionTotalEl.textContent='0'; earnPerHourEl.textContent='€0.00';
+    todayWorkerDotsEl.textContent='0'; todayWorkerEarningsEl.textContent='€0.00'; totalWorkerEarningsEl.textContent='€0.00';
+    todayWorkerConnsEl.textContent='0'; totalWorkerConnsEl.textContent='0'; cpcValueEl.textContent='€0.00';
+    globalAllDots=[]; historyIndex=-1;
+    localClicks=[]; globalAbsDCount=0; globalAbsPCount=0; renderLocalClicks();
+    resetChallengeUi();
+    updateCampaignProgress(0,0);
+  }
+  function hideLogin(){loginBackdrop.classList.remove('show');}
+
+  async function registerUser(id){
+    const uRef=ref(db,`users/${id}`);
+    try{const snap=await get(uRef);if(snap.exists())await update(uRef,{lastActiveAt:Date.now()});else await set(uRef,{createdAt:Date.now(),lastActiveAt:Date.now(),stats:{totalDots:0,totalEarningsCents:0}});}
+    catch(e){console.error(e);}
+  }
+
+  function attachCampaignSettings(id){
+    if(typeof campaignSettingsUnsub==='function'){campaignSettingsUnsub();campaignSettingsUnsub=null;}
+    campaignSettingsUnsub=onValue(ref(db,`users/${id}/campaignSettings`),snap=>{
+      const v=snap.val()||{};
+      const t=Number(v.targetDots);
+      campaignTargetDots=Number.isFinite(t)&&t>0?Math.round(t):null;
+      const pace=Number(v.orangePerMinuteTarget);
+      orangePerMinuteTarget=Number.isFinite(pace)&&pace>=1?Math.round(pace):null;
+      if(adminCurrentTargetEl)adminCurrentTargetEl.textContent=campaignTargetDots?campaignTargetDots.toLocaleString():'Not set';
+      if(adminTargetInput&&campaignTargetDots)adminTargetInput.placeholder=campaignTargetDots.toString();
+      if(adminCurrentOrangePerMinuteEl)adminCurrentOrangePerMinuteEl.textContent=orangePerMinuteTarget?`${orangePerMinuteTarget}/min`:'Not set';
+      if(adminOrangePerMinuteInput&&orangePerMinuteTarget)adminOrangePerMinuteInput.placeholder=orangePerMinuteTarget.toString();
+      updateCampaignProgress(lastCampaignRawDots,lastCampaignPosts);
+      updateOrangePaceScore();
+    });
+  }
+
+  function onUserReady(id){
+    isAdmin=false;document.body.classList.remove('admin-mode');
+    currentUserId=id; localStorage.setItem(LS_KEY,id); userPillText.textContent=id; userPill.style.display='flex';
+    loadLocalClicks(id); attachMyPostsListener(id); attachChatListener(id); loadShiftRegistry(id); attachCampaignSettings(id);
+    setPostEnabled(!!currentLatLng); goToCurrentLocation({focus:true});
+  }
+
+  const stored=normalizeUserId(localStorage.getItem(LS_KEY));
+  if(validateUserId(stored)){registerUser(stored).then(()=>onUserReady(stored));}else{showLogin();}
+
+  userJoinBtn.addEventListener('click',async()=>{
+    loginError.textContent=''; const id=normalizeUserId(userIdInput.value);
+    if(!validateUserId(id)){loginError.textContent='Use 3–10 letters/numbers';return;}
+    await registerUser(id); onUserReady(id); hideLogin(); showToast(`User ${id} ready`);
+  });
+  userIdInput.addEventListener('keyup',e=>{if(e.key==='Enter')userJoinBtn.click();});
+  changeUserBtn.addEventListener('click',showLogin);
+
+  // ── Worker / admin session ────────────────────────────────────────────────
+  function updateWorkerUi(){
+    btnStartWorker.textContent=isAdmin?'Admin':(currentWorkerName||'Start');
+    userPillText.textContent=currentUserId||'';
+  }
+  function showAdminPinIfNeeded(){
+    const wantsAdmin=(workerNameInput.value||'').trim().toLowerCase()==='admin';
+    adminPinWrap.classList.toggle('show',wantsAdmin);
+    if(!wantsAdmin)adminPinInput.value='';
+  }
+  function openWorkerModal(){
+    workerError.textContent='';
+    workerNameInput.value=isAdmin?'':(currentWorkerName||'');
+    adminPinInput.value='';
+    showAdminPinIfNeeded();
+    workerBackdrop.classList.add('show');
+    setTimeout(()=>workerNameInput.focus(),50);
+  }
+  function closeWorkerModal(){workerBackdrop.classList.remove('show');}
+  async function saveWorkerName(name){if(!currentUserId)return;const safe=name.toLowerCase().replace(/[^a-z0-9]/g,'');await update(ref(db,`users/${currentUserId}/workers/${safe}`),{firstName:name,lastActiveAt:Date.now()});}
+
+  workerNameInput.addEventListener('input',showAdminPinIfNeeded);
+  adminPinInput.addEventListener('keyup',e=>{if(e.key==='Enter')workerSaveBtn.click();});
+
+  btnStartWorker.addEventListener('click',()=>{
+    if(!currentUserId){showToast('Join with User ID first');return;}
+    if(isAdmin){openAdminPanel();return;}
+    openWorkerModal();
+  });
+
+  workerSaveBtn.addEventListener('click',async()=>{
+    workerError.textContent='';
+    const name=(workerNameInput.value||'').trim().replace(/\s+/g,' ');
+    if(name.toLowerCase()==='admin'){
+      if(adminPinInput.value!==ADMIN_PIN){workerError.textContent='Incorrect admin PIN';adminPinInput.focus();return;}
+      try{
+        isAdmin=true;
+        currentWorkerName='admin';
+        lastChallengePersistSig='';
+        await saveWorkerName('admin');
+        document.body.classList.add('admin-mode');
+        updateWorkerUi();
+        setPostEnabled(false);
+        closeWorkerModal();
+        resetChallengeUi();
+        renderCoach({icon:'◆',title:'Admin mode',detail:'Campaign target control is available.',side:'ADMIN',tone:'diamond',progress:0});
+        showToast('Admin mode enabled');
+        openAdminPanel();
+      }catch(e){workerError.textContent='Failed to start admin mode';}
+      return;
+    }
+    if(!/^[A-Za-z0-9]{2,20}$/.test(name)){workerError.textContent='Use 2–20 letters/numbers';return;}
+    try{
+      isAdmin=false;
+      document.body.classList.remove('admin-mode');
+      currentWorkerName=name;
+      lastChallengePersistSig='';
+      await saveWorkerName(name);
+      updateWorkerUi();
+      setPostEnabled(!!currentLatLng);
+      closeWorkerModal();
+      showToast(`Worker ${name} started`);
+      resetChallengeUi();
+      if(myPostsUnsub)myPostsUnsub();
+      attachMyPostsListener(currentUserId);
+    }catch(e){workerError.textContent='Failed to save worker';}
+  });
+
+  // ── Chat modal ────────────────────────────────────────────────────────────
+  chatBtn.addEventListener('click',()=>{if(!currentUserId)return;chatBackdrop.classList.add('show');chatBadge.classList.remove('show');chatBadge.textContent='0';lastReadChatTs=Date.now();setTimeout(()=>chatInput.focus(),50);});
+  closeChatBtn.addEventListener('click',()=>{chatBackdrop.classList.remove('show');lastReadChatTs=Date.now();});
+  chatSendBtn.addEventListener('click',async()=>{
+    const text=chatInput.value.trim();if(!text)return;
+    if(!currentWorkerName){showToast('Start worker first');openWorkerModal();return;}
+    try{chatSendBtn.disabled=true;await push(ref(db,`chats/${currentUserId}`),{text,workerName:currentWorkerName,timestamp:Date.now()});chatInput.value='';}
+    catch(e){}finally{chatSendBtn.disabled=false;chatInput.focus();}
+  });
+  chatInput.addEventListener('keyup',e=>{if(e.key==='Enter')chatSendBtn.click();});
+
+  // ── Photo Proof — direct camera/gallery upload with compression ───────────
+  // Tapping the camera icon opens the device chooser (Camera or Gallery).
+  // The image is compressed client-side (max 1280px, JPEG q0.72 — typically
+  // a 90-95% size reduction vs raw phone photos, EXIF stripped), uploaded
+  // to Cloudflare R2 via the worker proxy, then the public URL + GPS
+  // location is pushed to the proof database.
+  const PROOF_PROXY_URL = 'https://upload-proxy.gotshotu.workers.dev';
+  const PROOF_R2_PUBLIC = 'https://pub-09d49e1729be4c218a60f330ac3b61b2.r2.dev/';
+  const PROOF_MAX_BYTES = 10 * 1024 * 1024; // 10 MB (pre-compression cap)
+
+  async function uploadProofToCloudflare(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(PROOF_PROXY_URL, { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.success) return PROOF_R2_PUBLIC + data.fileName;
+    throw new Error(data.error || 'Cloudflare upload failed');
+  }
+
+  cameraBtn.addEventListener('click', async () => {
+    if (!currentUserId) { showToast('Join with User ID first'); return; }
+    if (!currentLatLng) {
+      showToast('Getting location…');
+      await goToCurrentLocation({ focus: false });
+      if (!currentLatLng) { showToast('No location — enable GPS'); return; }
+    }
+    proofFileInput.value = '';
+    proofFileInput.click();
+  });
+
+  proofFileInput.addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) { showToast('Please select an image'); return; }
+    if (file.size > PROOF_MAX_BYTES) { showToast('Image too large (max 10 MB)'); return; }
+    if (!currentLatLng) { showToast('No location — enable GPS'); return; }
+
+    cameraBtn.classList.add('uploading');
+    showToast('Compressing…');
+
+    let cId = currentUserId;
+    if (cId.startsWith('FF')) cId = 'XX' + cId.substring(2);
+
+    try {
+      // Storage: shrink before it ever leaves the phone
+      const compressed = await compressImage(file);
+      const savedPct = file.size > 0 ? Math.round((1 - compressed.size / file.size) * 100) : 0;
+      console.log(`Proof: ${(file.size/1024).toFixed(0)} KB → ${(compressed.size/1024).toFixed(0)} KB (${savedPct}% smaller)`);
+
+      showToast('Uploading proof…');
+      const url = await uploadProofToCloudflare(compressed);
+
+      await push(ref(proofDb, `campaigns/${cId}/proofs`), {
+        url,
+        lat: roundCoord(currentLatLng[0]),
+        lng: roundCoord(currentLatLng[1]),
+        timestamp: Date.now(),
+        workerName: currentWorkerName || null
+      });
+      showToast('✅ Proof submitted!');
+      localClicks.push({ type: 'upload' });
+      renderLocalClicks();
+    } catch (err) {
+      console.error('Proof upload failed:', err);
+      showToast('Upload failed — try again');
+    } finally {
+      cameraBtn.classList.remove('uploading');
+      proofFileInput.value = '';
+    }
+  });
+
+  // ── Dot history navigation ────────────────────────────────────────────────
+  const btnDotNav=document.getElementById('btnDotNav');
+  const dotNavPulse=document.getElementById('dotNavPulse');
+
+  function navigateDotHistory(){
+    const posts=globalAllDots.filter(d=>d.color==='orange');
+    if(!posts.length){showToast('No posts yet');return;}
+    if(historyIndex<0||historyIndex>=posts.length)historyIndex=posts.length-1;
+    const d=posts[historyIndex];
+    map.flyTo({center:[d.lng,d.lat],zoom:18,duration:900});
+    if(map.getSource('histdot')){
+      const fill=d.color==='green'?'#22c55e':d.color==='blue'?'#3b82f6':d.color==='orange'?'#f97316':'#ef4444';
+      map.getSource('histdot').setData(fc([feat('Point',[d.lng,d.lat],{fill})]));
+    }
+    showToast(`Post ${historyIndex+1} of ${posts.length}`);
+    if(dotNavPulse){const fill=d.color==='green'?'#22c55e':d.color==='blue'?'#3b82f6':d.color==='orange'?'#f97316':'#ef4444';dotNavPulse.style.borderColor=fill;}
+    historyIndex--;
+  }
+  btnDotNav.addEventListener('click',navigateDotHistory);
+  btnLatestDot.addEventListener('click',navigateDotHistory);
+
+  // ── Shifts / summaries ───────────────────────────────────────────────────
+  const shiftSelect=document.getElementById('shiftSelect');
+  const shiftDashBackdrop=document.getElementById('shiftDashBackdrop');
+
+  function loadShiftRegistry(userId){
+    const wRef=ref(db,`users/${userId}/workers`);
+    onValue(wRef,snap=>{
+      shiftRegistry={};campaignBonusBlueTotal=0;
+      snap.forEach(child=>{
+        const v=child.val()||{};
+        shiftRegistry[child.key]=v;
+        campaignBonusBlueTotal+=Number(v.adminBonusBlue)||0;
+      });
+      if(globalAllDots.length){populateShiftSelect(globalAllDots);syncChallengeFromDots(globalAllDots);updateSessionAndEarningsDisplay(globalAllDots);}
+      updateCampaignProgress(lastCampaignRawDots,lastCampaignPosts);
+    });
+  }
+  function computeShifts(allDots){
+    if(!allDots||!allDots.length)return[];
+    const byWorker={};
+    allDots.forEach(d=>{const n=(d.workerName||'Unknown').trim();if(!byWorker[n])byWorker[n]=[];byWorker[n].push(d);});
+    return Object.entries(byWorker).map(([workerName,dots])=>{
+      const s=dots.slice().sort((a,b)=>a.timestamp-b.timestamp);
+      return{workerName,dots:s,firstTs:s[0].timestamp,lastTs:s[s.length-1].timestamp};
+    }).sort((a,b)=>a.firstTs-b.firstTs).reverse();
+  }
+  function shiftDisplayName(shift){
+    const safe=shift.workerName.toLowerCase().replace(/[^a-z0-9]/g,'');
+    return shiftRegistry[safe]?.firstName||shift.workerName;
+  }
+  function populateShiftSelect(allDots){
+    const shifts=computeShifts(allDots);
+    shiftSelect._shifts=shifts;
+    if(selectedShiftIndex>=shifts.length)selectedShiftIndex=-1;
+    shiftSelect.textContent=selectedShiftIndex>=0?String(selectedShiftIndex+1):'—';
+    renderShiftPickerList();
+  }
+  function renderShiftPickerList(){
+    const shifts=shiftSelect._shifts||[];
+    shiftPickerList.innerHTML='';
+    if(!shifts.length){shiftPickerList.innerHTML='<div class="shift-picker-empty">No completed shift data yet.</div>';return;}
+
+    const mode=shiftSortSelect?.value||'newest';
+    const entries=shifts.map((sh,originalIndex)=>({
+      sh,originalIndex,orange:sh.dots.filter(d=>d.color==='orange').length
+    }));
+    if(mode==='orangeDesc')entries.sort((a,b)=>b.orange-a.orange||b.sh.firstTs-a.sh.firstTs);
+    else if(mode==='orangeAsc')entries.sort((a,b)=>a.orange-b.orange||b.sh.firstTs-a.sh.firstTs);
+
+    entries.forEach((entry,displayIndex)=>{
+      const {sh,originalIndex,orange}=entry;
+      const d=new Date(sh.firstTs);
+      const date=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      const time=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const row=document.createElement('button');
+      row.type='button';row.className='shift-picker-row'+(originalIndex===selectedShiftIndex?' selected':'');
+      row.innerHTML=`<span class="shift-picker-index">${displayIndex+1}</span><span class="shift-picker-main"><span class="shift-picker-name">${escapeHtml(shiftDisplayName(sh))}</span><span class="shift-picker-date">${date} · ${time}</span></span><span class="shift-picker-orange"><i></i>${orange.toLocaleString()}</span><span class="shift-picker-arrow">›</span>`;
+      row.addEventListener('click',()=>{selectedShiftIndex=originalIndex;shiftSelect.textContent=String(originalIndex+1);shiftPickerBackdrop.classList.remove('show');renderShiftPickerList();openShiftDashboard(sh);});
+      shiftPickerList.appendChild(row);
+    });
+  }
+  function openShiftPicker(){renderShiftPickerList();shiftPickerBackdrop.classList.add('show');}
+
+  function openShiftDashboard(shift){
+    const dots=shift.dots;
+    const green=dots.filter(d=>d.color==='green').length;
+    const red=dots.filter(d=>d.color==='red').length;
+    const rawBlue=dots.filter(d=>d.color==='blue').length;
+    const orange=dots.filter(d=>d.color==='orange').length;
+    const safe=shift.workerName.toLowerCase().replace(/[^a-z0-9]/g,'');
+    const bonusBlue=Number(shiftRegistry[safe]?.adminBonusBlue)||0;
+    const blue=rawBlue+bonusBlue;
+    const totalConn=green+red+blue,earned=totalConn*0.036,cpc=orange>0?earned/orange:null;
+    const dur=Math.max(0,shift.lastTs-shift.firstTs),hrs=Math.floor(dur/3600000),mins=Math.floor((dur%3600000)/60000);
+    const dateStr=new Date(shift.firstTs).toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    const dn=shiftRegistry[safe]?.firstName||shift.workerName;
+    document.getElementById('sdShiftName').textContent=dn;
+    document.getElementById('sdDate').textContent=dateStr;
+    document.getElementById('sdTimeWorked').textContent=`${String(hrs).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`;
+    document.getElementById('sdGreen').textContent=green;
+    document.getElementById('sdRed').textContent=red;
+    document.getElementById('sdBlue').textContent=blue;
+    document.getElementById('sdOrange').textContent=orange;
+    const bonusNote=document.getElementById('sdBlueBonusNote');
+    if(bonusNote)bonusNote.textContent='';
+    document.getElementById('sdEarned').textContent='€'+earned.toFixed(2);
+    document.getElementById('sdCPC').textContent=cpc!==null?'€'+cpc.toFixed(2):'—';
+
+    const savedChallenge=shiftRegistry[safe]?.challenge||null;
+    const orangeTs=dots.filter(d=>d.color==='orange'&&Number.isFinite(d.timestamp)).map(d=>d.timestamp).sort((a,b)=>a-b);
+    let paceEarned=Number(savedChallenge?.starsEarned),paceDiamonds=Number(savedChallenge?.diamondsEarned),paceDead=Number(savedChallenge?.deadMinutes);
+    const savedValid=Number(savedChallenge?.rewardVersion)===CHALLENGE_REWARD_VERSION&&Number.isFinite(paceEarned)&&Number.isFinite(paceDiamonds)&&Number.isFinite(paceDead);
+    if(!savedValid){
+      paceEarned=0;paceDiamonds=0;paceDead=0;
+      if(orangeTs.length){
+        const startRaw=Number(savedChallenge?.startAt),start=Number.isFinite(startRaw)&&startRaw>0?startRaw:orangeTs[0],end=start+CHALLENGE_MS,counts=new Array(CHALLENGE_TOTAL_STARS).fill(0);
+        orangeTs.filter(ts=>ts>=start&&ts<end).forEach(ts=>{const minute=Math.floor((ts-start)/60000);if(minute>=0&&minute<CHALLENGE_TOTAL_STARS)counts[minute]++;});
+        counts.forEach(c=>{const r=rewardStateForMinuteCount(c);paceEarned+=r.stars;paceDiamonds+=r.diamonds;});
+        const elapsedTo=Math.min(CHALLENGE_MS,Math.max(0,shift.lastTs-start));
+        const completedMinutes=Math.min(CHALLENGE_TOTAL_STARS,Math.floor(elapsedTo/60000));
+        for(let i=0;i<completedMinutes;i++)if(counts[i]<STAR_POSTS_PER_MINUTE)paceDead++;
+      }
+    }
+    document.getElementById('sdPaceStars').textContent=String(paceEarned);
+    document.getElementById('sdPaceDiamonds').textContent=String(paceDiamonds);
+    document.getElementById('sdDead').textContent=String(paceDead);
+    shiftDashBackdrop.classList.add('show');
+  }
+
+  shiftSelect.addEventListener('click',openShiftPicker);
+  closeShiftPicker.addEventListener('click',()=>shiftPickerBackdrop.classList.remove('show'));
+  shiftSortSelect?.addEventListener('change',renderShiftPickerList);
+  backToShiftPicker?.addEventListener('click',()=>{shiftDashBackdrop.classList.remove('show');openShiftPicker();});
+  shiftPickerBackdrop.addEventListener('click',e=>{if(e.target===shiftPickerBackdrop)shiftPickerBackdrop.classList.remove('show');});
+  document.getElementById('closeShiftDash').addEventListener('click',()=>shiftDashBackdrop.classList.remove('show'));
+  shiftDashBackdrop.addEventListener('click',e=>{if(e.target===shiftDashBackdrop)shiftDashBackdrop.classList.remove('show');});
+
+  // ── Admin campaign controls ───────────────────────────────────────────────
+  function openAdminPanel(){
+    if(!isAdmin){showToast('Admin login required');return;}
+    adminCampaignIdEl.textContent=currentUserId||'—';
+    adminCurrentTargetEl.textContent=campaignTargetDots?campaignTargetDots.toLocaleString():'Not set';
+    if(adminCurrentOrangePerMinuteEl)adminCurrentOrangePerMinuteEl.textContent=orangePerMinuteTarget?`${orangePerMinuteTarget}/min`:'Not set';
+    adminTargetInput.value='';
+    if(adminOrangePerMinuteInput)adminOrangePerMinuteInput.value='';
+    adminBackdrop.classList.add('show');
+  }
+  closeAdminPanel.addEventListener('click',()=>adminBackdrop.classList.remove('show'));
+  adminBackdrop.addEventListener('click',e=>{if(e.target===adminBackdrop)adminBackdrop.classList.remove('show');});
+
+  adminSaveTarget.addEventListener('click',async()=>{
+    if(!isAdmin||!currentUserId)return;
+    const target=Math.round(Number(adminTargetInput.value));
+    if(!Number.isFinite(target)||target<1||target>10000000){showToast('Enter a valid campaign target');return;}
+    adminSaveTarget.disabled=true;
+    try{
+      await update(ref(db,`users/${currentUserId}/campaignSettings`),{targetDots:target,updatedAt:Date.now(),updatedBy:'admin'});
+      campaignTargetDots=target;adminCurrentTargetEl.textContent=target.toLocaleString();adminTargetInput.value='';
+      updateCampaignProgress(lastCampaignRawDots,lastCampaignPosts);showToast(`Campaign target set to ${target.toLocaleString()}`);
+    }catch(e){showToast('Could not save campaign target');}
+    finally{adminSaveTarget.disabled=false;}
+  });
+
+  adminSaveOrangePerMinute?.addEventListener('click',async()=>{
+    if(!isAdmin||!currentUserId)return;
+    const target=Math.round(Number(adminOrangePerMinuteInput?.value));
+    if(!Number.isFinite(target)||target<1||target>1000){showToast('Enter orange dots per minute from 1 to 1000');return;}
+    adminSaveOrangePerMinute.disabled=true;
+    try{
+      await update(ref(db,`users/${currentUserId}/campaignSettings`),{
+        orangePerMinuteTarget:target,
+        orangePerMinuteUpdatedAt:Date.now(),
+        orangePerMinuteUpdatedBy:'admin'
+      });
+      orangePerMinuteTarget=target;
+      if(adminCurrentOrangePerMinuteEl)adminCurrentOrangePerMinuteEl.textContent=`${target}/min`;
+      if(adminOrangePerMinuteInput)adminOrangePerMinuteInput.value='';
+      updateOrangePaceScore();
+      showToast(`Orange pace target set to ${target}/min`);
+    }catch(e){
+      showToast('Could not save orange pace target');
+    }finally{
+      adminSaveOrangePerMinute.disabled=false;
+    }
+  });
+
+
+  adminExitBtn.addEventListener('click',()=>{
+    isAdmin=false;document.body.classList.remove('admin-mode');currentWorkerName=null;updateWorkerUi();setPostEnabled(false);adminBackdrop.classList.remove('show');resetChallengeUi();openWorkerModal();
+  });
+
+  // ── Geolocation ───────────────────────────────────────────────────────────
+  function setPostEnabled(on){const ok=on&&!!currentUserId&&!!currentWorkerName&&!isAdmin;btnJa.disabled=btnNee.disabled=btnBonus.disabled=btnPost.disabled=!ok;}
+
+  async function goToCurrentLocation({focus=true}={}){
+    if(!('geolocation' in navigator))return;
+    return new Promise(resolve=>{
+      navigator.geolocation.getCurrentPosition(
+        pos=>{
+          currentLatLng=[pos.coords.latitude,pos.coords.longitude];
+          ensureLocMarker(currentLatLng);
+          if(focus)map.flyTo({center:[currentLatLng[1],currentLatLng[0]],zoom:Math.max(map.getZoom(),15),duration:800});
+          setPostEnabled(true);updateSegLiveDot(currentLatLng);resolve(currentLatLng);
+        },
+        ()=>{showToast('Location unavailable');setPostEnabled(false);resolve(null);},
+        {enableHighAccuracy:true,timeout:25000,maximumAge:10000}
+      );
+    });
+  }
+
+  if('geolocation' in navigator){
+    navigator.geolocation.watchPosition(pos=>{
+      currentLatLng=[pos.coords.latitude,pos.coords.longitude];
+      ensureLocMarker(currentLatLng);setPostEnabled(true);updateSegLiveDot(currentLatLng);
+    },()=>{},{enableHighAccuracy:true,maximumAge:15000,timeout:25000});
+  }
+
+  // ── Post actions ──────────────────────────────────────────────────────────
+  async function postDot(color){
+    if(isAdmin){showToast('Posting buttons are disabled in admin mode');return;}
+    if(!currentUserId||!currentWorkerName)return openWorkerModal();
+    if(!currentLatLng){await goToCurrentLocation({focus:true});if(!currentLatLng)return;}
+    if(color==='green')countRight.textContent=parseInt(countRight.textContent||0)+1;
+    if(color==='red')countLeft.textContent=parseInt(countLeft.textContent||0)+1;
+    if(color==='blue')countBonus.textContent=parseInt(countBonus.textContent||0)+1;
+    addLocalClick(color);
+    // Storage: 5-decimal GPS (\\\~1 m) instead of full-precision floats
+    const lat=roundCoord(currentLatLng[0]),lng=roundCoord(currentLatLng[1]),now=Date.now();
+    try{
+      const newKey=push(ref(db,`userPosts/${currentUserId}`)).key;
+      const upd={[`userPosts/${currentUserId}/${newKey}`]:{lat,lng,color,timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostAt`]:now};
+      update(ref(db),upd).catch(e=>{});
+    }catch(e){}
+  }
+
+  async function recordPostClick(){
+    if(isAdmin){showToast('Posting buttons are disabled in admin mode');return;}
+    if(!currentUserId||!currentWorkerName)return openWorkerModal();
+    if(!currentLatLng){await goToCurrentLocation({focus:true});if(!currentLatLng)return;}
+    const now=Date.now();
+    countPost.textContent=parseInt(countPost.textContent||0)+1;
+    addLocalClick('orange');
+    registerOrangeForChallenge(now);
+    // Storage: 5-decimal GPS (\\\~1 m) instead of full-precision floats
+    const lat=roundCoord(currentLatLng[0]),lng=roundCoord(currentLatLng[1]);
+    try{
+      const newKey=push(ref(db,`userPostClicks/${currentUserId}`)).key;
+      const upd={[`userPostClicks/${currentUserId}/${newKey}`]:{lat,lng,color:'orange',timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostClickAt`]:now};
+      update(ref(db),upd).catch(e=>{});
+    }catch(e){}
+  }
+
+  btnLocate.addEventListener('click',()=>goToCurrentLocation({focus:true}));
+  btnJa.addEventListener('click',()=>postDot('green'));
+  btnNee.addEventListener('click',()=>postDot('red'));
+  btnBonus.addEventListener('click',()=>postDot('blue'));
+  btnPost.addEventListener('click',recordPostClick);
+</script>
+</body>
+</html>
