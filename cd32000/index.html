@@ -969,6 +969,10 @@
     .sidebar-campaign,.campaign-sidebar.editing .sidebar-campaign { padding:7px 6px; grid-template-columns:minmax(64px,1.3fr) repeat(4,minmax(29px,1fr)); gap:2px 3px; }
   }
 
+  .dashboard-client-logo { width:42px; height:42px; object-fit:contain; flex:0 0 42px; border:1px solid #e1e8f0; border-radius:9px; background:white; padding:3px; }
+  .dashboard-client-logo[hidden],#dashboardLogoFallback[hidden] { display:none; }
+  .campaign-sidebar-title { min-width:0; gap:10px; }
+  #dashboardClientName { min-width:0; }
 </style>
 </head>
 <body>
@@ -1074,6 +1078,9 @@
       <p>Set your client name and choose the campaigns that appear here.</p>
       <label for="dashboardName">Client name</label>
       <input id="dashboardName" placeholder="e.g. Client company name" maxlength="120" required autocomplete="organization">
+      <label for="dashboardLogoUrl">Client logo URL</label>
+      <input id="dashboardLogoUrl" type="url" placeholder="https://example.com/client-logo.png" autocomplete="off">
+      <small>Paste a direct image URL to display the logo beside the client name.</small>
       <label for="existingCampaignSelect">Add an existing campaign</label>
       <div class="campaign-add-row"><select id="existingCampaignSelect"><option value="">Loading XX numbers…</option></select><button type="button" id="addExistingCampaign">Add</button></div>
       <label for="manualCampaignId">Or enter an XX number</label>
@@ -1089,7 +1096,7 @@
   <aside class="campaign-sidebar" aria-label="Campaign list">
     <div class="campaign-sidebar-head">
       <div class="campaign-sidebar-title-row">
-        <div class="campaign-sidebar-title"><span class="material-icons-outlined" aria-hidden="true">campaign</span><span id="dashboardClientName">Your client dashboard</span></div>
+        <div class="campaign-sidebar-title"><img id="dashboardClientLogo" class="dashboard-client-logo" alt="" hidden><span id="dashboardLogoFallback" class="material-icons-outlined" aria-hidden="true">campaign</span><span id="dashboardClientName">Your client dashboard</span></div>
         <button type="button" id="sidebarEditToggle" class="sidebar-edit-toggle" title="Edit campaign details" aria-label="Edit campaign details"><span class="material-icons-outlined">edit</span></button>
       </div>
       <div class="dashboard-subtitle"><span id="dashboardCodeLabel"></span><span>Campaign overview</span></div>
@@ -1883,6 +1890,16 @@
     const name=String(data.clientName || '').trim();
     document.getElementById('dashboardClientName').textContent=name || 'Your client dashboard';
     document.getElementById('dashboardName').value=name;
+    const logoUrl=String(data.logoUrl || '').trim();
+    document.getElementById('dashboardLogoUrl').value=logoUrl;
+    const logo=document.getElementById('dashboardClientLogo');
+    const logoFallback=document.getElementById('dashboardLogoFallback');
+    logo.hidden=true;logoFallback.hidden=false;
+    logo.onload=()=>{logo.hidden=false;logoFallback.hidden=true;};
+    logo.onerror=()=>{logo.hidden=true;logoFallback.hidden=false;};
+    logo.alt=name ? `${name} logo` : 'Client logo';
+    if(/^https?:\/\//i.test(logoUrl)) logo.src=logoUrl;
+    else logo.removeAttribute('src');
     campaignCodes=Object.keys(data.campaigns || {}).filter(code=>/^XX\d+$/.test(code) && data.campaigns[code]);
     document.getElementById('dashboardCampaigns').value=campaignCodes.join('\n');
     syncCardMetricListeners();
@@ -2022,12 +2039,17 @@
     if(!sidebarEditUnlocked) return;
     const message=document.getElementById('dashboardSaveMessage');
     const name=document.getElementById('dashboardName').value.trim();
+    const logoUrl=document.getElementById('dashboardLogoUrl').value.trim();
+    if(logoUrl && !/^https?:\/\//i.test(logoUrl)){
+      message.textContent='Enter a complete https:// or http:// logo image URL.';
+      document.getElementById('dashboardLogoUrl').focus();return;
+    }
     const tokens=document.getElementById('dashboardCampaigns').value.trim().split(/[\s,;]+/).filter(Boolean);
     if(tokens.some(code=>!/^XX\d+$/i.test(code))){message.textContent='Use XX numbers such as XX32001. Separate them with a new line or comma.';return;}
     const codes=[...new Set(tokens.map(code=>code.toUpperCase()))];
     const button=document.getElementById('dashboardSave'); button.disabled=true; button.textContent='Saving…';
     try {
-      const data={clientName:name,campaigns:Object.fromEntries(codes.map(code=>[code,true])),updatedAt:serverTimestamp()};
+      const data={clientName:name,logoUrl,campaigns:Object.fromEntries(codes.map(code=>[code,true])),updatedAt:serverTimestamp()};
       await update(ref(db,DASHBOARD_PATH),data);
       await applyClientDashboard(data);
       document.getElementById('dashboardSettings').close();
