@@ -969,6 +969,9 @@
     .sidebar-campaign,.campaign-sidebar.editing .sidebar-campaign { padding:7px 6px; grid-template-columns:minmax(64px,1.3fr) repeat(4,minmax(29px,1fr)); gap:2px 3px; }
   }
 
+
+  /* Viewer: navigation and data only. */
+  #tbDraw,.pp-actions,.chat-input-row,#chatSendBtn,#chatInput,#drawHint { display:none!important; }
 </style>
 </head>
 <body>
@@ -1067,33 +1070,13 @@
   </div>
 
   <!-- Map -->
-  <dialog id="dashboardSettings" class="dashboard-dialog">
-    <form id="dashboardForm">
-      <span class="dialog-eyebrow">CLIENT WORKSPACE</span>
-      <h2>Manage dashboard</h2>
-      <p>Set your client name and choose the campaigns that appear here.</p>
-      <label for="dashboardName">Client name</label>
-      <input id="dashboardName" placeholder="e.g. Client company name" maxlength="120" required autocomplete="organization">
-      <label for="existingCampaignSelect">Add an existing campaign</label>
-      <div class="campaign-add-row"><select id="existingCampaignSelect"><option value="">Loading XX numbers…</option></select><button type="button" id="addExistingCampaign">Add</button></div>
-      <label for="manualCampaignId">Or enter an XX number</label>
-      <div class="campaign-add-row"><input id="manualCampaignId" type="text" placeholder="XX32001" autocomplete="off" spellcheck="false" aria-label="Manual XX campaign number"><button type="button" id="addManualCampaign">Add</button></div>
-      <small id="manualCampaignNote" role="status"></small>
-      <small id="campaignOptionsNote">Select an XX number to add it to this dashboard.</small>
-      <div id="selectedCampaignChips" class="selected-campaign-chips" aria-label="Selected campaigns"></div>
-      <textarea id="dashboardCampaigns" hidden aria-hidden="true"></textarea>
-      <div id="dashboardSaveMessage" role="status"></div>
-      <div class="dialog-actions"><button type="button" id="dashboardCancel">Cancel</button><button type="submit" id="dashboardSave">Save dashboard</button></div>
-    </form>
-  </dialog>
+
   <aside class="campaign-sidebar" aria-label="Campaign list">
     <div class="campaign-sidebar-head">
       <div class="campaign-sidebar-title-row">
         <div class="campaign-sidebar-title"><span class="material-icons-outlined" aria-hidden="true">campaign</span><span id="dashboardClientName">Your client dashboard</span></div>
-        <button type="button" id="sidebarEditToggle" class="sidebar-edit-toggle" title="Edit campaign details" aria-label="Edit campaign details"><span class="material-icons-outlined">edit</span></button>
       </div>
       <div class="dashboard-subtitle"><span id="dashboardCodeLabel"></span><span>Campaign overview</span></div>
-      <button type="button" id="dashboardManage" class="dashboard-manage"><span class="material-icons-outlined">tune</span> Manage dashboard</button>
 
     </div>
     <div class="sidebar-view-tabs" role="tablist" aria-label="Dashboard views">
@@ -1132,22 +1115,6 @@
   </div>
   </section>
 
-  <div id="campaignEditor" class="campaign-editor" role="dialog" aria-modal="true" aria-labelledby="campaignEditorTitle">
-    <div class="campaign-editor-card">
-      <h2 id="campaignEditorTitle" class="campaign-editor-title">Edit campaign</h2>
-      <label class="campaign-editor-label" for="campaignClientName">Client name</label>
-      <input id="campaignClientName" class="campaign-editor-input" type="text" maxlength="80" placeholder="Enter client name">
-      <label class="campaign-editor-label" for="campaignType">Campaign type</label>
-      <select id="campaignType" class="campaign-editor-input"><option value="">Select type</option><option>Door to Door</option><option>Hand to Hand</option><option>B2B</option><option>Car to Car</option><option>Posters</option></select>
-      <label class="campaign-editor-label" for="campaignTarget">Campaign target (number of flyers)</label>
-      <input id="campaignTarget" class="campaign-editor-input" type="number" min="0" step="1" placeholder="e.g. 5000">
-      <div class="campaign-editor-actions">
-        <button type="button" id="campaignEditorCancel" class="campaign-editor-cancel">Cancel</button>
-        <button type="button" id="campaignEditorSave" class="campaign-editor-save">Save details</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Draw helper -->
   <div id="drawHint">
     <span id="dhText">Tap anywhere to add points · double-click to close</span>
@@ -1184,9 +1151,12 @@
 
   <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, onValue, get, update, push, set, remove, serverTimestamp, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, onValue, get, serverTimestamp, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   /* ── Firebase ── */
+  // Viewer build: database writes are unavailable.
+  const denyViewerWrite = () => { throw new Error('This dashboard is read-only.'); };
+  const update=denyViewerWrite, push=denyViewerWrite, set=denyViewerWrite, remove=denyViewerWrite;
   const campaignApp = initializeApp({
     apiKey:"AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA",
     authDomain:"trackingclients.firebaseapp.com",
@@ -1289,14 +1259,6 @@
   const campaignActivity= document.getElementById('campaignActivity');
   const campaignSidebarList = document.getElementById('campaignSidebarList');
   const campaignSidebar = document.querySelector('.campaign-sidebar');
-  const sidebarEditToggle = document.getElementById('sidebarEditToggle');
-  const campaignEditor = document.getElementById('campaignEditor');
-  const campaignEditorTitle = document.getElementById('campaignEditorTitle');
-  const campaignClientName = document.getElementById('campaignClientName');
-  const campaignEditorCancel = document.getElementById('campaignEditorCancel');
-  const campaignEditorSave = document.getElementById('campaignEditorSave');
-  const campaignType = document.getElementById('campaignType');
-  const campaignTarget = document.getElementById('campaignTarget');
   const shareCampaignBtn= document.getElementById('shareCampaignBtn');
   const topbar          = document.getElementById('topbar');
   const loadingOverlay  = document.getElementById('loadingOverlay');
@@ -1361,8 +1323,6 @@
   const campaignMetaPromiseByCode = new Map();
   const municipalityGrid = new Map();
   let municipalityGridReady = false;
-  let sidebarEditUnlocked = false;
-  let editingCampaignCode = null;
   let campaignUnsubscribers = [];
   const dotsCountByZone = new Map();
   let CHAT_PATH = 'campaigns/' + CAMPAIGN_XX + '/chat/messages';
@@ -1483,13 +1443,12 @@
       row.setAttribute('aria-selected', code === CAMPAIGN_XX ? 'true' : 'false');
       const statusLabel = state.className === 'live' ? 'Live' : state.className === 'completed' ? 'Completed' : 'No activity';
       const dateText = activity.timestamp ? formatBatchDate(activity.timestamp) : 'No delivery date';
-      row.innerHTML = `<span class="sidebar-client-name">Campaign</span><span class="sidebar-code">${code}</span><span class="card-top-right"><span class="sidebar-state">Updating…</span><span class="card-completion"></span></span><span class="sidebar-data"><span class="sidebar-location"><span class="material-icons-outlined">location_on</span><span class="sidebar-location-text">Finding municipality…</span></span></span><span class="sidebar-date"><span class="material-icons-outlined">calendar_today</span>${dateText}</span><button type="button" class="sidebar-edit-campaign" title="Edit ${code}" aria-label="Edit ${code}"><span class="material-icons-outlined">edit</span></button>`;
+      row.innerHTML = `<span class="sidebar-client-name">Campaign</span><span class="sidebar-code">${code}</span><span class="card-top-right"><span class="sidebar-state">Updating…</span><span class="card-completion"></span></span><span class="sidebar-data"><span class="sidebar-location"><span class="material-icons-outlined">location_on</span><span class="sidebar-location-text">Finding municipality…</span></span></span><span class="sidebar-date"><span class="material-icons-outlined">calendar_today</span>${dateText}</span>`;
       const selectCampaign = () => {
         if(code !== CAMPAIGN_XX) switchCampaign(code);
       };
       row.addEventListener('click', selectCampaign);
       row.addEventListener('keydown', event => { if(event.target===row && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); selectCampaign(); } });
-      row.querySelector('.sidebar-edit-campaign').addEventListener('click', event => { event.stopPropagation(); openCampaignEditor(code); });
       campaignSidebarList.appendChild(row);
       fillCampaignLocation(code, row.querySelector('.sidebar-location-text'));
       const settings=document.createElement('div'); settings.className='entry-settings'; row.appendChild(settings);
@@ -1587,7 +1546,7 @@
     const version=++activityFeedVersion;
     const codes=[...campaignCodes];
     const feed=document.getElementById('activitiesFeed');
-    if(!codes.length){feed.textContent='Add a campaign to see marketing activities.';return;}
+    if(!codes.length){feed.textContent='No campaigns have been assigned to this dashboard yet.';return;}
     if(!feed.children.length) feed.textContent='Loading activities…';
     const entries=[];let next=0,failed=0;
     await Promise.all(Array.from({length:Math.min(3,codes.length)},async()=>{
@@ -1760,61 +1719,6 @@
 
   }
 
-  sidebarEditToggle.addEventListener('click', () => {
-    if(!sidebarEditUnlocked){
-      if(prompt('Enter password to edit campaign details') !== '000888'){
-        toast('Incorrect password');
-        return;
-      }
-      sidebarEditUnlocked = true;
-    } else {
-      sidebarEditUnlocked = false;
-    }
-    campaignSidebar.classList.toggle('editing', sidebarEditUnlocked);
-    sidebarEditToggle.classList.toggle('active', sidebarEditUnlocked);
-    sidebarEditToggle.title = sidebarEditUnlocked ? 'Finish editing' : 'Edit campaign details';
-  });
-
-  async function openCampaignEditor(code){
-    if(!sidebarEditUnlocked) return;
-    editingCampaignCode = code;
-    const meta = await fetchCampaignMeta(code);
-    campaignEditorTitle.textContent = `Edit ${code}`;
-    campaignClientName.value = meta.clientName === 'Campaign' ? '' : meta.clientName;
-    campaignType.value=meta.type || '';
-    campaignTarget.value=meta.target ?? '';
-    campaignEditor.classList.add('visible');
-    setTimeout(() => campaignClientName.focus(), 60);
-  }
-
-  function closeCampaignEditor(){
-    campaignEditor.classList.remove('visible');
-    editingCampaignCode = null;
-  }
-
-  campaignEditorCancel.addEventListener('click', closeCampaignEditor);
-  campaignEditor.addEventListener('click', event => { if(event.target === campaignEditor) closeCampaignEditor(); });
-  campaignEditorSave.addEventListener('click', async () => {
-    if(!editingCampaignCode || !sidebarEditUnlocked) return;
-    if(!campaignTarget.reportValidity()) return;
-    const target=campaignTarget.value==='' ? null : Number(campaignTarget.value);
-    if(target!==null && (!Number.isSafeInteger(target) || target<0)){ toast('Enter a non-negative whole number for the target'); return; }
-    const type=campaignType.value;
-    const code=editingCampaignCode;
-    const clientName = campaignClientName.value.trim() || 'Campaign';
-    campaignEditorSave.disabled = true;
-    try {
-      await update(ref(db, `campaigns/${code}/dashboard_meta`), { clientName, type, target, updatedAt:serverTimestamp() });
-      campaignMetaByCode.set(code, { ...campaignMetaByCode.get(code), clientName, type, target });
-      closeCampaignEditor();
-      renderCampaignSidebar();
-      toast('Campaign details saved');
-    } catch(error){
-      console.error(error);
-      toast('Could not save campaign details');
-    } finally { campaignEditorSave.disabled = false; }
-  });
-
   campaignSidebarList.addEventListener('scroll', () => {
     const nearBottom = campaignSidebarList.scrollTop + campaignSidebarList.clientHeight >= campaignSidebarList.scrollHeight - 80;
     if(nearBottom && visibleCampaignCount < sortedCampaignCodes.length){
@@ -1882,9 +1786,7 @@
     closeMetricDropdown();
     const name=String(data.clientName || '').trim();
     document.getElementById('dashboardClientName').textContent=name || 'Your client dashboard';
-    document.getElementById('dashboardName').value=name;
     campaignCodes=Object.keys(data.campaigns || {}).filter(code=>/^XX\d+$/.test(code) && data.campaigns[code]);
-    document.getElementById('dashboardCampaigns').value=campaignCodes.join('\n');
     syncCardMetricListeners();
     if(activitiesOpen) loadMarketingActivities();
     document.getElementById('dashboardCodeLabel').textContent=DASHBOARD_CODE;
@@ -1894,12 +1796,11 @@
       stopCampaignListeners();
       setCampaignIdentity('');
       if(map?.getSource('blue-dots-src')) clearCampaignState();
-      campaignSelect.innerHTML='<option>Add your first campaign</option>';
+      campaignSelect.innerHTML='<option>No campaigns assigned</option>';
       campaignSelect.disabled=true;
       campaignActivity.textContent='';
       sortedCampaignCodes=[];
-      campaignSidebarList.innerHTML='<div class="dashboard-empty"><span class="material-icons-outlined">campaign</span><h3>No campaigns yet</h3><p>Add your client name and XX campaign numbers to get started.</p><button type="button" id="emptySetup">Set up dashboard</button></div>';
-      document.getElementById('emptySetup').onclick=openDashboardSettings;
+      campaignSidebarList.innerHTML='<div class="dashboard-empty"><span class="material-icons-outlined">campaign</span><h3>No campaigns yet</h3><p>No campaigns have been assigned to this dashboard yet.</p></div>';
       return;
     }
     if(selectFirst){
@@ -1926,115 +1827,6 @@
       toast('Dashboard could not be loaded');
     }
   }
-
-  let existingCampaignIds=null;
-  let existingCampaignRequest=null;
-  function selectedCampaignIds(){
-    return document.getElementById('dashboardCampaigns').value.split(/\s+/).filter(Boolean);
-  }
-  function renderSelectedCampaigns(){
-    const selected=selectedCampaignIds();
-    const container=document.getElementById('selectedCampaignChips');
-    container.replaceChildren();
-    if(!selected.length) container.textContent='No campaigns selected yet.';
-    selected.forEach(code=>{
-      const chip=document.createElement('span'); chip.className='selected-campaign-chip';
-      const label=document.createElement('span');label.textContent=code;
-      const removeButton=document.createElement('button');removeButton.type='button';removeButton.textContent='×';removeButton.setAttribute('aria-label',`Remove ${code}`);
-      removeButton.onclick=()=>{
-        document.getElementById('dashboardCampaigns').value=selectedCampaignIds().filter(item=>item!==code).join('\n');
-        renderSelectedCampaigns();
-      };
-      chip.append(label,removeButton);container.appendChild(chip);
-    });
-    const select=document.getElementById('existingCampaignSelect');
-    const current=select.value;
-    if(existingCampaignIds){
-      select.replaceChildren(new Option('Select campaign XX number',''));
-      [...new Set([...existingCampaignIds,...campaignCodes])].sort((a,b)=>b.localeCompare(a,undefined,{numeric:true})).forEach(code=>{
-        const option=new Option(selected.includes(code) ? `${code} · Added` : code,code);
-        option.disabled=selected.includes(code);select.appendChild(option);
-      });
-      select.value=selected.includes(current) ? '' : current;
-    }
-    document.getElementById('addExistingCampaign').disabled=!select.value;
-  }
-  async function loadExistingCampaignIds(){
-    if(existingCampaignIds){renderSelectedCampaigns();return;}
-    if(existingCampaignRequest) return existingCampaignRequest;
-    existingCampaignRequest=(async()=>{
-      try {
-        const response=await fetch(CAMPAIGNS_SHALLOW_URL,{cache:'no-store'});
-        if(!response.ok) throw new Error('Campaign list unavailable');
-        const data=await response.json();
-        existingCampaignIds=Object.keys(data || {}).filter(code=>/^XX\d+$/i.test(code)).map(code=>code.toUpperCase());
-        document.getElementById('campaignOptionsNote').textContent='Select an XX number, then Add. Changes apply when you save.';
-        renderSelectedCampaigns();
-      } catch(error){
-        const select=document.getElementById('existingCampaignSelect');
-        select.replaceChildren(new Option('Unable to load XX numbers',''));
-        document.getElementById('campaignOptionsNote').textContent='Could not load campaign IDs. Close and reopen this form to retry.';
-      } finally {existingCampaignRequest=null;}
-    })();
-    return existingCampaignRequest;
-  }
-  function addManualCampaign(){
-    const input=document.getElementById('manualCampaignId');
-    const code=input.value.trim().toUpperCase();
-    const note=document.getElementById('manualCampaignNote');
-    if(!/^XX\d+$/.test(code)){note.textContent='Enter an XX number such as XX32001.';input.focus();return;}
-    const selected=selectedCampaignIds();
-    if(selected.includes(code)){note.textContent=`${code} is already added.`;return;}
-    document.getElementById('dashboardCampaigns').value=[...selected,code].join('\n');
-    input.value='';note.textContent=`${code} added. Save the dashboard to apply.`;
-    renderSelectedCampaigns();
-  }
-  document.getElementById('addManualCampaign').onclick=addManualCampaign;
-  document.getElementById('manualCampaignId').onkeydown=event=>{
-    if(event.key==='Enter'){event.preventDefault();addManualCampaign();}
-  };
-  document.getElementById('existingCampaignSelect').onchange=()=>{
-    document.getElementById('addExistingCampaign').disabled=!document.getElementById('existingCampaignSelect').value;
-  };
-  document.getElementById('addExistingCampaign').onclick=()=>{
-    const code=document.getElementById('existingCampaignSelect').value;
-    if(!code || !/^XX\d+$/.test(code)) return;
-    document.getElementById('dashboardCampaigns').value=[...new Set([...selectedCampaignIds(),code])].join('\n');
-    renderSelectedCampaigns();
-  };
-
-  function openDashboardSettings(){
-    if(!sidebarEditUnlocked){
-      if(prompt('Enter password to edit this dashboard')!=='000888') return;
-      sidebarEditUnlocked=true;
-      campaignSidebar.classList.add('editing');
-      sidebarEditToggle.classList.add('active');
-    }
-    document.getElementById('dashboardSaveMessage').textContent='';
-    renderSelectedCampaigns();
-    document.getElementById('dashboardSettings').showModal();
-    loadExistingCampaignIds();
-  }
-  document.getElementById('dashboardManage').addEventListener('click',openDashboardSettings);
-  document.getElementById('dashboardCancel').addEventListener('click',()=>document.getElementById('dashboardSettings').close());
-  document.getElementById('dashboardForm').addEventListener('submit',async event=>{
-    event.preventDefault();
-    if(!sidebarEditUnlocked) return;
-    const message=document.getElementById('dashboardSaveMessage');
-    const name=document.getElementById('dashboardName').value.trim();
-    const tokens=document.getElementById('dashboardCampaigns').value.trim().split(/[\s,;]+/).filter(Boolean);
-    if(tokens.some(code=>!/^XX\d+$/i.test(code))){message.textContent='Use XX numbers such as XX32001. Separate them with a new line or comma.';return;}
-    const codes=[...new Set(tokens.map(code=>code.toUpperCase()))];
-    const button=document.getElementById('dashboardSave'); button.disabled=true; button.textContent='Saving…';
-    try {
-      const data={clientName:name,campaigns:Object.fromEntries(codes.map(code=>[code,true])),updatedAt:serverTimestamp()};
-      await update(ref(db,DASHBOARD_PATH),data);
-      await applyClientDashboard(data);
-      document.getElementById('dashboardSettings').close();
-      toast('Dashboard saved');
-    } catch(error){message.textContent='Could not save. Check your connection and database permissions, then try again.';}
-    finally {button.disabled=false;button.textContent='Save dashboard';}
-  });
 
   campaignSelect.addEventListener('change', async () => {
     const selected = normalizeCampaignXX(campaignSelect.value);
@@ -2684,6 +2476,7 @@
   }
 
   async function saveMunicipality(name){
+    return; // Unavailable in the viewer app.
     const m = muniByName.get(name);
     if(!m) return;
     try {
@@ -2711,6 +2504,7 @@
   }
 
   async function deleteMunicipality(name){
+    return; // Unavailable in the viewer app.
     const m = muniByName.get(name);
     if(!m) return;
     try {
@@ -2727,6 +2521,7 @@
   }
 
   async function deleteSubZone(zoneNumber){
+    return; // Unavailable in the viewer app.
     const idx = polygonsByZone.get(zoneNumber);
     if(idx===undefined){ toast('Sub-zone not found'); return; }
     const meta = polygonMeta[idx];
@@ -2750,6 +2545,7 @@
   // nothing is ever blocked or clipped. If the zone happens to start inside a
   // municipality, its name is remembered only for the campaign-area filter.
   function startDraw(parentMuniName=null){
+    return; // Unavailable in the viewer app.
     drawing = true; drawPts = []; drawParentMuni = parentMuniName;
     if(map.doubleClickZoom) map.doubleClickZoom.disable();
     document.body.classList.add('drawing');
@@ -2793,6 +2589,7 @@
   }
 
   async function finishDraw(){
+    return; // Unavailable in the viewer app.
     if(drawPts.length<3){ toast('Need at least 3 points'); return; }
     const parent = drawParentMuni;
     const ringLngLat = [...drawPts, drawPts[0]];
@@ -3132,6 +2929,7 @@
   }
 
   async function applyStatusToZones(zones, newStatus){
+    return; // Unavailable in the viewer app.
     const updates={};
     zones.forEach(zoneNum=>{
       let nodeKey=zoneStatusKeyByZone.get(zoneNum)||String(zoneNum);
@@ -3155,6 +2953,7 @@
   }
 
   async function verifyZone(zoneNum){
+    return; // Unavailable in the viewer app.
     const key=zoneStatusKeyByZone.get(zoneNum);
     if(!key) return;
     try { await update(ref(db,`${ZONE_STATUS_PATH}/${key}`),{ verifiedAt: serverTimestamp() }); }
@@ -3473,6 +3272,7 @@
   }
   function scrollChatBottom(){ chatListEl.scrollTop=chatListEl.scrollHeight+1000; }
   async function sendChatMsg(){
+    return; // Unavailable in the viewer app.
     const text=(chatInputEl.value||'').trim(); if(!text) return;
     chatSendBtn.disabled=true;
     try{
