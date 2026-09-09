@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -152,7 +153,7 @@ background: var(--brand);
 .sidebar-location-text { overflow:hidden; text-overflow:ellipsis; }
 .sidebar-state { grid-column:3; grid-row:1 / 3; display:flex; align-items:center; gap:4px; padding:5px 8px; border-radius:8px; font-size:9px; font-weight:700; white-space:nowrap; }
 .sidebar-state::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
-.sidebar-state.live { background:#eaf7ee; color:#1f6f33; }
+.sidebar-state.live,.sidebar-state.upcoming { background:#fff4cf; color:#896500; }
 .sidebar-state.completed { background:#eef1f5; color:#4b5563; }
 .sidebar-state.empty { background:#fff7dd; color:#8a6500; }
 .sidebar-date { grid-column:2 / 4; display:flex; align-items:center; gap:3px; color:#8a98a8; font-size:8px; font-weight:400; }
@@ -202,8 +203,8 @@ color: var(--ink-700); font-size: 10px; font-weight: 700; white-space: nowrap;
 overflow:hidden; text-overflow:ellipsis;
 }
 .campaign-activity::before { content:''; width:7px; height:7px; border-radius:50%; background:var(--ink-600); flex-shrink:0; }
-.campaign-activity.live { background:#eaf7ee; color:#1f6f33; }
-.campaign-activity.live::before { background:#31a24c; }
+.campaign-activity.live,.campaign-activity.upcoming { background:#fff4cf; color:#806000; }
+.campaign-activity.live::before,.campaign-activity.upcoming::before { background:#d9a900; }
 .campaign-activity.completed { background:#eef1f5; color:#4b5563; }
 .campaign-activity.completed::before { background:#64748b; }
 .campaign-activity.empty { background:#fff7dd; color:#8a6500; }
@@ -800,7 +801,7 @@ body { background:#f1f4f8; }
 .card-top-right { grid-column:3; grid-row:1 / 4; align-self:start; display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
 .card-top-right .sidebar-state { display:inline-flex; padding:5px 8px; font-size:9px; font-weight:500; border-radius:6px; }
 .card-top-right .sidebar-state.completed { background:#e6f5ee; color:#237452; }
-.card-top-right .sidebar-state.live { background:#eaf1ff; color:#2861a8; }
+.card-top-right .sidebar-state.live,.card-top-right .sidebar-state.upcoming { background:#fff4cf; color:#896500; }
 .card-completion { color:#8996a5; font-size:9px; }
 .sidebar-data { grid-column:2; }
 .sidebar-date { grid-column:2 / 4; }
@@ -995,9 +996,264 @@ grid-template-rows:13px 13px 13px 14px 25px; gap:2px 5px;
 .dashboard-dialog {margin:auto;}
 @media(max-width:700px){.campaign-sidebar-head{max-height:42svh;overflow:auto;}.dashboard-picker-row select{font-size:12px;}.client-cost-total,.tabs-cost-total{font-size:11px;}}
 
+
+/* ═══════════════════════════════════════════════════════
+   CLIENT DASHBOARD RAIL + NEUTRAL UPCOMING OVERVIEW
+   ═══════════════════════════════════════════════════════ */
+:root{
+  --dashboard-rail-w:220px;
+  --campaign-sidebar-w:380px;
+}
+.dashboard-rail{
+  position:fixed;
+  left:0;
+  top:var(--topbar-total-height,72px);
+  bottom:var(--footer-h);
+  z-index:665;
+  width:var(--dashboard-rail-w);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  background:#f8fafc;
+  border-right:1px solid #d9e3ee;
+  box-shadow:5px 0 18px rgba(15,23,42,.04);
+}
+.dashboard-rail-head{
+  flex:0 0 auto;
+  padding:12px 10px 10px;
+  background:#fff;
+  border-bottom:1px solid #e2e8f0;
+}
+.dashboard-rail-title{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:9px;
+  color:#24364a;
+  font:700 12px/1.2 'Inter',sans-serif;
+}
+.dashboard-rail-title .material-icons-outlined{font-size:17px;color:var(--brand);}
+.dashboard-new-btn{
+  width:100%;
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  border:1px solid #b9d7ff;
+  border-radius:9px;
+  background:#1877f2;
+  color:#fff;
+  cursor:pointer;
+  font:700 10px/1 'Inter',sans-serif;
+  box-shadow:0 4px 12px rgba(24,119,242,.15);
+}
+.dashboard-new-btn:hover{background:#0f67dd;}
+.dashboard-new-btn .material-icons-outlined{font-size:15px;}
+#dashboardListMessage{
+  display:block;
+  min-height:0;
+  margin-top:6px;
+  color:#7a8b9d;
+  font-size:8px;
+  line-height:1.35;
+}
+.dashboard-client-list{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  padding:8px;
+  scrollbar-width:thin;
+  scrollbar-color:#b8cbe0 transparent;
+}
+.dashboard-client-list::-webkit-scrollbar{width:6px;}
+.dashboard-client-list::-webkit-scrollbar-thumb{background:#c0d2e5;border-radius:999px;}
+.dashboard-client-loading,
+.dashboard-client-empty{
+  padding:18px 10px;
+  color:#7c8c9e;
+  font-size:10px;
+  line-height:1.5;
+  text-align:center;
+}
+.dashboard-client-row{
+  width:100%;
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr);
+  gap:7px;
+  align-items:center;
+  margin:0 0 5px;
+  padding:7px;
+  border:1px solid #e1e8f0;
+  border-radius:10px;
+  background:#fff;
+  color:#2e4358;
+  text-align:left;
+  cursor:pointer;
+  font-family:'Inter',sans-serif;
+  box-shadow:0 1px 3px rgba(15,23,42,.025);
+}
+.dashboard-client-row:hover{background:#f1f7ff;border-color:#c8dcf5;}
+.dashboard-client-row.active{
+  border-color:#7eb1f2;
+  background:#eaf3ff;
+  box-shadow:inset 3px 0 #1877f2;
+}
+.dashboard-client-avatar{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border-radius:9px;
+  background:#eef5fd;
+  border:1px solid #d8e7f7;
+  color:#1877f2;
+}
+.dashboard-client-avatar img{width:100%;height:100%;object-fit:contain;background:#fff;}
+.dashboard-client-avatar .material-icons-outlined{font-size:17px;}
+.dashboard-client-copy{min-width:0;}
+.dashboard-client-name{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#263c52;
+  font-size:10px;
+  font-weight:700;
+}
+.dashboard-client-meta{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  margin-top:2px;
+  color:#8290a0;
+  font-size:8px;
+  line-height:1.2;
+}
+.dashboard-client-count{
+  padding:1px 4px;
+  border-radius:999px;
+  background:#f1f5f9;
+  color:#657589;
+}
+.campaign-sidebar{
+  left:var(--dashboard-rail-w) !important;
+  width:var(--campaign-sidebar-w) !important;
+}
+.map-workspace{
+  left:calc(var(--dashboard-rail-w) + var(--campaign-sidebar-w)) !important;
+}
+.map-overview-badge{
+  position:absolute;
+  z-index:20;
+  left:12px;
+  top:12px;
+  display:none;
+  align-items:center;
+  gap:6px;
+  min-height:34px;
+  padding:7px 10px;
+  border:1px solid #ead38f;
+  border-radius:10px;
+  background:rgba(255,250,230,.94);
+  color:#7d6100;
+  box-shadow:0 6px 18px rgba(62,52,15,.10);
+  backdrop-filter:blur(7px);
+  font:700 10px/1 'Inter',sans-serif;
+}
+.map-overview-badge .material-icons-outlined{font-size:16px;color:#b38700;}
+.no-dashboard-selected .map-overview-badge{display:flex;}
+.no-dashboard-selected .grand-total-box,
+.no-dashboard-selected .campaign-sidebar-title-row,
+.no-dashboard-selected .client-cost-total,
+.no-dashboard-selected .dashboard-subtitle,
+.no-dashboard-selected .dashboard-manage,
+.no-dashboard-selected .tabs-cost-total,
+.no-dashboard-selected .sidebar-view-tabs,
+.no-dashboard-selected #marketingActivities,
+.no-dashboard-selected .top-actions,
+.no-dashboard-selected .proof-strip{
+  display:none !important;
+}
+.no-dashboard-selected .campaign-sidebar-head{
+  padding:13px 12px;
+  background:#fff;
+}
+.no-dashboard-selected .campaign-sidebar-head::after{
+  content:'Select a client from the list on the left to open its campaign dashboard.';
+  display:block;
+  color:#748599;
+  font:500 10px/1.5 'Inter',sans-serif;
+}
+.no-dashboard-selected .campaign-sidebar-list{
+  display:block !important;
+  background:#f7f9fc;
+}
+.dashboard-neutral{
+  height:100%;
+  min-height:180px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:28px 18px;
+  color:#7d8b9b;
+  text-align:center;
+  font:500 10px/1.5 'Inter',sans-serif;
+}
+.dashboard-neutral .material-icons-outlined{font-size:34px;color:#9bb9db;}
+.dashboard-neutral strong{color:#344b63;font-size:12px;}
+.dashboard-neutral span{max-width:240px;}
+.sidebar-state.upcoming{background:#fff4cf;color:#896500;}
+.campaign-activity.upcoming{background:#fff4cf;color:#806000;}
+.campaign-activity.upcoming::before{background:#d9a900;}
+.card-top-right .sidebar-state.upcoming{background:#fff4cf;color:#896500;}
+.no-dashboard-selected .map-action-stack{display:none !important;}
+
+@media(min-width:761px) and (max-width:1180px){
+  :root{--dashboard-rail-w:180px;--campaign-sidebar-w:310px;}
+  .dashboard-client-row{grid-template-columns:30px minmax(0,1fr);padding:6px;}
+  .dashboard-client-avatar{width:30px;height:30px;}
+  .dashboard-client-name{font-size:9px;}
+}
+@media(max-width:760px){
+  :root{--dashboard-rail-w:100%;--campaign-sidebar-w:100%;}
+  .dashboard-rail{
+    position:relative;
+    inset:auto;
+    width:100%;
+    max-height:none;
+    border-right:0;
+    border-bottom:1px solid #dce5ee;
+    box-shadow:none;
+  }
+  .dashboard-rail-head{padding:10px;}
+  .dashboard-rail-title{margin-bottom:7px;}
+  .dashboard-new-btn{min-height:38px;font-size:11px;}
+  .dashboard-client-list{
+    display:flex;
+    overflow-x:auto;
+    overflow-y:hidden;
+    gap:6px;
+    padding:8px 10px 10px;
+  }
+  .dashboard-client-row{
+    flex:0 0 155px;
+    grid-template-columns:30px minmax(0,1fr);
+    margin:0;
+    padding:6px;
+  }
+  .dashboard-client-avatar{width:30px;height:30px;}
+  .campaign-sidebar{position:relative !important;left:auto !important;width:100% !important;}
+  .map-workspace{left:auto !important;}
+  .map-overview-badge{left:8px;top:8px;max-width:calc(100% - 176px);font-size:9px;}
+}
+
 </style>
 </head>
-<body>
+<body class="no-dashboard-selected">
 <div id="loadingOverlay" aria-live="polite">
 <div class="load-brand">LEUVENFLYERS <span>· BE CAMPAIGN</span></div>
 <div class="load-box">
@@ -1007,7 +1263,7 @@ grid-template-rows:13px 13px 13px 14px 25px; gap:2px 5px;
 </div>
 <div class="load-track"><div class="load-fill" id="loadFill"></div></div>
 </div>
-<div class="mini-hint">Preparing the selected campaign map</div>
+<div class="mini-hint">Preparing client dashboards and booked zones</div>
 </div>
 
 <header class="topbar" id="topbar">
@@ -1116,9 +1372,17 @@ grid-template-rows:13px 13px 13px 14px 25px; gap:2px 5px;
 <div class="dialog-actions"><button type="button" id="dashboardCancel">Cancel</button><button type="submit" id="dashboardSave">Save dashboard</button></div>
 </form>
 </dialog>
+<aside id="dashboardRail" class="dashboard-rail" aria-label="Client dashboards">
+<div class="dashboard-rail-head">
+<div class="dashboard-rail-title"><span class="material-icons-outlined">business_center</span><span>Clients</span></div>
+<button type="button" id="newDashboard" class="dashboard-new-btn"><span class="material-icons-outlined">add</span><span>New dashboard</span></button>
+<small id="dashboardListMessage" role="status"></small>
+</div>
+<div id="dashboardClientList" class="dashboard-client-list" role="listbox" aria-label="Client dashboards"><div class="dashboard-client-loading">Loading clients…</div></div>
+</aside>
+<select id="dashboardSelect" hidden aria-hidden="true"><option value="">Select client dashboard</option></select>
 <aside class="campaign-sidebar" aria-label="Campaign list">
 <div class="campaign-sidebar-head">
-<div class="dashboard-picker-row"><label for="dashboardSelect">Client dashboard</label><div><select id="dashboardSelect"><option>Loading CD numbers…</option></select><button type="button" id="newDashboard">+ New</button></div><small id="dashboardListMessage" role="status"></small></div>
 <div class="campaign-sidebar-title-row">
 <div class="campaign-sidebar-title"><img id="dashboardClientLogo" class="dashboard-client-logo" alt="" hidden><span id="dashboardLogoFallback" class="material-icons-outlined" aria-hidden="true">campaign</span><span id="dashboardClientName">Your client dashboard</span></div>
 <button type="button" id="sidebarEditToggle" class="sidebar-edit-toggle" title="Edit campaign details" aria-label="Edit campaign details"><span class="material-icons-outlined">edit</span></button>
@@ -1142,6 +1406,7 @@ grid-template-rows:13px 13px 13px 14px 25px; gap:2px 5px;
 </aside>
 <section class="map-workspace" aria-label="Campaign map and photos">
 <div class="map-panel"><div id="map"></div>
+<div id="mapOverviewBadge" class="map-overview-badge"><span class="material-icons-outlined">event_upcoming</span><span>Upcoming booked zones</span></div>
 <div class="map-action-stack" aria-label="Map tools">
 <button id="tbCampaign" class="tool-btn map-control-btn map-area-toggle" title="Show this campaign's saved area" aria-pressed="false">
 <span class="material-icons-outlined">flag</span>
@@ -1265,33 +1530,104 @@ CAMPAIGN SELECTION
 • its own zone statuses & chat     (campaigns/XX<CODE>/…)
 Drawn SUB-ZONES are shared across all BE dashboards (belgisubzones).
 ════════════════════════════════════════════════════════════════════ */
-let DASHBOARD_CODE = /^CD\d+$/i.test(new URLSearchParams(location.search).get('cd') || '') ? new URLSearchParams(location.search).get('cd').toUpperCase() : 'CD32000';
-let DASHBOARD_PATH = 'client_dashboards/' + DASHBOARD_CODE;
+const requestedDashboardCode = /^CD\d+$/i.test(new URLSearchParams(location.search).get('cd') || '') ? new URLSearchParams(location.search).get('cd').toUpperCase() : '';
+let DASHBOARD_CODE = requestedDashboardCode;
+let DASHBOARD_PATH = DASHBOARD_CODE ? 'client_dashboards/' + DASHBOARD_CODE : '';
 let allDashboards = {}, dashboardsLoaded = false, dashboardCosts = {};
 let editingDashboardCode = '', newDashboardMode = false;
 const money = cents => new Intl.NumberFormat('en-BE',{style:'currency',currency:'EUR'}).format(cents/100);
 function costCents(value){ const n=Number(value); return Number.isFinite(n)&&n>=0 ? Math.round(n*100) : 0; }
 function dashboardTotal(data){ return Object.keys(data?.campaigns || {}).filter(code=>/^XX\d+$/.test(code)&&data.campaigns[code]).reduce((sum,code)=>sum+costCents(data.campaignCosts?.[code]),0); }
 function paintCosts(){
-const total=dashboardTotal({...allDashboards[DASHBOARD_CODE],campaignCosts:dashboardCosts});
-document.querySelectorAll('[data-client-total]').forEach(el=>el.textContent=money(total));
+const selectedData = DASHBOARD_CODE && allDashboards[DASHBOARD_CODE] ? {...allDashboards[DASHBOARD_CODE],campaignCosts:dashboardCosts} : null;
+const total=selectedData ? dashboardTotal(selectedData) : 0;
+document.querySelectorAll('[data-client-total]').forEach(el=>el.textContent=selectedData ? money(total) : '—');
 document.getElementById('grandTotal').textContent=dashboardsLoaded ? money(Object.values(allDashboards).reduce((sum,data)=>sum+dashboardTotal(data),0)) : 'Unavailable';
 document.querySelectorAll('.sidebar-campaign').forEach(row=>{const el=row.querySelector('.campaign-cost');if(el){const value=dashboardCosts[row.dataset.campaign];el.textContent=value==null?'Cost not set':money(costCents(value));}});
 }
 function renderDashboardPicker(){
 const picker=document.getElementById('dashboardSelect');
+if(picker){
 picker.replaceChildren(new Option('Select client dashboard',''));
 Object.keys(allDashboards).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).forEach(code=>picker.add(new Option(`${code} · ${allDashboards[code].clientName || 'Unnamed client'}`,code)));
 picker.value=allDashboards[DASHBOARD_CODE]?DASHBOARD_CODE:'';
 }
+const list=document.getElementById('dashboardClientList');
+if(!list) return;
+list.replaceChildren();
+const codes=Object.keys(allDashboards).sort((a,b)=>{
+const an=String(allDashboards[a]?.clientName||'').trim();
+const bn=String(allDashboards[b]?.clientName||'').trim();
+return an.localeCompare(bn,undefined,{numeric:true,sensitivity:'base'}) || a.localeCompare(b,undefined,{numeric:true});
+});
+if(!codes.length){
+list.innerHTML='<div class="dashboard-client-empty">No client dashboards yet.</div>';
+return;
+}
+codes.forEach(code=>{
+const data=allDashboards[code]||{};
+const name=String(data.clientName||'').trim()||'Unnamed client';
+const campaigns=Object.keys(data.campaigns||{}).filter(c=>/^XX\d+$/.test(c)&&data.campaigns[c]);
+const row=document.createElement('button');
+row.type='button';
+row.className=`dashboard-client-row${code===DASHBOARD_CODE?' active':''}`;
+row.dataset.dashboard=code;
+row.setAttribute('role','option');
+row.setAttribute('aria-selected',code===DASHBOARD_CODE?'true':'false');
+const avatar=document.createElement('span');
+avatar.className='dashboard-client-avatar';
+const logoUrl=String(data.logoUrl||'').trim();
+if(/^https?:\/\//i.test(logoUrl)){
+const img=document.createElement('img');
+img.alt='';img.loading='lazy';img.src=logoUrl;
+img.onerror=()=>{avatar.innerHTML='<span class="material-icons-outlined">business</span>';};
+avatar.appendChild(img);
+}else avatar.innerHTML='<span class="material-icons-outlined">business</span>';
+const copy=document.createElement('span');copy.className='dashboard-client-copy';
+const nameEl=document.createElement('span');nameEl.className='dashboard-client-name';nameEl.textContent=name;
+const meta=document.createElement('span');meta.className='dashboard-client-meta';
+const codeEl=document.createElement('span');codeEl.textContent=code;
+const count=document.createElement('span');count.className='dashboard-client-count';count.textContent=`${campaigns.length} campaign${campaigns.length===1?'':'s'}`;
+meta.append(codeEl,count);copy.append(nameEl,meta);row.append(avatar,copy);
+row.addEventListener('click',()=>selectDashboard(code).catch(()=>toast('Could not open dashboard')));
+list.appendChild(row);
+});
+}
+
+function showNoDashboardSelectedState(){
+document.body.classList.add('no-dashboard-selected');
+DASHBOARD_CODE='';DASHBOARD_PATH='';dashboardCosts={};
+++dashboardRevision;++campaignSwitchVersion;
+stopCampaignListeners();
+setCampaignIdentity('');
+campaignCodes=[];sortedCampaignCodes=[];campaignActivityByCode.clear();campaignMetaByCode.clear();
+syncCardMetricListeners();
+closeMetricDropdown();
+chatPanel.style.display='none';
+const clientName=document.getElementById('dashboardClientName');if(clientName) clientName.textContent='Select a client';
+const codeLabel=document.getElementById('dashboardCodeLabel');if(codeLabel) codeLabel.textContent='';
+const logo=document.getElementById('dashboardClientLogo');if(logo){logo.hidden=true;logo.removeAttribute('src');}
+const fallback=document.getElementById('dashboardLogoFallback');if(fallback) fallback.hidden=false;
+const campaignsField=document.getElementById('dashboardCampaigns');if(campaignsField) campaignsField.value='';
+if(campaignSelect){campaignSelect.innerHTML='<option value="">No campaign selected</option>';campaignSelect.disabled=true;}
+if(campaignActivity){campaignActivity.className='campaign-activity';campaignActivity.textContent='';}
+completedFlyersCountEl.textContent='0';qrScanCountEl.textContent='0';flyersRequiredEl.textContent='0';
+paintCosts();
+renderDashboardPicker();
+campaignSidebarList.innerHTML='<div class="dashboard-neutral"><span class="material-icons-outlined">touch_app</span><strong>Select a client dashboard</strong><span>Client campaign data stays hidden until you choose a client from the list.</span></div>';
+try{const url=new URL(location.href);url.searchParams.delete('cd');url.searchParams.delete('campaign');url.hash='';history.replaceState(null,'',url);}catch(error){}
+}
+
 async function selectDashboard(code){
 if(!allDashboards[code]) return;
+document.body.classList.remove('no-dashboard-selected');
 closeCampaignEditor();
 DASHBOARD_CODE=code;DASHBOARD_PATH='client_dashboards/'+code;
 const url=new URL(location.href);url.searchParams.set('cd',code);url.searchParams.delete('campaign');try { history.replaceState(null,'',url); } catch(error) {}
 document.title='LeuvenFlyers · '+code;
 renderDashboardPicker();
 await applyClientDashboard(allDashboards[code]);
+renderDashboardPicker();
 }
 
 let dashboardReady;
@@ -1328,7 +1664,7 @@ const FB_SAVER = 'polygons';
 
 /* ── Belgian municipality boundaries ──
 Opendatasoft georef-belgium-municipality — all Belgian communes/gemeenten,
-NGI-IGN source, WGS84. Free, no key, CORS-enabled. \~581 features. */
+NGI-IGN source, WGS84. Free, no key, CORS-enabled. \\~581 features. */
 const BE_MUNI_URLS = [
 'https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/georef-belgium-municipality/exports/geojson?lang=en&timezone=UTC'
 ];
@@ -1490,9 +1826,9 @@ document.body.appendChild(t); setTimeout(()=>t.remove(), 1900);
 function activityState(timestamp, code=CAMPAIGN_XX){
 const target=Number(campaignMetaByCode.get(code)?.target);
 const reached=Number.isFinite(target) && target>0 && (campaignActivityByCode.get(code)?.count || 0)>=target;
-const label=reached ? 'Completed' : 'Live';
+const label=reached ? 'Completed' : 'Upcoming';
 const detail=timestamp ? `${label} · Last delivery ${formatBatchDate(timestamp)}` : label;
-return {className:reached ? 'completed' : 'live',optionText:label,detailText:detail};
+return {className:reached ? 'completed' : 'upcoming',optionText:label,detailText:detail};
 }
 
 function updateCampaignActivityDisplay(){
@@ -1544,7 +1880,7 @@ row.dataset.campaign=code;
 row.setAttribute('role','option');
 row.setAttribute('tabindex','0');
 row.setAttribute('aria-selected', code === CAMPAIGN_XX ? 'true' : 'false');
-const statusLabel = state.className === 'live' ? 'Live' : state.className === 'completed' ? 'Completed' : 'No activity';
+const statusLabel = state.className === 'upcoming' ? 'Upcoming' : state.className === 'completed' ? 'Completed' : 'No activity';
 const dateText = activity.timestamp ? formatBatchDate(activity.timestamp) : 'No delivery date';
 row.innerHTML = `<span class="sidebar-client-name">Campaign</span><span class="sidebar-code">${code}</span><span class="card-top-right"><span class="sidebar-state">Updating…</span><span class="card-completion"></span></span><span class="sidebar-data"><span class="sidebar-location"><span class="material-icons-outlined">location_on</span><span class="sidebar-location-text">Finding municipality…</span></span></span><span class="sidebar-date"><span class="material-icons-outlined">calendar_today</span>${dateText}</span><button type="button" class="sidebar-edit-campaign" title="Edit ${code}" aria-label="Edit ${code}"><span class="material-icons-outlined">edit</span></button>`;
 const selectCampaign = () => {
@@ -1804,12 +2140,12 @@ row.querySelector('.target-value').textContent=validTarget ? target.toLocaleStri
 const loaded=campaignActivityByCode.get(code)?.loaded;
 const reached=validTarget && target>0 && delivered>=target;
 const status=row.querySelector('.sidebar-state');
-status.textContent=loaded ? (reached ? 'Completed' : 'Live') : 'Updating…';
-status.className=`sidebar-state ${loaded ? (reached ? 'completed' : 'live') : 'empty'}`;
+status.textContent=loaded ? (reached ? 'Completed' : 'Upcoming') : 'Updating…';
+status.className=`sidebar-state ${loaded ? (reached ? 'completed' : 'upcoming') : 'empty'}`;
 row.querySelector('.card-completion').textContent=loaded && validTarget && target>0 ? `${Math.min(100,Math.round(delivered/target*100))}% of target` : '';
 if(code===CAMPAIGN_XX) updateCampaignActivityDisplay();
 const option=Array.from(campaignSelect.options).find(option=>option.value===code);
-if(option && loaded) option.textContent=`${code} · ${delivered.toLocaleString()} flyers delivered · ${reached ? 'Completed' : 'Live'}`;
+if(option && loaded) option.textContent=`${code} · ${delivered.toLocaleString()} flyers delivered · ${reached ? 'Completed' : 'Upcoming'}`;
 
 const progress=row.querySelector('.progress-track');
 progress.hidden=!validTarget || target===0;
@@ -2013,20 +2349,29 @@ try {
 const snap=await get(ref(db,'client_dashboards'));
 allDashboards=Object.fromEntries(Object.entries(snap.val() || {}).filter(([code,data])=>/^CD\d+$/.test(code)&&data&&typeof data==='object'));
 dashboardsLoaded=true;
-if(!allDashboards[DASHBOARD_CODE] && Object.keys(allDashboards).length) DASHBOARD_CODE=Object.keys(allDashboards).sort()[0];
-DASHBOARD_PATH='client_dashboards/'+DASHBOARD_CODE;
 renderDashboardPicker();
-await applyClientDashboard(allDashboards[DASHBOARD_CODE] || {},true);
+paintCosts();
+if(requestedDashboardCode && allDashboards[requestedDashboardCode]){
+await selectDashboard(requestedDashboardCode);
+}else{
+showNoDashboardSelectedState();
+}
 onValue(ref(db,'client_dashboards'),snapshot=>{
 allDashboards=Object.fromEntries(Object.entries(snapshot.val() || {}).filter(([code,data])=>/^CD\d+$/.test(code)&&data&&typeof data==='object'));
 dashboardsLoaded=true;
-dashboardCosts={...(allDashboards[DASHBOARD_CODE]?.campaignCosts || {})};
+if(DASHBOARD_CODE && !allDashboards[DASHBOARD_CODE]){
+showNoDashboardSelectedState();
+if(map?.getSource('zones-fill-src')) loadUpcomingBookedZonesOverview().catch(()=>{});
+}else{
+dashboardCosts={...(DASHBOARD_CODE ? allDashboards[DASHBOARD_CODE]?.campaignCosts : {})};
 renderDashboardPicker();paintCosts();
-},error=>{dashboardsLoaded=false;paintCosts();document.getElementById('dashboardListMessage').textContent='Client totals unavailable. Check database access and reload.';});
+}
+},error=>{dashboardsLoaded=false;paintCosts();document.getElementById('dashboardListMessage').textContent='Client dashboards unavailable. Check database access and reload.';});
 } catch(error){
 dashboardsLoaded=false;paintCosts();
-document.getElementById('dashboardListMessage').textContent='Could not load CD numbers. Check database access and reload.';
-campaignSidebarList.textContent='Unable to load dashboards.';
+document.getElementById('dashboardListMessage').textContent='Could not load client dashboards. Check database access and reload.';
+const list=document.getElementById('dashboardClientList');if(list) list.innerHTML='<div class="dashboard-client-empty">Unable to load clients.</div>';
+showNoDashboardSelectedState();
 }
 }
 document.getElementById('dashboardSelect').onchange=event=>selectDashboard(event.target.value).catch(()=>toast('Could not open dashboard'));
@@ -2425,7 +2770,7 @@ stopCampaignListeners();
 setCampaignIdentity(nextCampaign);
 clearCampaignState();
 
-document.title = 'LeuvenFlyers · ' + DASHBOARD_CODE;
+document.title = DASHBOARD_CODE ? 'LeuvenFlyers · ' + DASHBOARD_CODE : 'LeuvenFlyers · Client dashboards';
 try {
 const nextUrl = new URL(window.location.href);
 nextUrl.searchParams.set('campaign', CAMPAIGN_XX);
@@ -2582,8 +2927,15 @@ try {
 await dashboardReady;
 setLoadProgress(48, 'Loading zones…');
 await loadSubZones();
-if(!campaignCodes.length){ hideLoader(); return; }
-setLoadProgress(58, 'Connecting live data…');
+
+if(!DASHBOARD_CODE || !CAMPAIGN_XX || !campaignCodes.length){
+setLoadProgress(68, 'Loading upcoming booked zones…');
+await loadUpcomingBookedZonesOverview();
+setLoadProgress(100, 'Upcoming zones ready');
+return;
+}
+
+setLoadProgress(58, 'Connecting campaign data…');
 startCampaignListeners();
 
 setLoadProgress(64, 'Loading municipalities…');
@@ -2593,13 +2945,13 @@ muniByName.forEach(m=>{ if(m.savedKey) hasSavedArea=true; });
 showCampaignArea=true; showAllZones=false;
 syncToolbar();
 renderMunicipalities();
-if(hasSavedArea && !liveDotsList.length) fitToSavedMunis();
 updateZonesVisual();
+if(hasSavedArea && !liveDotsList.length) fitToSavedMunis();
 
 setLoadProgress(72, 'Loading Firebase data…');
 const sources = [
 [firstLoad.statuses.promise, 'Zone statuses loaded'],
-[firstLoad.dots.promise,     'Live dots loaded'],
+[firstLoad.dots.promise,     'Delivery dots loaded'],
 [firstLoad.proofs.promise,   'Proof photos loaded'],
 [firstLoad.qr.promise,       'QR scans loaded'],
 [firstLoad.chat.promise,     'Chat loaded']
@@ -2608,7 +2960,7 @@ let arrived = 0;
 sources.forEach(([p,label]) => p.then(() => { arrived++; setLoadProgress(72 + arrived*5.4, label); }));
 await Promise.race([
 Promise.all(sources.map(s => s[0])),
-new Promise(res => setTimeout(res, 20000))  // safety valve
+new Promise(res => setTimeout(res, 20000))
 ]);
 } catch(err) {
 console.error(err);
@@ -2822,7 +3174,7 @@ for(const ring of rings){
 const simp = simplifyRing(ring);
 if(simp.length<3) continue;
 const payload = { _name:name };
-// Storage: round boundary points to 5 decimals (\~1 m) before saving —
+// Storage: round boundary points to 5 decimals (\\~1 m) before saving —
 // Opendatasoft coords carry 13+ decimals, roughly double the bytes.
 simp.forEach(([lng,lat],i)=>{ payload[i]={lat:roundCoord(lat),lng:roundCoord(lng)}; });
 const r = await push(ref(polygonsDb, FB_MUNI), payload);
@@ -2924,7 +3276,7 @@ async function finishDraw(){
 if(drawPts.length<3){ toast('Need at least 3 points'); return; }
 const parent = drawParentMuni;
 const ringLngLat = [...drawPts, drawPts[0]];
-// Storage: round drawn points to 5 decimals (\~1 m) before saving
+// Storage: round drawn points to 5 decimals (\\~1 m) before saving
 const coords = simplifyRing(ringLngLat, 200).map(([lng,lat])=>({lat:roundCoord(lat),lng:roundCoord(lng)}));
 if(coords.length<3){ toast('Sub-zone invalid'); cancelDraw(); return; }
 
@@ -3053,6 +3405,78 @@ const dotsHtml = dotsCount>0
 return `<div class="${classes.join(' ')}"><span class="zone-num">${display||z}</span>${flyersHtml}${dotsHtml}</div>`;
 }
 
+
+function resolveZoneNameFromStatus(key,data={}){
+const fieldZone = data.zoneName||String(data.zoneNumber||'');
+const keyNum = safeInt(key);
+if(fieldZone && polygonsByZone.has(fieldZone)) return fieldZone;
+if(keyNum && polygonsByZone.has(String(keyNum))) return String(keyNum);
+if((keyNum||key==='0') && polygonsByZone.has(String(keyNum+1))) return String(keyNum+1);
+if(safeInt(data.zone)&&polygonsByZone.has(String(safeInt(data.zone)))) return String(safeInt(data.zone));
+return null;
+}
+
+function fitToBookedZones(){
+if(!map) return false;
+const coords=[];
+polygonMeta.forEach(meta=>{
+const status=zoneStatusByZone.get(meta.zoneNumber)?.status;
+if(status!=='booked') return;
+const b=meta.bounds;
+if(b && Number.isFinite(b.minLng) && Number.isFinite(b.minLat) && Number.isFinite(b.maxLng) && Number.isFinite(b.maxLat)){
+coords.push([b.minLng,b.minLat],[b.maxLng,b.maxLat]);
+}else if(Array.isArray(b)&&b.length===4){
+coords.push([b[0],b[1]],[b[2],b[3]]);
+}else if(Array.isArray(meta.center)) coords.push(meta.center);
+});
+if(!coords.length) return false;
+const lngs=coords.map(c=>c[0]), lats=coords.map(c=>c[1]);
+map.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],{padding:55,duration:650,maxZoom:15});
+return true;
+}
+
+let upcomingOverviewVersion=0;
+async function loadUpcomingBookedZonesOverview(){
+if(!map?.getSource('zones-fill-src')) return;
+const version=++upcomingOverviewVersion;
+stopCampaignListeners();
+if(activePopup){activePopup.remove();activePopup=null;}
+proofMarkerMap.forEach(marker=>marker.remove());proofMarkerMap.clear();
+proofsList=[];proofStripInner.innerHTML='';proofStrip.classList.remove('visible');
+if(latestDotMarker){latestDotMarker.remove();latestDotMarker=null;}
+dotsCountByZone.clear();liveDotsList=[];dotsFitCampaign=null;
+if(map.getSource('blue-dots-src')) map.getSource('blue-dots-src').setData(fc());
+if(map.getSource('building-dots-src')) map.getSource('building-dots-src').setData(fc());
+zoneStatusByZone.clear();zoneStatusKeyByZone.clear();
+const codes=[...new Set(Object.values(allDashboards).flatMap(data=>Object.keys(data?.campaigns||{}).filter(code=>/^XX\d+$/.test(code)&&data.campaigns[code])))];
+let cursor=0;
+await Promise.all(Array.from({length:Math.min(6,Math.max(1,codes.length))},async()=>{
+while(cursor<codes.length){
+const code=codes[cursor++];
+try{
+const snap=await get(ref(db,`campaigns/${code}/zone_statuses`));
+if(version!==upcomingOverviewVersion) return;
+if(!snap.exists()) continue;
+snap.forEach(child=>{
+const data=child.val()||{};
+if(data.status!=='booked') return;
+const zName=resolveZoneNameFromStatus(child.key,data);
+if(zName==null) return;
+const previous=zoneStatusByZone.get(zName)||{};
+const campaigns=new Set(previous.campaigns||[]);campaigns.add(code);
+zoneStatusByZone.set(zName,{...previous,status:'booked',overview:true,campaigns:[...campaigns],flyersRequired:safeInt(previous.flyersRequired)+safeInt(data.flyersRequired),flyers:safeInt(previous.flyers)+safeInt(data.flyers)});
+});
+}catch(error){console.warn('upcoming zone read failed',code,error);}
+}
+}));
+if(version!==upcomingOverviewVersion) return;
+showCampaignArea=true;showAllZones=false;
+muniByName.forEach(m=>{m.savedKey=null;m.savedExtraKeys=[];});
+renderMunicipalities();
+updateZonesVisual();
+fitToBookedZones();
+}
+
 function listenZoneStatuses(){
 const campaignAtStart = CAMPAIGN_XX;
 const unsubscribe = onValue(ref(db, ZONE_STATUS_PATH), snap => {
@@ -3063,13 +3487,7 @@ zoneStatusByZone.clear(); zoneStatusKeyByZone.clear();
 if(snap.exists()){
 snap.forEach(child=>{
 const key=child.key; const data=child.val()||{};
-const fieldZone = data.zoneName||String(data.zoneNumber||'');
-const keyNum = safeInt(key);
-let zName=null;
-if(fieldZone && polygonsByZone.has(fieldZone)) zName=fieldZone;
-else if(keyNum && polygonsByZone.has(String(keyNum))) zName=String(keyNum);
-else if((keyNum||key==='0') && polygonsByZone.has(String(keyNum+1))) zName=String(keyNum+1);
-else if(safeInt(data.zone)&&polygonsByZone.has(String(safeInt(data.zone)))) zName=String(safeInt(data.zone));
+const zName=resolveZoneNameFromStatus(key,data);
 if(zName!=null){
 if(data.status==='completed'&&!existingCompleted.has(zName)){
 data.completedAt=data.completedAt||Date.now();
@@ -3080,7 +3498,7 @@ zoneStatusKeyByZone.set(zName,key);
 }
 });
 }
-idle(updateZonesVisual);
+idle(()=>{updateZonesVisual();if(!liveDotsList.length) fitToBookedZones();});
 if(firstFullLoad) firstFullLoad=false;
 firstLoad.statuses.resolve();
 });
@@ -3155,6 +3573,19 @@ map.getSource('building-dots-src').setData(fc(centers.map(([lat,lng])=>feat('Poi
 }
 
 function showZonePopup(zoneNumber, lngLat, autoLoadBuildings=true){
+if(!CAMPAIGN_XX){
+clearBuildingDots();
+if(activePopup){activePopup.remove();activePopup=null;}
+const z=zoneStatusByZone.get(zoneNumber)||{};
+const idxMeta=polygonsByZone.get(zoneNumber);
+const zoneMeta=idxMeta!==undefined?polygonMeta[idxMeta]:null;
+const displayName=(zoneMeta&&zoneMeta.displayName)||zoneNumber;
+const campaignCount=Array.isArray(z.campaigns)?z.campaigns.length:0;
+const html=`<div style="text-align:left;"><div class="pp-title zone"><span class="material-icons-outlined">event_upcoming</span>${displayName}</div><div class="pp-row"><span class="material-icons-outlined" style="color:#b38700;">bookmark</span><strong>Upcoming booked zone</strong></div>${campaignCount?`<div class="pp-note">Booked in ${campaignCount} campaign${campaignCount===1?'':'s'}. Select a client dashboard to view campaign details.</div>`:'<div class="pp-note">Select a client dashboard to view campaign details.</div>'}</div>`;
+activePopup=new maplibregl.Popup({closeButton:true,closeOnClick:false,offset:[0,-8],maxWidth:'280px'}).setLngLat(lngLat).setHTML(html).addTo(map);
+activePopup.on('close',()=>{activePopup=null;});
+return;
+}
 clearBuildingDots();
 if(activePopup){ activePopup.remove(); activePopup=null; }
 
