@@ -93,6 +93,13 @@ button{touch-action:manipulation}
 .booking-price-row{border-top:1px solid #e0e8ee}
 .booking-total-row small{display:block;font-size:10px;font-weight:700;color:#576e81}
 .booking-rate{font-size:10px;font-weight:700;line-height:1.55;margin-top:8px;color:#4d6579}
+
+.organized-summary{padding:11px;font-size:11px;font-weight:700}
+.organized-summary .campaign-id{font-size:12px}.organized-summary .campaign-state{font-size:9px}
+.summary-details{margin:10px 0}.summary-details>div{display:grid;grid-template-columns:82px minmax(0,1fr);gap:8px;margin-top:6px;font-size:10px;line-height:1.5}.summary-details dt{color:#526b7f;font-weight:700}.summary-details dd{margin:0;color:var(--navy);font-weight:750;overflow-wrap:anywhere}
+.summary-totals{border:1px solid #d4e1e9;border-radius:8px;padding:0 9px;background:#f9fbfc}
+.summary-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;font-size:11px;line-height:1.4;color:#294960;border-bottom:1px solid #e1e9ef;font-weight:750}.summary-row:last-child{border-bottom:0}.summary-row strong{font-size:12px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;text-align:right}.summary-row small{display:block;font-size:9px;font-weight:700;color:#5c7284;margin-top:1px}.summary-delivered strong{color:#08766c}.summary-total-price{background:#edf5f8;margin:0 -9px;padding:9px;border-radius:0 0 7px 7px}
+.summary-facts{display:flex;flex-wrap:wrap;gap:6px 13px;margin-top:9px;font-size:10px;color:#526b7f}.summary-facts strong{margin-left:4px;color:var(--navy)}.summary-pickup{display:grid;gap:3px;margin-top:9px;font-size:10px;line-height:1.45;overflow-wrap:anywhere}.summary-pickup>span{color:#526b7f}.summary-pickup strong{color:#294960}.shift-count-badge{margin-left:auto;padding:2px 6px;border-radius:5px;background:#e8f3f1;color:#08766c;font-size:10px;font-weight:800}.shift-price-block{display:flex;align-items:flex-end;flex-direction:column;gap:3px;flex:none;color:var(--navy);font-size:12px;font-weight:800}.shift-price-block small{font-size:9px;font-weight:700;color:#5c7284}.right-section:first-child{max-height:65%;overflow-y:auto}.right-section:last-child{min-height:140px}.right-title{font-size:12px;font-weight:800}
 </style>
 </head>
 <body>
@@ -149,11 +156,10 @@ button{touch-action:manipulation}
 
 <aside class="right-panel">
 <section class="right-section">
-<div class="right-head"><div class="right-title"><span class="material-icons-outlined">campaign</span>Current campaign</div><div id="campaignSummaryCopy" class="right-copy">One campaign is shown at a time</div></div>
 <div id="campaignSummary" class="campaign-summary"><div class="empty">Plan a campaign or open an existing XX ID.</div></div>
 </section>
 <section class="right-section">
-<div class="right-head"><div class="right-title"><span class="material-icons-outlined">event_available</span>Campaign shifts</div><div class="booking-totals" aria-label="Campaign totals" aria-live="polite"><div class="booking-total-row"><span>Total flyers</span><strong id="totalFlyersSummary">0</strong></div><div class="booking-total-row booking-price-row"><span>Total price <small>excl. VAT</small></span><strong id="totalMoney">€0.00</strong></div></div><div id="shiftSummary" class="right-copy booking-rate">€120 per 1,000 flyers; smaller shifts are priced proportionally</div><div class="right-copy">Each posted PUS dot confirms one shift’s pickup. FF delivery dots update distribution progress.</div></div>
+<div class="right-head"><div class="right-title">Campaign shifts <span id="shiftCountBadge" class="shift-count-badge">0</span></div></div>
 <div class="right-scroll"><div id="shiftList" class="shift-list"><div class="empty">No shifts created yet.</div></div></div>
 </section>
 </aside>
@@ -193,8 +199,8 @@ const $=id=>document.getElementById(id);
 const els={
 clientBadge:$('clientBadge'),loginInput:$('loginInput'),loginBtn:$('loginBtn'),newPlanBtn:$('newPlanBtn'),areaSearch:$('areaSearch'),areaSearchBtn:$('areaSearchBtn'),areaList:$('areaList'),selectedArea:$('selectedArea'),
 buildingCount:$('buildingCount'),flyerCount:$('flyerCount'),hexCount:$('hexCount'),bookedCount:$('bookedCount'),zoneStatus:$('zoneStatus'),
-pickupInput:$('pickupInput'),pickupBtn:$('pickupBtn'),extraFlyersInput:$('extraFlyersInput'),extraFlyersBtn:$('extraFlyersBtn'),extraFlyersTotal:$('extraFlyersTotal'),shiftSummary:$('shiftSummary'),totalMoney:$('totalMoney'),totalFlyersSummary:$('totalFlyersSummary'),shiftList:$('shiftList'),announceBtn:$('announceBtn'),
-campaignSummary:$('campaignSummary'),campaignSummaryCopy:$('campaignSummaryCopy'),campaignLoading:$('campaignLoading'),campaignLoadingTitle:$('campaignLoadingTitle'),toast:$('toast')
+pickupInput:$('pickupInput'),pickupBtn:$('pickupBtn'),extraFlyersInput:$('extraFlyersInput'),extraFlyersBtn:$('extraFlyersBtn'),extraFlyersTotal:$('extraFlyersTotal'),shiftCountBadge:$('shiftCountBadge'),shiftList:$('shiftList'),announceBtn:$('announceBtn'),
+campaignSummary:$('campaignSummary'),campaignLoading:$('campaignLoading'),campaignLoadingTitle:$('campaignLoadingTitle'),toast:$('toast')
 };
 let map,mapReady=false,allAreas=[],selectedAreaFeature=null,clientId='',clientPromise=null,hexagons=[],bookedZones=[],events=[],shifts=[],currentCampaign=null,extraFlyers=0,estimateRequest=0,zonePopup=null,visibleBuildingHexId='',shiftUnsubscribe=null,campaignUnsubscribe=null,dotUnsubscribers=[],dotWatchSignature='',campaignLoadToken=0;
 const dotStats=new Map(),lastSyncedDotStatus=new Map();
@@ -239,21 +245,29 @@ function shiftLiveStats(shift,index){
  return{posterId:posterIdForShift(shift,index),target,posted,pickupDone,distributionDone,percent:target?Math.min(100,Math.round(posted/target*100)):0};
 }
 function campaignDeliveryStats(){let target=0,posted=0;shifts.forEach((shift,index)=>{const stats=shiftLiveStats(shift,index);target+=stats.target;posted+=Math.min(stats.posted,stats.target)});return{target,posted,percent:target?Math.min(100,Math.round(posted/target*100)):0}}
-function renderBookingTotals(){
- els.totalFlyersSummary.textContent=totalFlyers().toLocaleString();
- els.totalMoney.textContent=money(shiftsCost(shifts));
-}
+function renderBookingTotals(){renderCurrentCampaign()}
 function renderShiftSummary(){
-renderBookingTotals();els.shiftSummary.textContent=shifts.length?`${shifts.length} shift${shifts.length===1?'':'s'} · €120 per 1,000 flyers · smaller shifts priced proportionally`:'€120 per 1,000 flyers; smaller shifts are priced proportionally';
-els.shiftList.innerHTML=shifts.length?shifts.map((shift,index)=>{const pickup=shift.pickupAddress||els.pickupInput.value.trim()||'Pickup address not added',stats=shiftLiveStats(shift,index),number=shiftNumber(shift,index);return`<div class="shift-item"><div class="shift-head"><div><div class="shift-name">${escape(shift.title||`Shift ${number}`)}</div><div class="shift-quantity">${stats.target.toLocaleString()} flyers</div></div>${stats.distributionDone?'<span class="campaign-state">Done</span>':''}</div><div class="shift-pickup"><span class="material-icons-outlined">location_on</span><span>${escape(pickup)}</span></div><div class="shift-statuses"><div class="shift-status${stats.pickupDone?' done':''}">Pickup status<strong>${stats.pickupDone?'Done':'Pending'}</strong></div><div class="shift-status${stats.distributionDone?' done':''}">Distribution status<strong>${stats.distributionDone?'Done':'Pending'}</strong></div></div><div class="progress-row"><span>${stats.posted.toLocaleString()} of ${stats.target.toLocaleString()} delivery dots</span><strong>${stats.percent}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${stats.percent}%"></div></div></div>`}).join(''):'<div class="empty">No shifts created yet.</div>';
+els.shiftCountBadge.textContent=String(shifts.length);
+els.shiftList.innerHTML=shifts.length?shifts.map((shift,index)=>{const pickup=shift.pickupAddress||els.pickupInput.value.trim()||'Pickup address not added',stats=shiftLiveStats(shift,index),number=shiftNumber(shift,index);return`<div class="shift-item"><div class="shift-head"><div><div class="shift-name">${escape(shift.title||`Shift ${number}`)}</div><div class="shift-quantity">${stats.target.toLocaleString()} flyers</div></div><div class="shift-price-block"><strong>${money(shiftPrice(stats.target))}</strong><small>excl. VAT</small>${stats.distributionDone?'<span class="campaign-state">Done</span>':''}</div></div><div class="shift-pickup"><span class="material-icons-outlined">location_on</span><span>${escape(pickup)}</span></div><div class="shift-statuses"><div class="shift-status${stats.pickupDone?' done':''}">Pickup status<strong>${stats.pickupDone?'Done':'Pending'}</strong></div><div class="shift-status${stats.distributionDone?' done':''}">Distribution status<strong>${stats.distributionDone?'Done':'Pending'}</strong></div></div><div class="progress-row"><span>${stats.posted.toLocaleString()} of ${stats.target.toLocaleString()} delivery dots</span><strong>${stats.percent}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${stats.percent}%"></div></div></div>`}).join(''):'<div class="empty">No shifts created yet.</div>';
 renderCurrentCampaign();
 }
 function watchShifts(id){if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(!id)return;shiftUnsubscribe=onValue(ref(db,`campaigns/${id}/planner/shifts`),snapshot=>{shifts=objectValues(snapshot.val()).map(([key,value])=>({key,...value})).sort((a,b)=>shiftNumber(a,0)-shiftNumber(b,0));renderShiftSummary();watchDotProgress()},console.warn)}
 function renderCurrentCampaign(){
-if(!clientId){els.campaignSummaryCopy.textContent='One campaign is shown at a time';els.campaignSummary.innerHTML='<div class="empty">Plan a campaign or open an existing XX ID.</div>';return}
+if(!clientId){els.campaignSummary.innerHTML='<div class="empty">Plan a campaign or open an existing XX ID.</div>';return}
 const item=currentCampaign||{},announced=item.status==='announced',hasLivePlan=!!selectedAreaFeature||bookedZones.length>0||shifts.length>0||!!els.pickupInput.value.trim(),areaName=selectedAreaFeature?.properties.name||item.areaName||'Area not selected',flyers=hasLivePlan?totalFlyers():(Number(item.totalFlyers)||0),zones=hasLivePlan?bookedZones.length:(Number(item.zoneCount)||0),shiftCount=hasLivePlan?shifts.length:(Number(item.shiftCount)||0),totalCost=hasLivePlan?shiftsCost(shifts):(Number(item.totalCost)||shiftPrice(flyers)),pickup=els.pickupInput.value.trim()||item.pickupAddress||'',announcedTime=item.clientAnnouncedAt||item.announcedAt,progress=campaignDeliveryStats();
-els.campaignSummaryCopy.textContent=`Only ${clientId} is active in this planner`;
-els.campaignSummary.innerHTML=`<div class="campaign-card"><div class="campaign-card-head"><span class="campaign-id">${escape(clientId)}</span><span class="campaign-state${announced?'':' planning'}">${announced?'Announced':'Planning'}</span></div><span class="campaign-area">${escape(areaName)}</span><span class="campaign-meta">${flyers.toLocaleString()} flyers · ${zones.toLocaleString()} hexagons · ${shiftCount.toLocaleString()} shifts${extraFlyers?` · ${extraFlyers.toLocaleString()} extra`:''}<br>€120 per 1,000 flyers · Total ${money(totalCost)} excl. VAT${announcedTime?`<br>Announced ${escape(timeLabel(announcedTime))}`:''}</span>${pickup?`<span class="campaign-pickup"><span class="material-icons-outlined">location_on</span><span>${escape(pickup)}</span></span>`:''}<div class="campaign-progress"><div class="campaign-progress-head"><span>Campaign distribution</span><strong>${progress.percent}%</strong></div><div class="progress-row"><span>${progress.posted.toLocaleString()} of ${progress.target.toLocaleString()} dots</span></div><div class="progress-track"><div class="progress-fill" style="width:${progress.percent}%"></div></div></div></div>`;
+els.campaignSummary.innerHTML=`<div class="campaign-card organized-summary">
+<div class="campaign-card-head"><span class="campaign-id">${escape(clientId)}</span><span class="campaign-state${announced?'':' planning'}">${announced?'Announced':'Planning'}</span></div>
+<dl class="summary-details"><div><dt>Area</dt><dd>${escape(areaName)}</dd></div><div><dt>Date announced</dt><dd>${announcedTime?escape(timeLabel(announcedTime)):'—'}</dd></div></dl>
+<div class="summary-totals" aria-label="Campaign totals" aria-live="polite">
+<div class="summary-row"><span>Total flyers</span><strong>${flyers.toLocaleString()}</strong></div>
+<div class="summary-row summary-delivered"><span>Flyers delivered</span><strong>${progress.posted.toLocaleString()}</strong></div>
+<div class="summary-row"><span>Shift price <small>per 1,000 flyers · excl. VAT</small></span><strong>${money(SHIFT_PRICE)}</strong></div>
+<div class="summary-row summary-total-price"><span>Total price <small>excl. VAT</small></span><strong>${money(totalCost)}</strong></div>
+</div>
+<div class="summary-facts"><span>Shifts <strong>${shiftCount.toLocaleString()}</strong></span><span>Zones <strong>${zones.toLocaleString()}</strong></span>${extraFlyers?`<span>Extra flyers <strong>${extraFlyers.toLocaleString()}</strong></span>`:''}</div>
+${pickup?`<div class="summary-pickup"><span>Pickup address</span><strong>${escape(pickup)}</strong></div>`:''}
+<div class="campaign-progress"><div class="campaign-progress-head"><span>Distribution progress</span><strong>${progress.percent}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${progress.percent}%"></div></div></div>
+</div>`;
 }
 function watchAnnouncedCampaign(id){if(campaignUnsubscribe){campaignUnsubscribe();campaignUnsubscribe=null}currentCampaign=null;renderCurrentCampaign();if(!id)return;campaignUnsubscribe=onValue(ref(db,`announcedCampaigns/${id}`),snapshot=>{currentCampaign=snapshot.exists()?{...snapshot.val(),clientId:id}:null;renderCurrentCampaign()},error=>{console.warn(error);els.campaignSummary.innerHTML='<div class="empty">This campaign summary could not be loaded.</div>'})}
 // Read-only source records; derived shift summaries are saved to the planner only.
