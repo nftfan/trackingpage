@@ -103,6 +103,25 @@ button{touch-action:manipulation}
 
 .shift-product{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 8px;padding:10px;border:1px solid #c6e5df;border-radius:8px;background:#edf8f5;color:var(--navy)}
 .shift-product-name{display:block;font-size:11px;font-weight:800}.shift-product small{display:block;margin-top:3px;font-size:9px;font-weight:700;color:#4d6d77}.shift-product-price{display:grid;gap:3px;text-align:right;flex:none}.shift-product-price span{font-size:9px;font-weight:700;color:#426777}.shift-product-price strong{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}.summary-total-price{border-radius:7px 7px 0 0}
+
+.quote-field-label{display:block;margin:8px 0 4px;font-size:11px;font-weight:750;color:var(--navy)}
+#printQuote{display:none}
+@media print{
+ @page{size:A4;margin:14mm}
+ body.quote-print-ready{height:auto!important;overflow:visible!important;background:white!important;margin:0!important;color:#172a3d!important}
+ body.quote-print-ready> :not(#printQuote){display:none!important}
+ body.quote-print-ready #printQuote{display:block!important;font-family:Arial,sans-serif;font-size:10pt;line-height:1.45;color:#172a3d}
+ #printQuote *{box-sizing:border-box}
+ #printQuote .quote-header{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:2px solid #0b3b66;padding-bottom:12px;margin-bottom:14px;break-inside:avoid}
+ #printQuote .quote-brand{display:flex;align-items:center;gap:10px;font-size:17pt;font-weight:bold;color:#0b3b66}
+ #printQuote .quote-brand img{height:44px;width:44px;object-fit:contain}
+ #printQuote h1{font-size:18pt;margin:0;color:#0b3b66}#printQuote h2{font-size:11pt;margin:16px 0 6px;color:#0b3b66;break-after:avoid}
+ #printQuote .quote-ref{text-align:right;font-size:9pt}#printQuote .quote-ref p{margin:3px 0}
+ #printQuote .quote-meta{display:grid;grid-template-columns:1fr 1fr;gap:9px 20px;margin:12px 0}#printQuote .quote-meta div{break-inside:avoid;overflow-wrap:anywhere}#printQuote .quote-meta span{display:block;color:#50677a;font-size:9pt}#printQuote .quote-meta strong{display:block;font-size:10pt}
+ #printQuote table{width:100%;border-collapse:collapse;table-layout:fixed;margin:7px 0;font-size:9pt}#printQuote th{color:#0b3b66;text-align:left;background:#edf4f7;font-weight:bold}#printQuote th,#printQuote td{padding:7px 6px;border-bottom:1px solid #d5e1e9;vertical-align:top;overflow-wrap:anywhere}#printQuote thead{display:table-header-group}#printQuote tr{break-inside:avoid}#printQuote .numeric{text-align:right}
+ #printQuote .quote-totals{width:58%;margin:12px 0 12px auto;break-inside:avoid}#printQuote .quote-totals div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #d5e1e9}#printQuote .quote-grand-total{font-size:12pt;font-weight:bold;color:#0b3b66;border-bottom:2px solid #0b3b66!important}
+ #printQuote .quote-note{font-size:9pt;color:#50677a;margin:10px 0;break-inside:avoid}
+}
 </style>
 </head>
 <body>
@@ -145,6 +164,14 @@ button{touch-action:manipulation}
 <div class="helper" style="margin-top:7px">Shifts are created automatically from the building count of booked hexagons.</div>
 </section>
 
+<section class="tool-section quote-controls" aria-label="Print quote">
+<div class="section-head"><div class="section-title">Print quote</div></div>
+<label class="quote-field-label" for="quoteBusinessName">Business name</label>
+<input id="quoteBusinessName" class="field" type="text" maxlength="160" autocomplete="organization" placeholder="Customer business name" required>
+<label class="quote-field-label" for="quoteVatRate">VAT rate (%)</label>
+<input id="quoteVatRate" class="field" type="number" min="0" max="100" step="0.01" value="21" required>
+<button id="printQuoteBtn" class="action primary" style="margin-top:9px" type="button">Print quote / Save PDF</button>
+</section>
 <div class="announce-wrap"><button id="announceBtn" class="announce-btn"><span class="material-icons-outlined">campaign</span>Announce campaign</button></div>
 </div>
 </aside>
@@ -167,6 +194,7 @@ button{touch-action:manipulation}
 </section>
 </aside>
 
+<article id="printQuote" aria-label="Campaign quotation"></article>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
@@ -514,7 +542,7 @@ const previous=extraFlyers;try{const id=await ensureClient();extraFlyers+=amount
 
 function normalizeId(value){const compact=String(value||'').trim().toUpperCase().replace(/\s+/g,'');if(/^XX\d+$/.test(compact))return compact;if(/^\d+$/.test(compact))return `XX${compact}`;return ''}
 function resetPlan(){
-closeZonePopup();stopDotWatchers();if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(campaignUnsubscribe){campaignUnsubscribe();campaignUnsubscribe=null}estimateRequest++;clientId='';clientPromise=null;selectedAreaFeature=null;hexagons=[];bookedZones=[];events=[];shifts=[];currentCampaign=null;extraFlyers=0;visibleBuildingHexId='';els.pickupInput.value='';els.extraFlyersInput.value='';els.extraFlyersTotal.textContent='Extra flyers added: 0';els.loginInput.value='';renderCampaignTitle();renderPhotoProof();els.buildingCount.textContent='—';els.flyerCount.textContent='—';els.hexCount.textContent='—';els.bookedCount.textContent='0';els.zoneStatus.textContent='Search for a European city to create its hexagons.';els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Announce campaign';renderSelectedArea();renderTimeline();renderShiftSummary();watchAnnouncedCampaign('');renderMap();if(mapReady)map.easeTo({center:[10,50],zoom:3.5,duration:500});
+closeZonePopup();stopDotWatchers();if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(campaignUnsubscribe){campaignUnsubscribe();campaignUnsubscribe=null}estimateRequest++;clientId='';clientPromise=null;$('quoteBusinessName').value='';selectedAreaFeature=null;hexagons=[];bookedZones=[];events=[];shifts=[];currentCampaign=null;extraFlyers=0;visibleBuildingHexId='';els.pickupInput.value='';els.extraFlyersInput.value='';els.extraFlyersTotal.textContent='Extra flyers added: 0';els.loginInput.value='';renderCampaignTitle();renderPhotoProof();els.buildingCount.textContent='—';els.flyerCount.textContent='—';els.hexCount.textContent='—';els.bookedCount.textContent='0';els.zoneStatus.textContent='Search for a European city to create its hexagons.';els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Announce campaign';renderSelectedArea();renderTimeline();renderShiftSummary();watchAnnouncedCampaign('');renderMap();if(mapReady)map.easeTo({center:[10,50],zoom:3.5,duration:500});
 }
 function objectValues(value){return value&&typeof value==='object'?Object.entries(value):[]}
 async function loadCampaign(requestedId){
@@ -529,6 +557,37 @@ els.pickupInput.value=planner.pickup?.address||'';renderSelectedArea();if(select
 watchDotProgress();watchShifts(id);if(planner.meta?.status==='announced')els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Update announcement';if(selectedAreaFeature?.geometry)fitGeometry(selectedAreaFeature.geometry,1150);else if(bookedZones[0])fitGeometry(feature('Polygon',[closeRing(bookedZones[0].points)]).geometry,1150);toast(`${id} opened`);
 }catch(error){console.error(error);toast('The campaign could not be opened')}finally{els.loginBtn.disabled=false;els.loginBtn.textContent='Open';hideCampaignLoading(loadingState)}
 }
+
+// Quotes use current planner quantities and the displayed distribution rate.
+function quoteAmounts(flyers,vatRate){const subtotalCents=Math.round(shiftPrice(flyers)*100),vatCents=Math.round(subtotalCents*vatRate/100);return{subtotal:subtotalCents/100,vat:vatCents/100,total:(subtotalCents+vatCents)/100}}
+function buildQuote(businessName,vatRate){
+ const flyers=totalFlyers(),totals=quoteAmounts(flyers,vatRate),progress=campaignDeliveryStats(),now=new Date(),item=currentCampaign||{},date=new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'2-digit'}).format(now),area=selectedAreaFeature?.properties.name||item.areaName||'Not specified',pickup=els.pickupInput.value.trim()||item.pickupAddress||'Not specified',announced=item.clientAnnouncedAt||item.announcedAt;
+ const details=[['Prepared for',businessName],['Quote date',date],['Campaign ID',clientId||'Draft campaign'],['Campaign status',item.status==='announced'?'Announced':'Planning'],['Campaign area',area],['Pickup address',pickup],['Date announced',announced?timeLabel(announced):'Not announced'],['Distribution date','Not scheduled'],['Total flyers',flyers.toLocaleString()],['Flyers delivered',progress.posted.toLocaleString()],['Booked zones',bookedZones.length.toLocaleString()],['Shifts',shifts.length.toLocaleString()],['Estimated buildings',totalBuildings().toLocaleString()],['Extra flyers',extraFlyers.toLocaleString()]];
+ const zoneRows=bookedZones.map((zone,index)=>`<tr><td>${escape(zone.hexId||`Zone ${index+1}`)}</td><td class="numeric">${(Number(zone.estimatedBuildings)||zone.buildings?.length||0).toLocaleString()}</td><td class="numeric">${(Number(zone.flyersRequired)||0).toLocaleString()}</td></tr>`).join('');
+ const shiftRows=shifts.map((shift,index)=>{const stats=shiftLiveStats(shift,index);return`<tr><td>${escape(shift.title||`Shift ${shiftNumber(shift,index)}`)}</td><td class="numeric">${stats.target.toLocaleString()}</td><td>${escape(shift.pickupAddress||pickup)}</td><td>${stats.pickupDone?'Confirmed':'Pending'}</td><td>${stats.posted.toLocaleString()} / ${stats.target.toLocaleString()}</td></tr>`}).join('');
+ return `<header class="quote-header"><div class="quote-brand"><img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png" alt="">LeuvenFlyers</div><div class="quote-ref"><h1>QUOTATION</h1><p>${escape(clientId||'Draft campaign')}</p><p>${escape(date)}</p></div></header>
+ <div class="quote-meta">${details.map(([label,value])=>`<div><span>${escape(label)}</span><strong>${escape(value)}</strong></div>`).join('')}</div>
+ <h2>Distribution services</h2><table><thead><tr><th style="width:43%">Service</th><th class="numeric">Flyers</th><th class="numeric">Rate</th><th class="numeric">Amount</th></tr></thead><tbody><tr><td>Flyer distribution<br>1 shift = 1,000 flyers</td><td class="numeric">${flyers.toLocaleString()}</td><td class="numeric">${money(SHIFT_PRICE)}<br>per 1,000 flyers</td><td class="numeric">${money(totals.subtotal)}</td></tr></tbody></table>
+ <div class="quote-totals"><div><span>Total excluding VAT</span><strong>${money(totals.subtotal)}</strong></div><div><span>VAT (${escape(vatRate)}%)</span><strong>${money(totals.vat)}</strong></div><div class="quote-grand-total"><span>Total including VAT</span><strong>${money(totals.total)}</strong></div></div>
+ <p class="quote-note">Distribution pricing is proportional to the flyer quantity. Flyer printing is not included. This quotation is not an invoice.</p>
+ ${zoneRows?`<h2>Booked-zone breakdown</h2><table><thead><tr><th style="width:50%">Zone</th><th class="numeric">Estimated buildings</th><th class="numeric">Flyers</th></tr></thead><tbody>${zoneRows}</tbody></table>`:''}
+ ${extraFlyers?`<p class="quote-note">Additional flyers outside the zone estimate: ${extraFlyers.toLocaleString()}.</p>`:''}
+ ${shiftRows?`<h2>Shift details</h2><table><thead><tr><th style="width:17%">Shift</th><th style="width:12%" class="numeric">Flyers</th><th style="width:37%">Pickup address</th><th style="width:16%">Pickup</th><th style="width:18%">Delivered</th></tr></thead><tbody>${shiftRows}</tbody></table>`:''}
+ <p class="quote-note">Campaign details and progress reflect the information available when this quote was prepared.</p>`;
+}
+let quotePreviousTitle='';
+function printQuote(){
+ const business=$('quoteBusinessName'),vat=$('quoteVatRate');business.value=business.value.trim();
+ if(!business.reportValidity()||!vat.reportValidity())return;
+ if(totalFlyers()<=0){toast('Add booked zones or extra flyers before printing a quote.');return}
+ const shiftFlyers=shifts.reduce((sum,shift)=>sum+(Number(shift.flyers)||0),0);
+ if(shiftFlyers!==totalFlyers()){toast('Refresh the campaign shifts before printing the quote.');return}
+ $('printQuote').innerHTML=buildQuote(business.value,Number(vat.value));quotePreviousTitle=document.title;
+ document.title=`Quote ${clientId||'Draft'} - ${business.value}`;document.body.classList.add('quote-print-ready');
+ requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
+}
+window.addEventListener('afterprint',()=>{if(quotePreviousTitle)document.title=quotePreviousTitle;quotePreviousTitle='';document.body.classList.remove('quote-print-ready')});
+$('printQuoteBtn').addEventListener('click',printQuote);
 
 async function announceCampaign(){
 if(!bookedZones.length){toast('Book at least one zone before announcing');return}els.announceBtn.disabled=true;els.announceBtn.textContent='Saving campaign…';
