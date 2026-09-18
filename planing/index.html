@@ -86,6 +86,13 @@ button{touch-action:manipulation}
 .brand-logo{display:block;width:46px;height:46px;object-fit:contain;flex:0 0 auto}
 .client-badge[hidden]{display:none}
 .proof-notice{flex:0 0 160px;align-self:center;color:#995b00;font-size:11px;line-height:1.5}
+
+.booking-totals{margin-top:11px;padding:3px 11px;border:1px solid #cbdbe5;border-radius:9px;background:#fff}
+.booking-total-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;color:#24435b;font-size:12px;font-weight:750;line-height:1.45}
+.booking-total-row strong{font-size:14px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
+.booking-price-row{border-top:1px solid #e0e8ee}
+.booking-total-row small{display:block;font-size:10px;font-weight:700;color:#576e81}
+.booking-rate{font-size:10px;font-weight:700;line-height:1.55;margin-top:8px;color:#4d6579}
 </style>
 </head>
 <body>
@@ -146,7 +153,7 @@ button{touch-action:manipulation}
 <div id="campaignSummary" class="campaign-summary"><div class="empty">Plan a campaign or open an existing XX ID.</div></div>
 </section>
 <section class="right-section">
-<div class="right-head"><div class="right-title"><span class="material-icons-outlined">event_available</span>Campaign shifts</div><div id="shiftSummary" class="right-copy">€120 per 1,000 flyers; smaller shifts are priced proportionally</div><div id="totalMoney" class="total-money">€0.00</div><div class="total-money-label">Total booking cost, excluding VAT</div><div class="right-copy">Each posted PUS dot confirms one shift’s pickup. FF delivery dots update distribution progress.</div></div>
+<div class="right-head"><div class="right-title"><span class="material-icons-outlined">event_available</span>Campaign shifts</div><div class="booking-totals" aria-label="Campaign totals" aria-live="polite"><div class="booking-total-row"><span>Total flyers</span><strong id="totalFlyersSummary">0</strong></div><div class="booking-total-row booking-price-row"><span>Total price <small>excl. VAT</small></span><strong id="totalMoney">€0.00</strong></div></div><div id="shiftSummary" class="right-copy booking-rate">€120 per 1,000 flyers; smaller shifts are priced proportionally</div><div class="right-copy">Each posted PUS dot confirms one shift’s pickup. FF delivery dots update distribution progress.</div></div>
 <div class="right-scroll"><div id="shiftList" class="shift-list"><div class="empty">No shifts created yet.</div></div></div>
 </section>
 </aside>
@@ -186,7 +193,7 @@ const $=id=>document.getElementById(id);
 const els={
 clientBadge:$('clientBadge'),loginInput:$('loginInput'),loginBtn:$('loginBtn'),newPlanBtn:$('newPlanBtn'),areaSearch:$('areaSearch'),areaSearchBtn:$('areaSearchBtn'),areaList:$('areaList'),selectedArea:$('selectedArea'),
 buildingCount:$('buildingCount'),flyerCount:$('flyerCount'),hexCount:$('hexCount'),bookedCount:$('bookedCount'),zoneStatus:$('zoneStatus'),
-pickupInput:$('pickupInput'),pickupBtn:$('pickupBtn'),extraFlyersInput:$('extraFlyersInput'),extraFlyersBtn:$('extraFlyersBtn'),extraFlyersTotal:$('extraFlyersTotal'),shiftSummary:$('shiftSummary'),totalMoney:$('totalMoney'),shiftList:$('shiftList'),announceBtn:$('announceBtn'),
+pickupInput:$('pickupInput'),pickupBtn:$('pickupBtn'),extraFlyersInput:$('extraFlyersInput'),extraFlyersBtn:$('extraFlyersBtn'),extraFlyersTotal:$('extraFlyersTotal'),shiftSummary:$('shiftSummary'),totalMoney:$('totalMoney'),totalFlyersSummary:$('totalFlyersSummary'),shiftList:$('shiftList'),announceBtn:$('announceBtn'),
 campaignSummary:$('campaignSummary'),campaignSummaryCopy:$('campaignSummaryCopy'),campaignLoading:$('campaignLoading'),campaignLoadingTitle:$('campaignLoadingTitle'),toast:$('toast')
 };
 let map,mapReady=false,allAreas=[],selectedAreaFeature=null,clientId='',clientPromise=null,hexagons=[],bookedZones=[],events=[],shifts=[],currentCampaign=null,extraFlyers=0,estimateRequest=0,zonePopup=null,visibleBuildingHexId='',shiftUnsubscribe=null,campaignUnsubscribe=null,dotUnsubscribers=[],dotWatchSignature='',campaignLoadToken=0;
@@ -232,9 +239,13 @@ function shiftLiveStats(shift,index){
  return{posterId:posterIdForShift(shift,index),target,posted,pickupDone,distributionDone,percent:target?Math.min(100,Math.round(posted/target*100)):0};
 }
 function campaignDeliveryStats(){let target=0,posted=0;shifts.forEach((shift,index)=>{const stats=shiftLiveStats(shift,index);target+=stats.target;posted+=Math.min(stats.posted,stats.target)});return{target,posted,percent:target?Math.min(100,Math.round(posted/target*100)):0}}
+function renderBookingTotals(){
+ els.totalFlyersSummary.textContent=totalFlyers().toLocaleString();
+ els.totalMoney.textContent=money(shiftsCost(shifts));
+}
 function renderShiftSummary(){
-const cost=shiftsCost(shifts);els.shiftSummary.textContent=shifts.length?`${shifts.length} shift${shifts.length===1?'':'s'} · €120 per 1,000 flyers · smaller shifts priced proportionally`:'€120 per 1,000 flyers; smaller shifts are priced proportionally';els.totalMoney.textContent=money(cost);
-els.shiftList.innerHTML=shifts.length?shifts.map((shift,index)=>{const pickup=shift.pickupAddress||els.pickupInput.value.trim()||'Pickup address not added',stats=shiftLiveStats(shift,index),number=shiftNumber(shift,index);return`<div class="shift-item"><div class="shift-head"><div><div class="shift-name">${escape(shift.title||`Shift ${number}`)}</div><div class="shift-code">Pickup: ${escape(stats.posterId)} · Delivery: ${escape(campaignFfId())}</div><div class="shift-quantity">${stats.target.toLocaleString()} flyers</div></div>${stats.distributionDone?'<span class="campaign-state">Done</span>':''}</div><div class="shift-pickup"><span class="material-icons-outlined">location_on</span><span>${escape(pickup)}</span></div><div class="shift-statuses"><div class="shift-status${stats.pickupDone?' done':''}">Pickup status<strong>${stats.pickupDone?'Done':'Pending'}</strong></div><div class="shift-status${stats.distributionDone?' done':''}">Distribution status<strong>${stats.distributionDone?'Done':'Pending'}</strong></div></div><div class="progress-row"><span>${stats.posted.toLocaleString()} of ${stats.target.toLocaleString()} delivery dots</span><strong>${stats.percent}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${stats.percent}%"></div></div></div>`}).join(''):'<div class="empty">No shifts created yet.</div>';
+renderBookingTotals();els.shiftSummary.textContent=shifts.length?`${shifts.length} shift${shifts.length===1?'':'s'} · €120 per 1,000 flyers · smaller shifts priced proportionally`:'€120 per 1,000 flyers; smaller shifts are priced proportionally';
+els.shiftList.innerHTML=shifts.length?shifts.map((shift,index)=>{const pickup=shift.pickupAddress||els.pickupInput.value.trim()||'Pickup address not added',stats=shiftLiveStats(shift,index),number=shiftNumber(shift,index);return`<div class="shift-item"><div class="shift-head"><div><div class="shift-name">${escape(shift.title||`Shift ${number}`)}</div><div class="shift-quantity">${stats.target.toLocaleString()} flyers</div></div>${stats.distributionDone?'<span class="campaign-state">Done</span>':''}</div><div class="shift-pickup"><span class="material-icons-outlined">location_on</span><span>${escape(pickup)}</span></div><div class="shift-statuses"><div class="shift-status${stats.pickupDone?' done':''}">Pickup status<strong>${stats.pickupDone?'Done':'Pending'}</strong></div><div class="shift-status${stats.distributionDone?' done':''}">Distribution status<strong>${stats.distributionDone?'Done':'Pending'}</strong></div></div><div class="progress-row"><span>${stats.posted.toLocaleString()} of ${stats.target.toLocaleString()} delivery dots</span><strong>${stats.percent}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${stats.percent}%"></div></div></div>`}).join(''):'<div class="empty">No shifts created yet.</div>';
 renderCurrentCampaign();
 }
 function watchShifts(id){if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(!id)return;shiftUnsubscribe=onValue(ref(db,`campaigns/${id}/planner/shifts`),snapshot=>{shifts=objectValues(snapshot.val()).map(([key,value])=>({key,...value})).sort((a,b)=>shiftNumber(a,0)-shiftNumber(b,0));renderShiftSummary();watchDotProgress()},console.warn)}
@@ -375,7 +386,7 @@ function pointOnSegment(point,a,b){const cross=(point[1]-a[1])*(b[0]-a[0])-(poin
 function pointInRing(point,ring){let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if(pointOnSegment(point,a,b))return true;const intersects=((a[1]>point[1])!==(b[1]>point[1]))&&(point[0]<(b[0]-a[0])*(point[1]-a[1])/(b[1]-a[1])+a[0]);if(intersects)inside=!inside}return inside}
 function pointInPolygon(point,rings){return !!rings?.length&&pointInRing(point,rings[0])&&!rings.slice(1).some(ring=>pointInRing(point,ring))}
 function geometryContains(geometry,point){if(!geometry)return false;if(geometry.type==='Polygon')return pointInPolygon(point,geometry.coordinates);if(geometry.type==='MultiPolygon')return geometry.coordinates.some(polygon=>pointInPolygon(point,polygon));return false}
-function refreshHexMetrics(){const booked=hexagons.filter(item=>item.status==='booked').length,buildings=totalBuildings(),flyers=totalFlyers();els.hexCount.textContent=hexagons.length?hexagons.length.toLocaleString():'—';els.bookedCount.textContent=booked.toLocaleString();els.buildingCount.textContent=buildings?buildings.toLocaleString():'—';els.flyerCount.textContent=flyers?flyers.toLocaleString():'—';els.extraFlyersTotal.textContent=`Extra flyers added: ${extraFlyers.toLocaleString()}`;renderCurrentCampaign()}
+function refreshHexMetrics(){renderBookingTotals();const booked=hexagons.filter(item=>item.status==='booked').length,buildings=totalBuildings(),flyers=totalFlyers();els.hexCount.textContent=hexagons.length?hexagons.length.toLocaleString():'—';els.bookedCount.textContent=booked.toLocaleString();els.buildingCount.textContent=buildings?buildings.toLocaleString():'—';els.flyerCount.textContent=flyers?flyers.toLocaleString():'—';els.extraFlyersTotal.textContent=`Extra flyers added: ${extraFlyers.toLocaleString()}`;renderCurrentCampaign()}
 function generateHexagons(area){
 hexagons=[];if(!area?.geometry||!window.turf){els.zoneStatus.textContent='The city grid could not be created. Search for another city.';renderMap();return}
 try{
