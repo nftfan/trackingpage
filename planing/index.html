@@ -100,6 +100,9 @@ button{touch-action:manipulation}
 .summary-totals{border:1px solid #d4e1e9;border-radius:8px;padding:0 9px;background:#f9fbfc}
 .summary-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;font-size:11px;line-height:1.4;color:#294960;border-bottom:1px solid #e1e9ef;font-weight:750}.summary-row:last-child{border-bottom:0}.summary-row strong{font-size:12px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;text-align:right}.summary-row small{display:block;font-size:9px;font-weight:700;color:#5c7284;margin-top:1px}.summary-delivered strong{color:#08766c}.summary-total-price{background:#edf5f8;margin:0 -9px;padding:9px;border-radius:0 0 7px 7px}
 .summary-facts{display:flex;flex-wrap:wrap;gap:6px 13px;margin-top:9px;font-size:10px;color:#526b7f}.summary-facts strong{margin-left:4px;color:var(--navy)}.summary-pickup{display:grid;gap:3px;margin-top:9px;font-size:10px;line-height:1.45;overflow-wrap:anywhere}.summary-pickup>span{color:#526b7f}.summary-pickup strong{color:#294960}.shift-count-badge{margin-left:auto;padding:2px 6px;border-radius:5px;background:#e8f3f1;color:#08766c;font-size:10px;font-weight:800}.shift-price-block{display:flex;align-items:flex-end;flex-direction:column;gap:3px;flex:none;color:var(--navy);font-size:12px;font-weight:800}.shift-price-block small{font-size:9px;font-weight:700;color:#5c7284}.right-section:first-child{max-height:65%;overflow-y:auto}.right-section:last-child{min-height:140px}.right-title{font-size:12px;font-weight:800}
+
+.shift-product{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 8px;padding:10px;border:1px solid #c6e5df;border-radius:8px;background:#edf8f5;color:var(--navy)}
+.shift-product-name{display:block;font-size:11px;font-weight:800}.shift-product small{display:block;margin-top:3px;font-size:9px;font-weight:700;color:#4d6d77}.shift-product-price{display:grid;gap:3px;text-align:right;flex:none}.shift-product-price span{font-size:9px;font-weight:700;color:#426777}.shift-product-price strong{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}.summary-total-price{border-radius:7px 7px 0 0}
 </style>
 </head>
 <body>
@@ -248,7 +251,7 @@ function campaignDeliveryStats(){let target=0,posted=0;shifts.forEach((shift,ind
 function renderBookingTotals(){renderCurrentCampaign()}
 function renderShiftSummary(){
 els.shiftCountBadge.textContent=String(shifts.length);
-els.shiftList.innerHTML=shifts.length?shifts.map((shift,index)=>{const pickup=shift.pickupAddress||els.pickupInput.value.trim()||'Pickup address not added',stats=shiftLiveStats(shift,index),number=shiftNumber(shift,index);return`<div class="shift-item"><div class="shift-head"><div><div class="shift-name">${escape(shift.title||`Shift ${number}`)}</div><div class="shift-quantity">${stats.target.toLocaleString()} flyers</div></div><div class="shift-price-block"><strong>${money(shiftPrice(stats.target))}</strong><small>excl. VAT</small>${stats.distributionDone?'<span class="campaign-state">Done</span>':''}</div></div><div class="shift-pickup"><span class="material-icons-outlined">location_on</span><span>${escape(pickup)}</span></div><div class="shift-statuses"><div class="shift-status${stats.pickupDone?' done':''}">Pickup status<strong>${stats.pickupDone?'Done':'Pending'}</strong></div><div class="shift-status${stats.distributionDone?' done':''}">Distribution status<strong>${stats.distributionDone?'Done':'Pending'}</strong></div></div><div class="progress-row"><span>${stats.posted.toLocaleString()} of ${stats.target.toLocaleString()} delivery dots</span><strong>${stats.percent}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${stats.percent}%"></div></div></div>`}).join(''):'<div class="empty">No shifts created yet.</div>';
+els.shiftList.innerHTML=shifts.length?shifts.map((shift,index)=>{const pickup=shift.pickupAddress||els.pickupInput.value.trim()||'Pickup address not added',stats=shiftLiveStats(shift,index),number=shiftNumber(shift,index);return`<div class="shift-item"><div class="shift-head"><div><div class="shift-name">${escape(shift.title||`Shift ${number}`)}</div><div class="shift-quantity">${stats.target.toLocaleString()} flyers</div></div>${stats.distributionDone?'<span class="campaign-state">Done</span>':''}</div><div class="shift-pickup"><span class="material-icons-outlined">location_on</span><span>${escape(pickup)}</span></div><div class="shift-statuses"><div class="shift-status${stats.pickupDone?' done':''}">Pickup status<strong>${stats.pickupDone?'Done':'Pending'}</strong></div><div class="shift-status${stats.distributionDone?' done':''}">Distribution status<strong>${stats.distributionDone?'Done':'Pending'}</strong></div></div><div class="progress-row"><span>${stats.posted.toLocaleString()} of ${stats.target.toLocaleString()} delivery dots</span><strong>${stats.percent}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${stats.percent}%"></div></div></div>`}).join(''):'<div class="empty">No shifts created yet.</div>';
 renderCurrentCampaign();
 }
 function watchShifts(id){if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(!id)return;shiftUnsubscribe=onValue(ref(db,`campaigns/${id}/planner/shifts`),snapshot=>{shifts=objectValues(snapshot.val()).map(([key,value])=>({key,...value})).sort((a,b)=>shiftNumber(a,0)-shiftNumber(b,0));renderShiftSummary();watchDotProgress()},console.warn)}
@@ -258,11 +261,11 @@ const item=currentCampaign||{},announced=item.status==='announced',hasLivePlan=!
 els.campaignSummary.innerHTML=`<div class="campaign-card organized-summary">
 <div class="campaign-card-head"><span class="campaign-id">${escape(clientId)}</span><span class="campaign-state${announced?'':' planning'}">${announced?'Announced':'Planning'}</span></div>
 <dl class="summary-details"><div><dt>Area</dt><dd>${escape(areaName)}</dd></div><div><dt>Date announced</dt><dd>${announcedTime?escape(timeLabel(announcedTime)):'—'}</dd></div></dl>
+<div class="shift-product" aria-label="Shift price"><div><span class="shift-product-name">Flyer distribution shift</span><small>1,000 flyers · excl. VAT</small></div><div class="shift-product-price"><span>Shift price</span><strong>${money(SHIFT_PRICE)}</strong></div></div>
 <div class="summary-totals" aria-label="Campaign totals" aria-live="polite">
+<div class="summary-row summary-total-price"><span>Total price <small>excl. VAT</small></span><strong>${money(totalCost)}</strong></div>
 <div class="summary-row"><span>Total flyers</span><strong>${flyers.toLocaleString()}</strong></div>
 <div class="summary-row summary-delivered"><span>Flyers delivered</span><strong>${progress.posted.toLocaleString()}</strong></div>
-<div class="summary-row"><span>Shift price <small>per 1,000 flyers · excl. VAT</small></span><strong>${money(SHIFT_PRICE)}</strong></div>
-<div class="summary-row summary-total-price"><span>Total price <small>excl. VAT</small></span><strong>${money(totalCost)}</strong></div>
 </div>
 <div class="summary-facts"><span>Shifts <strong>${shiftCount.toLocaleString()}</strong></span><span>Zones <strong>${zones.toLocaleString()}</strong></span>${extraFlyers?`<span>Extra flyers <strong>${extraFlyers.toLocaleString()}</strong></span>`:''}</div>
 ${pickup?`<div class="summary-pickup"><span>Pickup address</span><strong>${escape(pickup)}</strong></div>`:''}
@@ -314,6 +317,7 @@ function renderDeliveryDots(){
  if(!mapReady)return;
  const records=allDotRecords().filter(dot=>dot.hasLocation);
  for(const kind of ['delivery','pickup'])map.getSource(`${kind}-dots`)?.setData(fc(records.filter(dot=>dot.kind===kind).map(dot=>feature('Point',[dot.lng,dot.lat],{color:dot.color,outcome:dot.outcome,posterId:dot.posterId,timestamp:dot.timestamp,key:dot.key}))));
+ renderMap();
 }
 function proofSources(campaignId,pickupIds){
  return [{id:campaignId,posterId:`FF${campaignId.replace(/^XX/i,'')}`,kind:'delivery'},...pickupIds.map(id=>({id,posterId:id,kind:'pickup'}))];
@@ -396,7 +400,7 @@ function renderSelectedBoundary(){if(mapReady&&map.getSource('selected-area'))ma
 
 function coordinatesFlat(geometry){const out=[];(function walk(value){if(Array.isArray(value)&&typeof value[0]==='number'&&typeof value[1]==='number')out.push(value);else if(Array.isArray(value))value.forEach(walk)})(geometry?.coordinates);return out}
 function fitGeometry(geometry,duration=650){if(!mapReady||!geometry)return;const coords=coordinatesFlat(geometry);if(!coords.length)return;const bounds=coords.reduce((box,point)=>box.extend(point),new maplibregl.LngLatBounds(coords[0],coords[0]));map.fitBounds(bounds,{padding:55,maxZoom:13,duration})}
-function pointOnSegment(point,a,b){const cross=(point[1]-a[1])*(b[0]-a[0])-(point[0]-a[0])*(b[1]-a[1]);if(Math.abs(cross)>1e-9)return false;const dot=(point[0]-a[0])*(b[0]-a[0])+(point[1]-a[1])*(b[1]-a[1]);if(dot<0)return false;const squared=(b[0]-a[0])**2+(b[1]-a[1])**2;return dot<=squared}
+function pointOnSegment(point,a,b){if(a[0]===b[0]&&a[1]===b[1])return Math.abs(point[0]-a[0])<1e-9&&Math.abs(point[1]-a[1])<1e-9;const cross=(point[1]-a[1])*(b[0]-a[0])-(point[0]-a[0])*(b[1]-a[1]);if(Math.abs(cross)>1e-9)return false;const dot=(point[0]-a[0])*(b[0]-a[0])+(point[1]-a[1])*(b[1]-a[1]);if(dot<0)return false;const squared=(b[0]-a[0])**2+(b[1]-a[1])**2;return dot<=squared}
 function pointInRing(point,ring){let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if(pointOnSegment(point,a,b))return true;const intersects=((a[1]>point[1])!==(b[1]>point[1]))&&(point[0]<(b[0]-a[0])*(point[1]-a[1])/(b[1]-a[1])+a[0]);if(intersects)inside=!inside}return inside}
 function pointInPolygon(point,rings){return !!rings?.length&&pointInRing(point,rings[0])&&!rings.slice(1).some(ring=>pointInRing(point,ring))}
 function geometryContains(geometry,point){if(!geometry)return false;if(geometry.type==='Polygon')return pointInPolygon(point,geometry.coordinates);if(geometry.type==='MultiPolygon')return geometry.coordinates.some(polygon=>pointInPolygon(point,polygon));return false}
@@ -448,10 +452,19 @@ try{const id=await ensureClient();await Promise.all([set(ref(db,`campaigns/${id}
 }
 }
 
+// Only posted campaign dots affect hexagon colour; building estimates do not.
+function hasPostedDots(points,dots){
+ if(points.length<3)return false;
+ let west=Infinity,east=-Infinity,south=Infinity,north=-Infinity;
+ for(const [lng,lat] of points){west=Math.min(west,lng);east=Math.max(east,lng);south=Math.min(south,lat);north=Math.max(north,lat)}
+ return dots.some(dot=>dot.lng>=west&&dot.lng<=east&&dot.lat>=south&&dot.lat<=north&&pointInRing([dot.lng,dot.lat],points));
+}
 function renderMap(){
-if(!mapReady)return;const features=hexagons.map((hex,index)=>feature('Polygon',[closeRing(hex.points)],{status:hex.status,hexIndex:index,hexId:hex.hexId}));
-bookedZones.filter(zone=>!zone.hexId).forEach((zone,index)=>{if(zone.points.length>=3)features.push(feature('Polygon',[closeRing(zone.points)],{status:'booked',legacyIndex:index}))});
-map.getSource('zones').setData(fc(features));const visibleHex=hexagons.find(hex=>hex.hexId===visibleBuildingHexId),buildings=visibleHex?.buildings||[];map.getSource('buildings').setData(fc(buildings.map(point=>feature('Point',[Number(point.lng),Number(point.lat)]))));
+if(!mapReady)return;
+const posted=allDotRecords().filter(dot=>dot.hasLocation);
+const features=hexagons.map((hex,index)=>feature('Polygon',[closeRing(hex.points)],{status:hex.status,hexIndex:index,hexId:hex.hexId,hasPostedDots:hasPostedDots(hex.points,posted)}));
+bookedZones.filter(zone=>!zone.hexId).forEach((zone,index)=>{if(zone.points.length>=3)features.push(feature('Polygon',[closeRing(zone.points)],{status:'booked',legacyIndex:index,hasPostedDots:hasPostedDots(zone.points,posted)}))});
+map.getSource('zones')?.setData(fc(features));const visibleHex=hexagons.find(hex=>hex.hexId===visibleBuildingHexId),buildings=visibleHex?.buildings||[];map.getSource('buildings')?.setData(fc(buildings.map(point=>feature('Point',[Number(point.lng),Number(point.lat)]))));
 }
 function zoneCenter(points){const total=points.reduce((sum,point)=>[sum[0]+point[0],sum[1]+point[1]],[0,0]);return [total[0]/points.length,total[1]/points.length]}
 function closeZonePopup(){if(zonePopup){zonePopup.remove();zonePopup=null}}
@@ -531,7 +544,7 @@ map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-rig
 map.on('load',()=>{
 mapReady=true;
 map.addSource('selected-area',{type:'geojson',data:fc()});map.addLayer({id:'selected-area-fill',type:'fill',source:'selected-area',paint:{'fill-color':'#16a394','fill-opacity':.13}});map.addLayer({id:'selected-area-line',type:'line',source:'selected-area',paint:{'line-color':'#087b70','line-width':3}});
-map.addSource('zones',{type:'geojson',data:fc()});map.addLayer({id:'zone-fill',type:'fill',source:'zones',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':['case',['==',['get','status'],'booked'],'#efb92f','#1677b8'],'fill-opacity':['case',['==',['get','status'],'booked'],.42,.2]}});map.addLayer({id:'zone-line',type:'line',source:'zones',filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':['case',['==',['get','status'],'booked'],'#8e6800','#0b5f91'],'line-width':['case',['==',['get','status'],'booked'],2.2,1.35]}});
+map.addSource('zones',{type:'geojson',data:fc()});map.addLayer({id:'zone-fill',type:'fill',source:'zones',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':['case',['==',['get','hasPostedDots'],true],'#22a861',['==',['get','status'],'booked'],'#efb92f','#1677b8'],'fill-opacity':['case',['==',['get','hasPostedDots'],true],.36,['==',['get','status'],'booked'],.42,.2]}});map.addLayer({id:'zone-line',type:'line',source:'zones',filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':['case',['==',['get','hasPostedDots'],true],'#137a43',['==',['get','status'],'booked'],'#8e6800','#0b5f91'],'line-width':['case',['==',['get','status'],'booked'],2.2,1.35]}});
 map.addSource('buildings',{type:'geojson',data:fc()});map.addLayer({id:'building-dots',type:'circle',source:'buildings',paint:{'circle-radius':2.8,'circle-color':'#111','circle-stroke-color':'#fff','circle-stroke-width':.55}});
 map.addSource('delivery-dots',{type:'geojson',data:fc()});map.addLayer({id:'delivery-dots-halo',type:'circle',source:'delivery-dots',paint:{'circle-radius':7,'circle-color':['case',['==',['get','outcome'],'no'],'rgba(214,69,77,.14)','rgba(22,163,148,.16)'],'circle-blur':.35}});map.addLayer({id:'delivery-dots-layer',type:'circle',source:'delivery-dots',paint:{'circle-radius':4.2,'circle-color':['case',['==',['get','outcome'],'no'],'#d6454d',['==',['get','outcome'],'other'],'#f29b38',['==',['get','color'],'blue'],'#1677b8','#16a394'],'circle-stroke-color':'#fff','circle-stroke-width':1.1}});
 map.addSource('pickup-dots',{type:'geojson',data:fc()});
