@@ -122,6 +122,8 @@ button{touch-action:manipulation}
  #printQuote .quote-totals{width:58%;margin:12px 0 12px auto;break-inside:avoid}#printQuote .quote-totals div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #d5e1e9}#printQuote .quote-grand-total{font-size:12pt;font-weight:bold;color:#0b3b66;border-bottom:2px solid #0b3b66!important}
  #printQuote .quote-note{font-size:9pt;color:#50677a;margin:10px 0;break-inside:avoid}
 }
+
+.building-cooldown{margin:7px 0;padding:8px;border:1px solid #d7e5ed;border-radius:7px;background:#f1f7fa;color:var(--navy);font-size:11px;font-weight:750;line-height:1.5}.building-cooldown[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -151,6 +153,7 @@ button{touch-action:manipulation}
 <section class="tool-section">
 <div class="section-head"><div class="section-title"><span class="material-icons-outlined">hive</span>City hexagons</div></div>
 <div class="estimate-grid"><div class="metric"><span>Buildings</span><strong id="buildingCount">—</strong></div><div class="metric"><span>Flyers required</span><strong id="flyerCount">—</strong></div><div class="metric"><span>Hexagons</span><strong id="hexCount">—</strong></div><div class="metric"><span>Booked</span><strong id="bookedCount">0</strong></div></div>
+<div id="buildingCooldown" class="building-cooldown" role="status" hidden></div>
 <div id="zoneStatus" class="helper">Search for a city. Its boundary will be divided into selectable hexagons automatically.</div>
 <div class="helper" style="margin-top:7px">Total flyers are buildings × 1.5, rounded up, plus any extra flyers added below.</div>
 </section>
@@ -496,27 +499,113 @@ map.getSource('zones')?.setData(fc(features));const visibleHex=hexagons.find(hex
 }
 function zoneCenter(points){const total=points.reduce((sum,point)=>[sum[0]+point[0],sum[1]+point[1]],[0,0]);return [total[0]/points.length,total[1]/points.length]}
 function closeZonePopup(){if(zonePopup){zonePopup.remove();zonePopup=null}}
-function openHexPopup(index,lngLat){
-const hex=hexagons[index];if(!hex)return;closeZonePopup();const root=document.createElement('div'),copy=document.createElement('div'),actions=document.createElement('div'),dotsBtn=document.createElement('button');root.className='zone-popup';root.innerHTML=`<div class="zone-popup-title">${hex.status==='booked'?'Booked hexagon':`Hexagon ${index+1}`}</div>`;copy.className='zone-popup-copy';actions.className='zone-popup-actions';dotsBtn.className='zone-popup-btn';const updateDotsButton=()=>{dotsBtn.textContent=visibleBuildingHexId===hex.hexId?'Hide building dots':'Show building dots';dotsBtn.disabled=!hex.estimateReady};dotsBtn.addEventListener('click',()=>{visibleBuildingHexId=visibleBuildingHexId===hex.hexId?'':hex.hexId;updateDotsButton();renderMap()});root.append(copy);
-if(hex.status==='booked'){
-const removeBtn=document.createElement('button'),buildingCount=Number(hex.estimatedBuildings??hex.buildings.length);copy.textContent=`${buildingCount.toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers`;removeBtn.className='zone-popup-btn danger';removeBtn.textContent='Remove from campaign';removeBtn.addEventListener('click',()=>removeHexagon(index));updateDotsButton();actions.append(dotsBtn,removeBtn);root.append(actions)
-}else{
-const retryBtn=document.createElement('button'),bookBtn=document.createElement('button');retryBtn.className='zone-popup-btn';retryBtn.textContent='Reload building count';bookBtn.className='zone-popup-btn primary';bookBtn.textContent='Book this hexagon';bookBtn.disabled=true;updateDotsButton();actions.append(retryBtn,dotsBtn,bookBtn);root.append(actions);const loadCount=async()=>{retryBtn.disabled=true;dotsBtn.disabled=true;bookBtn.disabled=true;copy.innerHTML='<span class="loading-buildings"><span class="building-spinner"></span><span>Loading buildings…</span></span>';const ok=await estimateBuildings(index);if(!zonePopup)return;if(ok){copy.textContent=`${hex.buildings.length.toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers`;retryBtn.textContent='Reload building count';bookBtn.disabled=false;updateDotsButton()}else{copy.textContent='Building count failed to load. Please try again.';retryBtn.textContent='Try loading again'}retryBtn.disabled=false};retryBtn.addEventListener('click',loadCount);bookBtn.addEventListener('click',async()=>{bookBtn.disabled=true;bookBtn.textContent='Booking…';await bookHexagon(index)});setTimeout(loadCount,0)
+// Cache identity is polygon geometry, not the generated hexagon number.
+// Results persist on this browser across reloads and campaigns using IndexedDB.
+const buildingMemoryCache=new Map(),buildingRequests=new Map();
+const BUILDING_CACHE_VERSION=1,BUILDING_COOLDOWN_MS=60000;
+let buildingDbPromise=null,buildingCacheWarning=false,bookingInProgress=false,buildingCooldownUntil=0;
+try{buildingCooldownUntil=Number(localStorage.getItem('lf-building-booking-cooldown'))||0}catch{}
+function buildingCacheKey(points){
+ let ring=points.map(([lng,lat])=>[Number(lng).toFixed(5),Number(lat).toFixed(5)].join(','));
+ if(ring.length>1&&ring[0]===ring[ring.length-1])ring.pop();
+ const variants=[];for(const order of [ring,[...ring].reverse()])for(let i=0;i<order.length;i++)variants.push([...order.slice(i),...order.slice(0,i)].join(';'));
+ return `v${BUILDING_CACHE_VERSION}:${variants.sort()[0]||''}`;
 }
-zonePopup=new maplibregl.Popup({closeButton:true,closeOnClick:false,offset:8}).setLngLat(lngLat||zoneCenter(hex.points)).setDOMContent(root).addTo(map);zonePopup.on('close',()=>{zonePopup=null;if(visibleBuildingHexId===hex.hexId){visibleBuildingHexId='';renderMap()}})
+function openBuildingCache(){
+ if(buildingDbPromise)return buildingDbPromise;
+ buildingDbPromise=new Promise((resolve,reject)=>{
+  if(!globalThis.indexedDB){reject(new Error('Persistent building cache unavailable'));return}
+  const request=indexedDB.open('leuvenflyers-building-cache',1);
+  request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('hexagons'))request.result.createObjectStore('hexagons',{keyPath:'key'})};
+  request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);request.onblocked=()=>reject(new Error('Building cache is blocked'));
+ });return buildingDbPromise;
+}
+async function readBuildingCache(key){
+ try{const database=await openBuildingCache();return await new Promise((resolve,reject)=>{const tx=database.transaction('hexagons','readonly'),request=tx.objectStore('hexagons').get(key);request.onsuccess=()=>resolve(request.result||null);request.onerror=()=>reject(request.error)})}catch{return null}
+}
+async function writeBuildingCache(entry){
+ try{const database=await openBuildingCache();await new Promise((resolve,reject)=>{const tx=database.transaction('hexagons','readwrite');tx.objectStore('hexagons').put(entry);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});return true}catch(error){if(!buildingCacheWarning){buildingCacheWarning=true;toast('Browser storage unavailable; building results are saved for this session only.')}return false}
+}
+function validBuildingCache(entry,key){return entry?.key===key&&entry.version===BUILDING_CACHE_VERSION&&Array.isArray(entry.buildings)&&entry.buildings.every(point=>Number.isFinite(point.lat)&&Number.isFinite(point.lng)&&Math.abs(point.lat)<=90&&Math.abs(point.lng)<=180)}
+async function saveBuildingResults(points,buildings){
+ const key=buildingCacheKey(points),entry={key,version:BUILDING_CACHE_VERSION,savedAt:Date.now(),buildings:buildings.map(point=>({lat:Number(point.lat),lng:Number(point.lng)}))};
+ if(!validBuildingCache(entry,key))throw new Error('Invalid building results');
+ buildingMemoryCache.set(key,entry);await writeBuildingCache(entry);return entry;
+}
+async function savedBuildingResults(hex){
+ const key=buildingCacheKey(hex.points);
+ if(hex.estimateReady&&Array.isArray(hex.buildings)){const entry={key,version:BUILDING_CACHE_VERSION,buildings:hex.buildings};if(validBuildingCache(entry,key)){buildingMemoryCache.set(key,entry);return entry}}
+ const memory=buildingMemoryCache.get(key);if(validBuildingCache(memory,key))return memory;
+ const stored=await readBuildingCache(key);if(validBuildingCache(stored,key)){buildingMemoryCache.set(key,stored);return stored}
+ return null;
+}
+function bookingCooldownSeconds(){
+ try{buildingCooldownUntil=Math.max(buildingCooldownUntil,Number(localStorage.getItem('lf-building-booking-cooldown'))||0)}catch{}
+ return Math.max(0,Math.ceil((buildingCooldownUntil-Date.now())/1000));
+}
+function startBuildingCooldown(){buildingCooldownUntil=Date.now()+BUILDING_COOLDOWN_MS;try{localStorage.setItem('lf-building-booking-cooldown',String(buildingCooldownUntil))}catch{}renderBuildingCooldown()}
+function renderBuildingCooldown(){const remaining=bookingCooldownSeconds(),node=$('buildingCooldown');node.hidden=!remaining;node.textContent=remaining?`Next new hexagon in ${String(Math.floor(remaining/60)).padStart(2,'0')}:${String(remaining%60).padStart(2,'0')} · Saved hexagons are ready now.`:''}
+setInterval(renderBuildingCooldown,1000);renderBuildingCooldown();
+function applyBuildingResults(hex,buildings,cached,index){
+ hex.buildings=buildings;hex.estimatedBuildings=buildings.length;hex.flyersRequired=Math.ceil(buildings.length*1.5);hex.estimateReady=true;hex.buildingsFromCache=cached;
+ visibleBuildingHexId=hex.hexId;els.buildingCount.textContent=buildings.length.toLocaleString();els.flyerCount.textContent=hex.flyersRequired.toLocaleString();
+ els.zoneStatus.textContent=`Hexagon ${index+1}: ${buildings.length.toLocaleString()} buildings · ${hex.flyersRequired.toLocaleString()} flyers${cached?' · Saved result':''}.`;renderMap();
+}
+function openHexPopup(index,lngLat){
+const hex=hexagons[index];if(!hex)return;closeZonePopup();
+const root=document.createElement('div'),copy=document.createElement('div'),actions=document.createElement('div'),dotsBtn=document.createElement('button');
+root.className='zone-popup';root.innerHTML=`<div class="zone-popup-title">${hex.status==='booked'?'Booked hexagon':`Hexagon ${index+1}`}</div>`;copy.className='zone-popup-copy';actions.className='zone-popup-actions';dotsBtn.className='zone-popup-btn';
+const updateDotsButton=()=>{dotsBtn.textContent=visibleBuildingHexId===hex.hexId?'Hide building dots':'Show building dots';dotsBtn.disabled=!hex.estimateReady};
+dotsBtn.addEventListener('click',()=>{visibleBuildingHexId=visibleBuildingHexId===hex.hexId?'':hex.hexId;updateDotsButton();renderMap()});root.append(copy);
+let popup,timer=null,busy=false,waiting=false;
+const active=()=>zonePopup===popup&&hexagons[index]===hex;
+if(hex.status==='booked'){
+ const removeBtn=document.createElement('button'),buildingCount=Number(hex.estimatedBuildings??hex.buildings.length);
+ copy.textContent=`${buildingCount.toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers · Saved result`;
+ removeBtn.className='zone-popup-btn danger';removeBtn.textContent='Remove from campaign';removeBtn.addEventListener('click',()=>removeHexagon(index));updateDotsButton();actions.append(dotsBtn,removeBtn);root.append(actions);
+}else{
+ const retryBtn=document.createElement('button'),bookBtn=document.createElement('button');retryBtn.className='zone-popup-btn';retryBtn.textContent='Retry building count';retryBtn.hidden=true;bookBtn.className='zone-popup-btn primary';bookBtn.textContent='Book this hexagon';bookBtn.disabled=true;
+ updateDotsButton();actions.append(retryBtn,dotsBtn,bookBtn);root.append(actions);
+ const refresh=()=>{
+  if(!active()||busy)return;const remaining=bookingCooldownSeconds();
+  if(waiting){copy.textContent=`New building lookup available in ${remaining}s. Saved hexagons can be booked immediately.`;bookBtn.disabled=true;bookBtn.textContent=`Wait ${remaining}s`;if(!remaining){waiting=false;loadCount()}return}
+  if(hex.estimateReady){const blocked=!hex.buildingsFromCache&&remaining>0;bookBtn.disabled=blocked||bookingInProgress;bookBtn.textContent=blocked?`Book in ${remaining}s`:'Book this hexagon'}
+ };
+ const loadCount=async()=>{
+  if(!active()||busy)return;busy=true;waiting=false;retryBtn.hidden=true;bookBtn.disabled=true;dotsBtn.disabled=true;copy.innerHTML='<span class="loading-buildings"><span class="building-spinner"></span><span>Checking saved building results…</span></span>';
+  const result=await estimateBuildings(index);busy=false;if(!active())return;
+  if(result==='waiting'){waiting=true;refresh();return}
+  if(result){copy.textContent=`${hex.buildings.length.toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers · ${hex.buildingsFromCache?'Saved result':'Result saved'}`;updateDotsButton();refresh()}
+  else{copy.textContent='Building count failed. No empty result was saved. Please try again.';retryBtn.hidden=false;bookBtn.disabled=true;bookBtn.textContent='Book this hexagon'}
+ };
+ retryBtn.addEventListener('click',loadCount);
+ bookBtn.addEventListener('click',async()=>{if(busy||bookingInProgress)return;busy=true;bookBtn.disabled=true;bookBtn.textContent='Booking…';await bookHexagon(index);busy=false;if(active())refresh()});
+ timer=setInterval(refresh,1000);setTimeout(loadCount,0);
+}
+popup=new maplibregl.Popup({closeButton:true,closeOnClick:false,offset:8}).setLngLat(lngLat||zoneCenter(hex.points)).setDOMContent(root).addTo(map);zonePopup=popup;
+popup.on('close',()=>{if(timer)clearInterval(timer);if(zonePopup===popup)zonePopup=null;if(visibleBuildingHexId===hex.hexId){visibleBuildingHexId='';renderMap()}});
 }
 
 async function queryBuildings(points){
 const polygon=closeRing(points).map(([lng,lat])=>`${lat} ${lng}`).join(' '),query=`[out:json][timeout:45];nwr["building"](poly:"${polygon}");out center qt;`,endpoints=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];let lastError;
 for(const endpoint of endpoints){
 const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),50000);
-try{const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','Accept':'application/json'},body:'data='+encodeURIComponent(query),signal:controller.signal});if(!response.ok)throw new Error(`Building server returned ${response.status}`);const data=await response.json(),seen=new Set(),pointsOut=[];(data.elements||[]).forEach(element=>{const lat=element.type==='node'?Number(element.lat):Number(element.center?.lat),lng=element.type==='node'?Number(element.lon):Number(element.center?.lon),key=`${element.type}:${element.id}`;if(Number.isFinite(lat)&&Number.isFinite(lng)&&!seen.has(key)){seen.add(key);pointsOut.push({lat:round(lat),lng:round(lng)})}});clearTimeout(timer);return pointsOut}catch(error){clearTimeout(timer);lastError=error}
+try{const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','Accept':'application/json'},body:'data='+encodeURIComponent(query),signal:controller.signal});if(!response.ok)throw new Error(`Building server returned ${response.status}`);const data=await response.json();if(data.remark||!Array.isArray(data.elements))throw new Error(data.remark||'Incomplete building response');const seen=new Set(),pointsOut=[];(data.elements||[]).forEach(element=>{const lat=element.type==='node'?Number(element.lat):Number(element.center?.lat),lng=element.type==='node'?Number(element.lon):Number(element.center?.lon),key=`${element.type}:${element.id}`;if(Number.isFinite(lat)&&Number.isFinite(lng)&&!seen.has(key)){seen.add(key);pointsOut.push({lat:round(lat),lng:round(lng)})}});clearTimeout(timer);return pointsOut}catch(error){clearTimeout(timer);lastError=error}
 }
 throw lastError||new Error('Building service unavailable');
 }
 async function estimateBuildings(index){
-const hex=hexagons[index];if(!hex)return false;const request=++estimateRequest;els.buildingCount.textContent='…';els.flyerCount.textContent='…';els.zoneStatus.textContent='Estimating buildings inside the selected hexagon…';hex.buildings=[];hex.estimateReady=false;renderMap();
-try{const found=await queryBuildings(hex.points);if(request!==estimateRequest)return false;hex.buildings=found;hex.estimatedBuildings=found.length;hex.flyersRequired=Math.ceil(found.length*1.5);hex.estimateReady=true;visibleBuildingHexId=hex.hexId;els.buildingCount.textContent=found.length.toLocaleString();els.flyerCount.textContent=hex.flyersRequired.toLocaleString();els.zoneStatus.textContent=`Hexagon ${index+1}: ${found.length.toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers.`;renderMap();return true}catch(error){if(request!==estimateRequest)return false;console.error(error);els.buildingCount.textContent='—';els.flyerCount.textContent='—';els.zoneStatus.textContent='The building count is temporarily unavailable. Try again.';return false}
+const hex=hexagons[index];if(!hex)return false;const request=++estimateRequest,stillSelected=()=>request===estimateRequest&&hexagons[index]===hex;
+const saved=await savedBuildingResults(hex);if(!stillSelected())return false;
+if(saved){applyBuildingResults(hex,saved.buildings,true,index);return true}
+if(bookingCooldownSeconds()>0)return 'waiting';
+els.buildingCount.textContent='…';els.flyerCount.textContent='…';els.zoneStatus.textContent='Loading buildings for this hexagon for the first time…';
+const key=buildingCacheKey(hex.points);
+try{
+ let pending=buildingRequests.get(key);
+ if(!pending){pending=(async()=>{const found=await queryBuildings(hex.points);await saveBuildingResults(hex.points,found);return found})();buildingRequests.set(key,pending);pending.finally(()=>{if(buildingRequests.get(key)===pending)buildingRequests.delete(key)}).catch(()=>{})}
+ const found=await pending;if(!stillSelected())return false;applyBuildingResults(hex,found,false,index);return true;
+}catch(error){if(!stillSelected())return false;console.error(error);els.buildingCount.textContent='—';els.flyerCount.textContent='—';els.zoneStatus.textContent='The building count is temporarily unavailable. Try again.';return false}
 }
 async function syncShiftsFromBuildingCount(id){
 const total=totalFlyers(),count=Math.ceil(total/1000),existing=[...shifts],saved={};for(let index=0;index<count;index++){const previous=existing[index],key=previous?.key||push(ref(db,`campaigns/${id}/planner/shifts`)).key,flyers=Math.min(1000,total-index*1000),number=index+1,posterId=`PUS${number}${id.replace(/^XX/i,'')}`;saved[key]={...(previous||{}),title:`Shift ${number}`,shiftNumber:number,posterId,pickupPosterId:posterId,deliveryPosterId:`FF${id.replace(/^XX/i,'')}`,flyers,status:previous?.status||'pending',pickupStatus:previous?.pickupStatus||'pending',distributionStatus:previous?.distributionStatus||'pending',postedDots:Number(previous?.postedDots)||0,price:shiftPrice(flyers),priceExcludesVat:true,pickupAddress:els.pickupInput.value.trim()||previous?.pickupAddress||'',createdAt:previous?.createdAt||serverTimestamp()}}
@@ -524,12 +613,14 @@ const savedShifts=Object.entries(saved).map(([key,value])=>({key,...value})),tot
 }
 
 async function bookHexagon(index){
-const hex=hexagons[index];if(!hex||hex.status==='booked')return;if(!hex.estimateReady){toast('View the building count before booking');return}
-try{const id=await ensureClient(),zoneRef=push(ref(db,`campaigns/${id}/planner/zones`)),buildingCount=hex.buildings.length,flyerCount=Math.ceil(buildingCount*1.5);await set(zoneRef,{status:'booked',hexId:hex.hexId,areaId:selectedAreaFeature.properties.areaId,areaName:selectedAreaFeature.properties.name,coordinates:hex.points.map(([lng,lat])=>({lat,lng})),buildingDots:hex.buildings,estimatedBuildings:buildingCount,flyersRequired:flyerCount,createdAt:serverTimestamp()});hex.status='booked';hex.flyersRequired=flyerCount;bookedZones.push({key:zoneRef.key,hexId:hex.hexId,points:[...hex.points],buildings:[...hex.buildings],estimatedBuildings:buildingCount,flyersRequired:flyerCount});let shiftsUpdated=true;try{await syncShiftsFromBuildingCount(id)}catch(shiftError){shiftsUpdated=false;console.error(shiftError)}await addEvent('Hexagon booked',`${buildingCount.toLocaleString()} buildings × 1.5 = ${flyerCount.toLocaleString()} flyers`,'bookmark_added');closeZonePopup();refreshHexMetrics();renderMap();els.zoneStatus.textContent=`${hexagons.filter(item=>item.status==='booked').length} hexagons booked · ${totalFlyers().toLocaleString()} flyers required · ${shifts.length} shifts created.`;toast(shiftsUpdated?`Hexagon booked and ${shifts.length} shifts prepared`:'Hexagon booked; shifts could not be refreshed')}catch(error){console.error(error);toast('Hexagon could not be booked');openHexPopup(index)}
+const hex=hexagons[index];if(!hex||hex.status==='booked'||bookingInProgress)return;if(!hex.estimateReady){toast('View the building count before booking');return}
+if(!hex.buildingsFromCache&&bookingCooldownSeconds()>0){toast(`Wait ${bookingCooldownSeconds()}s before booking another new hexagon.`);return}
+bookingInProgress=true;
+try{const id=await ensureClient(),zoneRef=push(ref(db,`campaigns/${id}/planner/zones`)),buildingCount=hex.buildings.length,flyerCount=Math.ceil(buildingCount*1.5);await set(zoneRef,{status:'booked',hexId:hex.hexId,areaId:selectedAreaFeature.properties.areaId,areaName:selectedAreaFeature.properties.name,coordinates:hex.points.map(([lng,lat])=>({lat,lng})),buildingDots:hex.buildings,estimatedBuildings:buildingCount,flyersRequired:flyerCount,createdAt:serverTimestamp()});if(!hex.buildingsFromCache)startBuildingCooldown();hex.buildingsFromCache=true;hex.status='booked';hex.flyersRequired=flyerCount;bookedZones.push({key:zoneRef.key,hexId:hex.hexId,points:[...hex.points],buildings:[...hex.buildings],estimatedBuildings:buildingCount,flyersRequired:flyerCount});let shiftsUpdated=true;try{await syncShiftsFromBuildingCount(id)}catch(shiftError){shiftsUpdated=false;console.error(shiftError)}await addEvent('Hexagon booked',`${buildingCount.toLocaleString()} buildings × 1.5 = ${flyerCount.toLocaleString()} flyers`,'bookmark_added');closeZonePopup();refreshHexMetrics();renderMap();els.zoneStatus.textContent=`${hexagons.filter(item=>item.status==='booked').length} hexagons booked · ${totalFlyers().toLocaleString()} flyers required · ${shifts.length} shifts created.`;toast(shiftsUpdated?`Hexagon booked and ${shifts.length} shifts prepared`:'Hexagon booked; shifts could not be refreshed')}catch(error){console.error(error);toast('Hexagon could not be booked');openHexPopup(index)}finally{bookingInProgress=false}
 }
 async function removeHexagon(index){
 const hex=hexagons[index],zone=bookedZones.find(item=>item.hexId===hex?.hexId);if(!hex||!zone||!confirm('Remove this hexagon from the campaign?'))return;
-try{await remove(ref(db,`campaigns/${clientId}/planner/zones/${zone.key}`));bookedZones=bookedZones.filter(item=>item.key!==zone.key);hex.status='available';hex.flyersRequired=Math.ceil(hex.buildings.length*1.5);hex.estimatedBuildings=hex.buildings.length;hex.estimateReady=hex.buildings.length>0;visibleBuildingHexId='';await syncShiftsFromBuildingCount(clientId);await addEvent('Hexagon removed',`${Number(zone.estimatedBuildings??hex.buildings.length).toLocaleString()} buildings removed from the campaign`,'remove_circle');closeZonePopup();refreshHexMetrics();renderMap();els.zoneStatus.textContent=`${bookedZones.length} hexagons booked · ${totalFlyers().toLocaleString()} flyers required · ${shifts.length} shifts created.`;toast('Hexagon removed and shifts updated')}catch(error){console.error(error);toast('The hexagon could not be removed')}
+try{await remove(ref(db,`campaigns/${clientId}/planner/zones/${zone.key}`));bookedZones=bookedZones.filter(item=>item.key!==zone.key);hex.status='available';hex.flyersRequired=Math.ceil(hex.buildings.length*1.5);hex.estimatedBuildings=hex.buildings.length;hex.estimateReady=true;hex.buildingsFromCache=true;visibleBuildingHexId='';await syncShiftsFromBuildingCount(clientId);await addEvent('Hexagon removed',`${Number(zone.estimatedBuildings??hex.buildings.length).toLocaleString()} buildings removed from the campaign`,'remove_circle');closeZonePopup();refreshHexMetrics();renderMap();els.zoneStatus.textContent=`${bookedZones.length} hexagons booked · ${totalFlyers().toLocaleString()} flyers required · ${shifts.length} shifts created.`;toast('Hexagon removed and shifts updated')}catch(error){console.error(error);toast('The hexagon could not be removed')}
 }
 async function savePickup(){
 const address=els.pickupInput.value.trim();if(!address){toast('Enter a pickup address');return}els.pickupBtn.disabled=true;els.pickupBtn.textContent='Saving…';
@@ -552,6 +643,7 @@ const snapshot=await get(ref(db,`campaigns/${id}/planner`));if(!snapshot.exists(
 if(planner.area){selectedAreaFeature={type:'Feature',geometry:planner.area.geometry||null,properties:{areaId:String(planner.area.areaId||planner.area.code||planner.meta?.areaId||planner.area.name),code:String(planner.area.code||planner.area.areaId||''),name:planner.area.name||planner.meta?.areaName||'Saved area'}};const fresh=allAreas.find(item=>item.properties.areaId===selectedAreaFeature.properties.areaId||item.properties.name===selectedAreaFeature.properties.name);if(fresh)selectedAreaFeature=fresh}
 bookedZones=objectValues(planner.zones).map(([key,zone])=>{const buildings=Object.values(zone.buildingDots||{}).map(point=>({lng:Number(point.lng),lat:Number(point.lat)})).filter(point=>Number.isFinite(point.lng)&&Number.isFinite(point.lat)),estimatedBuildings=Number(zone.estimatedBuildings??buildings.length??0);return{key,hexId:zone.hexId||'',points:Object.values(zone.coordinates||{}).map(point=>Array.isArray(point)?[Number(point[0]),Number(point[1])]:[Number(point.lng),Number(point.lat)]).filter(point=>point.every(Number.isFinite)),buildings,estimatedBuildings,flyersRequired:Math.ceil(estimatedBuildings*1.5)}}).filter(zone=>zone.points.length>=3);
 extraFlyers=Math.max(0,Number(planner.meta?.extraFlyers)||0);shifts=objectValues(planner.shifts).map(([key,shift])=>({key,...shift})).sort((a,b)=>shiftNumber(a,0)-shiftNumber(b,0));
+bookedZones.forEach(zone=>{if(zone.buildings.length===zone.estimatedBuildings)saveBuildingResults(zone.points,zone.buildings).catch(console.warn)});
 events=[];
 els.pickupInput.value=planner.pickup?.address||'';renderSelectedArea();if(selectedAreaFeature)generateHexagons(selectedAreaFeature);else{renderMap();refreshHexMetrics()}renderTimeline();renderShiftSummary();const total=totalFlyers(),shiftFlyers=shifts.reduce((sum,item)=>sum+(Number(item.flyers)||0),0),pricingOutdated=shifts.some(item=>Math.abs((Number(item.price)||0)-shiftPrice(item.flyers))>.009);if(total>0&&(shiftFlyers!==total||shifts.length!==Math.ceil(total/1000)||pricingOutdated))await syncShiftsFromBuildingCount(id);if(!selectedAreaFeature)els.zoneStatus.textContent=bookedZones.length?`${bookedZones.length} previously booked zone${bookedZones.length===1?'':'s'} · ${total.toLocaleString()} flyers required.`:'Search a city to create hexagons.';
 watchDotProgress();watchShifts(id);if(planner.meta?.status==='announced')els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Update announcement';if(selectedAreaFeature?.geometry)fitGeometry(selectedAreaFeature.geometry,1150);else if(bookedZones[0])fitGeometry(feature('Polygon',[closeRing(bookedZones[0].points)]).geometry,1150);toast(`${id} opened`);
