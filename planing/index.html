@@ -171,6 +171,8 @@ button{touch-action:manipulation}
 <div class="section-head"><div class="section-title">Print quote</div></div>
 <label class="quote-field-label" for="quoteBusinessName">Business name</label>
 <input id="quoteBusinessName" class="field" type="text" maxlength="160" autocomplete="organization" placeholder="Customer business name" required>
+<button id="saveBusinessBtn" class="action" type="button" style="margin-top:7px">Save business name</button>
+<div id="businessSaveStatus" class="helper" role="status" style="margin-top:5px"></div>
 <label class="quote-field-label" for="quoteVatRate">VAT rate (%)</label>
 <input id="quoteVatRate" class="field" type="number" min="0" max="100" step="0.01" value="21" required>
 <button id="printQuoteBtn" class="action primary" style="margin-top:9px" type="button">Print quote / Save PDF</button>
@@ -468,7 +470,7 @@ renderCampaignTitle();const highest=await highestNumber();let number=highest+1;
 try{const result=await runTransaction(ref(db,'system/nextCampaignNumber'),current=>Math.max(Number(current)||0,highest)+1,{applyLocally:false});if(result.committed)number=Number(result.snapshot.val())||number}catch(error){console.warn(error)}
 let candidate=`XX${number}`;for(let attempt=0;attempt<30;attempt++){const existing=await get(ref(db,`campaigns/${candidate}`));if(!existing.exists())break;candidate=`XX${++number}`}
 clientId=candidate;renderCampaignTitle();watchAnnouncedCampaign(clientId);renderCurrentCampaign();
-await set(ref(db,`campaigns/${clientId}/planner/meta`),{clientId,status:'planning',createdAt:serverTimestamp()});watchShifts(clientId);
+await set(ref(db,`campaigns/${clientId}/planner/meta`),{clientId,businessName:$('quoteBusinessName').value.trim(),extraFlyers:0,status:'planning',createdAt:serverTimestamp()});watchShifts(clientId);
 await addEvent('Campaign planning started',`${clientId} assigned to this campaign`,'flag');return clientId;
 })().catch(error=>{renderCampaignTitle();throw error}).finally(()=>clientPromise=null);return clientPromise;
 }
@@ -622,18 +624,29 @@ async function removeHexagon(index){
 const hex=hexagons[index],zone=bookedZones.find(item=>item.hexId===hex?.hexId);if(!hex||!zone||!confirm('Remove this hexagon from the campaign?'))return;
 try{await remove(ref(db,`campaigns/${clientId}/planner/zones/${zone.key}`));bookedZones=bookedZones.filter(item=>item.key!==zone.key);hex.status='available';hex.flyersRequired=Math.ceil(hex.buildings.length*1.5);hex.estimatedBuildings=hex.buildings.length;hex.estimateReady=true;hex.buildingsFromCache=true;visibleBuildingHexId='';await syncShiftsFromBuildingCount(clientId);await addEvent('Hexagon removed',`${Number(zone.estimatedBuildings??hex.buildings.length).toLocaleString()} buildings removed from the campaign`,'remove_circle');closeZonePopup();refreshHexMetrics();renderMap();els.zoneStatus.textContent=`${bookedZones.length} hexagons booked · ${totalFlyers().toLocaleString()} flyers required · ${shifts.length} shifts created.`;toast('Hexagon removed and shifts updated')}catch(error){console.error(error);toast('The hexagon could not be removed')}
 }
+async function saveBusinessName(){
+ const input=$('quoteBusinessName'),button=$('saveBusinessBtn'),status=$('businessSaveStatus');input.value=input.value.trim();
+ if(!input.reportValidity())return false;
+ const name=input.value;button.disabled=true;status.textContent='Saving business name…';
+ try{const id=await ensureClient(),paths={};paths[`campaigns/${id}/planner/meta/businessName`]=name;paths[`campaigns/${id}/businessName`]=name;
+ await update(ref(db),paths);if(clientId===id){status.textContent=input.value.trim()===name?'Business name saved.':'Name changed. Save again to update.';renderCurrentCampaign()}return true;
+ }catch(error){console.warn(error);status.textContent='Business name could not be saved. Please try again.';return false}finally{button.disabled=false}
+}
+$('saveBusinessBtn').addEventListener('click',saveBusinessName);
+$('quoteBusinessName').addEventListener('input',()=>{$('businessSaveStatus').textContent='Unsaved business name'});
+
 async function savePickup(){
 const address=els.pickupInput.value.trim();if(!address){toast('Enter a pickup address');return}els.pickupBtn.disabled=true;els.pickupBtn.textContent='Saving…';
 try{const id=await ensureClient(),paths={};paths[`campaigns/${id}/planner/pickup`]={address,addedAt:serverTimestamp()};shifts.forEach(shift=>{paths[`campaigns/${id}/planner/shifts/${shift.key}/pickupAddress`]=address});await update(ref(db),paths);shifts=shifts.map(shift=>({...shift,pickupAddress:address}));await addEvent('Pickup address added',address,'add_location_alt');renderShiftSummary();toast('Pickup address saved for all shifts')}catch(error){console.error(error);toast('Pickup address could not be saved')}finally{els.pickupBtn.disabled=false;els.pickupBtn.innerHTML='<span class="material-icons-outlined">add_location_alt</span>Save pickup address'}
 }
 async function addExtraFlyers(){
 const amount=Math.floor(Number(els.extraFlyersInput.value));if(!Number.isFinite(amount)||amount<1){toast('Enter the number of extra flyers');return}els.extraFlyersBtn.disabled=true;els.extraFlyersBtn.textContent='Adding…';
-const previous=extraFlyers;try{const id=await ensureClient();extraFlyers+=amount;await update(ref(db,`campaigns/${id}/planner/meta`),{extraFlyers});let shiftsUpdated=true;try{await syncShiftsFromBuildingCount(id)}catch(shiftError){shiftsUpdated=false;console.error(shiftError)}await addEvent('Extra flyers added',`${amount.toLocaleString()} extra flyers`,'add_circle');els.extraFlyersInput.value='';refreshHexMetrics();toast(shiftsUpdated?`${amount.toLocaleString()} extra flyers added`:'Extra flyers saved; shifts could not be refreshed')}catch(error){console.error(error);extraFlyers=previous;refreshHexMetrics();toast('Extra flyers could not be added')}finally{els.extraFlyersBtn.disabled=false;els.extraFlyersBtn.textContent='Add flyers'}
+const previous=extraFlyers;try{const id=await ensureClient();extraFlyers+=amount;const extraPaths={};extraPaths[`campaigns/${id}/planner/meta/extraFlyers`]=extraFlyers;extraPaths[`campaigns/${id}/extraFlyers`]=extraFlyers;extraPaths[`campaigns/${id}/planner/meta/plannedFlyers`]=totalFlyers();extraPaths[`campaigns/${id}/planner/meta/totalFlyers`]=totalFlyers();await update(ref(db),extraPaths);let shiftsUpdated=true;try{await syncShiftsFromBuildingCount(id)}catch(shiftError){shiftsUpdated=false;console.error(shiftError)}await addEvent('Extra flyers added',`${amount.toLocaleString()} extra flyers`,'add_circle');els.extraFlyersInput.value='';refreshHexMetrics();toast(shiftsUpdated?`${amount.toLocaleString()} extra flyers added`:'Extra flyers saved; shifts could not be refreshed')}catch(error){console.error(error);extraFlyers=previous;refreshHexMetrics();toast('Extra flyers could not be added')}finally{els.extraFlyersBtn.disabled=false;els.extraFlyersBtn.textContent='Add flyers'}
 }
 
 function normalizeId(value){const compact=String(value||'').trim().toUpperCase().replace(/\s+/g,'');if(/^XX\d+$/.test(compact))return compact;if(/^\d+$/.test(compact))return `XX${compact}`;return ''}
 function resetPlan(){
-closeZonePopup();stopDotWatchers();if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(campaignUnsubscribe){campaignUnsubscribe();campaignUnsubscribe=null}estimateRequest++;clientId='';clientPromise=null;$('quoteBusinessName').value='';selectedAreaFeature=null;hexagons=[];bookedZones=[];events=[];shifts=[];currentCampaign=null;extraFlyers=0;visibleBuildingHexId='';els.pickupInput.value='';els.extraFlyersInput.value='';els.extraFlyersTotal.textContent='Extra flyers added: 0';els.loginInput.value='';renderCampaignTitle();renderPhotoProof();els.buildingCount.textContent='—';els.flyerCount.textContent='—';els.hexCount.textContent='—';els.bookedCount.textContent='0';els.zoneStatus.textContent='Search for a European city to create its hexagons.';els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Announce campaign';renderSelectedArea();renderTimeline();renderShiftSummary();watchAnnouncedCampaign('');renderMap();if(mapReady)map.easeTo({center:[10,50],zoom:3.5,duration:500});
+closeZonePopup();stopDotWatchers();if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(campaignUnsubscribe){campaignUnsubscribe();campaignUnsubscribe=null}estimateRequest++;clientId='';clientPromise=null;$('quoteBusinessName').value='';$('businessSaveStatus').textContent='';selectedAreaFeature=null;hexagons=[];bookedZones=[];events=[];shifts=[];currentCampaign=null;extraFlyers=0;visibleBuildingHexId='';els.pickupInput.value='';els.extraFlyersInput.value='';els.extraFlyersTotal.textContent='Extra flyers added: 0';els.loginInput.value='';renderCampaignTitle();renderPhotoProof();els.buildingCount.textContent='—';els.flyerCount.textContent='—';els.hexCount.textContent='—';els.bookedCount.textContent='0';els.zoneStatus.textContent='Search for a European city to create its hexagons.';els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Announce campaign';renderSelectedArea();renderTimeline();renderShiftSummary();watchAnnouncedCampaign('');renderMap();if(mapReady)map.easeTo({center:[10,50],zoom:3.5,duration:500});
 }
 function objectValues(value){return value&&typeof value==='object'?Object.entries(value):[]}
 async function loadCampaign(requestedId){
@@ -642,6 +655,7 @@ try{
 const snapshot=await get(ref(db,`campaigns/${id}/planner`));if(!snapshot.exists()){toast(`No saved plan found for ${id}`);return}const planner=snapshot.val()||{};resetPlan();clientId=id;renderCampaignTitle();els.loginInput.value=id;watchAnnouncedCampaign(id);
 if(planner.area){selectedAreaFeature={type:'Feature',geometry:planner.area.geometry||null,properties:{areaId:String(planner.area.areaId||planner.area.code||planner.meta?.areaId||planner.area.name),code:String(planner.area.code||planner.area.areaId||''),name:planner.area.name||planner.meta?.areaName||'Saved area'}};const fresh=allAreas.find(item=>item.properties.areaId===selectedAreaFeature.properties.areaId||item.properties.name===selectedAreaFeature.properties.name);if(fresh)selectedAreaFeature=fresh}
 bookedZones=objectValues(planner.zones).map(([key,zone])=>{const buildings=Object.values(zone.buildingDots||{}).map(point=>({lng:Number(point.lng),lat:Number(point.lat)})).filter(point=>Number.isFinite(point.lng)&&Number.isFinite(point.lat)),estimatedBuildings=Number(zone.estimatedBuildings??buildings.length??0);return{key,hexId:zone.hexId||'',points:Object.values(zone.coordinates||{}).map(point=>Array.isArray(point)?[Number(point[0]),Number(point[1])]:[Number(point.lng),Number(point.lat)]).filter(point=>point.every(Number.isFinite)),buildings,estimatedBuildings,flyersRequired:Math.ceil(estimatedBuildings*1.5)}}).filter(zone=>zone.points.length>=3);
+$('quoteBusinessName').value=String(planner.meta?.businessName||'');$('businessSaveStatus').textContent=planner.meta?.businessName?'Business name saved.':'';
 extraFlyers=Math.max(0,Number(planner.meta?.extraFlyers)||0);shifts=objectValues(planner.shifts).map(([key,shift])=>({key,...shift})).sort((a,b)=>shiftNumber(a,0)-shiftNumber(b,0));
 bookedZones.forEach(zone=>{if(zone.buildings.length===zone.estimatedBuildings)saveBuildingResults(zone.points,zone.buildings).catch(console.warn)});
 events=[];
@@ -668,12 +682,13 @@ function buildQuote(businessName,vatRate){
  <p class="quote-note">Campaign details and progress reflect the information available when this quote was prepared.</p>`;
 }
 let quotePreviousTitle='';
-function printQuote(){
+async function printQuote(){
  const business=$('quoteBusinessName'),vat=$('quoteVatRate');business.value=business.value.trim();
  if(!business.reportValidity()||!vat.reportValidity())return;
  if(totalFlyers()<=0){toast('Add booked zones or extra flyers before printing a quote.');return}
  const shiftFlyers=shifts.reduce((sum,shift)=>sum+(Number(shift.flyers)||0),0);
  if(shiftFlyers!==totalFlyers()){toast('Refresh the campaign shifts before printing the quote.');return}
+ if(!await saveBusinessName())return;
  $('printQuote').innerHTML=buildQuote(business.value,Number(vat.value));quotePreviousTitle=document.title;
  document.title=`Quote ${clientId||'Draft'} - ${business.value}`;document.body.classList.add('quote-print-ready');
  requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
@@ -684,9 +699,9 @@ $('printQuoteBtn').addEventListener('click',printQuote);
 async function announceCampaign(){
 if(!bookedZones.length){toast('Book at least one zone before announcing');return}els.announceBtn.disabled=true;els.announceBtn.textContent='Saving campaign…';
 try{
-const id=await ensureClient(),time=Date.now(),areaId=selectedAreaFeature?.properties.areaId||'custom',areaLabel=selectedAreaFeature?.properties.name||'Custom area',summary={clientId:id,areaId,areaName:areaLabel,totalFlyers:totalFlyers(),extraFlyers,estimatedBuildings:totalBuildings(),zoneCount:bookedZones.length,shiftCount:shifts.length,fullShiftPrice:SHIFT_PRICE,totalCost:shiftsCost(shifts),pickupAddress:els.pickupInput.value.trim(),status:'announced',announcedAt:serverTimestamp(),clientAnnouncedAt:time},eventRef=push(ref(db,`campaigns/${id}/planner/updates`));
-const paths={};paths[`campaigns/${id}/planner/meta/status`]='announced';paths[`campaigns/${id}/planner/meta/areaId`]=summary.areaId;paths[`campaigns/${id}/planner/meta/areaName`]=summary.areaName;paths[`campaigns/${id}/planner/meta/totalFlyers`]=summary.totalFlyers;paths[`campaigns/${id}/planner/meta/extraFlyers`]=summary.extraFlyers;paths[`campaigns/${id}/planner/meta/estimatedBuildings`]=summary.estimatedBuildings;paths[`campaigns/${id}/planner/meta/zoneCount`]=summary.zoneCount;paths[`campaigns/${id}/planner/meta/shiftCount`]=summary.shiftCount;paths[`campaigns/${id}/planner/meta/fullShiftPrice`]=summary.fullShiftPrice;paths[`campaigns/${id}/planner/meta/shiftPrice`]=null;paths[`campaigns/${id}/planner/meta/totalCost`]=summary.totalCost;paths[`campaigns/${id}/planner/meta/announcedAt`]=serverTimestamp();if(selectedAreaFeature)paths[`campaigns/${id}/planner/area`]={areaId:summary.areaId,code:selectedAreaFeature.properties.code||summary.areaId,name:summary.areaName,geometry:selectedAreaFeature.geometry,selectedAt:serverTimestamp()};paths[`campaigns/${id}/planner/updates/${eventRef.key}`]={title:'Campaign announced',detail:`${summary.areaName} · ${summary.totalFlyers.toLocaleString()} flyers · ${money(summary.totalCost)} excl. VAT`,icon:'campaign',clientTimestamp:time,createdAt:serverTimestamp()};paths[`announcedCampaigns/${id}`]=summary;
-await update(ref(db),paths);addLocalEvent('Campaign announced',`${summary.areaName} · ${summary.totalFlyers.toLocaleString()} flyers`,'campaign',time);els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Update announcement';toast(`${id} announced and saved`);
+const id=await ensureClient(),time=Date.now(),areaId=selectedAreaFeature?.properties.areaId||'custom',areaLabel=selectedAreaFeature?.properties.name||'Custom area',summary={clientId:id,businessName:$('quoteBusinessName').value.trim(),areaId,areaName:areaLabel,totalFlyers:totalFlyers(),extraFlyers,estimatedBuildings:totalBuildings(),zoneCount:bookedZones.length,shiftCount:shifts.length,fullShiftPrice:SHIFT_PRICE,totalCost:shiftsCost(shifts),pickupAddress:els.pickupInput.value.trim(),status:'announced',announcedAt:serverTimestamp(),clientAnnouncedAt:time},eventRef=push(ref(db,`campaigns/${id}/planner/updates`));
+const paths={};paths[`campaigns/${id}/planner/meta/businessName`]=summary.businessName;paths[`campaigns/${id}/businessName`]=summary.businessName;paths[`campaigns/${id}/extraFlyers`]=summary.extraFlyers;paths[`campaigns/${id}/planner/meta/status`]='announced';paths[`campaigns/${id}/planner/meta/areaId`]=summary.areaId;paths[`campaigns/${id}/planner/meta/areaName`]=summary.areaName;paths[`campaigns/${id}/planner/meta/totalFlyers`]=summary.totalFlyers;paths[`campaigns/${id}/planner/meta/extraFlyers`]=summary.extraFlyers;paths[`campaigns/${id}/planner/meta/estimatedBuildings`]=summary.estimatedBuildings;paths[`campaigns/${id}/planner/meta/zoneCount`]=summary.zoneCount;paths[`campaigns/${id}/planner/meta/shiftCount`]=summary.shiftCount;paths[`campaigns/${id}/planner/meta/fullShiftPrice`]=summary.fullShiftPrice;paths[`campaigns/${id}/planner/meta/shiftPrice`]=null;paths[`campaigns/${id}/planner/meta/totalCost`]=summary.totalCost;paths[`campaigns/${id}/planner/meta/announcedAt`]=serverTimestamp();if(selectedAreaFeature)paths[`campaigns/${id}/planner/area`]={areaId:summary.areaId,code:selectedAreaFeature.properties.code||summary.areaId,name:summary.areaName,geometry:selectedAreaFeature.geometry,selectedAt:serverTimestamp()};paths[`campaigns/${id}/planner/updates/${eventRef.key}`]={title:'Campaign announced',detail:`${summary.areaName} · ${summary.totalFlyers.toLocaleString()} flyers · ${money(summary.totalCost)} excl. VAT`,icon:'campaign',clientTimestamp:time,createdAt:serverTimestamp()};paths[`announcedCampaigns/${id}`]=summary;
+await update(ref(db),paths);$('businessSaveStatus').textContent=summary.businessName?'Business name saved.':'';addLocalEvent('Campaign announced',`${summary.areaName} · ${summary.totalFlyers.toLocaleString()} flyers`,'campaign',time);els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Update announcement';toast(`${id} announced and saved`);
 }catch(error){console.error(error);toast('The campaign could not be announced')}finally{els.announceBtn.disabled=false;if(!els.announceBtn.querySelector('.material-icons-outlined'))els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Announce campaign'}
 }
 
@@ -720,4 +735,3 @@ els.loginBtn.addEventListener('click',()=>loadCampaign(els.loginInput.value));el
 </script>
 </body>
 </html>
-
