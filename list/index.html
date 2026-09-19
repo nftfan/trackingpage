@@ -13,7 +13,7 @@
 <main><div class="toolbar"><h1>All XX campaigns <span id="count" class="count">—</span></h1><span id="status" class="status" role="status">Loading…</span></div>
 <div id="notice" class="notice" role="status" hidden></div>
 <div class="table-wrap" tabindex="0" role="region" aria-label="Campaign table; scroll to see all columns"><table aria-label="All stored XX campaigns"><colgroup><col style="width:15%"><col style="width:25%"><col style="width:13%"><col style="width:13%"><col style="width:34%"></colgroup><thead><tr><th scope="col">XX ID</th><th scope="col">Business name</th><th scope="col" class="numeric">Total flyers</th><th scope="col" class="numeric">Extra flyers</th><th scope="col">Pickup address</th></tr></thead><tbody id="rows"><tr><td colspan="5" class="empty">Loading stored campaigns…</td></tr></tbody></table></div>
-<p class="note">Total flyers includes extra flyers. “—” means not saved or unavailable. Includes stored announced and unannounced campaigns.</p>
+<p class="note">Total flyers includes extra flyers. “—” means not saved or unavailable. Includes announced and unannounced campaigns. Use Refresh after saving changes in the main app.</p>
 <noscript><p class="notice">Enable JavaScript to load your campaigns.</p></noscript></main>
 <script>
 'use strict';
@@ -25,10 +25,12 @@ function numeric(...values){for(const value of values){if(value===null||value===
 function text(...values){return values.find(value=>typeof value==='string'&&value.trim())?.trim()||''}
 function businessName(...sources){for(const input of sources){const s=object(input),name=text(s.businessName,s.business_name,s.companyName,s.company_name,s.customerBusinessName,object(s.business).name,object(s.company).name,object(s.customer).businessName,object(s.client).businessName);if(name)return name}return ''}
 function pickupAddress(...sources){for(const input of sources){if(typeof input==='string'&&input.trim())return input.trim();const s=object(input),address=text(s.pickupAddress,s.pickup_address,object(s.pickup).address);if(address)return address}return ''}
+// Main app stores current values under campaigns/{XX ID}/planner/meta.
+// Root-level saved fields are the next fallback; announcements may be older.
 function normalizeRecord(id,root,meta,pickup,announced,shifts,hasPlanner){
  root=object(root);meta=object(meta);announced=object(announced);
- const extra=numeric(meta.extraFlyers,announced.extraFlyers,root.extraFlyers,hasPlanner?0:null);
- let flyers=numeric(meta.plannedFlyers,meta.totalFlyers,announced.totalFlyers,root.totalFlyers,root.plannedFlyers,root.flyersRequired,root.flyers);
+ const extra=numeric(meta.extraFlyers,root.extraFlyers,object(root.meta).extraFlyers,announced.extraFlyers,hasPlanner?0:null);
+ let flyers=numeric(meta.plannedFlyers,meta.totalFlyers,root.plannedFlyers,root.totalFlyers,object(root.meta).plannedFlyers,object(root.meta).totalFlyers,root.flyersRequired,root.flyers,announced.totalFlyers);
  if(flyers===null&&shifts&&typeof shifts==='object'){const quantities=Object.values(shifts).map(s=>numeric(s?.flyers));if(quantities.every(n=>n!==null)&&quantities.length)flyers=quantities.reduce((sum,n)=>sum+n,0)}
  const shiftAddresses=shifts&&typeof shifts==='object'?[...new Set(Object.values(shifts).map(s=>text(s?.pickupAddress)).filter(Boolean))]:[];
  return{id,business:businessName(meta,root,root.meta,root.details,root.quote,announced),flyers,extra,pickup:text(object(pickup).address,typeof pickup==='string'?pickup:'')||pickupAddress(meta,root,root.details,announced)||shiftAddresses.join(' · '),loaded:true};
