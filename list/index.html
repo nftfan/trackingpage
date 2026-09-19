@@ -1,0 +1,81 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b3b66">
+<title>Campaign register · LeuvenFlyers</title>
+<link rel="icon" href="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png">
+<style>
+:root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;font-size:12px;color:#18374e;background:#f2f6f8;--navy:#0b3b66;--teal:#008478;--line:#dae4eb}*{box-sizing:border-box}body{margin:0}button{font:inherit}[hidden]{display:none!important}.topbar{background:#fff;border-bottom:2px solid var(--navy)}.top-inner{max-width:1200px;margin:auto;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{display:flex;align-items:center;gap:8px}.brand img{width:32px;height:32px;object-fit:contain}.brand strong{display:block;font-size:12px;font-weight:800;color:var(--navy)}.brand span{display:block;margin-top:2px;color:#597286;font-size:10px}main{max-width:1200px;margin:0 auto;padding:12px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}h1{font-size:12px;margin:0;font-weight:800;color:var(--navy)}.count{display:inline-block;font-size:10px;min-width:22px;padding:2px 6px;margin-left:5px;border-radius:4px;background:#e1eeeb;color:var(--teal)}.status{color:#577185;font-size:10px;line-height:1.5}.refresh{min-height:34px;padding:6px 11px;border:1px solid #bed2df;border-radius:5px;color:var(--navy);background:#fff;font-weight:750;font-size:11px;cursor:pointer}.refresh:disabled{opacity:.55;cursor:wait}.refresh:focus-visible{outline:2px solid var(--teal);outline-offset:2px}.table-wrap{max-height:calc(100dvh - 175px);min-height:180px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:7px}table{width:100%;min-width:650px;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:11px}thead th{position:sticky;top:0;z-index:2;background:var(--navy);color:#fff;padding:9px 10px;text-align:left;font-weight:750;font-size:10px;border-bottom:1px solid #0b3b66}td{padding:7px 10px;vertical-align:top;border-bottom:1px solid #e7eef2;line-height:1.4;overflow-wrap:anywhere}tbody tr:nth-child(even){background:#f7fafb}tbody tr:hover{background:#edf7f4}tbody tr:last-child td{border-bottom:0}.id{color:var(--navy);font-weight:800;font-size:10px}.business{font-weight:700}.numeric{text-align:right;font-variant-numeric:tabular-nums;font-weight:750}.missing{color:#92a1ad;font-weight:400}.loading-row td{color:#7c8e9c}.row-note{display:block;color:#947127;font-size:9px;font-weight:500;margin-top:2px}.empty{padding:28px 12px;text-align:center;color:#5b7487;font-size:11px}.note{font-size:10px;line-height:1.5;color:#5c7487;margin:8px 0 0}.notice{margin:0 0 8px;padding:8px 10px;background:#fff5dd;color:#77571e;border:1px solid #ead9aa;border-radius:5px;font-size:11px;line-height:1.45}@media(max-width:500px){main{padding:9px 8px}.top-inner{padding:8px}.table-wrap{max-height:calc(100dvh - 165px)}td{padding:6px 8px}thead th{padding:8px}.toolbar{align-items:flex-start}}@media print{body{background:#fff}.refresh,.status,.notice{display:none!important}.table-wrap{max-height:none;overflow:visible;border:0}main{padding:0}table{min-width:0}thead{display:table-header-group}thead th{position:static;background:#eef3f6;color:#0b3b66}tr{break-inside:avoid}.topbar{margin-bottom:10px}}
+</style></head>
+<body>
+<header class="topbar"><div class="top-inner"><div class="brand"><img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png" alt=""><div><strong>LeuvenFlyers</strong><span>Campaign register</span></div></div><button id="refresh" class="refresh" type="button">Refresh</button></div></header>
+<main><div class="toolbar"><h1>All XX campaigns <span id="count" class="count">—</span></h1><span id="status" class="status" role="status">Loading…</span></div>
+<div id="notice" class="notice" role="status" hidden></div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Campaign table; scroll to see all columns"><table aria-label="All stored XX campaigns"><colgroup><col style="width:15%"><col style="width:25%"><col style="width:13%"><col style="width:13%"><col style="width:34%"></colgroup><thead><tr><th scope="col">XX ID</th><th scope="col">Business name</th><th scope="col" class="numeric">Total flyers</th><th scope="col" class="numeric">Extra flyers</th><th scope="col">Pickup address</th></tr></thead><tbody id="rows"><tr><td colspan="5" class="empty">Loading stored campaigns…</td></tr></tbody></table></div>
+<p class="note">Total flyers includes extra flyers. “—” means not saved or unavailable. Includes stored announced and unannounced campaigns.</p>
+<noscript><p class="notice">Enable JavaScript to load your campaigns.</p></noscript></main>
+<script>
+'use strict';
+const DATABASE_URL='https://trackingclients-default-rtdb.firebaseio.com';
+const $=id=>document.getElementById(id),records=new Map();let loadRun=0,controllers=new Set(),renderTimer=null;
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const object=value=>value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+function numeric(...values){for(const value of values){if(value===null||value===undefined||typeof value==='boolean'||typeof value==='object'||String(value).trim()==='')continue;const n=Number(value);if(Number.isFinite(n)&&n>=0)return n}return null}
+function text(...values){return values.find(value=>typeof value==='string'&&value.trim())?.trim()||''}
+function businessName(...sources){for(const input of sources){const s=object(input),name=text(s.businessName,s.business_name,s.companyName,s.company_name,s.customerBusinessName,object(s.business).name,object(s.company).name,object(s.customer).businessName,object(s.client).businessName);if(name)return name}return ''}
+function pickupAddress(...sources){for(const input of sources){if(typeof input==='string'&&input.trim())return input.trim();const s=object(input),address=text(s.pickupAddress,s.pickup_address,object(s.pickup).address);if(address)return address}return ''}
+function normalizeRecord(id,root,meta,pickup,announced,shifts,hasPlanner){
+ root=object(root);meta=object(meta);announced=object(announced);
+ const extra=numeric(meta.extraFlyers,announced.extraFlyers,root.extraFlyers,hasPlanner?0:null);
+ let flyers=numeric(meta.plannedFlyers,meta.totalFlyers,announced.totalFlyers,root.totalFlyers,root.plannedFlyers,root.flyersRequired,root.flyers);
+ if(flyers===null&&shifts&&typeof shifts==='object'){const quantities=Object.values(shifts).map(s=>numeric(s?.flyers));if(quantities.every(n=>n!==null)&&quantities.length)flyers=quantities.reduce((sum,n)=>sum+n,0)}
+ const shiftAddresses=shifts&&typeof shifts==='object'?[...new Set(Object.values(shifts).map(s=>text(s?.pickupAddress)).filter(Boolean))]:[];
+ return{id,business:businessName(meta,root,root.meta,root.details,root.quote,announced),flyers,extra,pickup:text(object(pickup).address,typeof pickup==='string'?pickup:'')||pickupAddress(meta,root,root.details,announced)||shiftAddresses.join(' · '),loaded:true};
+}
+async function read(path,shallow=false){
+ const controller=new AbortController();controllers.add(controller);const timer=setTimeout(()=>controller.abort(),25000);
+ try{const url=DATABASE_URL+'/'+path.split('/').map(encodeURIComponent).join('/')+'.json'+(shallow?'?shallow=true':'');const response=await fetch(url,{signal:controller.signal,cache:'no-store'});if(!response.ok)throw new Error(response.status===401||response.status===403?'Read access denied':`Request failed (${response.status})`);return await response.json()}finally{clearTimeout(timer);controllers.delete(controller)}
+}
+function render(){
+ const sorted=[...records.values()].sort((a,b)=>b.id.localeCompare(a.id,undefined,{numeric:true}));$('count').textContent=String(sorted.length);
+ $('rows').innerHTML=sorted.length?sorted.map(row=>`<tr${row.loaded?'':' class="loading-row"'}><td class="id">${esc(row.id)}${row.error?'<span class="row-note">Some details unavailable</span>':''}</td><td class="business">${row.loaded?(row.business?esc(row.business):'<span class="missing">—</span>'):'…'}</td><td class="numeric">${row.loaded?(row.flyers===null?'<span class="missing">—</span>':row.flyers.toLocaleString()):'…'}</td><td class="numeric">${row.loaded?(row.extra===null?'<span class="missing">—</span>':row.extra.toLocaleString()):'…'}</td><td>${row.loaded?(row.pickup?esc(row.pickup):'<span class="missing">—</span>'):'…'}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No stored XX campaigns found.</td></tr>';
+}
+function scheduleRender(){if(renderTimer)return;renderTimer=setTimeout(()=>{renderTimer=null;render()},80)}
+const rootFields=new Set(['businessName','business_name','companyName','company_name','customerBusinessName','business','company','customer','client','meta','details','quote','totalFlyers','plannedFlyers','flyersRequired','flyers','extraFlyers','pickup','pickupAddress','pickup_address']);
+async function loadDetails(record,run){
+ let hadError=false;const safeRead=async path=>{try{return await read(path)}catch{hadError=true;return null}};
+ let root={},meta=null,pickup=null,shifts=null,hasPlanner=false;
+ for(const key of record.campaignKeys){
+  let keys;try{keys=object(await read(`campaigns/${key}`,true))}catch{hadError=true;continue}
+  const selected=Object.keys(keys).filter(k=>rootFields.has(k));
+  // Fetch only summary branches, never campaign dots, photos or zone geometry.
+  const values=await Promise.all(selected.map(async field=>[field,await safeRead(`campaigns/${key}/${field}`)]));
+  Object.assign(root,Object.fromEntries(values));
+  if(keys.planner){hasPlanner=true;const details=await Promise.all([safeRead(`campaigns/${key}/planner/meta`),safeRead(`campaigns/${key}/planner/pickup`)]);meta=details[0]||meta;pickup=details[1]||pickup;
+   if(numeric(object(meta).plannedFlyers,object(meta).totalFlyers,record.announced?.totalFlyers,root.totalFlyers,root.plannedFlyers,root.flyersRequired,root.flyers)===null||!text(object(pickup).address)&&!pickupAddress(meta,root,record.announced))shifts=await safeRead(`campaigns/${key}/planner/shifts`);
+  }
+ }
+ if(run!==loadRun)return;
+ const normalized=normalizeRecord(record.id,root,meta,pickup,record.announced,shifts,hasPlanner&&!hadError);records.set(record.id,{...record,...normalized,error:hadError});scheduleRender();
+}
+async function load(){
+ const run=++loadRun;controllers.forEach(c=>c.abort());controllers.clear();if(renderTimer){clearTimeout(renderTimer);renderTimer=null}records.clear();$('refresh').disabled=true;$('notice').hidden=true;$('status').textContent='Finding all XX IDs…';$('count').textContent='—';$('rows').innerHTML='<tr><td colspan="5" class="empty">Loading stored campaigns…</td></tr>';
+ const results=await Promise.allSettled([read('campaigns',true),read('announcedCampaigns')]);if(run!==loadRun)return;
+ function entry(rawId){if(!/^XX\d+$/i.test(rawId))return null;const id=rawId.toUpperCase();if(!records.has(id))records.set(id,{id,campaignKeys:[],announced:{},loaded:false});return records.get(id)}
+ if(results[0].status==='fulfilled')Object.keys(object(results[0].value)).forEach(id=>{const r=entry(id);if(r)r.campaignKeys.push(id)});
+ if(results[1].status==='fulfilled')Object.entries(object(results[1].value)).forEach(([id,value])=>{const r=entry(id);if(r)r.announced=object(value)});
+ const missingSources=results.filter(r=>r.status==='rejected').length;
+ if(missingSources){$('notice').hidden=false;$('notice').textContent='Some campaign data could not be read. This list may be incomplete; check database read access or try Refresh.'}
+ render();if(!records.size&&missingSources){$('rows').innerHTML='<tr><td colspan="5" class="empty">Campaigns could not be loaded.</td></tr>';}
+ const queue=[...records.values()];let next=0,done=0;
+ async function worker(){while(run===loadRun&&next<queue.length){const record=queue[next++];await loadDetails(record,run);if(run!==loadRun)return;done++;$('status').textContent=`Loading details ${done} / ${queue.length}`}}
+ await Promise.all(Array.from({length:Math.min(4,queue.length)},worker));if(run!==loadRun)return;
+ if(renderTimer){clearTimeout(renderTimer);renderTimer=null}if(records.size||!missingSources)render();const failures=[...records.values()].filter(r=>r.error).length;
+ if(failures){$('notice').hidden=false;$('notice').textContent=`${failures} campaign${failures===1?'':'s'} could not be fully read.${missingSources?' The ID list may also be incomplete.':''} Missing details are marked in the table.`}
+ $('status').textContent=missingSources||failures?'Loaded with missing data':`Updated ${new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'}).format(new Date())}`;$('refresh').disabled=false;
+}
+$('refresh').addEventListener('click',()=>load().catch(showError));
+function showError(error){console.warn(error);$('notice').textContent='Campaign data could not be loaded. Please try Refresh.';$('notice').hidden=false;$('status').textContent='Unavailable';$('refresh').disabled=false}
+load().catch(showError);
+</script></body></html>
