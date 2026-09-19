@@ -106,6 +106,23 @@ button{touch-action:manipulation}
 
 .quote-field-label{display:block;margin:8px 0 4px;font-size:11px;font-weight:750;color:var(--navy)}
 #printQuote{display:none}
+
+/* Compact planning tools and image-only photo proof. */
+:root{--left:290px}
+.left-head{padding:10px}.left-title{font-size:12px}.left-copy{font-size:10px;line-height:1.4}.left-panel .eyebrow{font-size:9px}
+.tool-scroll{padding:8px}.tool-section{padding:8px;margin-bottom:7px;border-radius:8px}.section-head{margin-bottom:6px}
+.left-panel .section-title{font-size:11px;gap:5px}.left-panel .material-icons-outlined{font-size:16px}
+.left-panel .field{height:32px;padding:0 8px;font-size:11px;font-weight:700}
+.left-panel .action{min-height:32px;font-size:11px}.left-panel .search-btn,.left-panel .extra-btn{height:32px;padding:0 8px;font-size:10px}
+.left-panel .helper,.left-panel .left-copy,.left-panel .extra-total{font-size:10px;font-weight:600;line-height:1.4}
+.left-panel .area-row{min-height:32px;padding:6px;font-size:10px}.left-panel .selected-area{padding:7px;font-size:10px;margin-top:6px}
+.left-panel .estimate-grid{gap:5px;margin:6px 0}.left-panel .metric{padding:6px}.left-panel .metric span{font-size:9px}.left-panel .metric strong{font-size:12px;margin-top:2px}
+.left-panel .quote-field-label{font-size:10px;margin-top:6px}.left-panel .announce-btn{height:35px;font-size:11px}
+.proof-card{padding:0;cursor:pointer;display:block}.proof-card img{display:block;height:100%;width:100%;object-fit:cover}
+.photo-marker{width:26px;height:26px;padding:4px;display:grid;place-items:center;border:2px solid #fff;border-radius:7px;background:var(--navy);color:white;box-shadow:0 1px 5px #172a3d55;cursor:pointer}.photo-marker svg{width:16px;height:16px}.photo-marker:focus-visible{outline:3px solid var(--teal)}
+.photo-popup .maplibregl-popup-content{padding:5px;border-radius:10px;overflow:hidden}.photo-popup .maplibregl-popup-close-button{background:white;border-radius:50%;width:26px;height:26px;right:8px;top:8px;font-size:20px;z-index:1}
+.photo-popup-images{display:flex;gap:6px;overflow-x:auto;max-width:100%;scroll-snap-type:x mandatory}.photo-popup-images img{display:block;flex:0 0 100%;width:100%;min-width:0;height:260px;max-height:42vh;object-fit:contain;background:#f3f6f8;scroll-snap-align:start}
+
 @media print{
  @page{size:A4;margin:14mm}
  body.quote-print-ready{height:auto!important;overflow:visible!important;background:white!important;margin:0!important;color:#172a3d!important}
@@ -309,9 +326,11 @@ function watchAnnouncedCampaign(id){if(campaignUnsubscribe){campaignUnsubscribe(
 // Read-only source records; derived shift summaries are saved to the planner only.
 const sourceRecords=new Map(),proofRecords=new Map(),proofErrors=new Set(),proofPending=new Set();
 let proofUnsubscribers=[];
+let photoMarkers=[],photoPopup=null;
 let dotWatchGeneration=0,sourceErrors=new Set(),syncInFlight=false,syncQueued=false;
 function stopDotWatchers(){
  dotWatchGeneration++;dotUnsubscribers.forEach(unsubscribe=>unsubscribe());dotUnsubscribers=[];
+ photoPopup?.remove();photoPopup=null;
  proofUnsubscribers.forEach(unsubscribe=>unsubscribe());proofUnsubscribers=[];proofRecords.clear();proofErrors.clear();proofPending.clear();
  dotWatchSignature='';dotStats.clear();sourceRecords.clear();sourceErrors.clear();lastSyncedDotStatus.clear();
  renderDeliveryDots();renderPhotoProof();
@@ -360,7 +379,8 @@ function readProofRecords(snapshot,source){
   const value=child.val();if(!value||typeof value!=='object')return;
   const url=safePhotoUrl(value.url);if(!url)return;
   const rawTime=value.timestamp??value.createdAt,time=Number(rawTime)||Date.parse(rawTime)||0;
-  records.push({key:`campaigns/${source.id}/proofs/${child.key}`,posterId:source.posterId,kind:source.kind,url,timestamp:time>0&&time<1e11?time*1000:time,workerName:String(value.workerName||'')});
+  const lat=proofCoordinate(value.lat,90),lng=proofCoordinate(value.lng,180);
+  records.push({lat,lng,hasLocation:lat!==null&&lng!==null,key:`campaigns/${source.id}/proofs/${child.key}`,posterId:source.posterId,kind:source.kind,url,timestamp:time>0&&time<1e11?time*1000:time,workerName:String(value.workerName||'')});
  });return records;
 }
 function watchPhotoProof(pickupIds,generation){
@@ -381,11 +401,38 @@ function allPhotoProof(){
  // Prefer uploaded metadata when the same image is also attached to a dot.
  return [...new Map([...uploaded,...attached].map(photo=>[`${photo.posterId}|${photo.url}`,photo]).reverse()).values()].sort((a,b)=>b.timestamp-a.timestamp||a.key.localeCompare(b.key));
 }
+function proofCoordinate(value,limit){
+ if(value===null||value===undefined||typeof value==='boolean'||String(value).trim()==='')return null;
+ const n=Number(value);return Number.isFinite(n)&&Math.abs(n)<=limit?n:null;
+}
+function openPhotoProof(photo,photos=[photo]){
+ if(!mapReady)return;
+ closeZonePopup();photoPopup?.remove();
+ const located=photo.hasLocation,center=located?[photo.lng,photo.lat]:map.getCenter();
+ const content=document.createElement('div');content.className='photo-popup-images';
+ photos.forEach(item=>{const img=document.createElement('img');img.src=item.url;img.alt='Photo proof';img.referrerPolicy='no-referrer';content.appendChild(img)});
+ photoPopup=new maplibregl.Popup({className:'photo-popup',maxWidth:'min(360px, calc(100vw - 36px))',offset:18,closeOnMove:false}).setLngLat(center).setDOMContent(content).addTo(map);
+ if(located)map.flyTo({center,zoom:Math.max(map.getZoom(),16),padding:{top:Math.min(145,map.getContainer().clientHeight/3),bottom:20,left:20,right:20},duration:700});
+}
+function renderPhotoMarkers(photos){
+ photoMarkers.forEach(marker=>marker.remove());photoMarkers=[];
+ if(!mapReady)return;
+ const groups=new Map();
+ photos.filter(photo=>photo.hasLocation).forEach(photo=>{const key=`${photo.lng}|${photo.lat}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(photo)});
+ groups.forEach(group=>{
+  const button=document.createElement('button');button.type='button';button.className='photo-marker';button.setAttribute('aria-label','View photo proof');
+  button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h5l2-3h4l2 3h5v15H3z"/><circle cx="12" cy="13" r="4"/></svg>';
+  button.addEventListener('click',event=>{event.stopPropagation();openPhotoProof(group[0],group)});
+  photoMarkers.push(new maplibregl.Marker({element:button,offset:[14,-14]}).setLngLat([group[0].lng,group[0].lat]).addTo(map));
+ });
+}
 function renderPhotoProof(){
  const filter=$('proofFilter').value,shown=allPhotoProof().filter(photo=>filter==='all'||photo.kind===filter);
  $('proofCount').textContent=shown.length;
  const notice=proofErrors.size?'<div class="proof-notice" role="status">Some photo proof could not be loaded. Check access to the campaign’s photos.</div>':'';
- $('proofList').innerHTML=shown.length?shown.map(photo=>`<a class="proof-card ${photo.kind}" href="${escape(photo.url)}" target="_blank" rel="noopener noreferrer"><img src="${escape(photo.url)}" loading="lazy" referrerpolicy="no-referrer" alt="${escape(photo.posterId)} ${photo.kind} photo proof"><span>${escape(photo.posterId)} · ${photo.kind==='pickup'?'Pickup':'Delivery'}</span><small>${photo.timestamp?escape(timeLabel(photo.timestamp)):'Photo proof'}${photo.workerName?` · ${escape(photo.workerName)}`:''}</small></a>`).join('')+notice:`<div class="proof-empty" role="status">${proofErrors.size?'Photo proof could not be loaded. Check access to the campaign’s photos.':proofPending.size?'Loading photo proof…':clientId?'No photo proof available for this filter.':'Open a campaign to view pickup and delivery photos.'}</div>`;
+ $('proofList').innerHTML=shown.length?shown.map((photo,index)=>`<button type="button" class="proof-card ${photo.kind}" data-photo-index="${index}" aria-label="View photo proof"><img src="${escape(photo.url)}" loading="lazy" referrerpolicy="no-referrer" alt="Photo proof"></button>`).join('')+notice:`<div class="proof-empty" role="status">${proofErrors.size?'Photo proof could not be loaded. Check access to the campaign’s photos.':proofPending.size?'Loading photo proof…':clientId?'No photo proof available for this filter.':'Open a campaign to view pickup and delivery photos.'}</div>`;
+ $('proofList').onclick=event=>{const button=event.target.closest('[data-photo-index]');if(button)openPhotoProof(shown[Number(button.dataset.photoIndex)])};
+ renderPhotoMarkers(shown);
 }
 async function queueDotStatusSync(){
  if(syncInFlight){syncQueued=true;return}if(!clientId||sourceErrors.size||sourceRecords.size!==dotUnsubscribers.length)return;
@@ -716,7 +763,7 @@ map.addSource('delivery-dots',{type:'geojson',data:fc()});map.addLayer({id:'deli
 map.addSource('pickup-dots',{type:'geojson',data:fc()});
 map.addLayer({id:'pickup-dots-halo',type:'circle',source:'pickup-dots',paint:{'circle-radius':18,'circle-color':'#8b3fd1','circle-opacity':.18}});
 map.addLayer({id:'pickup-dots-layer',type:'circle',source:'pickup-dots',paint:{'circle-radius':11,'circle-color':'#8b3fd1','circle-stroke-color':'#fff','circle-stroke-width':2.5}});
-renderSelectedBoundary();renderMap();renderDeliveryDots();
+renderSelectedBoundary();renderMap();renderDeliveryDots();renderPhotoProof();
 map.on('click',event=>{
 const pickupHits=map.queryRenderedFeatures(event.point,{layers:['pickup-dots-layer']}),pickupHit=pickupHits[0];
 const hit=pickupHit||map.queryRenderedFeatures(event.point,{layers:['delivery-dots-layer']})[0];
@@ -735,3 +782,4 @@ els.loginBtn.addEventListener('click',()=>loadCampaign(els.loginInput.value));el
 </script>
 </body>
 </html>
+
