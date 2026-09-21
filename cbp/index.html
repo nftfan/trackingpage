@@ -101,6 +101,42 @@
       background:#94a3b8;
     }
     .sync-dot.live{background:var(--green)}
+    .tabs{
+      display:flex;
+      gap:6px;
+      margin:0 0 14px;
+      padding:4px;
+      width:max-content;
+      max-width:100%;
+      border:1px solid var(--line);
+      border-radius:11px;
+      background:#fff;
+    }
+    .tab-btn{
+      min-height:34px;
+      padding:0 13px;
+      border:0;
+      border-radius:8px;
+      background:transparent;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:800;
+    }
+    .tab-btn.active{background:var(--blue);color:#fff}
+    .tab-count{
+      display:inline-grid;
+      place-items:center;
+      min-width:18px;
+      height:18px;
+      margin-left:5px;
+      padding:0 5px;
+      border-radius:999px;
+      background:#e2e8f0;
+      color:#475569;
+      font-size:9px;
+    }
+    .tab-btn.active .tab-count{background:rgba(255,255,255,.22);color:#fff}
+    .is-hidden{display:none!important}
     .panel{
       background:var(--surface);
       border:1px solid var(--line);
@@ -707,7 +743,45 @@
     </header>
 
 
-    <section>
+    <nav class="tabs" aria-label="Campaign views">
+      <button class="tab-btn active" type="button" data-tab="active">Active <span class="tab-count" id="activeTabCount">0</span></button>
+      <button class="tab-btn" type="button" data-tab="archive">Archive <span class="tab-count" id="archiveTabCount">0</span></button>
+    </nav>
+
+
+    <section id="archiveSummarySection" class="is-hidden">
+      <div class="section-head" style="padding:0 2px 8px">
+        <div>
+          <h2>Archived campaign totals</h2>
+          <p id="archivedCampaignCount">0 archived campaigns</p>
+        </div>
+      </div>
+      <div class="summary-grid">
+        <div class="panel summary blue">
+          <div class="label">Archived Budgets · Excl. VAT</div>
+          <div class="value" id="archiveSumBudget">€0.00</div>
+          <div class="sub">Total archived campaign budgets</div>
+        </div>
+        <div class="panel summary green">
+          <div class="label">Archived Net Capacity</div>
+          <div class="value" id="archiveSumNetPool">€0.00</div>
+          <div class="sub">Student net salary capacity</div>
+        </div>
+        <div class="panel summary violet">
+          <div class="label">Archived Assigned Shifts</div>
+          <div class="value" id="archiveSumAssigned">€0.00</div>
+          <div class="sub">Net salaries entered</div>
+        </div>
+        <div class="panel summary amber">
+          <div class="label">Archived Remaining Net</div>
+          <div class="value" id="archiveSumRemaining">€0.00</div>
+          <div class="sub">Remaining across archived campaigns</div>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="confirmedSummarySection">
       <div class="section-head" style="padding:0 2px 8px">
         <div>
           <h2>Confirmed campaigns</h2>
@@ -739,7 +813,7 @@
     </section>
 
 
-    <section class="summary-grid">
+    <section id="allSummarySection" class="summary-grid">
       <div class="panel summary blue">
         <div class="label">Total Budgets · Excl. VAT</div>
         <div class="value" id="sumBudget">€0.00</div>
@@ -763,7 +837,7 @@
     </section>
 
 
-    <section class="panel create-panel">
+    <section id="createCampaignSection" class="panel create-panel">
       <div class="section-head">
         <div>
           <h2>Add campaign</h2>
@@ -801,8 +875,8 @@
     <section class="panel table-panel">
       <div class="section-head">
         <div>
-          <h2>Campaign overview</h2>
-          <p>Fast comparison of budgets, student salary capacity and remaining funds.</p>
+          <h2 id="overviewTitle">Campaign overview</h2>
+          <p id="overviewDescription">Fast comparison of budgets, student salary capacity and remaining funds.</p>
         </div>
       </div>
       <div class="table-wrap">
@@ -826,7 +900,7 @@
 
 
     <div class="cards-head">
-      <h2>Budget planning cards</h2>
+      <h2 id="cardsTitle">Budget planning cards</h2>
       <span id="campaignCount">0 campaigns</span>
     </div>
 
@@ -896,6 +970,7 @@
 
 
     let campaigns = [];
+    let currentTab = 'active';
     const activityByCampaign = new Map();
     const activitySubs = new Map();
 
@@ -1176,12 +1251,20 @@
 
 
     function render(){
-      const totalBudget = campaigns.reduce((s,c)=>s+(Number(c.totalBudget)||0),0);
-      const totalNetPool = campaigns.reduce((s,c)=>s+campaignStats(c).payroll.net,0);
-      const totalAssigned = campaigns.reduce((s,c)=>s+campaignStats(c).assignedNet,0);
+      const activeCampaigns = campaigns.filter(c=>!c.archived);
+      const archivedCampaigns = campaigns.filter(c=>c.archived);
+      const visibleCampaigns = currentTab === 'archive' ? archivedCampaigns : activeCampaigns;
+      const totalBudget = activeCampaigns.reduce((s,c)=>s+(Number(c.totalBudget)||0),0);
+      const totalNetPool = activeCampaigns.reduce((s,c)=>s+campaignStats(c).payroll.net,0);
+      const totalAssigned = activeCampaigns.reduce((s,c)=>s+campaignStats(c).assignedNet,0);
       const totalRemaining = totalNetPool-totalAssigned;
 
-      const confirmedCampaigns = campaigns.filter(c=>c.status === 'confirmed');
+      const archiveBudget = archivedCampaigns.reduce((s,c)=>s+(Number(c.totalBudget)||0),0);
+      const archiveNetPool = archivedCampaigns.reduce((s,c)=>s+campaignStats(c).payroll.net,0);
+      const archiveAssigned = archivedCampaigns.reduce((s,c)=>s+campaignStats(c).assignedNet,0);
+      const archiveRemaining = archiveNetPool-archiveAssigned;
+
+      const confirmedCampaigns = activeCampaigns.filter(c=>c.status === 'confirmed');
       const confirmedBudget = confirmedCampaigns.reduce((s,c)=>s+(Number(c.totalBudget)||0),0);
       const confirmedNetPool = confirmedCampaigns.reduce((s,c)=>s+campaignStats(c).payroll.net,0);
       const confirmedAssigned = confirmedCampaigns.reduce((s,c)=>s+campaignStats(c).assignedNet,0);
@@ -1192,27 +1275,49 @@
       $('sumNetPool').textContent = money(totalNetPool);
       $('sumAssigned').textContent = money(totalAssigned);
       $('sumRemaining').textContent = money(totalRemaining);
-      $('campaignCount').textContent = `${campaigns.length} campaign${campaigns.length===1?'':'s'}`;
+      $('archiveSumBudget').textContent = money(archiveBudget);
+      $('archiveSumNetPool').textContent = money(archiveNetPool);
+      $('archiveSumAssigned').textContent = money(archiveAssigned);
+      $('archiveSumRemaining').textContent = money(archiveRemaining);
+      $('archivedCampaignCount').textContent = `${archivedCampaigns.length} archived campaign${archivedCampaigns.length===1?'':'s'}`;
+      $('campaignCount').textContent = `${visibleCampaigns.length} campaign${visibleCampaigns.length===1?'':'s'}`;
       $('confirmedSumBudget').textContent = money(confirmedBudget);
       $('confirmedSumNetPool').textContent = money(confirmedNetPool);
       $('confirmedSumAssigned').textContent = money(confirmedAssigned);
       $('confirmedSumRemaining').textContent = money(confirmedRemaining);
       $('confirmedCampaignCount').textContent = `${confirmedCampaigns.length} confirmed campaign${confirmedCampaigns.length===1?'':'s'}`;
+      $('activeTabCount').textContent = activeCampaigns.length;
+      $('archiveTabCount').textContent = archivedCampaigns.length;
 
+      const showingArchive = currentTab === 'archive';
+      $('archiveSummarySection').classList.toggle('is-hidden', !showingArchive);
+      $('confirmedSummarySection').classList.toggle('is-hidden', showingArchive);
+      $('allSummarySection').classList.toggle('is-hidden', showingArchive);
+      $('createCampaignSection').classList.toggle('is-hidden', showingArchive);
+      $('overviewTitle').textContent = showingArchive ? 'Archived campaigns' : 'Campaign overview';
+      $('overviewDescription').textContent = showingArchive
+        ? 'All archived campaign budgets, statuses, activity and shift expenses.'
+        : 'Fast comparison of budgets, student salary capacity and remaining funds.';
+      $('cardsTitle').textContent = showingArchive ? 'Archived campaign data' : 'Budget planning cards';
+      document.querySelectorAll('[data-tab]').forEach(btn=>{
+        const selected = btn.dataset.tab === currentTab;
+        btn.classList.toggle('active', selected);
+        btn.setAttribute('aria-selected', String(selected));
+      });
 
-      renderTable();
-      renderCards();
+      renderTable(visibleCampaigns);
+      renderCards(visibleCampaigns);
     }
 
 
-    function renderTable(){
-      if(!campaigns.length){
-        campaignTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b;padding:24px">No campaigns yet.</td></tr>`;
+    function renderTable(list){
+      if(!list.length){
+        const message = currentTab === 'archive' ? 'No archived campaigns.' : 'No active campaigns yet.';
+        campaignTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b;padding:24px">${message}</td></tr>`;
         return;
       }
 
-
-      campaignTableBody.innerHTML = campaigns.map(c=>{
+      campaignTableBody.innerHTML = list.map(c=>{
         const s = campaignStats(c);
         const url = normalizeUrl(c.url);
         const campaignStatus = c.status === 'confirmed' ? 'confirmed' : 'not-confirmed';
@@ -1238,6 +1343,9 @@
               <div class="table-actions">
                 <button class="text-btn" data-scroll="${esc(c.id)}">Open</button>
                 <button class="text-btn" data-edit-cost="${esc(c.id)}">Edit Cost</button>
+                ${c.archived
+                  ? `<button class="text-btn" data-restore-campaign="${esc(c.id)}">Restore</button>`
+                  : `<button class="text-btn" data-archive-campaign="${esc(c.id)}">Archive</button>`}
                 <button class="text-btn danger-btn" data-delete-campaign="${esc(c.id)}">Delete</button>
               </div>
             </td>
@@ -1246,14 +1354,13 @@
     }
 
 
-    function renderCards(){
-      if(!campaigns.length){
-        campaignCards.innerHTML = `<div class="empty-state">Add your first campaign above. Its budget, Amplo/student payroll breakdown, shift expenses and remaining budget will appear here.</div>`;
+    function renderCards(list){
+      if(!list.length){
+        campaignCards.innerHTML = `<div class="empty-state">${currentTab === 'archive' ? 'Archived campaigns will appear here with all their saved data.' : 'Add your first campaign above. Its budget, Amplo/student payroll breakdown, shift expenses and remaining budget will appear here.'}</div>`;
         return;
       }
 
-
-      campaignCards.innerHTML = campaigns.map(c=>{
+      campaignCards.innerHTML = list.map(c=>{
         const s = campaignStats(c);
         const st = statusFor(s);
         const p = s.payroll;
@@ -1292,6 +1399,9 @@
               <div class="card-menu">
                 <button class="text-btn" data-edit-campaign="${esc(c.id)}">Edit Details</button>
                 <button class="text-btn" data-edit-cost="${esc(c.id)}">Edit Cost</button>
+                ${c.archived
+                  ? `<button class="text-btn" data-restore-campaign="${esc(c.id)}">Restore</button>`
+                  : `<button class="text-btn" data-archive-campaign="${esc(c.id)}">Archive</button>`}
                 <button class="text-btn danger-btn" data-delete-campaign="${esc(c.id)}">Delete</button>
               </div>
             </div>
@@ -1504,6 +1614,17 @@
     }
 
 
+    async function setCampaignArchived(id, archived){
+      if(!id) return;
+      await update(ref(db, `${ROOT}/${id}`), {
+        archived:Boolean(archived),
+        archivedAt:archived ? serverTimestamp() : null,
+        updatedAt:serverTimestamp()
+      });
+      toast(archived ? 'Campaign archived' : 'Campaign restored');
+    }
+
+
     async function editCampaign(id){
       const c = campaigns.find(x=>x.id===id);
       if(!c) return;
@@ -1593,6 +1714,33 @@
 
 
     document.addEventListener('click', e=>{
+      const tabBtn = e.target.closest('[data-tab]');
+      if(tabBtn){
+        currentTab = tabBtn.dataset.tab === 'archive' ? 'archive' : 'active';
+        render();
+        window.scrollTo({top:0,behavior:'smooth'});
+        return;
+      }
+
+
+      const archiveBtn = e.target.closest('[data-archive-campaign]');
+      if(archiveBtn){
+        setCampaignArchived(archiveBtn.dataset.archiveCampaign, true).catch(err=>{
+          console.error(err); toast('Could not archive campaign');
+        });
+        return;
+      }
+
+
+      const restoreBtn = e.target.closest('[data-restore-campaign]');
+      if(restoreBtn){
+        setCampaignArchived(restoreBtn.dataset.restoreCampaign, false).catch(err=>{
+          console.error(err); toast('Could not restore campaign');
+        });
+        return;
+      }
+
+
       const editExpense = e.target.closest('[data-edit-expense]');
       if(editExpense){
         const [campaignId, expenseId] = editExpense.dataset.editExpense.split('|');
@@ -1680,6 +1828,8 @@
             campaignId:v.campaignId || '',
             totalBudget:Number(v.totalBudget)||0,
             status:v.status === 'confirmed' ? 'confirmed' : 'not-confirmed',
+            archived:Boolean(v.archived),
+            archivedAt:Number(v.archivedAt)||0,
             createdAt:Number(v.createdAt)||0,
             expenses:expenseList
           });
