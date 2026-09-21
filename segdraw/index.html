@@ -1,0 +1,1355 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#0b3b66">
+  <meta name="description" content="SegDraw — lightweight city-based segment drawing.">
+  <title>SegDraw</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Icons+Outlined&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+
+  <style>
+    :root{
+      --navy:#0b3b66;
+      --navy-2:#135788;
+      --teal:#16a394;
+      --teal-soft:#e9f8f6;
+      --gold:#efb92f;
+      --gold-soft:#fff7df;
+      --ink:#172a3d;
+      --muted:#687b8e;
+      --line:#dce5ec;
+      --surface:#fff;
+      --wash:#f3f6f8;
+      --danger:#b53640;
+      --danger-soft:#fff1f2;
+    }
+
+    *{box-sizing:border-box}
+    html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--wash);color:var(--ink);font-family:Inter,Arial,sans-serif}
+    button,input{font:inherit}
+    button{touch-action:manipulation}
+    .material-icons-outlined{font-size:18px;line-height:1}
+
+    #map{position:fixed;inset:0;background:#edf1f4}
+
+    /* Drawing overlay follows the original Segment Saver interaction:
+       click map to start/resume, move to trace, click the overlay to pause. */
+    #dc{
+      position:fixed;inset:0;z-index:14;
+      width:100%;height:100%;
+      pointer-events:none;
+      touch-action:none;
+      cursor:crosshair;
+    }
+
+    .top-shell{
+      position:fixed;
+      top:max(12px,env(safe-area-inset-top));
+      left:50%;
+      z-index:40;
+      width:min(760px,calc(100% - 24px));
+      transform:translateX(-50%);
+    }
+
+    .search-card{
+      display:grid;
+      grid-template-columns:auto minmax(180px,1fr) auto;
+      align-items:center;
+      gap:8px;
+      padding:8px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:rgba(255,255,255,.97);
+      box-shadow:0 6px 24px rgba(23,42,61,.10);
+      backdrop-filter:blur(8px);
+    }
+
+    .brand{
+      min-width:108px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding-right:8px;
+      border-right:1px solid var(--line);
+    }
+    .brand-mark{
+      width:34px;height:34px;display:grid;place-items:center;
+      border-radius:9px;background:var(--navy);color:#fff;
+      font-size:13px;font-weight:800;letter-spacing:-.03em;
+    }
+    .brand-name{font-size:13px;font-weight:800;color:var(--navy)}
+    .brand-sub{margin-top:1px;font-size:9px;font-weight:600;color:var(--muted)}
+
+    .field{
+      width:100%;height:38px;padding:0 11px;
+      border:1px solid #c7d4df;border-radius:8px;
+      background:#fff;color:var(--ink);font-size:12px;outline:0;
+    }
+    .field:focus{border-color:var(--navy-2);outline:3px solid rgba(19,87,136,.10)}
+
+    .search-btn{
+      height:38px;padding:0 14px;border:1px solid var(--navy);border-radius:8px;
+      background:var(--navy);color:#fff;font-size:12px;font-weight:700;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:6px;
+    }
+    .search-btn:hover{background:var(--navy-2)}
+    .search-btn:disabled{opacity:.55;cursor:wait}
+
+    .search-meta{
+      display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+      margin-top:7px;padding:0 3px;
+    }
+    .meta-chip{
+      min-height:25px;display:flex;align-items:center;gap:5px;
+      padding:5px 8px;border:1px solid #d6e1e8;border-radius:999px;
+      background:rgba(255,255,255,.95);color:#50677a;font-size:10px;font-weight:650;
+    }
+    .meta-chip.active{border-color:#c4e8e2;background:var(--teal-soft);color:#08766c}
+    .meta-chip strong{color:var(--navy)}
+
+    .results{
+      margin-top:7px;overflow:hidden;border:1px solid var(--line);border-radius:11px;
+      background:#fff;box-shadow:0 8px 28px rgba(23,42,61,.14);
+    }
+    .results[hidden]{display:none}
+    .result-btn{
+      width:100%;display:flex;align-items:flex-start;gap:9px;padding:10px 11px;
+      border:0;border-bottom:1px solid #edf1f4;background:#fff;color:#31495f;
+      text-align:left;cursor:pointer;font-size:11px;line-height:1.4;
+    }
+    .result-btn:last-child{border-bottom:0}
+    .result-btn:hover{background:#f1f8f8}
+    .result-btn .material-icons-outlined{flex:none;color:var(--teal);font-size:17px}
+    .result-main{font-weight:700;color:#29445c}
+    .result-sub{margin-top:2px;color:#7b8d9b;font-size:9px}
+
+    .bottom-wrap{
+      position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));z-index:45;
+      width:min(760px,calc(100% - 24px));transform:translateX(-50%);
+      display:flex;justify-content:center;pointer-events:none;
+    }
+    .tool-card{
+      max-width:100%;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;
+      padding:7px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.97);
+      box-shadow:0 6px 24px rgba(23,42,61,.12);backdrop-filter:blur(8px);pointer-events:auto;
+    }
+    .tool-card[hidden]{display:none}
+
+    .tool-btn{
+      min-height:36px;display:flex;align-items:center;justify-content:center;gap:6px;
+      padding:0 10px;border:1px solid #b9cad7;border-radius:8px;background:#fff;
+      color:var(--navy);font-size:10px;font-weight:750;cursor:pointer;white-space:nowrap;
+    }
+    .tool-btn:hover{background:#f2f7fa}
+    .tool-btn.primary{border-color:var(--navy);background:var(--navy);color:#fff}
+    .tool-btn.teal{border-color:var(--teal);background:var(--teal);color:#fff}
+    .tool-btn.gold{border-color:#dca924;background:var(--gold);color:#4e3900}
+    .tool-btn.danger{border-color:#efc0c5;background:var(--danger-soft);color:var(--danger)}
+    .tool-btn.active{border-color:var(--teal);background:var(--teal-soft);color:#08766c}
+    .tool-btn:disabled{opacity:.38;cursor:not-allowed}
+
+    .tool-title{
+      min-height:36px;display:flex;align-items:center;gap:7px;
+      padding:0 7px 0 4px;border-right:1px solid var(--line);
+      color:#526a7d;font-size:10px;font-weight:650;white-space:nowrap;
+    }
+    .tool-title strong{color:var(--navy);font-size:11px}
+
+    .toast{
+      position:fixed;left:50%;bottom:92px;z-index:80;
+      transform:translate(-50%,14px);max-width:min(440px,calc(100% - 24px));
+      padding:10px 14px;border-radius:9px;background:#172a3d;color:#fff;
+      font-size:11px;line-height:1.4;text-align:center;opacity:0;pointer-events:none;
+      transition:.18s;
+    }
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+
+    .loading-mask{
+      position:fixed;inset:0;z-index:90;display:grid;place-items:center;
+      background:rgba(245,249,251,.82);opacity:0;pointer-events:none;transition:.18s;
+    }
+    .loading-mask.show{opacity:1;pointer-events:auto}
+    .loading-card{
+      display:flex;align-items:center;gap:10px;padding:12px 14px;
+      border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--navy);
+      font-size:11px;font-weight:700;
+    }
+    .spinner{width:18px;height:18px;border:2px solid #d7e2e8;border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Original Segment Saver edit handles. */
+    .vertex-handle{
+      width:12px;height:12px;border-radius:50%;
+      background:#fff;border:2px solid #3b82f6;
+      box-shadow:0 1px 5px rgba(0,0,0,.6);
+      cursor:grab;transition:transform .1s,background .1s;
+    }
+    .vertex-handle:hover{background:#bfdbfe;transform:scale(1.4)}
+    .vertex-handle.selected{background:#bfdbfe;transform:scale(1.35)}
+    .vertex-handle.drag{cursor:grabbing;background:#bfdbfe;transform:scale(1.5)}
+
+    .mid-handle{
+      width:9px;height:9px;border-radius:50%;
+      background:rgba(30,34,48,.85);border:2px dashed #60a5fa;
+      box-shadow:0 1px 5px rgba(0,0,0,.45);cursor:grab;opacity:.7;
+    }
+    .mid-handle:hover{opacity:1;background:#1d4ed8;border-style:solid;transform:scale(1.5)}
+    .mid-handle.drag{opacity:1;background:#1d4ed8;border-style:solid;transform:scale(1.5)}
+
+    .maplibregl-ctrl-top-right{top:86px;right:8px}
+    .maplibregl-ctrl-group{border:1px solid var(--line)!important;border-radius:9px!important;box-shadow:none!important;overflow:hidden}
+    .maplibregl-ctrl-attrib{font-size:9px!important}
+    .maplibregl-popup-content{padding:10px 11px;border:1px solid var(--line);border-radius:10px;box-shadow:none;font-family:Inter,Arial,sans-serif}
+
+    @media(max-width:680px){
+      .top-shell{top:max(8px,env(safe-area-inset-top));width:calc(100% - 16px)}
+      .search-card{grid-template-columns:minmax(0,1fr) 42px;padding:7px;gap:6px}
+      .brand{display:none}
+      #cityInput{grid-column:1}
+      .search-btn{grid-column:2;padding:0 10px}
+      .search-btn .btn-word{display:none}
+      .search-meta{margin-top:5px}
+      .meta-chip{font-size:9px;min-height:23px;padding:4px 7px}
+      .maplibregl-ctrl-top-right{top:74px}
+      .bottom-wrap{width:calc(100% - 16px);bottom:max(8px,env(safe-area-inset-bottom))}
+      .tool-card{gap:5px;padding:6px;border-radius:12px}
+      .tool-btn{min-height:35px;padding:0 8px;font-size:9px}
+      .tool-btn .material-icons-outlined{font-size:16px}
+      .tool-title{width:100%;justify-content:center;border-right:0;border-bottom:1px solid var(--line);padding:0 4px 5px;min-height:24px}
+      .toast{bottom:112px;font-size:10px}
+    }
+
+    @media(max-width:430px){
+      .search-card{grid-template-columns:minmax(0,1fr) 40px}
+      .field{padding:0 8px;font-size:11px}
+      .search-btn{width:40px;padding:0}
+      .meta-chip:nth-child(n+3){display:none}
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <canvas id="dc" aria-hidden="true"></canvas>
+
+  <div class="top-shell">
+    <div class="search-card">
+      <div class="brand">
+        <div class="brand-mark">SD</div>
+        <div>
+          <div class="brand-name">SegDraw</div>
+          <div class="brand-sub">Segment drawing</div>
+        </div>
+      </div>
+
+      <input id="cityInput" class="field" type="search" autocomplete="off" placeholder="Search city" aria-label="Search city">
+      <button id="searchBtn" class="search-btn" type="button">
+        <span class="material-icons-outlined" aria-hidden="true">search</span>
+        <span class="btn-word">Search</span>
+      </button>
+    </div>
+
+    <div id="searchMeta" class="search-meta">
+      <div id="cityChip" class="meta-chip"><span class="material-icons-outlined">location_city</span><span>Select a city</span></div>
+      <div id="hexChip" class="meta-chip"><span class="material-icons-outlined">hive</span><span>0 hexagons</span></div>
+      <div id="segChip" class="meta-chip"><span class="material-icons-outlined">timeline</span><span>0 segments</span></div>
+      <div id="modeChip" class="meta-chip"><span class="material-icons-outlined">touch_app</span><span>Ready</span></div>
+    </div>
+
+    <div id="results" class="results" hidden></div>
+  </div>
+
+  <div class="bottom-wrap">
+    <div id="idleTools" class="tool-card" hidden>
+      <div class="tool-title"><span>City</span><strong id="idleCity">—</strong></div>
+      <button id="drawBtn" class="tool-btn gold" type="button">
+        <span class="material-icons-outlined">draw</span>Start Drawing <small>D</small>
+      </button>
+      <button id="fitBtn" class="tool-btn" type="button">
+        <span class="material-icons-outlined">center_focus_strong</span>Center city
+      </button>
+    </div>
+
+    <div id="drawTools" class="tool-card" hidden>
+      <div class="tool-title"><span>Drawing</span><strong id="draftName">0 pts</strong></div>
+      <button id="saveNewBtn" class="tool-btn teal" type="button">
+        <span class="material-icons-outlined">check</span>Save Segment <small>S</small>
+      </button>
+      <button id="undoBtn" class="tool-btn" type="button">
+        <span class="material-icons-outlined">undo</span>Undo Last <small>Z</small>
+      </button>
+      <button id="cancelDrawBtn" class="tool-btn" type="button">
+        <span class="material-icons-outlined">close</span>Cancel <small>Esc</small>
+      </button>
+    </div>
+
+    <div id="editTools" class="tool-card" hidden>
+      <div class="tool-title"><span>Editing</span><strong id="editName">Segment</strong></div>
+      <button id="deletePointBtn" class="tool-btn" type="button" disabled title="Mobile alternative to right-clicking a point">
+        <span class="material-icons-outlined">remove_circle_outline</span>Delete point
+      </button>
+      <button id="saveEditBtn" class="tool-btn teal" type="button">
+        <span class="material-icons-outlined">save</span>Save Changes <small>S</small>
+      </button>
+      <button id="deleteSegBtn" class="tool-btn danger" type="button">
+        <span class="material-icons-outlined">delete_outline</span>Delete <small>Del</small>
+      </button>
+      <button id="cancelEditBtn" class="tool-btn" type="button">
+        <span class="material-icons-outlined">close</span>Cancel <small>Esc</small>
+      </button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="loading" class="loading-mask" aria-hidden="true">
+    <div class="loading-card"><div class="spinner"></div><span id="loadingText">Loading…</span></div>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+    import {
+      getDatabase, ref, get, update, push, runTransaction, serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
+
+    /* ================================================================
+       SEGDraw uses ONLY this new root in the existing tracking database.
+       It does not read/write campaigns, previous zones, or old segments.
+       ================================================================ */
+    const app = initializeApp({
+      apiKey:'AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA',
+      authDomain:'trackingclients.firebaseapp.com',
+      projectId:'trackingclients',
+      storageBucket:'trackingclients.appspot.com',
+      messagingSenderId:'27490943622',
+      appId:'1:27490943622:web:d6c87547aa5df440508707',
+      databaseURL:'https://trackingclients-default-rtdb.firebaseio.com/'
+    });
+    const db = getDatabase(app);
+
+    const ROOT = 'segdraw_v1';
+    const AREA_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+
+    const $ = id => document.getElementById(id);
+    const els = {
+      city: $('cityInput'), search: $('searchBtn'), results: $('results'),
+      cityChip: $('cityChip'), hexChip: $('hexChip'), segChip: $('segChip'), modeChip: $('modeChip'),
+      idleTools: $('idleTools'), drawTools: $('drawTools'), editTools: $('editTools'), idleCity: $('idleCity'),
+      drawBtn: $('drawBtn'), fitBtn: $('fitBtn'), undoBtn: $('undoBtn'),
+      saveNewBtn: $('saveNewBtn'), cancelDrawBtn: $('cancelDrawBtn'), draftName: $('draftName'),
+      editName: $('editName'), deletePointBtn: $('deletePointBtn'),
+      saveEditBtn: $('saveEditBtn'), deleteSegBtn: $('deleteSegBtn'), cancelEditBtn: $('cancelEditBtn'),
+      canvas: $('dc'), toast: $('toast'), loading: $('loading'), loadingText: $('loadingText')
+    };
+
+    const fc = (features=[]) => ({ type:'FeatureCollection', features });
+    const feat = (type, coordinates, properties={}) => ({ type:'Feature', properties, geometry:{ type, coordinates } });
+    const closeRing = points => points.length >= 3 ? [...points, points[0]] : [];
+
+    let mapReady = false;
+    let selectedCity = null; // {feature, cityName, cityKey, query, areaId}
+    let hexagons = [];
+    let hexMeta = [];
+    let visibleSegments = new Map(); // key -> segment
+
+    let mode = 'idle'; // idle | drawing | editing
+    let draftCoords = [];
+    let drawActive = false;
+    let lastDrawPx = null;
+    let touchPointer = null;
+
+    const ctx = els.canvas.getContext('2d');
+
+    let editKey = null;
+    let editCoords = [];
+    let editMarkers = [];
+    let selectedVertex = -1;
+    let editDirty = false;
+
+    let citySearchResults = [];
+    let loadingDepth = 0;
+
+    /* ---------------- MAP ---------------- */
+    const map = new maplibregl.Map({
+      container:'map',
+      // Start with a Europe-wide overview instead of Leuven.
+      bounds:[[-12,34],[35,72]],
+      fitBoundsOptions:{ padding:24, maxZoom:4.6 },
+      minZoom:2.4,
+      maxZoom:20,
+      attributionControl:true,
+      // OpenFreeMap Liberty: vector streets, no API key required.
+      style:'https://tiles.openfreemap.org/styles/liberty'
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ showCompass:false }), 'top-right');
+
+    map.on('load', () => {
+      // Searched city/area boundary. A soft wash + white casing + navy line
+      // makes the selected area obvious without hiding street labels.
+      map.addSource('search-area', { type:'geojson', data:fc() });
+      map.addLayer({
+        id:'search-area-fill', type:'fill', source:'search-area',
+        paint:{ 'fill-color':'#16a394', 'fill-opacity':0.045 }
+      });
+      map.addLayer({
+        id:'search-area-casing', type:'line', source:'search-area',
+        paint:{
+          'line-color':'#ffffff',
+          'line-width':['interpolate',['linear'],['zoom'],6,5,10,7,14,9],
+          'line-opacity':0.9
+        },
+        layout:{ 'line-cap':'round', 'line-join':'round' }
+      });
+      map.addLayer({
+        id:'search-area-line', type:'line', source:'search-area',
+        paint:{
+          'line-color':'#0b3b66',
+          'line-width':['interpolate',['linear'],['zoom'],6,2.4,10,3.3,14,4.4],
+          'line-opacity':0.98
+        },
+        layout:{ 'line-cap':'round', 'line-join':'round' }
+      });
+
+      map.addSource('hexes', { type:'geojson', data:fc() });
+      map.addLayer({
+        id:'hex-fill', type:'fill', source:'hexes',
+        paint:{ 'fill-color':'#ffffff', 'fill-opacity':0 }
+      });
+      // A thin white under-line keeps hex borders visible over dark roads/labels.
+      map.addLayer({
+        id:'hex-casing', type:'line', source:'hexes',
+        paint:{
+          'line-color':'#ffffff',
+          'line-width':['interpolate',['linear'],['zoom'],8,2.2,12,2.8,15,3.4,18,4],
+          'line-opacity':0.8
+        },
+        layout:{ 'line-cap':'round', 'line-join':'round' }
+      });
+      map.addLayer({
+        id:'hex-line', type:'line', source:'hexes',
+        paint:{
+          'line-color':'#425a6b',
+          'line-width':['interpolate',['linear'],['zoom'],8,1.15,12,1.45,15,1.8,18,2.2],
+          'line-opacity':['interpolate',['linear'],['zoom'],7,.72,11,.86,15,.96]
+        },
+        layout:{ 'line-cap':'round', 'line-join':'round' }
+      });
+
+      map.addSource('segments', { type:'geojson', data:fc() });
+      map.addLayer({
+        id:'segment-hit', type:'line', source:'segments',
+        paint:{ 'line-color':'#000000', 'line-opacity':0.01, 'line-width':18 }
+      });
+      map.addLayer({
+        id:'segment-lines', type:'line', source:'segments',
+        paint:{
+          'line-color':'#0b3b66',
+          'line-width':['interpolate',['linear'],['zoom'],10,2,14,3.2,17,4.2],
+          'line-opacity':.92
+        },
+        layout:{ 'line-cap':'round', 'line-join':'round' }
+      });
+
+      map.addSource('segment-labels', { type:'geojson', data:fc() });
+      map.addLayer({
+        id:'segment-labels', type:'symbol', source:'segment-labels', minzoom:13,
+        layout:{
+          'text-field':['get','name'],
+          'text-size':10,
+          'text-font':['Open Sans Regular'],
+          'text-allow-overlap':false,
+          'text-padding':3
+        },
+        paint:{
+          'text-color':'#0b3b66',
+          'text-halo-color':'rgba(255,255,255,.96)',
+          'text-halo-width':2
+        }
+      });
+
+      map.addSource('draft', { type:'geojson', data:fc() });
+      map.addLayer({
+        id:'draft-glow', type:'line', source:'draft',
+        paint:{ 'line-color':'#efb92f', 'line-opacity':.28, 'line-width':10 },
+        layout:{ 'line-cap':'round', 'line-join':'round' }
+      });
+      map.addLayer({
+        id:'draft-line', type:'line', source:'draft',
+        paint:{ 'line-color':'#c78900', 'line-width':3.5 },
+        layout:{ 'line-cap':'round', 'line-join':'round' }
+      });
+
+      map.addSource('editLine', { type:'geojson', data:fc() });
+      map.addLayer({
+        id:'edit-line', type:'line', source:'editLine',
+        paint:{ 'line-color':'#ef4444', 'line-width':5, 'line-opacity':1 },
+        layout:{ 'line-cap':'round', 'line-join':'round' }
+      });
+
+      mapReady = true;
+      renderSearchArea();
+      renderHexes();
+      renderSegments();
+      syncUI();
+    });
+
+    map.on('mouseenter', 'segment-hit', () => {
+      if (mode === 'idle') map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', 'segment-hit', () => {
+      if (mode === 'idle') map.getCanvas().style.cursor = '';
+    });
+    map.on('click', 'segment-hit', event => {
+      if (mode !== 'idle') return;
+      const feature = event.features?.[0];
+      const key = feature?.properties?.key;
+      if (!key || !visibleSegments.has(key)) return;
+      event.originalEvent?.stopPropagation?.();
+      selectSegment(key);
+    });
+
+    // Original Segment Saver flow: while paused, click the map to start/resume tracing.
+    map.on('click', event => {
+      if (mode !== 'drawing' || drawActive) return;
+      const ll = map.unproject([event.point.x,event.point.y]);
+      draftCoords.push([ll.lng,ll.lat]);
+      lastDrawPx = [event.point.x,event.point.y];
+      redrawCanvas();
+      setDrawActive(true);
+    });
+
+    map.on('move', () => { if (mode === 'drawing') redrawCanvas(); });
+    map.on('zoom', () => { if (mode === 'drawing') redrawCanvas(); });
+
+    /* ---------------- BASIC HELPERS ---------------- */
+    function cityKeyFromName(name){
+      return String(name||'city')
+        .normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+        .toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'city';
+    }
+    function segmentPrefix(name){
+      const clean = String(name||'City')
+        .normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^A-Za-z0-9]+/g,'');
+      return clean || 'City';
+    }
+    function deriveCityName(feature, query){
+      const a = feature?.properties?.address || {};
+      return a.city || a.town || a.municipality || a.village || a.hamlet ||
+        String(feature?.properties?.display_name || query || 'City').split(',')[0].trim();
+    }
+    function bboxOverlap(a,b){
+      return a && b && a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
+    }
+    function coordsBBox(coords){
+      let west=Infinity,south=Infinity,east=-Infinity,north=-Infinity;
+      coords.forEach(([lng,lat])=>{
+        west=Math.min(west,lng); east=Math.max(east,lng);
+        south=Math.min(south,lat); north=Math.max(north,lat);
+      });
+      return [west,south,east,north];
+    }
+    function midpoint(coords){
+      if (!coords?.length) return [0,0];
+      if (coords.length === 1) return coords[0];
+      let total = 0;
+      const lens = [];
+      for (let i=0;i<coords.length-1;i++){
+        const a=coords[i],b=coords[i+1];
+        const d=Math.hypot(b[0]-a[0],b[1]-a[1]); lens.push(d); total+=d;
+      }
+      let target=total/2;
+      for (let i=0;i<lens.length;i++){
+        if (target <= lens[i]){
+          const t=lens[i] ? target/lens[i] : 0;
+          return [coords[i][0]+(coords[i+1][0]-coords[i][0])*t, coords[i][1]+(coords[i+1][1]-coords[i][1])*t];
+        }
+        target -= lens[i];
+      }
+      return coords[coords.length-1];
+    }
+    function toast(message){
+      els.toast.textContent = message;
+      els.toast.classList.add('show');
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(()=>els.toast.classList.remove('show'), 2500);
+    }
+    function showLoading(text){
+      loadingDepth++;
+      els.loadingText.textContent = text || 'Loading…';
+      els.loading.classList.add('show');
+      els.loading.setAttribute('aria-hidden','false');
+    }
+    function hideLoading(){
+      loadingDepth = Math.max(0, loadingDepth-1);
+      if (!loadingDepth){
+        els.loading.classList.remove('show');
+        els.loading.setAttribute('aria-hidden','true');
+      }
+    }
+    function setModeChip(text, active=false){
+      els.modeChip.classList.toggle('active', active);
+      els.modeChip.querySelector('span:last-child').textContent = text;
+    }
+
+    /* ---------------- CITY SEARCH ---------------- */
+    async function searchCity(){
+      const query = els.city.value.trim();
+      if (query.length < 2){ toast('Enter a city name.'); return; }
+      els.search.disabled = true;
+      els.search.innerHTML = '<span class="material-icons-outlined">hourglass_top</span><span class="btn-word">Searching</span>';
+      els.results.hidden = true;
+      try{
+        const url = `${AREA_SEARCH_URL}?format=geojson&polygon_geojson=1&addressdetails=1&limit=10&viewbox=-25,72,60,32&bounded=1&q=${encodeURIComponent(query)}`;
+        const response = await fetch(url, { headers:{ 'Accept':'application/geo+json,application/json' } });
+        if (!response.ok) throw new Error('City search unavailable');
+        const data = await response.json();
+        citySearchResults = (data.features||[])
+          .filter(f => ['Polygon','MultiPolygon'].includes(f.geometry?.type))
+          .map((f,index)=>({
+            ...f,
+            properties:{
+              ...(f.properties||{}),
+              _searchIndex:index,
+              _query:query,
+              _areaId:`${f.properties?.osm_type||'area'}-${f.properties?.osm_id||index}`
+            }
+          }));
+
+        if (!citySearchResults.length){
+          toast('No selectable city boundary found.');
+          renderResults([]);
+          return;
+        }
+        renderResults(citySearchResults);
+        await chooseCity(citySearchResults[0]);
+      }catch(error){
+        console.error(error);
+        toast('City search is temporarily unavailable.');
+      }finally{
+        els.search.disabled = false;
+        els.search.innerHTML = '<span class="material-icons-outlined">search</span><span class="btn-word">Search</span>';
+      }
+    }
+
+    function renderResults(list){
+      if (!list?.length){ els.results.hidden = true; els.results.innerHTML=''; return; }
+      els.results.innerHTML = list.map((item,index)=>{
+        const city = deriveCityName(item, item.properties?._query);
+        const display = item.properties?.display_name || city;
+        return `<button type="button" class="result-btn" data-result="${index}">
+          <span class="material-icons-outlined">location_on</span>
+          <span><div class="result-main">${escapeHtml(city)}</div><div class="result-sub">${escapeHtml(display)}</div></span>
+        </button>`;
+      }).join('');
+      els.results.hidden = false;
+    }
+
+    async function chooseCity(feature){
+      if (!feature) return;
+      if (!canDiscardWork()) return;
+
+      exitEdit(false, true);
+      cancelDraw(true);
+
+      const cityName = deriveCityName(feature, feature.properties?._query || els.city.value.trim());
+      selectedCity = {
+        feature,
+        cityName,
+        cityKey:cityKeyFromName(cityName),
+        query:feature.properties?._query || els.city.value.trim(),
+        areaId:feature.properties?._areaId || 'area'
+      };
+      els.city.value = cityName;
+      els.results.hidden = true;
+      els.idleCity.textContent = cityName;
+
+      renderSearchArea();
+      generateHexagons(feature);
+      fitCity();
+      syncUI();
+
+      showLoading(`Loading ${cityName} segments…`);
+      try{
+        await loadSegmentsForSelectedCity();
+      }catch(error){
+        console.error(error);
+        toast('Segments could not be loaded.');
+      }finally{
+        hideLoading();
+        syncUI();
+      }
+    }
+
+    function fitCity(){
+      if (!selectedCity?.feature || !window.turf) return;
+      const b = turf.bbox(selectedCity.feature);
+      map.fitBounds([[b[0],b[1]],[b[2],b[3]]], { padding:{top:125,bottom:100,left:30,right:30}, maxZoom:15.5, duration:550 });
+    }
+
+    function generateHexagons(area){
+      hexagons = [];
+      hexMeta = [];
+      if (!area?.geometry || !window.turf){ renderHexes(); return; }
+      try{
+        const cityArea = Math.max(turf.area(area)/1e6,.01);
+        const bounds = turf.bbox(area);
+        let side = Math.max(.18, Math.min(4, Math.sqrt(cityArea/(90*2.598))));
+        let grid;
+        for (let attempt=0; attempt<4; attempt++){
+          grid = turf.hexGrid(bounds, side, { units:'kilometers', mask:area });
+          if ((grid.features?.length||0) <= 180) break;
+          side *= 1.35;
+        }
+        for (let attempt=0; attempt<3 && !(grid?.features?.length); attempt++){
+          side = Math.max(.04, side/1.7);
+          grid = turf.hexGrid(bounds, side, { units:'kilometers', mask:area });
+        }
+        hexagons = grid?.features || [];
+        hexMeta = hexagons.map(feature=>({ feature, bbox:turf.bbox(feature) }));
+      }catch(error){
+        console.error(error);
+        hexagons = []; hexMeta = [];
+        toast('The city hexagons could not be created.');
+      }
+      renderHexes();
+    }
+
+    function renderSearchArea(){
+      if (!mapReady) return;
+      const feature = selectedCity?.feature;
+      map.getSource('search-area')?.setData(feature ? fc([feature]) : fc());
+    }
+
+    function renderHexes(){
+      if (!mapReady) return;
+      map.getSource('hexes')?.setData(fc(hexagons));
+    }
+
+    /* ---------------- FIREBASE SEGMENTS ---------------- */
+    function parseSegment(raw, key){
+      if (!raw) return null;
+      const list = Array.isArray(raw.coords)
+        ? raw.coords
+        : Object.keys(raw.coords||{}).filter(k=>!isNaN(+k)).sort((a,b)=>+a-+b).map(k=>raw.coords[k]);
+      const coords = list.map(p => [Number(p.lng ?? p[0]), Number(p.lat ?? p[1])])
+        .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+      if (coords.length < 2) return null;
+      return {
+        key,
+        name:String(raw.name||'Segment'),
+        cityKey:String(raw.cityKey||''),
+        cityName:String(raw.cityName||''),
+        coords,
+        bbox:Array.isArray(raw.bbox) && raw.bbox.length===4 ? raw.bbox.map(Number) : coordsBBox(coords),
+        createdAt:raw.createdAt||null,
+        updatedAt:raw.updatedAt||null
+      };
+    }
+
+    function touchesSelectedHexes(coords){
+      if (!coords?.length || !hexMeta.length || !window.turf) return false;
+      const line = turf.lineString(coords);
+      const lineBox = turf.bbox(line);
+      for (const h of hexMeta){
+        if (!bboxOverlap(lineBox, h.bbox)) continue;
+        try{ if (turf.booleanIntersects(line, h.feature)) return true; }catch{}
+      }
+      return false;
+    }
+
+    async function loadSegmentsForSelectedCity(){
+      visibleSegments.clear();
+      renderSegments();
+      if (!selectedCity) return;
+
+      const indexSnap = await get(ref(db, `${ROOT}/segmentIndex`));
+      const index = indexSnap.val() || {};
+      const cityBox = turf.bbox(selectedCity.feature);
+
+      const candidateKeys = Object.entries(index)
+        .filter(([,item]) => {
+          if (!item) return false;
+          if (item.cityKey === selectedCity.cityKey) return true;
+          const b = [Number(item.west),Number(item.south),Number(item.east),Number(item.north)];
+          return b.every(Number.isFinite) && bboxOverlap(cityBox,b);
+        })
+        .map(([key])=>key);
+
+      if (!candidateKeys.length){ renderSegments(); return; }
+
+      const snaps = await Promise.all(candidateKeys.map(key => get(ref(db, `${ROOT}/segments/${key}`))));
+      snaps.forEach((snap,indexNo)=>{
+        if (!snap.exists()) return;
+        const seg = parseSegment(snap.val(), candidateKeys[indexNo]);
+        if (!seg) return;
+        if (seg.cityKey === selectedCity.cityKey || touchesSelectedHexes(seg.coords)){
+          visibleSegments.set(seg.key, seg);
+        }
+      });
+      renderSegments();
+    }
+
+    async function nextSegmentName(){
+      if (!selectedCity) throw new Error('No city selected');
+      const counterRef = ref(db, `${ROOT}/cities/${selectedCity.cityKey}/counter`);
+      const result = await runTransaction(counterRef, current => (Number(current)||0)+1, { applyLocally:false });
+      if (!result.committed) throw new Error('Counter update failed');
+      const n = Number(result.snapshot.val()) || 1;
+      return `${segmentPrefix(selectedCity.cityName)}${String(n).padStart(2,'0')}`;
+    }
+
+    async function saveNewSegment(){
+      if (!selectedCity) { toast('Select a city first.'); return; }
+      if (draftCoords.length < 2){ toast('Draw at least two points.'); return; }
+
+      const coords = draftCoords.length > 900 ? simplifyCoordsForEdit(draftCoords,1.25) : draftCoords.map(c=>[...c]);
+      if (coords.length < 2){ toast('Draw a longer segment.'); return; }
+
+      showLoading('Saving segment…');
+      try{
+        const name = await nextSegmentName();
+        const segmentRef = push(ref(db, `${ROOT}/segments`));
+        const key = segmentRef.key;
+        const bbox = coordsBBox(coords);
+        const now = Date.now();
+        const data = {
+          name,
+          cityKey:selectedCity.cityKey,
+          cityName:selectedCity.cityName,
+          citySearch:selectedCity.query,
+          cityAreaId:selectedCity.areaId,
+          coords:coords.map(([lng,lat])=>({lat,lng})),
+          bbox,
+          createdClientAt:now,
+          updatedClientAt:now,
+          createdAt:serverTimestamp(),
+          updatedAt:serverTimestamp()
+        };
+        const updates = {};
+        updates[`${ROOT}/segments/${key}`] = data;
+        updates[`${ROOT}/segmentIndex/${key}`] = {
+          name,cityKey:selectedCity.cityKey,cityName:selectedCity.cityName,
+          west:bbox[0],south:bbox[1],east:bbox[2],north:bbox[3],updatedClientAt:now
+        };
+        updates[`${ROOT}/cities/${selectedCity.cityKey}/name`] = selectedCity.cityName;
+        updates[`${ROOT}/cities/${selectedCity.cityKey}/segments/${key}`] = true;
+        await update(ref(db), updates);
+
+        const local = parseSegment(data, key);
+        local.createdAt = now; local.updatedAt = now;
+        visibleSegments.set(key, local);
+        finishDrawAfterSave();
+        renderSegments();
+        enterEdit(key);
+        toast(`${name} saved. Drag the dots to fine-tune it.`);
+      }catch(error){
+        console.error(error);
+        toast('Segment could not be saved.');
+      }finally{
+        hideLoading();
+      }
+    }
+
+    async function saveEditedSegment(){
+      if (!editKey || !visibleSegments.has(editKey)) return;
+      const original = visibleSegments.get(editKey);
+      if (editCoords.length < 2){ toast('A segment needs at least two points.'); return; }
+
+      const coords = simplifyCoordsForEdit(editCoords, 1.25);
+      const bbox = coordsBBox(coords);
+      const now = Date.now();
+      showLoading('Saving changes…');
+      try{
+        const updates = {};
+        updates[`${ROOT}/segments/${editKey}/coords`] = coords.map(([lng,lat])=>({lat,lng}));
+        updates[`${ROOT}/segments/${editKey}/bbox`] = bbox;
+        updates[`${ROOT}/segments/${editKey}/updatedClientAt`] = now;
+        updates[`${ROOT}/segments/${editKey}/updatedAt`] = serverTimestamp();
+        updates[`${ROOT}/segmentIndex/${editKey}/west`] = bbox[0];
+        updates[`${ROOT}/segmentIndex/${editKey}/south`] = bbox[1];
+        updates[`${ROOT}/segmentIndex/${editKey}/east`] = bbox[2];
+        updates[`${ROOT}/segmentIndex/${editKey}/north`] = bbox[3];
+        updates[`${ROOT}/segmentIndex/${editKey}/updatedClientAt`] = now;
+        await update(ref(db), updates);
+
+        original.coords = coords;
+        original.bbox = bbox;
+        original.updatedAt = now;
+        editCoords = coords.map(c=>[...c]);
+        editDirty = false;
+        buildEditHandles();
+        updateEditLine();
+        renderSegments();
+        toast('Changes saved.');
+      }catch(error){
+        console.error(error);
+        toast('Changes could not be saved.');
+      }finally{
+        hideLoading();
+      }
+    }
+
+    async function deleteEditedSegment(){
+      if (!editKey || !visibleSegments.has(editKey)) return;
+      const seg = visibleSegments.get(editKey);
+      if (!confirm(`Delete ${seg.name}?`)) return;
+
+      showLoading('Deleting segment…');
+      try{
+        const updates = {};
+        updates[`${ROOT}/segments/${editKey}`] = null;
+        updates[`${ROOT}/segmentIndex/${editKey}`] = null;
+        updates[`${ROOT}/cities/${seg.cityKey}/segments/${editKey}`] = null;
+        await update(ref(db), updates);
+        const oldKey = editKey;
+        exitEdit(false, true);
+        visibleSegments.delete(oldKey);
+        renderSegments();
+        toast(`${seg.name} deleted.`);
+      }catch(error){
+        console.error(error);
+        toast('Segment could not be deleted.');
+      }finally{
+        hideLoading();
+      }
+    }
+
+    /* ---------------- RENDER SEGMENTS ---------------- */
+    function renderSegments(){
+      if (!mapReady) return;
+      const lineFeatures = [];
+      const labelFeatures = [];
+      visibleSegments.forEach(seg=>{
+        if (seg.key === editKey) return;
+        lineFeatures.push(feat('LineString', seg.coords, { key:seg.key, name:seg.name }));
+        labelFeatures.push(feat('Point', midpoint(seg.coords), { key:seg.key, name:seg.name }));
+      });
+      map.getSource('segments')?.setData(fc(lineFeatures));
+      map.getSource('segment-labels')?.setData(fc(labelFeatures));
+      syncMeta();
+    }
+
+    function escapeHtml(value){
+      return String(value??'').replace(/[&<>"']/g,c=>({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
+    }
+
+    /* ---------------- DRAWING ---------------- */
+    function resizeCanvas(){
+      const dpr = window.devicePixelRatio || 1;
+      const w = window.innerWidth, h = window.innerHeight;
+      els.canvas.style.width = `${w}px`;
+      els.canvas.style.height = `${h}px`;
+      els.canvas.width = Math.round(w*dpr);
+      els.canvas.height = Math.round(h*dpr);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      redrawCanvas();
+    }
+
+    function redrawCanvas(){
+      const w=window.innerWidth,h=window.innerHeight;
+      ctx.clearRect(0,0,w,h);
+      if (draftCoords.length < 2) return;
+      const pts=draftCoords.map(c=>map.project(c));
+
+      ctx.beginPath();
+      pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+      ctx.strokeStyle='rgba(251,191,36,.35)';
+      ctx.lineWidth=8;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
+
+      ctx.beginPath();
+      pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+      ctx.strokeStyle='#fbbf24';ctx.lineWidth=3;ctx.stroke();
+
+      ctx.beginPath();ctx.arc(pts[0].x,pts[0].y,6,0,Math.PI*2);
+      ctx.fillStyle='#22c55e';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+
+      const ep=pts[pts.length-1];
+      ctx.beginPath();ctx.arc(ep.x,ep.y,5,0,Math.PI*2);
+      ctx.fillStyle='#f97316';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    }
+
+    function enterDraw(){
+      if (!selectedCity){ toast('Search and select a city first.'); return; }
+      if (mode === 'editing') exitEdit(false,true);
+      mode='drawing';
+      draftCoords=[];
+      drawActive=false;
+      lastDrawPx=null;
+      touchPointer=null;
+      els.canvas.style.pointerEvents='none';
+      els.canvas.style.cursor='default';
+      map.dragPan.enable();
+      map.getCanvas().style.cursor='';
+      resizeCanvas();
+      syncUI();
+      setModeChip('Draw Mode',true);
+      toast('Click anywhere on the map to start drawing your segment.');
+    }
+
+    function setDrawActive(active){
+      drawActive=!!active;
+      if (drawActive){
+        els.canvas.style.pointerEvents='all';
+        els.canvas.style.cursor='crosshair';
+        map.dragPan.disable();
+        map.getCanvas().style.cursor='crosshair';
+        setModeChip('Tracing…',true);
+      }else{
+        els.canvas.style.pointerEvents='none';
+        els.canvas.style.cursor='default';
+        map.dragPan.enable();
+        map.getCanvas().style.cursor='';
+        setModeChip(draftCoords.length ? 'Paused — click map to resume' : 'Draw Mode',true);
+      }
+      updateDraftLine();
+    }
+
+    function recordCanvasPoint(clientX,clientY,force=false){
+      const x=clientX,y=clientY;
+      if (lastDrawPx && !force){
+        const dx=x-lastDrawPx[0],dy=y-lastDrawPx[1];
+        if (dx*dx+dy*dy < 16) return;
+      }
+      const ll=map.unproject([x,y]);
+      draftCoords.push([ll.lng,ll.lat]);
+      lastDrawPx=[x,y];
+      redrawCanvas();
+      updateDraftLine();
+    }
+
+    // Desktop: exactly like the attached Segment Saver — hover/move traces continuously.
+    els.canvas.addEventListener('mousemove',event=>{
+      if (mode!=='drawing' || !drawActive || touchPointer!==null) return;
+      recordCanvasPoint(event.clientX,event.clientY,false);
+    });
+
+    // Clicking the active drawing canvas pauses tracing, just like the original.
+    els.canvas.addEventListener('click',event=>{
+      if (mode!=='drawing' || !drawActive) return;
+      if (event.pointerType==='touch') return;
+      event.preventDefault();event.stopPropagation();
+      setDrawActive(false);
+    });
+
+    // Mobile/pen fallback: drag a finger/stylus to trace; lifting pauses.
+    els.canvas.addEventListener('pointerdown',event=>{
+      if (mode!=='drawing' || !drawActive || event.pointerType==='mouse') return;
+      event.preventDefault();
+      touchPointer=event.pointerId;
+      els.canvas.setPointerCapture?.(event.pointerId);
+      recordCanvasPoint(event.clientX,event.clientY,true);
+    });
+    els.canvas.addEventListener('pointermove',event=>{
+      if (mode!=='drawing' || !drawActive || touchPointer!==event.pointerId) return;
+      event.preventDefault();
+      recordCanvasPoint(event.clientX,event.clientY,false);
+    });
+    const finishTouch=event=>{
+      if (touchPointer!==event.pointerId) return;
+      event.preventDefault();
+      recordCanvasPoint(event.clientX,event.clientY,true);
+      touchPointer=null;
+      setDrawActive(false);
+    };
+    els.canvas.addEventListener('pointerup',finishTouch);
+    els.canvas.addEventListener('pointercancel',event=>{
+      if(touchPointer===event.pointerId){touchPointer=null;setDrawActive(false)}
+    });
+    els.canvas.addEventListener('contextmenu',event=>event.preventDefault());
+
+    function cancelDraw(silent=false){
+      if (mode!=='drawing' && !draftCoords.length) return;
+      mode='idle';draftCoords=[];drawActive=false;lastDrawPx=null;touchPointer=null;
+      els.canvas.style.pointerEvents='none';els.canvas.style.cursor='default';
+      map.dragPan.enable();map.getCanvas().style.cursor='';
+      ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+      updateDraftLine();syncUI();
+      if(!silent) toast('Drawing cancelled.');
+    }
+
+    function finishDrawAfterSave(){
+      mode='idle';draftCoords=[];drawActive=false;lastDrawPx=null;touchPointer=null;
+      els.canvas.style.pointerEvents='none';els.canvas.style.cursor='default';
+      map.dragPan.enable();map.getCanvas().style.cursor='';
+      ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+      updateDraftLine();syncUI();
+    }
+
+    function updateDraftLine(){
+      // The live line is drawn on canvas to match the original Segment Saver UI.
+      map.getSource('draft')?.setData(fc());
+      els.undoBtn.disabled=draftCoords.length<2;
+      els.saveNewBtn.disabled=draftCoords.length<2;
+      els.draftName.textContent=`${draftCoords.length} pts`;
+      if(mode==='drawing') redrawCanvas();
+    }
+
+    function undoDraft(){
+      if(draftCoords.length<2) return;
+      const n=Math.max(1,Math.floor(draftCoords.length*.08));
+      draftCoords.splice(-n,n);
+      lastDrawPx=draftCoords.length?(()=>{const p=map.project(draftCoords[draftCoords.length-1]);return[p.x,p.y]})():null;
+      redrawCanvas();updateDraftLine();
+      toast(`Undid ~${n} points. ${draftCoords.length} remaining.`);
+    }
+
+    window.addEventListener('resize',resizeCanvas);
+
+    /* ---------------- EDITING ---------------- */
+    function selectSegment(key){
+      const seg = visibleSegments.get(key);
+      if (!seg) return;
+      enterEdit(key);
+    }
+
+    function enterEdit(key){
+      const seg = visibleSegments.get(key);
+      if (!seg) return;
+      if (mode === 'drawing') cancelDraw(true);
+      if (mode === 'editing') exitEdit(false, true);
+      mode = 'editing';
+      editKey = key;
+      editCoords = seg.coords.map(c=>[...c]);
+      selectedVertex = -1;
+      editDirty = false;
+      renderSegments();
+      updateEditLine();
+      buildEditHandles();
+      syncUI();
+      toast('Drag dots to adjust · drag dashed dots to add points · right-click a dot to delete it · S to save.');
+    }
+
+    function exitEdit(saveNothing=false, silent=false){
+      if (mode !== 'editing' && !editKey) return;
+      clearEditHandles();
+      editKey = null;
+      editCoords = [];
+      selectedVertex = -1;
+      editDirty = false;
+      mode = 'idle';
+      map.getSource('editLine')?.setData(fc());
+      renderSegments();
+      syncUI();
+      if (!silent && saveNothing) toast('Changes discarded.');
+    }
+
+    function updateEditLine(){
+      if (!mapReady) return;
+      map.getSource('editLine')?.setData(editCoords.length>=2 ? fc([feat('LineString',editCoords)]) : fc());
+      els.deletePointBtn.disabled = selectedVertex < 0 || editCoords.length <= 2;
+    }
+
+    function clearEditHandles(){
+      editMarkers.forEach(m=>m.remove());
+      editMarkers=[];
+    }
+
+    function buildEditHandles(){
+      clearEditHandles();
+      if (!editKey) return;
+
+      // Solid dots = real vertices. Drag to adjust; right-click to delete.
+      editCoords.forEach((coord,index)=>{
+        const el=document.createElement('div');
+        el.className='vertex-handle'+(selectedVertex===index?' selected':'');
+        el.title=`Point ${index+1} · drag to move · right-click to delete`;
+        const marker=new maplibregl.Marker({element:el,anchor:'center',draggable:true})
+          .setLngLat(coord).addTo(map);
+
+        marker.on('dragstart',()=>{
+          selectedVertex=index;el.classList.add('drag','selected');
+          els.deletePointBtn.disabled=editCoords.length<=2;
+        });
+        marker.on('drag',()=>{
+          const ll=marker.getLngLat();editCoords[index]=[ll.lng,ll.lat];
+          editDirty=true;updateEditLine();
+        });
+        marker.on('dragend',()=>{
+          el.classList.remove('drag');editDirty=true;buildEditHandles();
+        });
+        el.addEventListener('click',event=>{
+          event.stopPropagation();selectedVertex=index;buildEditHandles();updateEditLine();
+        });
+        el.addEventListener('contextmenu',event=>{
+          event.preventDefault();event.stopPropagation();
+          if(editCoords.length<=2){toast('A segment needs at least 2 points.');return;}
+          editCoords.splice(index,1);selectedVertex=-1;editDirty=true;
+          updateEditLine();buildEditHandles();
+        });
+        editMarkers.push(marker);
+      });
+
+      // Dashed dots = midpoint insertion handles, matching the attached app.
+      for(let i=0;i<editCoords.length-1;i++){
+        const a=editCoords[i],b=editCoords[i+1];
+        const mid=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+        const el=document.createElement('div');el.className='mid-handle';
+        el.title='Drag to insert a new point';
+        const marker=new maplibregl.Marker({element:el,anchor:'center',draggable:true})
+          .setLngLat(mid).addTo(map);
+        let insertedAt=-1;
+        marker.on('dragstart',()=>{
+          el.classList.add('drag');insertedAt=i+1;
+          editCoords.splice(insertedAt,0,[...mid]);selectedVertex=insertedAt;editDirty=true;
+        });
+        marker.on('drag',()=>{
+          if(insertedAt<0)return;
+          const ll=marker.getLngLat();editCoords[insertedAt]=[ll.lng,ll.lat];updateEditLine();
+        });
+        marker.on('dragend',()=>{
+          el.classList.remove('drag');insertedAt=-1;editDirty=true;buildEditHandles();
+        });
+        // Tap/click is a mobile convenience; dragging still behaves exactly like the original.
+        el.addEventListener('click',event=>{
+          event.stopPropagation();
+          if(insertedAt>=0)return;
+          const at=i+1;editCoords.splice(at,0,[...mid]);selectedVertex=at;editDirty=true;
+          updateEditLine();buildEditHandles();
+        });
+        editMarkers.push(marker);
+      }
+    }
+
+    function deleteSelectedVertex(){
+      if (selectedVertex < 0) return;
+      if (editCoords.length <= 2){ toast('A segment needs at least two points.'); return; }
+      editCoords.splice(selectedVertex,1);
+      selectedVertex=-1;
+      editDirty=true;
+      updateEditLine();
+      buildEditHandles();
+    }
+
+    /* Screen-space Douglas-Peucker keeps freehand drawing smooth but avoids
+       hundreds of edit handles. */
+    function simplifyCoordsForEdit(coords, tolerancePx=2){
+      if (coords.length <= 3) return coords.map(c=>[...c]);
+      const points = coords.map(c=>{
+        const p=map.project(c); return {x:p.x,y:p.y,coord:c};
+      });
+      const sqTol=tolerancePx*tolerancePx;
+      const keep=new Uint8Array(points.length);
+      keep[0]=1;keep[points.length-1]=1;
+
+      function sqSegDist(p,a,b){
+        let x=a.x,y=a.y,dx=b.x-x,dy=b.y-y;
+        if (dx!==0 || dy!==0){
+          const t=((p.x-x)*dx+(p.y-y)*dy)/(dx*dx+dy*dy);
+          if (t>1){x=b.x;y=b.y}else if(t>0){x+=dx*t;y+=dy*t}
+        }
+        dx=p.x-x;dy=p.y-y;return dx*dx+dy*dy;
+      }
+      function step(first,last){
+        let max=sqTol,index=-1;
+        for(let i=first+1;i<last;i++){
+          const d=sqSegDist(points[i],points[first],points[last]);
+          if(d>max){index=i;max=d}
+        }
+        if(index>=0){keep[index]=1;step(first,index);step(index,last)}
+      }
+      step(0,points.length-1);
+      let out=points.filter((_,i)=>keep[i]).map(p=>[...p.coord]);
+      if (out.length > 240 && tolerancePx < 8) out = simplifyCoordsForEdit(out, tolerancePx*1.5);
+      return out;
+    }
+
+    /* ---------------- UI STATE ---------------- */
+    function canDiscardWork(){
+      if (mode==='drawing' && draftCoords.length>=2){
+        return confirm('Discard the current unsaved drawing?');
+      }
+      if (mode==='editing' && editDirty){
+        return confirm('Discard unsaved segment edits?');
+      }
+      return true;
+    }
+
+    function syncMeta(){
+      const cityText = selectedCity ? selectedCity.cityName : 'Select a city';
+      els.cityChip.classList.toggle('active', !!selectedCity);
+      els.cityChip.querySelector('span:last-child').textContent = cityText;
+      els.hexChip.querySelector('span:last-child').textContent = `${hexagons.length.toLocaleString()} hexagons`;
+      els.segChip.querySelector('span:last-child').textContent = `${visibleSegments.size.toLocaleString()} segments`;
+    }
+
+    function syncUI(){
+      const hasCity=!!selectedCity;
+      els.idleTools.hidden = !(hasCity && mode==='idle');
+      els.drawTools.hidden = mode!=='drawing';
+      els.editTools.hidden = mode!=='editing';
+
+      if (selectedCity) els.idleCity.textContent=selectedCity.cityName;
+      if (mode==='idle') setModeChip(hasCity ? 'Ready to draw' : 'Ready', hasCity);
+      if (mode==='drawing') setModeChip(drawActive ? 'Tracing…' : (draftCoords.length ? 'Paused — click map to resume' : 'Draw Mode'), true);
+      if (mode==='editing') setModeChip('Editing', true);
+
+      if (mode==='editing' && editKey && visibleSegments.has(editKey)){
+        const seg=visibleSegments.get(editKey);
+        els.editName.textContent=seg.name;
+      }
+      updateDraftLine();
+      updateEditLine();
+      syncMeta();
+    }
+
+    /* ---------------- EVENTS ---------------- */
+    els.search.addEventListener('click', searchCity);
+    els.city.addEventListener('keydown', event=>{
+      if (event.key==='Enter'){ event.preventDefault(); searchCity(); }
+    });
+    els.results.addEventListener('click', async event=>{
+      const button=event.target.closest('[data-result]');
+      if(!button)return;
+      const item=citySearchResults[Number(button.dataset.result)];
+      if(item) await chooseCity(item);
+    });
+
+    els.drawBtn.addEventListener('click', enterDraw);
+    els.fitBtn.addEventListener('click', fitCity);
+    els.undoBtn.addEventListener('click', undoDraft);
+    els.saveNewBtn.addEventListener('click', saveNewSegment);
+    els.cancelDrawBtn.addEventListener('click', ()=>cancelDraw(false));
+
+    els.deletePointBtn.addEventListener('click', deleteSelectedVertex);
+    els.saveEditBtn.addEventListener('click', saveEditedSegment);
+    els.deleteSegBtn.addEventListener('click', deleteEditedSegment);
+    els.cancelEditBtn.addEventListener('click', ()=>exitEdit(true,false));
+
+    window.addEventListener('keydown', event=>{
+      if (event.target instanceof HTMLInputElement) return;
+      if ((event.key==='d'||event.key==='D') && mode==='idle' && selectedCity) enterDraw();
+      if ((event.key==='z'||event.key==='Z') && mode==='drawing') undoDraft();
+      if ((event.key==='s'||event.key==='S') && mode==='drawing') saveNewSegment();
+      else if ((event.key==='s'||event.key==='S') && mode==='editing') saveEditedSegment();
+      if (event.key==='Escape'){
+        if (mode==='drawing') cancelDraw(false);
+        else if (mode==='editing') exitEdit(true,false);
+        else els.results.hidden=true;
+      }
+      if (event.key==='Delete' && mode==='editing'){
+        if(selectedVertex>=0) deleteSelectedVertex(); else deleteEditedSegment();
+      }
+    });
+
+    window.addEventListener('beforeunload', event=>{
+      if ((mode==='drawing' && draftCoords.length>=2) || (mode==='editing' && editDirty)){
+        event.preventDefault();
+        event.returnValue='';
+      }
+    });
+
+    syncUI();
+  </script>
+</body>
+</html>
