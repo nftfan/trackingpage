@@ -1,0 +1,924 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b3b66">
+<meta name="description" content="Plan, book and announce one flyer campaign across Europe.">
+<title>LeuvenFlyers Campaign Management</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%230b3b66'/%3E%3Cpath d='M18 16h11v23h18v9H18z' fill='%23fff'/%3E%3Ccircle cx='45' cy='20' r='7' fill='%232bb7a9'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Icons+Outlined&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+:root{--navy:#0b3b66;--navy-2:#135788;--teal:#16a394;--teal-soft:#e9f8f6;--gold:#efb92f;--gold-soft:#fff7df;--ink:#172a3d;--muted:#687b8e;--line:#dce5ec;--surface:#fff;--wash:#f3f6f8;--top:64px;--left:350px;--right:340px}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--wash);color:var(--ink);font-family:Inter,Arial,sans-serif}
+button,input{font:inherit}
+button{touch-action:manipulation}
+.material-icons-outlined{font-size:19px}
+.topbar{position:fixed;inset:0 0 auto 0;height:var(--top);z-index:30;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 18px;border-bottom:1px solid var(--line);background:#fff}
+.brand{display:flex;align-items:center;gap:11px;min-width:190px}
+.brand-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:var(--navy);color:#fff;font-size:16px;font-weight:800;letter-spacing:-1px}
+.brand-copy{min-width:0}.brand-name{font-size:15px;font-weight:750;color:var(--navy)}.brand-sub{margin-top:2px;font-size:12px;color:var(--muted)}
+.login{display:flex;align-items:center;gap:7px}
+.login-label{font-size:12px;font-weight:600;color:#4d6377}
+.login-input{width:118px;height:36px;padding:0 10px;border:1px solid #bccbd7;border-radius:8px;color:var(--ink);text-transform:uppercase;outline:0}
+.login-input:focus{border-color:var(--navy-2);outline:3px solid rgba(19,87,136,.12)}
+.login-btn,.new-btn{height:36px;padding:0 12px;border:1px solid var(--navy);border-radius:8px;background:var(--navy);color:#fff;font-size:12px;font-weight:650;cursor:pointer}
+.new-btn{border-color:#b9cad7;background:#fff;color:var(--navy)}
+.client-badge{min-width:74px;padding:8px 10px;border-radius:8px;background:var(--teal-soft);color:#08766c;font-size:12px;font-weight:700;text-align:center;white-space:nowrap}
+.left-panel{position:fixed;top:var(--top);left:0;bottom:0;z-index:20;width:var(--left);display:flex;flex-direction:column;border-right:1px solid var(--line);background:#fff}
+.left-head{padding:15px 15px 12px;border-bottom:1px solid var(--line)}
+.eyebrow{margin-bottom:4px;color:var(--teal);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.left-title{font-size:18px;font-weight:750;color:var(--navy)}
+.left-copy{margin-top:5px;font-size:12px;line-height:1.55;color:var(--muted);overflow-wrap:anywhere}
+.tool-scroll{flex:1;min-height:0;overflow-y:auto;padding:12px}
+.tool-section{margin-bottom:10px;padding:12px;border:1px solid var(--line);border-radius:11px;background:#fff}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.section-title{display:flex;align-items:center;gap:7px;color:#29445c;font-size:13px;font-weight:700}.section-title .material-icons-outlined{color:var(--teal)}
+.field{width:100%;height:38px;padding:0 10px;border:1px solid #c7d4df;border-radius:8px;background:#fff;color:var(--ink);font-size:13px;outline:0}
+.field:focus{border-color:var(--navy-2);outline:3px solid rgba(19,87,136,.1)}
+.search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}.search-btn{height:38px;padding:0 11px;border:1px solid var(--navy);border-radius:8px;background:var(--navy);color:#fff;font-size:12px;font-weight:650;cursor:pointer}
+.area-list{max-height:184px;overflow-y:auto;margin-top:8px;border:1px solid #e2e9ee;border-radius:8px}
+.area-row{width:100%;min-height:40px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:9px;border:0;border-bottom:1px solid #edf1f4;background:#fff;color:#31495f;font-size:12px;line-height:1.45;text-align:left;overflow-wrap:anywhere;cursor:pointer}.area-row:last-child{border-bottom:0}.area-row:hover{background:#f1f8f8}.area-row.active{background:var(--teal-soft);color:#08766c;font-weight:700}.area-row .material-icons-outlined{flex:0 0 auto;font-size:16px}
+.selected-area{display:flex;align-items:flex-start;gap:8px;margin-top:8px;padding:10px;border-radius:8px;background:#f1f6f9;color:#52687b;font-size:12px;line-height:1.45;overflow-wrap:anywhere}.selected-area .material-icons-outlined{flex:0 0 auto}.selected-area.ready{background:var(--teal-soft);color:#08766c;font-weight:650}
+.action{width:100%;min-height:38px;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #b9cad7;border-radius:8px;background:#fff;color:var(--navy);font-size:12px;font-weight:650;cursor:pointer}.action:hover{background:#f2f7fa}.action.primary{border-color:var(--navy);background:var(--navy);color:#fff}.action.teal{border-color:var(--teal);background:var(--teal);color:#fff}.action.gold{border-color:#e2ad25;background:var(--gold-soft);color:#745600}.action:disabled{opacity:.45;cursor:not-allowed}
+.estimate-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:9px 0}.metric{padding:9px;border:1px solid #e1e8ed;border-radius:8px;background:#f8fafb}.metric span{display:block;color:#748697;font-size:10px;text-transform:uppercase}.metric strong{display:block;margin-top:4px;color:var(--navy);font-size:20px}
+.helper{color:var(--muted);font-size:11px;line-height:1.55;overflow-wrap:anywhere}.pickup-fields{display:grid;gap:7px}.extra-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;margin-top:8px}.extra-btn{height:38px;padding:0 11px;border:1px solid var(--teal);border-radius:8px;background:var(--teal-soft);color:#08766c;font-size:11px;font-weight:700;cursor:pointer}.extra-btn:disabled{opacity:.45;cursor:not-allowed}.extra-total{margin-top:6px;color:#526a7d;font-size:10px}.shift-list{display:flex;flex-direction:column;gap:8px}.shift-item{padding:11px;border:1px solid #e1e8ed;border-radius:9px;background:#f9fbfc}.shift-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.shift-head>div{min-width:0}.shift-name{color:#29445c;font-size:12px;font-weight:700;overflow-wrap:anywhere}.shift-code{margin-top:2px;color:var(--teal);font-size:9px;font-weight:750;letter-spacing:.04em}.shift-quantity{margin-top:3px;color:var(--muted);font-size:10px}.shift-pickup{display:flex;align-items:flex-start;gap:4px;margin-top:7px;color:#526a7d;font-size:10px;line-height:1.4;overflow-wrap:anywhere}.shift-pickup .material-icons-outlined{flex:0 0 auto;color:var(--teal);font-size:14px}.shift-statuses{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px}.shift-status{padding:7px;border-radius:7px;background:#eef2f5;color:#5f7181;font-size:9px;line-height:1.35}.shift-status strong{display:block;margin-top:2px;color:#44596c;font-size:10px}.shift-status.done{background:#e7f8ef;color:#13744b}.shift-status.done strong{color:#13744b}.progress-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;color:#607487;font-size:9px}.progress-track{height:7px;margin-top:5px;overflow:hidden;border-radius:999px;background:#e2e9ee}.progress-fill{height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--teal),#35c5b6);transition:width .55s ease}.campaign-progress{margin-top:10px;padding-top:9px;border-top:1px solid #e7edf1}.campaign-progress-head{display:flex;justify-content:space-between;gap:8px;color:#526a7d;font-size:10px}.campaign-progress-head strong{color:var(--navy)}
+.announce-wrap{position:sticky;bottom:-1px;padding-top:6px;background:#fff}
+.announce-btn{width:100%;height:45px;display:flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:10px;background:var(--gold);color:#4e3900;font-size:13px;font-weight:800;cursor:pointer}.announce-btn:hover{background:#e6ad1d}.announce-btn:disabled{opacity:.55;cursor:not-allowed}
+#map{position:fixed;top:var(--top);left:var(--left);right:var(--right);bottom:0}
+.zone-popup{min-width:220px;padding:2px}.zone-popup-title{color:var(--navy);font-size:13px;font-weight:750}.zone-popup-copy{margin:6px 0 9px;color:var(--muted);font-size:11px;line-height:1.45}.zone-popup-actions{display:grid;gap:6px}.zone-popup-btn{min-height:34px;border:1px solid #b9cad7;border-radius:7px;background:#fff;color:var(--navy);font-size:11px;font-weight:700;cursor:pointer}.zone-popup-btn.primary{border-color:var(--gold);background:var(--gold);color:#4e3900}.zone-popup-btn.danger{border-color:#e9b9bd;background:#fff5f5;color:#a02d38}.zone-popup-btn:disabled{opacity:.45;cursor:not-allowed}.loading-buildings{display:flex;align-items:center;gap:8px}.building-spinner{width:17px;height:17px;flex:0 0 auto;border:2px solid #d6e4ec;border-top-color:var(--teal);border-radius:50%;animation:spin .75s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.maplibregl-popup-content{padding:11px;border-radius:10px;box-shadow:none;border:1px solid var(--line)}
+.right-panel{position:fixed;top:var(--top);right:0;bottom:0;z-index:20;width:var(--right);display:flex;flex-direction:column;border-left:1px solid var(--line);background:#fff}
+.right-section{min-height:0;display:flex;flex-direction:column}.right-section:first-child{flex:0 0 auto;border-bottom:1px solid var(--line)}.right-section:last-child{flex:1}
+.right-head{padding:13px 14px 10px;border-bottom:1px solid #e7edf1;background:#fafcfd}.right-title{display:flex;align-items:center;gap:7px;color:var(--navy);font-size:14px;font-weight:750}.right-title .material-icons-outlined{color:var(--teal)}.right-copy{margin-top:4px;color:var(--muted);font-size:11px}.total-money{margin-top:9px;color:var(--navy);font-size:25px;font-weight:800;letter-spacing:-.04em}.total-money-label{margin-top:1px;color:var(--muted);font-size:10px}
+.right-scroll{flex:1;min-height:0;overflow-y:auto;padding:11px 13px}
+.campaign-summary{padding:13px}.campaign-card{width:100%;padding:13px;border:1px solid #dce6ec;border-radius:10px;background:#fff;text-align:left}.campaign-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.campaign-id{display:block;color:var(--navy);font-size:13px;font-weight:800}.campaign-state{padding:4px 7px;border-radius:999px;background:#e9f6f3;color:#087b70;font-size:9px;font-weight:750;text-transform:uppercase;letter-spacing:.04em}.campaign-state.planning{background:#fff7dd;color:#846000}.campaign-area{display:block;margin-top:7px;color:#526a7d;font-size:12px;line-height:1.45;overflow-wrap:anywhere}.campaign-meta{display:block;margin-top:7px;color:#7b8b99;font-size:10px;line-height:1.55;overflow-wrap:anywhere}.campaign-pickup{display:flex;align-items:flex-start;gap:5px;margin-top:7px;color:#526a7d;font-size:10px;line-height:1.45}.campaign-pickup .material-icons-outlined{font-size:14px;color:var(--teal)}
+.empty{padding:18px 7px;color:#8493a0;font-size:12px;line-height:1.5;text-align:center}
+.toast{position:fixed;left:50%;bottom:18px;z-index:60;transform:translate(-50%,18px);max-width:360px;padding:10px 14px;border-radius:9px;background:#172a3d;color:#fff;font-size:12px;text-align:center;opacity:0;pointer-events:none;transition:.2s}.toast.show{opacity:1;transform:translate(-50%,0)}
+.loader{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:#fff;transition:opacity .2s}.loader.hidden{opacity:0;pointer-events:none}.loader-box{text-align:center;color:#6b7d8d;font-size:12px}.loader-mark{width:42px;height:42px;display:grid;place-items:center;margin:0 auto 10px;border-radius:11px;background:var(--navy);color:#fff;font-weight:800}.campaign-loading{position:fixed;inset:var(--top) 0 0;z-index:80;display:grid;place-items:center;background:rgba(245,249,251,.92);opacity:0;pointer-events:none;transition:opacity .25s}.campaign-loading.show{opacity:1;pointer-events:auto}.campaign-loading-card{text-align:center;color:var(--navy)}.campaign-loading-rings{position:relative;width:82px;height:82px;margin:0 auto 14px}.campaign-loading-rings span{position:absolute;inset:0;border:2px solid rgba(22,163,148,.28);border-radius:50%;animation:campaignPulse 1.5s ease-out infinite}.campaign-loading-rings span:nth-child(2){inset:13px;animation-delay:.18s}.campaign-loading-rings span:nth-child(3){inset:27px;border-color:var(--teal);background:var(--teal-soft);animation:none}.campaign-loading-title{font-size:16px;font-weight:750}.campaign-loading-copy{margin-top:5px;color:var(--muted);font-size:11px}@keyframes campaignPulse{0%{transform:scale(.72);opacity:1}100%{transform:scale(1.18);opacity:0}}
+@media(max-width:1120px){:root{--left:315px;--right:320px}.brand-sub,.login-label{display:none}}
+@media(max-width:820px){html,body{height:auto;min-height:100%;overflow:auto}.topbar{position:sticky;height:auto;min-height:64px;flex-wrap:wrap;padding:10px 12px}.brand{min-width:150px}.login{width:100%;order:3}.login-input{flex:1}.left-panel,.right-panel,#map{position:relative;inset:auto;width:100%}.left-panel{height:auto;border-right:0;border-bottom:1px solid var(--line)}.tool-scroll{overflow:visible}.area-list{max-height:210px}#map{height:56vh;min-height:420px}.right-panel{height:620px;border-left:0;border-top:1px solid var(--line)}.announce-wrap{position:relative}.toast{bottom:14px}}
+
+/* Organized header and a dedicated photo tray; the map keeps its own controls visible. */
+:root{--top:76px}
+.topbar{gap:16px;padding:0 22px;box-shadow:0 2px 12px #172a3d08}
+.brand{min-width:170px}.brand-mark{height:40px;width:40px;border-radius:12px}
+.header-workspace{border-left:1px solid var(--line);padding-left:18px;margin-right:auto;display:grid;gap:4px;white-space:nowrap}
+.workspace-label{font-size:9px;letter-spacing:.12em;color:var(--muted);font-weight:700}.header-workspace strong{font-size:14px;color:var(--navy)}
+.login{padding:6px;border:1px solid var(--line);border-radius:11px;background:#f8fafc}.login-label{padding:0 5px}.client-badge{border:1px solid #cceae5}
+.map-workspace{position:fixed;top:var(--top);left:var(--left);right:var(--right);bottom:0;display:flex;flex-direction:column;min-width:0}
+#map{position:relative;inset:auto;flex:1;min-height:180px;width:100%}
+.proof-bar{flex:none;height:158px;border-top:1px solid var(--line);background:#fff;overflow:hidden}
+.proof-heading{height:40px;display:flex;align-items:center;gap:12px;padding:0 12px;font-size:12px;color:var(--navy)}
+#proofCount{padding:2px 6px;border-radius:6px;background:#f0ebfa;color:#7738ba;font-size:10px}.map-legend{font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap}.map-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;background:#8b3fd1;margin-right:4px}
+#proofFilter{max-width:110px;border:1px solid var(--line);border-radius:6px;padding:5px;font-size:10px;background:white;color:var(--ink)}
+.proof-list{height:118px;display:flex;align-items:stretch;gap:9px;overflow-x:auto;padding:0 12px 10px}
+.proof-card{display:flex;flex-direction:column;flex:0 0 118px;min-width:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;text-decoration:none;color:var(--ink);font-size:9px;background:#f8fafb}
+.proof-card img{height:66px;width:100%;object-fit:cover;background:#e8eef2}.proof-card span{padding:4px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.proof-card small{padding:0 6px 4px;color:var(--muted);font-size:8px}.proof-card.pickup{border-color:#c6a5e6}.proof-empty{margin:auto;color:var(--muted);font-size:11px;text-align:center}.proof-card:focus-visible{outline:3px solid var(--teal);outline-offset:1px}
+@media(max-width:1120px){.header-workspace{display:none}.brand{margin-right:auto}.topbar{padding:0 14px;gap:10px}}
+@media(max-width:820px){.topbar{position:relative;padding:12px;gap:10px}.brand-sub{display:block}.login{order:3;width:100%;flex-wrap:wrap}.login-input{min-width:80px;width:80px}.client-badge{margin-left:auto}.map-workspace{position:relative;inset:auto;width:100%;height:calc(56vh + 158px);min-height:578px}#map{height:auto;min-height:420px}.map-legend{display:none}.proof-heading select{margin-left:auto}}
+
+
+.brand-logo{display:block;width:46px;height:46px;object-fit:contain;flex:0 0 auto}
+.client-badge[hidden]{display:none}
+.proof-notice{flex:0 0 160px;align-self:center;color:#995b00;font-size:11px;line-height:1.5}
+
+.booking-totals{margin-top:11px;padding:3px 11px;border:1px solid #cbdbe5;border-radius:9px;background:#fff}
+.booking-total-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;color:#24435b;font-size:12px;font-weight:750;line-height:1.45}
+.booking-total-row strong{font-size:14px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
+.booking-price-row{border-top:1px solid #e0e8ee}
+.booking-total-row small{display:block;font-size:10px;font-weight:700;color:#576e81}
+.booking-rate{font-size:10px;font-weight:700;line-height:1.55;margin-top:8px;color:#4d6579}
+
+.organized-summary{padding:11px;font-size:11px;font-weight:700}
+.organized-summary .campaign-id{font-size:12px}.organized-summary .campaign-state{font-size:9px}
+.summary-details{margin:10px 0}.summary-details>div{display:grid;grid-template-columns:82px minmax(0,1fr);gap:8px;margin-top:6px;font-size:10px;line-height:1.5}.summary-details dt{color:#526b7f;font-weight:700}.summary-details dd{margin:0;color:var(--navy);font-weight:750;overflow-wrap:anywhere}
+.summary-totals{border:1px solid #d4e1e9;border-radius:8px;padding:0 9px;background:#f9fbfc}
+.summary-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;font-size:11px;line-height:1.4;color:#294960;border-bottom:1px solid #e1e9ef;font-weight:750}.summary-row:last-child{border-bottom:0}.summary-row strong{font-size:12px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;text-align:right}.summary-row small{display:block;font-size:9px;font-weight:700;color:#5c7284;margin-top:1px}.summary-delivered strong{color:#08766c}.summary-total-price{background:#edf5f8;margin:0 -9px;padding:9px;border-radius:0 0 7px 7px}
+.summary-facts{display:flex;flex-wrap:wrap;gap:6px 13px;margin-top:9px;font-size:10px;color:#526b7f}.summary-facts strong{margin-left:4px;color:var(--navy)}.summary-pickup{display:grid;gap:3px;margin-top:9px;font-size:10px;line-height:1.45;overflow-wrap:anywhere}.summary-pickup>span{color:#526b7f}.summary-pickup strong{color:#294960}.shift-count-badge{margin-left:auto;padding:2px 6px;border-radius:5px;background:#e8f3f1;color:#08766c;font-size:10px;font-weight:800}.shift-price-block{display:flex;align-items:flex-end;flex-direction:column;gap:3px;flex:none;color:var(--navy);font-size:12px;font-weight:800}.shift-price-block small{font-size:9px;font-weight:700;color:#5c7284}.right-section:first-child{max-height:65%;overflow-y:auto}.right-section:last-child{min-height:140px}.right-title{font-size:12px;font-weight:800}
+
+.shift-product{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 8px;padding:10px;border:1px solid #c6e5df;border-radius:8px;background:#edf8f5;color:var(--navy)}
+.shift-product-name{display:block;font-size:11px;font-weight:800}.shift-product small{display:block;margin-top:3px;font-size:9px;font-weight:700;color:#4d6d77}.shift-product-price{display:grid;gap:3px;text-align:right;flex:none}.shift-product-price span{font-size:9px;font-weight:700;color:#426777}.shift-product-price strong{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}.summary-total-price{border-radius:7px 7px 0 0}
+
+.quote-field-label{display:block;margin:8px 0 4px;font-size:11px;font-weight:750;color:var(--navy)}
+#printQuote{display:none}
+
+/* Compact planning tools and image-only photo proof. */
+:root{--left:290px}
+.left-head{padding:10px}.left-title{font-size:12px}.left-copy{font-size:10px;line-height:1.4}.left-panel .eyebrow{font-size:9px}
+.tool-scroll{padding:8px}.tool-section{padding:8px;margin-bottom:7px;border-radius:8px}.section-head{margin-bottom:6px}
+.left-panel .section-title{font-size:11px;gap:5px}.left-panel .material-icons-outlined{font-size:16px}
+.left-panel .field{height:32px;padding:0 8px;font-size:11px;font-weight:700}
+.left-panel .action{min-height:32px;font-size:11px}.left-panel .search-btn,.left-panel .extra-btn{height:32px;padding:0 8px;font-size:10px}
+.left-panel .helper,.left-panel .left-copy,.left-panel .extra-total{font-size:10px;font-weight:600;line-height:1.4}
+.left-panel .area-row{min-height:32px;padding:6px;font-size:10px}.left-panel .selected-area{padding:7px;font-size:10px;margin-top:6px}
+.left-panel .estimate-grid{gap:5px;margin:6px 0}.left-panel .metric{padding:6px}.left-panel .metric span{font-size:9px}.left-panel .metric strong{font-size:12px;margin-top:2px}
+.left-panel .quote-field-label{font-size:10px;margin-top:6px}.left-panel .announce-btn{height:35px;font-size:11px}
+.proof-card{padding:0;cursor:pointer;display:block}.proof-card img{display:block;height:100%;width:100%;object-fit:cover}
+.photo-marker{width:26px;height:26px;padding:4px;display:grid;place-items:center;border:2px solid #fff;border-radius:7px;background:var(--navy);color:white;box-shadow:0 1px 5px #172a3d55;cursor:pointer}.photo-marker svg{width:16px;height:16px}.photo-marker:focus-visible{outline:3px solid var(--teal)}
+.photo-popup .maplibregl-popup-content{padding:5px;border-radius:10px;overflow:hidden}.photo-popup .maplibregl-popup-close-button{background:white;border-radius:50%;width:26px;height:26px;right:8px;top:8px;font-size:20px;z-index:1}
+.photo-popup-images{display:flex;gap:6px;overflow-x:auto;max-width:100%;scroll-snap-type:x mandatory}.photo-popup-images img{display:block;flex:0 0 100%;width:100%;min-width:0;height:260px;max-height:42vh;object-fit:contain;background:#f3f6f8;scroll-snap-align:start}
+
+/* Title help and compact sidebar. */
+.help-button{display:inline-flex;align-items:center;justify-content:center;gap:5px;margin-right:auto;padding:8px 12px;border:1px solid var(--line);border-radius:8px;color:var(--navy);background:#f8fafc;text-decoration:none;font-size:11px;font-weight:750;white-space:nowrap}
+.help-button .material-icons-outlined{font-size:17px}.help-button:hover,.help-button:focus-visible{background:var(--teal-soft);border-color:var(--teal)}
+.left-panel .tool-scroll{padding-top:9px}
+.area-list[hidden]{display:none}
+#zoneStatus:empty{display:none}
+@media(max-width:820px){.help-button{margin-left:auto;margin-right:0;order:1}.client-badge{order:2}}
+/* Welcome notice appears once on each page load. */
+.welcome-dialog{width:min(460px,calc(100vw - 28px));max-height:calc(100dvh - 32px);margin:auto;padding:0;overflow-y:auto;border:1px solid #dce5ec;border-radius:18px;background:#fff;color:var(--ink);box-shadow:0 24px 80px #092b4660}
+.welcome-dialog::backdrop{background:rgba(9,32,52,.65)}
+.welcome-inner{position:relative;padding:26px 28px 25px}
+.welcome-close{position:absolute;top:14px;right:14px;width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);border-radius:9px;background:#f8fafc;color:var(--navy);font-size:24px;line-height:1;cursor:pointer}
+.welcome-close:hover,.welcome-close:focus-visible{background:var(--teal-soft);outline:2px solid var(--teal)}
+.welcome-brand{display:flex;align-items:center;gap:9px;margin-right:37px;color:var(--navy);font-size:12px;font-weight:800}.welcome-brand img{height:31px;width:31px;object-fit:contain}
+.welcome-dialog h2{margin:22px 0 10px;color:var(--navy);font-size:23px;line-height:1.2;letter-spacing:-.02em}
+.welcome-dialog p{margin:10px 0;color:#344c60;font-size:14px;line-height:1.65}
+.welcome-highlight{padding:12px 14px;border-left:4px solid var(--teal);border-radius:0 9px 9px 0;background:var(--teal-soft);font-weight:700}
+.welcome-dialog a{color:var(--navy-2);font-weight:750;text-underline-offset:3px;overflow-wrap:anywhere}
+.welcome-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:22px}.welcome-start{min-height:40px;padding:0 17px;border:0;border-radius:9px;background:var(--navy);color:#fff;font-size:13px;font-weight:750;cursor:pointer}.welcome-start:hover,.welcome-start:focus-visible{background:var(--navy-2)}
+@media(max-width:480px){.welcome-inner{padding:22px 19px}.welcome-dialog h2{font-size:20px}.welcome-dialog p{font-size:13px}}
+@media print{
+@page{size:A4;margin:14mm}
+body.quote-print-ready{height:auto!important;overflow:visible!important;background:white!important;margin:0!important;color:#172a3d!important}
+body.quote-print-ready> :not(#printQuote){display:none!important}
+body.quote-print-ready #printQuote{display:block!important;font-family:Arial,sans-serif;font-size:10pt;line-height:1.45;color:#172a3d}
+#printQuote *{box-sizing:border-box}
+#printQuote .quote-header{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:2px solid #0b3b66;padding-bottom:12px;margin-bottom:14px;break-inside:avoid}
+#printQuote .quote-brand{display:flex;align-items:center;gap:10px;font-size:17pt;font-weight:bold;color:#0b3b66}
+#printQuote .quote-brand img{height:44px;width:44px;object-fit:contain}
+#printQuote h1{font-size:18pt;margin:0;color:#0b3b66}#printQuote h2{font-size:11pt;margin:16px 0 6px;color:#0b3b66;break-after:avoid}
+#printQuote .quote-ref{text-align:right;font-size:9pt}#printQuote .quote-ref p{margin:3px 0}
+#printQuote .quote-meta{display:grid;grid-template-columns:1fr 1fr;gap:9px 20px;margin:12px 0}#printQuote .quote-meta div{break-inside:avoid;overflow-wrap:anywhere}#printQuote .quote-meta span{display:block;color:#50677a;font-size:9pt}#printQuote .quote-meta strong{display:block;font-size:10pt}
+#printQuote table{width:100%;border-collapse:collapse;table-layout:fixed;margin:7px 0;font-size:9pt}#printQuote th{color:#0b3b66;text-align:left;background:#edf4f7;font-weight:bold}#printQuote th,#printQuote td{padding:7px 6px;border-bottom:1px solid #d5e1e9;vertical-align:top;overflow-wrap:anywhere}#printQuote thead{display:table-header-group}#printQuote tr{break-inside:avoid}#printQuote .numeric{text-align:right}
+#printQuote .quote-totals{width:58%;margin:12px 0 12px auto;break-inside:avoid}#printQuote .quote-totals div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #d5e1e9}#printQuote .quote-grand-total{font-size:12pt;font-weight:bold;color:#0b3b66;border-bottom:2px solid #0b3b66!important}
+#printQuote .quote-note{font-size:9pt;color:#50677a;margin:10px 0;break-inside:avoid}
+}
+
+.building-cooldown{margin:7px 0;padding:8px;border:1px solid #d7e5ed;border-radius:7px;background:#f1f7fa;color:var(--navy);font-size:11px;font-weight:750;line-height:1.5}.building-cooldown[hidden]{display:none}
+
+/* ROI sits beside the existing campaign sidebar. */
+:root{--roi:230px}
+.right-panel{right:var(--roi)}
+.map-workspace{right:calc(var(--right) + var(--roi))}
+.roi-panel{position:fixed;right:0;top:var(--top);bottom:0;width:var(--roi);padding:16px;overflow:auto;border-left:1px solid var(--line);background:#f8fafc;z-index:20;font-size:12px}
+.roi-panel h2{font-size:18px;color:var(--navy);margin:0 0 18px}
+.roi-card{padding:14px;margin-bottom:12px;background:white;border:1px solid var(--line);border-radius:11px}
+.roi-label{color:var(--muted);display:block;margin-bottom:8px}
+.roi-money{font-size:26px;color:var(--navy);display:block}
+.roi-status{font-weight:750;line-height:1.6;color:var(--navy)}
+.roi-status.live{color:#08766c}
+.roi-note{font-size:11px;color:var(--muted);line-height:1.6;margin-top:8px}
+@media(min-width:821px) and (max-width:1350px){:root{--left:260px;--right:260px;--roi:190px}.roi-panel{padding:10px}}
+@media(min-width:821px) and (max-width:1100px){:root{--left:220px;--right:230px;--roi:175px}}
+@media(max-width:820px){.right-panel{right:auto}.map-workspace{right:auto}.roi-panel{position:relative;inset:auto;width:100%;border-top:1px solid var(--line);border-left:0}}
+</style>
+</head>
+<body>
+<div id="loader" class="loader"><div class="loader-box"><div class="loader-mark">LF</div>Opening campaign planner…</div></div>
+<dialog id="welcomeDialog" class="welcome-dialog" aria-labelledby="welcomeTitle" aria-describedby="welcomeIntro">
+<div class="welcome-inner">
+<button id="welcomeClose" class="welcome-close" type="button" aria-label="Close welcome notice">&times;</button>
+<div class="welcome-brand"><img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png" alt="">LeuvenFlyers</div>
+<h2 id="welcomeTitle">Plan your flyer campaign</h2>
+<p id="welcomeIntro" class="welcome-highlight">This planner helps you prepare a campaign. Creating a plan or clicking “Announce campaign” does not place a final flyer distribution order.</p>
+<p>When your plan is ready, click <strong>Announce campaign</strong> so we can see your requirements. Then email <a href="mailto:info@LeuvenFlyers.com">info@LeuvenFlyers.com</a> with your XX campaign ID. We’ll explain how everything works and help you with the next steps.</p>
+<p>You can also read the <a href="http://leuvenflyers.com/planinghelp" target="_blank" rel="noopener noreferrer">Help guide</a> before you start planning.</p>
+<div class="welcome-actions"><button id="welcomeStart" class="welcome-start" type="button">Start planning</button></div>
+</div>
+</dialog>
+<header class="topbar">
+<div class="brand"><img class="brand-logo" src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png" alt="LeuvenFlyers"><div class="brand-copy"><div class="brand-name">LeuvenFlyers</div><div class="brand-sub">Campaign management</div></div></div>
+<a class="help-button" href="http://leuvenflyers.com/planinghelp" target="_blank" rel="noopener noreferrer" aria-label="Open planning help"><span class="material-icons-outlined" aria-hidden="true">help_outline</span>Help</a>
+<div class="login">
+<label class="login-label" for="loginInput">Campaign ID</label>
+<input id="loginInput" class="login-input" type="text" inputmode="text" placeholder="XX ID" aria-label="Existing XX campaign ID">
+<button id="loginBtn" class="login-btn">Open</button>
+<button id="newPlanBtn" class="new-btn">New plan</button>
+</div>
+<div id="clientBadge" class="client-badge" hidden></div>
+</header>
+
+<aside class="left-panel" aria-label="Campaign tools">
+
+<div class="tool-scroll">
+<section class="tool-section">
+<div class="section-head"><div class="section-title"><span class="material-icons-outlined">public</span>Find an area</div></div>
+<div class="search-row"><input id="areaSearch" class="field" type="search" placeholder="European city or region" autocomplete="off"><button id="areaSearchBtn" class="search-btn">Search</button></div>
+<div id="areaList" class="area-list" hidden></div>
+<div id="selectedArea" class="selected-area"><span class="material-icons-outlined">language</span><span>No European area selected</span></div>
+</section>
+
+<section class="tool-section">
+<div class="section-head"><div class="section-title"><span class="material-icons-outlined">hive</span>City hexagons</div></div>
+<div class="estimate-grid"><div class="metric"><span>Buildings</span><strong id="buildingCount">—</strong></div><div class="metric"><span>Flyers required</span><strong id="flyerCount">—</strong></div><div class="metric"><span>Hexagons</span><strong id="hexCount">—</strong></div><div class="metric"><span>Booked</span><strong id="bookedCount">0</strong></div></div>
+<div id="buildingCooldown" class="building-cooldown" role="status" hidden></div>
+<div id="zoneStatus" class="helper" role="status"></div>
+</section>
+
+<section class="tool-section">
+<div class="section-head"><div class="section-title"><span class="material-icons-outlined">inventory_2</span>Pickup address</div></div>
+<div class="pickup-fields"><input id="pickupInput" class="field" type="text" placeholder="Pickup address" autocomplete="street-address"></div>
+<button id="pickupBtn" class="action" style="margin-top:8px"><span class="material-icons-outlined">add_location_alt</span>Save pickup address</button>
+<div class="extra-row"><input id="extraFlyersInput" class="field" type="number" inputmode="numeric" min="1" step="1" placeholder="Extra flyers"><button id="extraFlyersBtn" class="extra-btn">Add flyers</button></div>
+<div id="extraFlyersTotal" class="extra-total">Extra flyers added: 0</div>
+<div class="helper" style="margin-top:7px">Shifts are created automatically from the building count of booked hexagons.</div>
+</section>
+
+<section class="tool-section quote-controls" aria-label="Print quote">
+<div class="section-head"><div class="section-title">Client details &amp; quote</div></div>
+<label class="quote-field-label" for="quoteBusinessName">Business name</label>
+<input id="quoteBusinessName" class="field" type="text" maxlength="160" autocomplete="organization" placeholder="Customer business name" required>
+<label class="quote-field-label" for="clientEmail">Client email address</label>
+<input id="clientEmail" class="field" type="email" maxlength="254" autocomplete="email" placeholder="name@business.com" required>
+<button id="saveBusinessBtn" class="action" type="button" style="margin-top:7px">Save client details</button>
+<div id="businessSaveStatus" class="helper" role="status" style="margin-top:5px"></div>
+<label class="quote-field-label" for="quoteVatRate">VAT rate (%)</label>
+<input id="quoteVatRate" class="field" type="number" min="0" max="100" step="0.01" value="21" required>
+<button id="printQuoteBtn" class="action primary" style="margin-top:9px" type="button">Print quote / Save PDF</button>
+</section>
+<div class="announce-wrap"><button id="announceBtn" class="announce-btn"><span class="material-icons-outlined">campaign</span>Announce campaign</button></div>
+</div>
+</aside>
+
+<section class="map-workspace" aria-label="Campaign map and photo proof">
+<main id="map" aria-label="Campaign planning map"></main>
+<section class="proof-bar" aria-label="Photo proof">
+<div class="proof-heading"><strong>Photo proof <span id="proofCount">0</span></strong><span class="map-legend"><i></i> Pickup · FF delivery</span><select id="proofFilter" aria-label="Filter photo proof"><option value="all">All photos</option><option value="pickup">PUS pickup</option><option value="delivery">FF delivery</option></select></div>
+<div id="proofList" class="proof-list"><div class="proof-empty">Open a campaign to view pickup and delivery photos.</div></div>
+</section></section>
+<div id="campaignLoading" class="campaign-loading" aria-hidden="true"><div class="campaign-loading-card"><div class="campaign-loading-rings"><span></span><span></span><span></span></div><div id="campaignLoadingTitle" class="campaign-loading-title">Loading campaign</div><div class="campaign-loading-copy">Connecting shifts, pickup status and live delivery dots…</div></div></div>
+
+<aside class="right-panel">
+<section class="right-section">
+<div id="campaignSummary" class="campaign-summary"><div class="empty">Plan a campaign or open an existing XX ID.</div></div>
+</section>
+<section class="right-section">
+<div class="right-head"><div class="right-title">Campaign shifts <span id="shiftCountBadge" class="shift-count-badge">0</span></div></div>
+<div class="right-scroll"><div id="shiftList" class="shift-list"><div class="empty">No shifts created yet.</div></div></div>
+</section>
+</aside>
+
+<aside class="roi-panel" aria-label="ROI"><h2>ROI</h2><div id="roiContent" aria-live="polite"><div class="empty">Open an XX ID to see campaign spending and activity.</div></div></aside>
+<article id="printQuote" aria-label="Campaign quotation"></article>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+import {getDatabase,ref,get,set,push,update,remove,onValue,serverTimestamp,runTransaction} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
+
+const app=initializeApp({
+apiKey:'AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA',
+authDomain:'trackingclients.firebaseapp.com',
+projectId:'trackingclients',
+storageBucket:'trackingclients.appspot.com',
+messagingSenderId:'27490943622',
+appId:'1:27490943622:web:d6c87547aa5df440508707',
+databaseURL:'https://trackingclients-default-rtdb.firebaseio.com/'
+});
+const db=getDatabase(app);
+const dotsApp=initializeApp({
+apiKey:'AIzaSyA6w6auszWRniQfZCjb4nXE_bq9Mzt9dOs',
+authDomain:'betbtc-6d881.firebaseapp.com',
+databaseURL:'https://betbtc-6d881-default-rtdb.firebaseio.com',
+projectId:'betbtc-6d881',
+storageBucket:'betbtc-6d881.firebasestorage.app',
+messagingSenderId:'962176232122',
+appId:'1:962176232122:web:a277d922543c3378033083'
+},'dotsApp');
+const dotsDb=getDatabase(dotsApp);
+const TRACKING_ROOT='https://trackingclients-default-rtdb.firebaseio.com/campaigns.json?shallow=true';
+const DOTS_ROOT='https://betbtc-6d881-default-rtdb.firebaseio.com/userPosts.json?shallow=true';
+const AREA_SEARCH_URL='https://nominatim.openstreetmap.org/search';
+const $=id=>document.getElementById(id);
+const els={
+clientBadge:$('clientBadge'),loginInput:$('loginInput'),loginBtn:$('loginBtn'),newPlanBtn:$('newPlanBtn'),areaSearch:$('areaSearch'),areaSearchBtn:$('areaSearchBtn'),areaList:$('areaList'),selectedArea:$('selectedArea'),
+buildingCount:$('buildingCount'),flyerCount:$('flyerCount'),hexCount:$('hexCount'),bookedCount:$('bookedCount'),zoneStatus:$('zoneStatus'),
+pickupInput:$('pickupInput'),pickupBtn:$('pickupBtn'),extraFlyersInput:$('extraFlyersInput'),extraFlyersBtn:$('extraFlyersBtn'),extraFlyersTotal:$('extraFlyersTotal'),shiftCountBadge:$('shiftCountBadge'),shiftList:$('shiftList'),announceBtn:$('announceBtn'),
+campaignSummary:$('campaignSummary'),campaignLoading:$('campaignLoading'),campaignLoadingTitle:$('campaignLoadingTitle'),toast:$('toast')
+};
+let map,mapReady=false,allAreas=[],selectedAreaFeature=null,clientId='',clientPromise=null,hexagons=[],bookedZones=[],events=[],shifts=[],currentCampaign=null,extraFlyers=0,estimateRequest=0,zonePopup=null,visibleBuildingHexId='',shiftUnsubscribe=null,campaignUnsubscribe=null,dotUnsubscribers=[],dotWatchSignature='',campaignLoadToken=0;
+const dotStats=new Map(),lastSyncedDotStatus=new Map();
+let campaignData={},campaignDataUnsubscribe=null,legacyAutoFit=false,printingDraft=null,printingSaving=false,revenueDraft='';
+const DAY_MS=86400000,INACTIVE_DAYS=15;
+const SHIFT_PRICE=120;
+const fc=(features=[])=>({type:'FeatureCollection',features});
+const feature=(type,coordinates,properties={})=>({type:'Feature',properties,geometry:{type,coordinates}});
+const round=value=>Math.round(value*1e5)/1e5;
+const escape=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const shiftPrice=flyers=>Math.round((Math.max(0,Number(flyers)||0)/1000*SHIFT_PRICE)*100)/100;
+const shiftsCost=list=>list.reduce((sum,item)=>sum+shiftPrice(item.flyers),0);
+const money=value=>`€${Number(value||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+
+function renderCampaignTitle(){
+els.clientBadge.textContent=clientId;
+els.clientBadge.hidden=!clientId;
+document.title=clientId?`${clientId} · LeuvenFlyers Campaign Management`:'LeuvenFlyers Campaign Management';
+}
+function toast(message){els.toast.textContent=message;els.toast.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>els.toast.classList.remove('show'),2400)}
+function showCampaignLoading(id){const token=++campaignLoadToken;els.campaignLoadingTitle.textContent=`Loading ${id}`;els.campaignLoading.classList.add('show');els.campaignLoading.setAttribute('aria-hidden','false');return{token,started:Date.now()}}
+function hideCampaignLoading(state){const delay=Math.max(0,950-(Date.now()-state.started));setTimeout(()=>{if(state.token!==campaignLoadToken)return;els.campaignLoading.classList.remove('show');els.campaignLoading.setAttribute('aria-hidden','true')},delay)}
+function timeLabel(timestamp=Date.now()){return new Intl.DateTimeFormat(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(Number(timestamp)||Date.now()))}
+function closeRing(points){return points.length>=3?[...points,points[0]]:[]}
+function zoneFlyers(){return bookedZones.reduce((sum,zone)=>sum+(Number(zone.flyersRequired)||0),0)}
+function totalFlyers(){return zoneFlyers()+extraFlyers}
+function totalBuildings(){return bookedZones.reduce((sum,zone)=>sum+(Number(zone.estimatedBuildings)||zone.buildings?.length||0),0)}
+
+function renderTimeline(){}
+function shiftNumber(shift,index){const saved=Number(shift?.shiftNumber),title=String(shift?.title||'').match(/(\d+)/);return saved>0?saved:(Number(title?.[1])||index+1)}
+// FF remains campaign-scoped (XX9926 -> FF9926).
+// PUS retains existing per-shift IDs and also accepts campaign-scoped PUS9926.
+// Each distinct posted PUS point confirms one shift in shift-number order.
+// Opening a map popup only inspects a point; it does not create another pickup.
+// FF successful deliveries fill shift targets in order because the feed is campaign-scoped.
+// The uploader saves FF proofs under trackingclients campaigns/XX{number}/proofs.
+// PUS proofs use campaigns/{PUS ID}/proofs in the same trackingclients database.
+// Proof records are independent of dot records and never increment delivery/pickup counts.
+const campaignFfId=()=>`FF${clientId.replace(/^XX/i,'')}`;
+function posterIdForShift(shift,index){return shift?.pickupPosterId||(/^PUS/i.test(shift?.posterId||'')?shift.posterId:`PUS${shiftNumber(shift,index)}${clientId.replace(/^XX/i,'')}`)}
+function shiftLiveStats(shift,index){
+const live=dotStats.get(shift.key),target=Math.max(0,Number(shift.flyers)||0);
+const posted=live?.postedDots||0,pickupDone=!!live?.pickupDone,distributionDone=target>0&&posted>=target;
+return{posterId:posterIdForShift(shift,index),target,posted,pickupDone,distributionDone,percent:target?Math.min(100,Math.round(posted/target*100)):0};
+}
+function campaignDeliveryStats(){
+const target=totalFlyers()||shifts.reduce((sum,s)=>sum+Math.max(0,Number(s.flyers)||0),0)||Number(campaignData.planner?.meta?.plannedFlyers||campaignData.totalFlyers||currentCampaign?.totalFlyers)||0;
+const posted=allDotRecords().filter(r=>r.kind==='delivery'&&r.hasLocation&&r.outcome==='yes').length;
+return{target,posted,percent:target?Math.min(100,Math.round(posted/target*100)):0};
+}
+function recordTime(value){
+if(value===null||value===undefined||value==='')return 0;
+const n=Number(value),t=Number.isFinite(n)?(n>0&&n<1e11?n*1000:n):Date.parse(value);
+return Number.isFinite(t)&&t>0?t:0;
+}
+function campaignActivity(records,now=Date.now()){
+const located=records.filter(r=>r.hasLocation),last=located.reduce((t,r)=>Math.max(t,r.timestamp>0&&r.timestamp<=now?r.timestamp:0),0);
+if(!last)return{label:located.length?'Activity date unavailable':'Not started',last:0,live:false};
+const days=Math.floor((now-last)/DAY_MS),live=now-last<INACTIVE_DAYS*DAY_MS;
+return{last,live,label:live?'Campaign is live':`Campaign completed ${days} days ago`};
+}
+function savedAmount(objects,keys){for(const obj of objects)for(const key of keys){const v=obj?.[key];if(v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0)return Number(v)}return null}
+function roiSpending(){
+const objects=[campaignData.planner?.meta,campaignData,currentCampaign];
+const actual=savedAmount(objects,['totalSpent','amountSpent','spent']);
+if(actual!==null)return{amount:actual,note:'Recorded spending · excl. VAT'};
+const cost=savedAmount(objects,['totalCost','totalPrice','budget']);
+const amount=cost??(shifts.length?shifts.reduce((sum,item)=>sum+(savedAmount([item],['price'])??shiftPrice(item.flyers)),0):null);
+return{amount,note:amount===null?'No saved spending or campaign cost.':'Saved campaign cost · excl. VAT. Payment is not verified.'};
+}
+// Revenue exists only in memory; it is never sent to Firebase or browser storage.
+function roiDifference(revenue,cost){
+if(String(revenue).trim()===''||cost===null)return null;
+const amount=Number(revenue);return Number.isFinite(amount)&&amount>=0?Math.round((amount-cost)*100)/100:null;
+}
+function updateRevenueDifference(){
+const spending=roiSpending(),printing=savedAmount([campaignData.roi],['printingCost'])??0;
+const difference=roiDifference(revenueDraft,spending.amount===null?null:spending.amount+printing),output=$('roiDifference');
+if(!output)return;output.textContent=difference===null?'—':money(difference);
+output.style.color=difference===null?'':difference<0?'#bd3744':'#08766c';
+}
+function renderRoi(){
+if(!clientId){$('roiContent').innerHTML='<div class="empty">Open an XX ID.</div>';return}
+const spending=roiSpending(),printing=savedAmount([campaignData.roi],['printingCost'])??0,activity=campaignActivity(allDotRecords()),pending=sourceRecords.size+sourceErrors.size<dotUnsubscribers.length;
+const focus=['printingCost','campaignRevenue'].includes(document.activeElement?.id)?document.activeElement.id:null;
+$('roiContent').innerHTML=`<div class="roi-status ${activity.live?'live':''}" style="margin-bottom:14px">${sourceErrors.size?'Activity unavailable':pending?'Loading…':escape(activity.label)}</div>
+<div class="roi-card"><span class="roi-label">Distribution cost</span><strong>${spending.amount===null?'—':money(spending.amount)}</strong></div>
+<form id="printingForm" class="roi-card"><label class="roi-label" for="printingCost">Printing cost (€)</label><input id="printingCost" class="field" type="number" min="0" max="100000000" step="0.01" inputmode="decimal" required value="${escape(printingDraft??printing.toFixed(2))}"><button class="action" type="submit" style="margin-top:8px" ${printingSaving?'disabled':''}>${printingSaving?'Saving…':'Save'}</button></form>
+<div class="roi-card"><span class="roi-label">Total cost · excl. VAT</span><strong class="roi-money">${spending.amount===null?'—':money(spending.amount+printing)}</strong></div>
+<div class="roi-card"><label class="roi-label" for="campaignRevenue">Campaign revenue (€)</label><input id="campaignRevenue" class="field" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" autocomplete="off" value="${escape(revenueDraft)}"><div class="roi-note">Not saved · excl. VAT</div></div>
+<div class="roi-card"><span class="roi-label">Difference</span><strong id="roiDifference" class="roi-money">—</strong><div class="roi-note">Revenue − total cost</div></div>`;
+updateRevenueDifference();if(focus)$(focus).focus();
+}
+async function savePrintingCost(event){
+event.preventDefault();const input=$('printingCost');if(!clientId||printingSaving||!input.reportValidity())return;
+const amount=Math.round(Number(input.value)*100)/100,id=clientId;printingSaving=true;renderRoi();
+try{await update(ref(db,`campaigns/${id}/roi`),{printingCost:amount,updatedAt:serverTimestamp()});
+if(clientId===id){campaignData.roi={...campaignData.roi,printingCost:amount};printingDraft=null;toast('Printing cost saved')}}
+catch(error){console.warn(error);if(clientId===id)toast('Printing cost could not be saved. Please retry.')}
+finally{if(clientId===id){printingSaving=false;renderRoi()}}
+}
+$('roiContent').addEventListener('input',event=>{if(event.target.id==='printingCost')printingDraft=event.target.value;if(event.target.id==='campaignRevenue'){revenueDraft=event.target.value;updateRevenueDifference()}});
+$('roiContent').addEventListener('submit',savePrintingCost);
+function watchCampaignData(id){
+if(campaignDataUnsubscribe)campaignDataUnsubscribe();
+campaignDataUnsubscribe=onValue(ref(db,`campaigns/${id}`),snapshot=>{if(clientId!==id)return;campaignData={...campaignData,...(snapshot.val()||{})};renderCurrentCampaign()},error=>{console.warn(error);if(clientId===id){$('roiContent').innerHTML='<div class="empty">Campaign spending could not be loaded.</div>'}});
+}
+setInterval(renderRoi,60000);
+
+function renderBookingTotals(){renderCurrentCampaign()}
+function renderShiftSummary(){
+els.shiftCountBadge.textContent=String(shifts.length);
+els.shiftList.innerHTML=shifts.length?shifts.map((shift,index)=>{const pickup=shift.pickupAddress||els.pickupInput.value.trim()||'Pickup address not added',stats=shiftLiveStats(shift,index),number=shiftNumber(shift,index);return`<div class="shift-item"><div class="shift-head"><div><div class="shift-name">${escape(shift.title||`Shift ${number}`)}</div><div class="shift-quantity">${stats.target.toLocaleString()} flyers</div></div>${stats.distributionDone?'<span class="campaign-state">Done</span>':''}</div><div class="shift-pickup"><span class="material-icons-outlined">location_on</span><span>${escape(pickup)}</span></div><div class="shift-statuses"><div class="shift-status${stats.pickupDone?' done':''}">Pickup status<strong>${stats.pickupDone?'Done':'Pending'}</strong></div><div class="shift-status${stats.distributionDone?' done':''}">Distribution status<strong>${stats.distributionDone?'Done':'Pending'}</strong></div></div><div class="progress-row"><span>${stats.posted.toLocaleString()} of ${stats.target.toLocaleString()} delivery dots</span><strong>${stats.percent}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${stats.percent}%"></div></div></div>`}).join(''):'<div class="empty">No shifts created yet.</div>';
+renderCurrentCampaign();
+}
+function watchShifts(id){if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(!id)return;shiftUnsubscribe=onValue(ref(db,`campaigns/${id}/planner/shifts`),snapshot=>{shifts=objectValues(snapshot.val()).map(([key,value])=>({key,...value})).sort((a,b)=>shiftNumber(a,0)-shiftNumber(b,0));renderShiftSummary();watchDotProgress()},console.warn)}
+function renderCurrentCampaign(){
+renderRoi();
+if(!clientId){els.campaignSummary.innerHTML='<div class="empty">Plan a campaign or open an existing XX ID.</div>';return}
+const item={...campaignData,...campaignData.planner?.meta,...(currentCampaign||{})},announced=item.status==='announced',hasLivePlan=!!selectedAreaFeature||bookedZones.length>0||shifts.length>0||!!els.pickupInput.value.trim(),areaName=selectedAreaFeature?.properties.name||item.areaName||'Area not selected',flyers=totalFlyers()||Number(item.totalFlyers||item.plannedFlyers)||shifts.reduce((sum,shift)=>sum+(Number(shift.flyers)||0),0),zones=hasLivePlan?bookedZones.length:(Number(item.zoneCount)||0),shiftCount=hasLivePlan?shifts.length:(Number(item.shiftCount)||0),totalCost=roiSpending().amount??shiftPrice(flyers),pickup=els.pickupInput.value.trim()||item.pickupAddress||'',announcedTime=item.clientAnnouncedAt||item.announcedAt,progress=campaignDeliveryStats();
+els.campaignSummary.innerHTML=`<div class="campaign-card organized-summary">
+<div class="campaign-card-head"><span class="campaign-id">${escape(clientId)}</span><span class="campaign-state${announced?'':' planning'}">${announced?'Announced':'Planning'}</span></div>
+<dl class="summary-details"><div><dt>Area</dt><dd>${escape(areaName)}</dd></div><div><dt>Date announced</dt><dd>${announcedTime?escape(timeLabel(announcedTime)):'—'}</dd></div></dl>
+<div class="shift-product" aria-label="Shift price"><div><span class="shift-product-name">Flyer distribution shift</span><small>1,000 flyers · excl. VAT</small></div><div class="shift-product-price"><span>Shift price</span><strong>${money(SHIFT_PRICE)}</strong></div></div>
+<div class="summary-totals" aria-label="Campaign totals" aria-live="polite">
+<div class="summary-row summary-total-price"><span>Total price <small>excl. VAT</small></span><strong>${money(totalCost)}</strong></div>
+<div class="summary-row"><span>Total flyers</span><strong>${flyers.toLocaleString()}</strong></div>
+<div class="summary-row summary-delivered"><span>Flyers delivered</span><strong>${progress.posted.toLocaleString()}</strong></div>
+</div>
+<div class="summary-facts"><span>Shifts <strong>${shiftCount.toLocaleString()}</strong></span><span>Zones <strong>${zones.toLocaleString()}</strong></span>${extraFlyers?`<span>Extra flyers <strong>${extraFlyers.toLocaleString()}</strong></span>`:''}</div>
+${pickup?`<div class="summary-pickup"><span>Pickup address</span><strong>${escape(pickup)}</strong></div>`:''}
+<div class="campaign-progress"><div class="campaign-progress-head"><span>Distribution progress</span><strong>${progress.percent}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${progress.percent}%"></div></div></div>
+</div>`;
+}
+function watchAnnouncedCampaign(id){if(campaignUnsubscribe){campaignUnsubscribe();campaignUnsubscribe=null}currentCampaign=null;renderCurrentCampaign();if(!id)return;campaignUnsubscribe=onValue(ref(db,`announcedCampaigns/${id}`),snapshot=>{currentCampaign=snapshot.exists()?{...snapshot.val(),clientId:id}:null;renderCurrentCampaign()},error=>{console.warn(error);els.campaignSummary.innerHTML='<div class="empty">This campaign summary could not be loaded.</div>'})}
+// Read-only source records; derived shift summaries are saved to the planner only.
+const sourceRecords=new Map(),proofRecords=new Map(),proofErrors=new Set(),proofPending=new Set();
+let proofUnsubscribers=[];
+let photoMarkers=[],photoPopup=null;
+let dotWatchGeneration=0,sourceErrors=new Set(),syncInFlight=false,syncQueued=false;
+function stopDotWatchers(){
+dotWatchGeneration++;dotUnsubscribers.forEach(unsubscribe=>unsubscribe());dotUnsubscribers=[];
+photoPopup?.remove();photoPopup=null;
+proofUnsubscribers.forEach(unsubscribe=>unsubscribe());proofUnsubscribers=[];proofRecords.clear();proofErrors.clear();proofPending.clear();
+dotWatchSignature='';dotStats.clear();sourceRecords.clear();sourceErrors.clear();lastSyncedDotStatus.clear();
+renderDeliveryDots();renderPhotoProof();
+}
+function safePhotoUrl(value){try{const url=new URL(String(value||''));return ['https:','http:'].includes(url.protocol)?url.href:''}catch{return ''}}
+function photoUrls(value){
+const urls=new Set();
+function collect(item){if(typeof item==='string'){const url=safePhotoUrl(item);if(url)urls.add(url)}else if(item&&typeof item==='object'){if(item.url||item.src)collect(item.url||item.src);else Object.values(item).forEach(collect)}}
+['photoUrl','photoURL','photo','photos','imageUrl','imageURL','image','images','proofUrl','proofPhoto','photoProof','photoUrls','imageUrls'].forEach(key=>collect(value[key]));
+return [...urls];
+}
+function readRecords(snapshot,posterId,kind,source){
+const records=[];snapshot.forEach(child=>{
+const value=child.val();if(!value||typeof value!=='object')return;
+const coordinate=value=>value===null||value===undefined||String(value).trim()===''?NaN:Number(value);
+const lat=coordinate(value.lat??value.latitude??value.location?.lat),lng=coordinate(value.lng??value.longitude??value.location?.lng);
+const color=String(value.color||(source==='userPostClicks'?'orange':'blue')).toLowerCase();
+const time=recordTime(value.timestamp??value.createdAt??value.clientTimestamp??value.time??value.date);
+records.push({key:`${source}/${posterId}/${child.key}`,posterId,kind,lat,lng,hasLocation:Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180,color,timestamp:time>0&&time<1e11?time*1000:time,outcome:color==='red'?'no':color==='orange'?'other':'yes',photos:photoUrls(value)});
+});return records.sort((a,b)=>a.timestamp-b.timestamp||a.key.localeCompare(b.key));
+}
+function allDotRecords(){
+// A migrated post retaining its Firebase key is counted once across XX/FF aliases.
+const unique=new Map();for(const record of [...sourceRecords.values()].flat()){
+const parts=record.key.split('/'),identity=[record.kind,parts[0],parts.at(-1),record.lat,record.lng].join('|');
+if(!unique.has(identity)||record.timestamp>unique.get(identity).timestamp)unique.set(identity,record);
+}return [...unique.values()].sort((a,b)=>a.timestamp-b.timestamp||a.key.localeCompare(b.key));
+}
+function progressFromRecords(records,list){
+// Count distinct posts, including multiple posts at the same pickup location.
+const unique=[...new Map(records.map(record=>[record.key,record])).values()];
+const pickups=unique.filter(record=>record.kind==='pickup'&&record.hasLocation).length;
+let remaining=unique.filter(record=>record.kind==='delivery'&&record.hasLocation&&record.outcome==='yes').length;
+return list.map((shift,index)=>{const target=Math.max(0,Number(shift.flyers)||0),postedDots=Math.min(target,remaining);remaining-=postedDots;return{postedDots,pickupDone:index<pickups,distributionDone:target>0&&postedDots>=target,percent:target?Math.min(100,Math.round(postedDots/target*100)):0}});
+}
+function rebuildDotProgress(){
+const stats=progressFromRecords(allDotRecords(),shifts);shifts.forEach((shift,index)=>dotStats.set(shift.key,stats[index]));
+renderShiftSummary();renderDeliveryDots();renderPhotoProof();
+if(!sourceErrors.size&&sourceRecords.size===dotUnsubscribers.length)queueDotStatusSync();
+}
+function renderDeliveryDots(){
+if(!mapReady)return;
+const records=allDotRecords().filter(dot=>dot.hasLocation);
+map.getSource('campaign-route')?.setData(fc(records.length>1?[feature('LineString',records.map(dot=>[dot.lng,dot.lat]))]:[]));
+for(const kind of ['delivery','pickup'])map.getSource(`${kind}-dots`)?.setData(fc(records.filter(dot=>dot.kind===kind).map(dot=>feature('Point',[dot.lng,dot.lat],{color:dot.color,outcome:dot.outcome,posterId:dot.posterId,timestamp:dot.timestamp,key:dot.key}))));
+if(legacyAutoFit&&records.length){legacyAutoFit=false;const bounds=new maplibregl.LngLatBounds();records.forEach(r=>bounds.extend([r.lng,r.lat]));map.fitBounds(bounds,{padding:40,maxZoom:16,duration:700})}
+renderMap();
+}
+function proofSources(campaignId,pickupIds){
+return [{id:campaignId,posterId:`FF${campaignId.replace(/^XX/i,'')}`,kind:'delivery'},...pickupIds.map(id=>({id,posterId:id,kind:'pickup'}))];
+}
+function readProofRecords(snapshot,source){
+const records=[];snapshot.forEach(child=>{
+const value=child.val();if(!value||typeof value!=='object')return;
+const url=safePhotoUrl(value.url);if(!url)return;
+const time=recordTime(value.timestamp??value.createdAt??value.clientTimestamp??value.time??value.date);
+const lat=proofCoordinate(value.lat,90),lng=proofCoordinate(value.lng,180);
+records.push({lat,lng,hasLocation:lat!==null&&lng!==null,key:`campaigns/${source.id}/proofs/${child.key}`,posterId:source.posterId,kind:source.kind,url,timestamp:time>0&&time<1e11?time*1000:time,workerName:String(value.workerName||'')});
+});return records;
+}
+function watchPhotoProof(pickupIds,generation){
+const sources=proofSources(clientId,pickupIds);
+sources.forEach(source=>proofPending.add(source.id));renderPhotoProof();
+sources.forEach(source=>{
+const unsubscribe=onValue(ref(db,`campaigns/${source.id}/proofs`),snapshot=>{
+if(generation!==dotWatchGeneration)return;
+proofPending.delete(source.id);proofErrors.delete(source.id);proofRecords.set(source.id,readProofRecords(snapshot,source));renderPhotoProof();
+},error=>{
+if(generation!==dotWatchGeneration)return;
+console.warn(error);proofPending.delete(source.id);proofErrors.add(source.id);renderPhotoProof();
+});proofUnsubscribers.push(unsubscribe);
+});
+}
+function allPhotoProof(){
+const uploaded=[...proofRecords.values()].flat(),attached=allDotRecords().flatMap(dot=>dot.photos.map(url=>({...dot,url})));
+// Prefer uploaded metadata when the same image is also attached to a dot.
+return [...new Map([...uploaded,...attached].map(photo=>[`${photo.posterId}|${photo.url}`,photo]).reverse()).values()].sort((a,b)=>b.timestamp-a.timestamp||a.key.localeCompare(b.key));
+}
+function proofCoordinate(value,limit){
+if(value===null||value===undefined||typeof value==='boolean'||String(value).trim()==='')return null;
+const n=Number(value);return Number.isFinite(n)&&Math.abs(n)<=limit?n:null;
+}
+function openPhotoProof(photo,photos=[photo]){
+if(!mapReady)return;
+closeZonePopup();photoPopup?.remove();
+const located=photo.hasLocation,center=located?[photo.lng,photo.lat]:map.getCenter();
+const content=document.createElement('div');content.className='photo-popup-images';
+photos.forEach(item=>{const img=document.createElement('img');img.src=item.url;img.alt='Photo proof';img.referrerPolicy='no-referrer';content.appendChild(img)});
+photoPopup=new maplibregl.Popup({className:'photo-popup',maxWidth:'min(360px, calc(100vw - 36px))',offset:18,closeOnMove:false}).setLngLat(center).setDOMContent(content).addTo(map);
+if(located)map.flyTo({center,zoom:Math.max(map.getZoom(),16),padding:{top:Math.min(145,map.getContainer().clientHeight/3),bottom:20,left:20,right:20},duration:700});
+}
+function renderPhotoMarkers(photos){
+photoMarkers.forEach(marker=>marker.remove());photoMarkers=[];
+if(!mapReady)return;
+const groups=new Map();
+photos.filter(photo=>photo.hasLocation).forEach(photo=>{const key=`${photo.lng}|${photo.lat}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(photo)});
+groups.forEach(group=>{
+const button=document.createElement('button');button.type='button';button.className='photo-marker';button.setAttribute('aria-label','View photo proof');
+button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h5l2-3h4l2 3h5v15H3z"/><circle cx="12" cy="13" r="4"/></svg>';
+button.addEventListener('click',event=>{event.stopPropagation();openPhotoProof(group[0],group)});
+photoMarkers.push(new maplibregl.Marker({element:button,offset:[14,-14]}).setLngLat([group[0].lng,group[0].lat]).addTo(map));
+});
+}
+function renderPhotoProof(){
+const filter=$('proofFilter').value,shown=allPhotoProof().filter(photo=>filter==='all'||photo.kind===filter);
+$('proofCount').textContent=shown.length;
+const notice=proofErrors.size?'<div class="proof-notice" role="status">Some photo proof could not be loaded. Check access to the campaign’s photos.</div>':'';
+$('proofList').innerHTML=shown.length?shown.map((photo,index)=>`<button type="button" class="proof-card ${photo.kind}" data-photo-index="${index}" aria-label="View photo proof"><img src="${escape(photo.url)}" loading="lazy" referrerpolicy="no-referrer" alt="Photo proof"></button>`).join('')+notice:`<div class="proof-empty" role="status">${proofErrors.size?'Photo proof could not be loaded. Check access to the campaign’s photos.':proofPending.size?'Loading photo proof…':clientId?'No photo proof available for this filter.':'Open a campaign to view pickup and delivery photos.'}</div>`;
+$('proofList').onclick=event=>{const button=event.target.closest('[data-photo-index]');if(button)openPhotoProof(shown[Number(button.dataset.photoIndex)])};
+renderPhotoMarkers(shown);
+}
+async function queueDotStatusSync(){
+if(syncInFlight){syncQueued=true;return}if(!clientId||sourceErrors.size||sourceRecords.size!==dotUnsubscribers.length)return;
+const id=clientId,generation=dotWatchGeneration,paths={},pending=[];
+shifts.forEach((shift,index)=>{const stats=dotStats.get(shift.key);if(!stats)return;
+const values={pickupStatus:stats.pickupDone?'done':'pending',distributionStatus:stats.distributionDone?'done':'pending',postedDots:stats.postedDots,progressPercent:stats.percent,status:stats.distributionDone?'completed':'pending'};
+const signature=JSON.stringify(values);if(lastSyncedDotStatus.get(shift.key)===signature)return;
+pending.push([shift.key,signature]);if(Object.entries(values).every(([key,value])=>shift[key]===value))return;
+Object.entries(values).forEach(([key,value])=>paths[`campaigns/${id}/planner/shifts/${shift.key}/${key}`]=value);
+});
+if(!Object.keys(paths).length){pending.forEach(([key,value])=>lastSyncedDotStatus.set(key,value));return}
+const progress=campaignDeliveryStats();paths[`campaigns/${id}/planner/meta/deliveredDots`]=progress.posted;paths[`campaigns/${id}/planner/meta/distributionProgressPercent`]=progress.percent;
+syncInFlight=true;
+try{await update(ref(db),paths);if(generation===dotWatchGeneration)pending.forEach(([key,value])=>lastSyncedDotStatus.set(key,value))}catch(error){console.warn(error);toast('Progress is visible, but could not be saved.')}finally{syncInFlight=false;if(syncQueued){syncQueued=false;queueDotStatusSync()}}
+}
+function watchDotProgress(){
+if(!clientId){stopDotWatchers();return}
+const pickupIds=[...new Set([`PUS${clientId.replace(/^XX/i,'')}`,...shifts.map(posterIdForShift)])];
+const signature=JSON.stringify([clientId,pickupIds,shifts.map(shift=>[shift.key,shift.flyers])]);if(signature===dotWatchSignature)return;
+stopDotWatchers();dotWatchSignature=signature;const generation=dotWatchGeneration;
+watchPhotoProof(pickupIds,generation);
+const deliveryIds=[...new Set([clientId,clientId.toLowerCase(),campaignFfId(),campaignFfId().toLowerCase(),...shifts.map(s=>s.deliveryPosterId).filter(id=>/^(XX|FF)\d+$/i.test(id))])];
+const sources=[...pickupIds.map(id=>({id,kind:'pickup',root:'userPosts'})),...deliveryIds.flatMap(id=>['userPosts','userPostClicks'].map(root=>({id,kind:'delivery',root})))];
+sources.forEach(({id,kind,root})=>{const path=`${root}/${id}`;
+const unsubscribe=onValue(ref(dotsDb,path),snapshot=>{if(generation!==dotWatchGeneration)return;sourceErrors.delete(path);sourceRecords.set(path,readRecords(snapshot,id,kind,root));rebuildDotProgress()},error=>{if(generation!==dotWatchGeneration)return;console.warn(error);sourceErrors.add(path);toast(`Could not load ${id} ${root==='userPostClicks'?'activity':'posts'}`);renderPhotoProof();renderRoi()});dotUnsubscribers.push(unsubscribe);
+});
+}
+$('proofFilter').addEventListener('change',renderPhotoProof);
+function addLocalEvent(title,detail='',icon='check_circle',time=Date.now()){events.push({title,detail,icon,time});events.sort((a,b)=>(Number(a.time)||0)-(Number(b.time)||0));renderTimeline()}
+async function addEvent(title,detail='',icon='check_circle'){
+const time=Date.now();addLocalEvent(title,detail,icon,time);
+if(clientId)await push(ref(db,`campaigns/${clientId}/planner/updates`),{title,detail,icon,clientTimestamp:time,createdAt:serverTimestamp()}).catch(console.warn);
+}
+
+function renderAreaList(message=''){
+if(message){els.areaList.hidden=false;els.areaList.innerHTML=`<div class="empty">${escape(message)}</div>`;return}
+els.areaList.hidden=!allAreas.length;
+els.areaList.innerHTML=allAreas.map(item=>`<button class="area-row${selectedAreaFeature?.properties.areaId===item.properties.areaId?' active':''}" data-area-id="${escape(item.properties.areaId)}"><span>${escape(item.properties.name)}</span><span class="material-icons-outlined">${selectedAreaFeature?.properties.areaId===item.properties.areaId?'check_circle':'chevron_right'}</span></button>`).join('');
+}
+function renderSelectedArea(){
+if(selectedAreaFeature){els.selectedArea.className='selected-area ready';els.selectedArea.innerHTML=`<span class="material-icons-outlined">location_on</span><span>${escape(selectedAreaFeature.properties.name)}</span>`}
+else{els.selectedArea.className='selected-area';els.selectedArea.innerHTML='<span class="material-icons-outlined">language</span><span>No European area selected</span>'}
+renderAreaList();renderSelectedBoundary();renderCurrentCampaign();
+}
+function renderSelectedBoundary(){if(mapReady&&map.getSource('selected-area'))map.getSource('selected-area').setData(selectedAreaFeature?fc([selectedAreaFeature]):fc())}
+
+function coordinatesFlat(geometry){const out=[];(function walk(value){if(Array.isArray(value)&&typeof value[0]==='number'&&typeof value[1]==='number')out.push(value);else if(Array.isArray(value))value.forEach(walk)})(geometry?.coordinates);return out}
+function fitGeometry(geometry,duration=650){if(!mapReady||!geometry)return;const coords=coordinatesFlat(geometry);if(!coords.length)return;const bounds=coords.reduce((box,point)=>box.extend(point),new maplibregl.LngLatBounds(coords[0],coords[0]));map.fitBounds(bounds,{padding:55,maxZoom:13,duration})}
+function pointOnSegment(point,a,b){if(a[0]===b[0]&&a[1]===b[1])return Math.abs(point[0]-a[0])<1e-9&&Math.abs(point[1]-a[1])<1e-9;const cross=(point[1]-a[1])*(b[0]-a[0])-(point[0]-a[0])*(b[1]-a[1]);if(Math.abs(cross)>1e-9)return false;const dot=(point[0]-a[0])*(b[0]-a[0])+(point[1]-a[1])*(b[1]-a[1]);if(dot<0)return false;const squared=(b[0]-a[0])**2+(b[1]-a[1])**2;return dot<=squared}
+function pointInRing(point,ring){let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if(pointOnSegment(point,a,b))return true;const intersects=((a[1]>point[1])!==(b[1]>point[1]))&&(point[0]<(b[0]-a[0])*(point[1]-a[1])/(b[1]-a[1])+a[0]);if(intersects)inside=!inside}return inside}
+function pointInPolygon(point,rings){return !!rings?.length&&pointInRing(point,rings[0])&&!rings.slice(1).some(ring=>pointInRing(point,ring))}
+function geometryContains(geometry,point){if(!geometry)return false;if(geometry.type==='Polygon')return pointInPolygon(point,geometry.coordinates);if(geometry.type==='MultiPolygon')return geometry.coordinates.some(polygon=>pointInPolygon(point,polygon));return false}
+function refreshHexMetrics(){renderBookingTotals();const booked=hexagons.filter(item=>item.status==='booked').length,buildings=totalBuildings(),flyers=totalFlyers();els.hexCount.textContent=hexagons.length?hexagons.length.toLocaleString():'—';els.bookedCount.textContent=booked.toLocaleString();els.buildingCount.textContent=buildings?buildings.toLocaleString():'—';els.flyerCount.textContent=flyers?flyers.toLocaleString():'—';els.extraFlyersTotal.textContent=`Extra flyers added: ${extraFlyers.toLocaleString()}`;renderCurrentCampaign()}
+function generateHexagons(area){
+hexagons=[];if(!area?.geometry||!window.turf){els.zoneStatus.textContent='The city grid could not be created. Search for another city.';renderMap();return}
+try{
+const cityArea=Math.max(window.turf.area(area)/1e6,.01),bbox=window.turf.bbox(area);let side=Math.max(.18,Math.min(4,Math.sqrt(cityArea/(90*2.598)))),grid;
+for(let attempt=0;attempt<4;attempt++){grid=window.turf.hexGrid(bbox,side,{units:'kilometers',mask:area});if((grid.features?.length||0)<=180)break;side*=1.35}for(let attempt=0;attempt<3&&!(grid.features?.length);attempt++){side=Math.max(.04,side/1.7);grid=window.turf.hexGrid(bbox,side,{units:'kilometers',mask:area})}
+const bookedByHex=new Map(bookedZones.filter(zone=>zone.hexId).map(zone=>[zone.hexId,zone]));hexagons=(grid.features||[]).map((item,index)=>{const hexId=`${area.properties.areaId}-h${index+1}`,zone=bookedByHex.get(hexId),points=item.geometry.coordinates[0].slice(0,-1).map(([lng,lat])=>[round(lng),round(lat)]);return{hexId,points,status:zone?'booked':'available',buildings:zone?.buildings||[],estimatedBuildings:zone?.estimatedBuildings||zone?.buildings?.length||0,flyersRequired:zone?.flyersRequired||0,estimateReady:!!zone}});
+els.zoneStatus.textContent=`${hexagons.length.toLocaleString()} hexagons created for ${area.properties.name}. Click a hexagon to view buildings and book it.`;refreshHexMetrics();renderMap();
+}catch(error){console.error(error);els.zoneStatus.textContent='The city boundary could not be divided into hexagons. Search for another city.';refreshHexMetrics();renderMap()}
+}
+
+async function searchAreas(){
+const query=els.areaSearch.value.trim();if(query.length<2){renderAreaList('Enter at least two characters.');return}
+els.areaSearchBtn.disabled=true;els.areaSearchBtn.textContent='Searching…';renderAreaList('Searching European boundaries…');
+try{
+const url=`${AREA_SEARCH_URL}?format=geojson&polygon_geojson=1&addressdetails=1&limit=15&viewbox=-25,72,60,32&bounded=1&q=${encodeURIComponent(query)}`;const response=await fetch(url,{headers:{'Accept':'application/geo+json,application/json'}});if(!response.ok)throw new Error('Area search unavailable');const data=await response.json();
+allAreas=(data.features||[]).filter(item=>['Polygon','MultiPolygon'].includes(item.geometry?.type)).map((item,index)=>({type:'Feature',geometry:item.geometry,properties:{areaId:`${item.properties?.osm_type||'area'}-${item.properties?.osm_id||index}`,code:String(item.properties?.osm_id||index),name:item.properties?.display_name||item.properties?.name||query}}));
+if(allAreas.length){renderAreaList();await selectArea(allAreas[0])}else{els.areaList.hidden=true;els.selectedArea.className='selected-area';els.selectedArea.innerHTML='<span class="material-icons-outlined">location_off</span><span>No city boundary is available for this search</span>';els.zoneStatus.textContent='No hexagons were created. Search for another European city.';toast('No selectable European city boundary found')}
+}catch(error){console.error(error);allAreas=[];els.areaList.hidden=true;els.selectedArea.className='selected-area';els.selectedArea.innerHTML='<span class="material-icons-outlined">location_off</span><span>City search is temporarily unavailable</span>';els.zoneStatus.textContent='Hexagons could not be created. Try the city search again.';toast('European city search is temporarily unavailable')}
+finally{els.areaSearchBtn.disabled=false;els.areaSearchBtn.textContent='Search'}
+}
+
+async function highestNumber(){
+const results=await Promise.allSettled([TRACKING_ROOT,DOTS_ROOT].map(url=>fetch(url,{cache:'no-store'}).then(response=>response.ok?response.json():{})));
+let highest=0;results.forEach(result=>{if(result.status!=='fulfilled')return;Object.keys(result.value||{}).forEach(key=>{const match=String(key).match(/^(?:XX|FF)(\d+)$/i);if(match)highest=Math.max(highest,Number(match[1])||0)})});return highest;
+}
+async function ensureClient(){
+if(clientId)return clientId;if(clientPromise)return clientPromise;
+clientPromise=(async()=>{
+renderCampaignTitle();const highest=await highestNumber();let number=highest+1;
+try{const result=await runTransaction(ref(db,'system/nextCampaignNumber'),current=>Math.max(Number(current)||0,highest)+1,{applyLocally:false});if(result.committed)number=Number(result.snapshot.val())||number}catch(error){console.warn(error)}
+let candidate=`XX${number}`;for(let attempt=0;attempt<30;attempt++){const existing=await get(ref(db,`campaigns/${candidate}`));if(!existing.exists())break;candidate=`XX${++number}`}
+clientId=candidate;renderCampaignTitle();watchAnnouncedCampaign(clientId);renderCurrentCampaign();
+await set(ref(db,`campaigns/${clientId}/planner/meta`),{clientId,businessName:$('quoteBusinessName').value.trim(),clientEmail:$('clientEmail').value.trim(),extraFlyers:0,status:'planning',createdAt:serverTimestamp()});watchShifts(clientId);watchCampaignData(clientId);
+await addEvent('Campaign planning started',`${clientId} assigned to this campaign`,'flag');return clientId;
+})().catch(error=>{renderCampaignTitle();throw error}).finally(()=>clientPromise=null);return clientPromise;
+}
+
+async function selectArea(area,{save=true,fit=true}={}){
+if(!area)return;
+const changed=selectedAreaFeature?.properties.areaId!==area.properties.areaId;
+if(changed&&bookedZones.length){toast('Start a new campaign before changing the booked area');return}
+selectedAreaFeature=area;renderSelectedArea();generateHexagons(area);if(fit)fitGeometry(area.geometry);
+if(save&&changed){
+try{const id=await ensureClient();await Promise.all([set(ref(db,`campaigns/${id}/planner/area`),{areaId:area.properties.areaId,code:area.properties.code||area.properties.areaId,name:area.properties.name,geometry:area.geometry,selectedAt:serverTimestamp()}),update(ref(db,`campaigns/${id}/planner/meta`),{areaName:area.properties.name,areaId:area.properties.areaId})]);await addEvent('Area selected',area.properties.name,'map');toast(`${area.properties.name} selected`)}catch(error){console.error(error);toast('The selected area could not be saved')}
+}
+}
+
+// Only posted campaign dots affect hexagon colour; building estimates do not.
+function hasPostedDots(points,dots){
+if(points.length<3)return false;
+let west=Infinity,east=-Infinity,south=Infinity,north=-Infinity;
+for(const [lng,lat] of points){west=Math.min(west,lng);east=Math.max(east,lng);south=Math.min(south,lat);north=Math.max(north,lat)}
+return dots.some(dot=>dot.lng>=west&&dot.lng<=east&&dot.lat>=south&&dot.lat<=north&&pointInRing([dot.lng,dot.lat],points));
+}
+function renderMap(){
+if(!mapReady)return;
+const posted=allDotRecords().filter(dot=>dot.hasLocation);
+const features=hexagons.map((hex,index)=>feature('Polygon',[closeRing(hex.points)],{status:hex.status,hexIndex:index,hexId:hex.hexId,hasPostedDots:hasPostedDots(hex.points,posted)}));
+bookedZones.filter(zone=>!zone.hexId).forEach((zone,index)=>{if(zone.points.length>=3)features.push(feature('Polygon',[closeRing(zone.points)],{status:'booked',legacyIndex:index,hasPostedDots:hasPostedDots(zone.points,posted)}))});
+map.getSource('zones')?.setData(fc(features));const visibleHex=hexagons.find(hex=>hex.hexId===visibleBuildingHexId),buildings=visibleHex?.buildings||[];map.getSource('buildings')?.setData(fc(buildings.map(point=>feature('Point',[Number(point.lng),Number(point.lat)]))));
+}
+function zoneCenter(points){const total=points.reduce((sum,point)=>[sum[0]+point[0],sum[1]+point[1]],[0,0]);return [total[0]/points.length,total[1]/points.length]}
+function closeZonePopup(){if(zonePopup){zonePopup.remove();zonePopup=null}}
+// Cache identity is polygon geometry, not the generated hexagon number.
+// Results persist on this browser across reloads and campaigns using IndexedDB.
+const buildingMemoryCache=new Map(),buildingRequests=new Map();
+const BUILDING_CACHE_VERSION=1,BUILDING_COOLDOWN_MS=60000;
+let buildingDbPromise=null,buildingCacheWarning=false,bookingInProgress=false,buildingCooldownUntil=0;
+try{buildingCooldownUntil=Number(localStorage.getItem('lf-building-booking-cooldown'))||0}catch{}
+function buildingCacheKey(points){
+let ring=points.map(([lng,lat])=>[Number(lng).toFixed(5),Number(lat).toFixed(5)].join(','));
+if(ring.length>1&&ring[0]===ring[ring.length-1])ring.pop();
+const variants=[];for(const order of [ring,[...ring].reverse()])for(let i=0;i<order.length;i++)variants.push([...order.slice(i),...order.slice(0,i)].join(';'));
+return `v${BUILDING_CACHE_VERSION}:${variants.sort()[0]||''}`;
+}
+function openBuildingCache(){
+if(buildingDbPromise)return buildingDbPromise;
+buildingDbPromise=new Promise((resolve,reject)=>{
+if(!globalThis.indexedDB){reject(new Error('Persistent building cache unavailable'));return}
+const request=indexedDB.open('leuvenflyers-building-cache',1);
+request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('hexagons'))request.result.createObjectStore('hexagons',{keyPath:'key'})};
+request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);request.onblocked=()=>reject(new Error('Building cache is blocked'));
+});return buildingDbPromise;
+}
+async function readBuildingCache(key){
+try{const database=await openBuildingCache();return await new Promise((resolve,reject)=>{const tx=database.transaction('hexagons','readonly'),request=tx.objectStore('hexagons').get(key);request.onsuccess=()=>resolve(request.result||null);request.onerror=()=>reject(request.error)})}catch{return null}
+}
+async function writeBuildingCache(entry){
+try{const database=await openBuildingCache();await new Promise((resolve,reject)=>{const tx=database.transaction('hexagons','readwrite');tx.objectStore('hexagons').put(entry);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});return true}catch(error){if(!buildingCacheWarning){buildingCacheWarning=true;toast('Browser storage unavailable; building results are saved for this session only.')}return false}
+}
+function validBuildingCache(entry,key){return entry?.key===key&&entry.version===BUILDING_CACHE_VERSION&&Array.isArray(entry.buildings)&&entry.buildings.every(point=>Number.isFinite(point.lat)&&Number.isFinite(point.lng)&&Math.abs(point.lat)<=90&&Math.abs(point.lng)<=180)}
+async function saveBuildingResults(points,buildings){
+const key=buildingCacheKey(points),entry={key,version:BUILDING_CACHE_VERSION,savedAt:Date.now(),buildings:buildings.map(point=>({lat:Number(point.lat),lng:Number(point.lng)}))};
+if(!validBuildingCache(entry,key))throw new Error('Invalid building results');
+buildingMemoryCache.set(key,entry);await writeBuildingCache(entry);return entry;
+}
+async function savedBuildingResults(hex){
+const key=buildingCacheKey(hex.points);
+if(hex.estimateReady&&Array.isArray(hex.buildings)){const entry={key,version:BUILDING_CACHE_VERSION,buildings:hex.buildings};if(validBuildingCache(entry,key)){buildingMemoryCache.set(key,entry);return entry}}
+const memory=buildingMemoryCache.get(key);if(validBuildingCache(memory,key))return memory;
+const stored=await readBuildingCache(key);if(validBuildingCache(stored,key)){buildingMemoryCache.set(key,stored);return stored}
+return null;
+}
+function bookingCooldownSeconds(){
+try{buildingCooldownUntil=Math.max(buildingCooldownUntil,Number(localStorage.getItem('lf-building-booking-cooldown'))||0)}catch{}
+return Math.max(0,Math.ceil((buildingCooldownUntil-Date.now())/1000));
+}
+function startBuildingCooldown(){buildingCooldownUntil=Date.now()+BUILDING_COOLDOWN_MS;try{localStorage.setItem('lf-building-booking-cooldown',String(buildingCooldownUntil))}catch{}renderBuildingCooldown()}
+function renderBuildingCooldown(){const remaining=bookingCooldownSeconds(),node=$('buildingCooldown');node.hidden=!remaining;node.textContent=remaining?`Next new hexagon in ${String(Math.floor(remaining/60)).padStart(2,'0')}:${String(remaining%60).padStart(2,'0')} · Saved hexagons are ready now.`:''}
+setInterval(renderBuildingCooldown,1000);renderBuildingCooldown();
+function applyBuildingResults(hex,buildings,cached,index){
+hex.buildings=buildings;hex.estimatedBuildings=buildings.length;hex.flyersRequired=Math.ceil(buildings.length*1.5);hex.estimateReady=true;hex.buildingsFromCache=cached;
+visibleBuildingHexId=hex.hexId;els.buildingCount.textContent=buildings.length.toLocaleString();els.flyerCount.textContent=hex.flyersRequired.toLocaleString();
+els.zoneStatus.textContent=`Hexagon ${index+1}: ${buildings.length.toLocaleString()} buildings · ${hex.flyersRequired.toLocaleString()} flyers${cached?' · Saved result':''}.`;renderMap();
+}
+function openHexPopup(index,lngLat){
+const hex=hexagons[index];if(!hex)return;closeZonePopup();
+const root=document.createElement('div'),copy=document.createElement('div'),actions=document.createElement('div'),dotsBtn=document.createElement('button');
+root.className='zone-popup';root.innerHTML=`<div class="zone-popup-title">${hex.status==='booked'?'Booked hexagon':`Hexagon ${index+1}`}</div>`;copy.className='zone-popup-copy';actions.className='zone-popup-actions';dotsBtn.className='zone-popup-btn';
+const updateDotsButton=()=>{dotsBtn.textContent=visibleBuildingHexId===hex.hexId?'Hide building dots':'Show building dots';dotsBtn.disabled=!hex.estimateReady};
+dotsBtn.addEventListener('click',()=>{visibleBuildingHexId=visibleBuildingHexId===hex.hexId?'':hex.hexId;updateDotsButton();renderMap()});root.append(copy);
+let popup,timer=null,busy=false,waiting=false;
+const active=()=>zonePopup===popup&&hexagons[index]===hex;
+if(hex.status==='booked'){
+const removeBtn=document.createElement('button'),buildingCount=Number(hex.estimatedBuildings??hex.buildings.length);
+copy.textContent=`${buildingCount.toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers · Saved result`;
+removeBtn.className='zone-popup-btn danger';removeBtn.textContent='Remove from campaign';removeBtn.addEventListener('click',()=>removeHexagon(index));updateDotsButton();actions.append(dotsBtn,removeBtn);root.append(actions);
+}else{
+const retryBtn=document.createElement('button'),bookBtn=document.createElement('button');retryBtn.className='zone-popup-btn';retryBtn.textContent='Retry building count';retryBtn.hidden=true;bookBtn.className='zone-popup-btn primary';bookBtn.textContent='Book this hexagon';bookBtn.disabled=true;
+updateDotsButton();actions.append(retryBtn,dotsBtn,bookBtn);root.append(actions);
+const refresh=()=>{
+if(!active()||busy)return;const remaining=bookingCooldownSeconds();
+if(waiting){copy.textContent=`New building lookup available in ${remaining}s. Saved hexagons can be booked immediately.`;bookBtn.disabled=true;bookBtn.textContent=`Wait ${remaining}s`;if(!remaining){waiting=false;loadCount()}return}
+if(hex.estimateReady){const blocked=!hex.buildingsFromCache&&remaining>0;bookBtn.disabled=blocked||bookingInProgress;bookBtn.textContent=blocked?`Book in ${remaining}s`:'Book this hexagon'}
+};
+const loadCount=async()=>{
+if(!active()||busy)return;busy=true;waiting=false;retryBtn.hidden=true;bookBtn.disabled=true;dotsBtn.disabled=true;copy.innerHTML='<span class="loading-buildings"><span class="building-spinner"></span><span>Checking saved building results…</span></span>';
+const result=await estimateBuildings(index);busy=false;if(!active())return;
+if(result==='waiting'){waiting=true;refresh();return}
+if(result){copy.textContent=`${hex.buildings.length.toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers · ${hex.buildingsFromCache?'Saved result':'Result saved'}`;updateDotsButton();refresh()}
+else{copy.textContent='Building count failed. No empty result was saved. Please try again.';retryBtn.hidden=false;bookBtn.disabled=true;bookBtn.textContent='Book this hexagon'}
+};
+retryBtn.addEventListener('click',loadCount);
+bookBtn.addEventListener('click',async()=>{if(busy||bookingInProgress)return;busy=true;bookBtn.disabled=true;bookBtn.textContent='Booking…';await bookHexagon(index);busy=false;if(active())refresh()});
+timer=setInterval(refresh,1000);setTimeout(loadCount,0);
+}
+popup=new maplibregl.Popup({closeButton:true,closeOnClick:false,offset:8}).setLngLat(lngLat||zoneCenter(hex.points)).setDOMContent(root).addTo(map);zonePopup=popup;
+popup.on('close',()=>{if(timer)clearInterval(timer);if(zonePopup===popup)zonePopup=null;if(visibleBuildingHexId===hex.hexId){visibleBuildingHexId='';renderMap()}});
+}
+
+async function queryBuildings(points){
+const polygon=closeRing(points).map(([lng,lat])=>`${lat} ${lng}`).join(' '),query=`[out:json][timeout:45];nwrpoly:"${polygon}";out center qt;`,endpoints=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];let lastError;
+for(const endpoint of endpoints){
+const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),50000);
+try{const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','Accept':'application/json'},body:'data='+encodeURIComponent(query),signal:controller.signal});if(!response.ok)throw new Error(`Building server returned ${response.status}`);const data=await response.json();if(data.remark||!Array.isArray(data.elements))throw new Error(data.remark||'Incomplete building response');const seen=new Set(),pointsOut=[];(data.elements||[]).forEach(element=>{const lat=element.type==='node'?Number(element.lat):Number(element.center?.lat),lng=element.type==='node'?Number(element.lon):Number(element.center?.lon),key=`${element.type}:${element.id}`;if(Number.isFinite(lat)&&Number.isFinite(lng)&&!seen.has(key)){seen.add(key);pointsOut.push({lat:round(lat),lng:round(lng)})}});clearTimeout(timer);return pointsOut}catch(error){clearTimeout(timer);lastError=error}
+}
+throw lastError||new Error('Building service unavailable');
+}
+async function estimateBuildings(index){
+const hex=hexagons[index];if(!hex)return false;const request=++estimateRequest,stillSelected=()=>request===estimateRequest&&hexagons[index]===hex;
+const saved=await savedBuildingResults(hex);if(!stillSelected())return false;
+if(saved){applyBuildingResults(hex,saved.buildings,true,index);return true}
+if(bookingCooldownSeconds()>0)return 'waiting';
+els.buildingCount.textContent='…';els.flyerCount.textContent='…';els.zoneStatus.textContent='Loading buildings for this hexagon for the first time…';
+const key=buildingCacheKey(hex.points);
+try{
+let pending=buildingRequests.get(key);
+if(!pending){pending=(async()=>{const found=await queryBuildings(hex.points);await saveBuildingResults(hex.points,found);return found})();buildingRequests.set(key,pending);pending.finally(()=>{if(buildingRequests.get(key)===pending)buildingRequests.delete(key)}).catch(()=>{})}
+const found=await pending;if(!stillSelected())return false;applyBuildingResults(hex,found,false,index);return true;
+}catch(error){if(!stillSelected())return false;console.error(error);els.buildingCount.textContent='—';els.flyerCount.textContent='—';els.zoneStatus.textContent='The building count is temporarily unavailable. Try again.';return false}
+}
+async function syncShiftsFromBuildingCount(id){
+const total=totalFlyers(),count=Math.ceil(total/1000),existing=[...shifts],saved={};for(let index=0;index<count;index++){const previous=existing[index],key=previous?.key||push(ref(db,`campaigns/${id}/planner/shifts`)).key,flyers=Math.min(1000,total-index*1000),number=index+1,posterId=`PUS${number}${id.replace(/^XX/i,'')}`;saved[key]={...(previous||{}),title:`Shift ${number}`,shiftNumber:number,posterId,pickupPosterId:posterId,deliveryPosterId:`FF${id.replace(/^XX/i,'')}`,flyers,status:previous?.status||'pending',pickupStatus:previous?.pickupStatus||'pending',distributionStatus:previous?.distributionStatus||'pending',postedDots:Number(previous?.postedDots)||0,price:shiftPrice(flyers),priceExcludesVat:true,pickupAddress:els.pickupInput.value.trim()||previous?.pickupAddress||'',createdAt:previous?.createdAt||serverTimestamp()}}
+const savedShifts=Object.entries(saved).map(([key,value])=>({key,...value})),totalCost=shiftsCost(savedShifts);await Promise.all([set(ref(db,`campaigns/${id}/planner/shifts`),count?saved:null),update(ref(db,`campaigns/${id}/planner/meta`),{shiftCount:count,plannedFlyers:total,extraFlyers,fullShiftPrice:SHIFT_PRICE,shiftPrice:null,totalCost})]);shifts=savedShifts;renderShiftSummary();watchDotProgress()
+}
+
+async function bookHexagon(index){
+const hex=hexagons[index];if(!hex||hex.status==='booked'||bookingInProgress)return;if(!hex.estimateReady){toast('View the building count before booking');return}
+if(!hex.buildingsFromCache&&bookingCooldownSeconds()>0){toast(`Wait ${bookingCooldownSeconds()}s before booking another new hexagon.`);return}
+bookingInProgress=true;
+try{const id=await ensureClient(),zoneRef=push(ref(db,`campaigns/${id}/planner/zones`)),buildingCount=hex.buildings.length,flyerCount=Math.ceil(buildingCount*1.5);await set(zoneRef,{status:'booked',hexId:hex.hexId,areaId:selectedAreaFeature.properties.areaId,areaName:selectedAreaFeature.properties.name,coordinates:hex.points.map(([lng,lat])=>({lat,lng})),buildingDots:hex.buildings,estimatedBuildings:buildingCount,flyersRequired:flyerCount,createdAt:serverTimestamp()});if(!hex.buildingsFromCache)startBuildingCooldown();hex.buildingsFromCache=true;hex.status='booked';hex.flyersRequired=flyerCount;bookedZones.push({key:zoneRef.key,hexId:hex.hexId,points:[...hex.points],buildings:[...hex.buildings],estimatedBuildings:buildingCount,flyersRequired:flyerCount});let shiftsUpdated=true;try{await syncShiftsFromBuildingCount(id)}catch(shiftError){shiftsUpdated=false;console.error(shiftError)}await addEvent('Hexagon booked',`${buildingCount.toLocaleString()} buildings × 1.5 = ${flyerCount.toLocaleString()} flyers`,'bookmark_added');closeZonePopup();refreshHexMetrics();renderMap();els.zoneStatus.textContent=`${hexagons.filter(item=>item.status==='booked').length} hexagons booked · ${totalFlyers().toLocaleString()} flyers required · ${shifts.length} shifts created.`;toast(shiftsUpdated?`Hexagon booked and ${shifts.length} shifts prepared`:'Hexagon booked; shifts could not be refreshed')}catch(error){console.error(error);toast('Hexagon could not be booked');openHexPopup(index)}finally{bookingInProgress=false}
+}
+async function removeHexagon(index){
+const hex=hexagons[index],zone=bookedZones.find(item=>item.hexId===hex?.hexId);if(!hex||!zone||!confirm('Remove this hexagon from the campaign?'))return;
+try{await remove(ref(db,`campaigns/${clientId}/planner/zones/${zone.key}`));bookedZones=bookedZones.filter(item=>item.key!==zone.key);hex.status='available';hex.flyersRequired=Math.ceil(hex.buildings.length*1.5);hex.estimatedBuildings=hex.buildings.length;hex.estimateReady=true;hex.buildingsFromCache=true;visibleBuildingHexId='';await syncShiftsFromBuildingCount(clientId);await addEvent('Hexagon removed',`${Number(zone.estimatedBuildings??hex.buildings.length).toLocaleString()} buildings removed from the campaign`,'remove_circle');closeZonePopup();refreshHexMetrics();renderMap();els.zoneStatus.textContent=`${bookedZones.length} hexagons booked · ${totalFlyers().toLocaleString()} flyers required · ${shifts.length} shifts created.`;toast('Hexagon removed and shifts updated')}catch(error){console.error(error);toast('The hexagon could not be removed')}
+}
+async function saveBusinessName(){
+const business=$('quoteBusinessName'),email=$('clientEmail'),button=$('saveBusinessBtn'),status=$('businessSaveStatus');
+business.value=business.value.trim();email.value=email.value.trim();
+if(!business.reportValidity()||!email.reportValidity())return false;
+const name=business.value,address=email.value;button.disabled=true;status.textContent='Saving client details…';
+try{const id=await ensureClient(),paths={};
+paths[`campaigns/${id}/planner/meta/businessName`]=name;paths[`campaigns/${id}/businessName`]=name;
+paths[`campaigns/${id}/planner/meta/clientEmail`]=address;paths[`campaigns/${id}/clientEmail`]=address;
+if(currentCampaign?.status==='announced'){paths[`announcedCampaigns/${id}/clientEmail`]=address;paths[`announcedCampaigns/${id}/businessName`]=name;}
+await update(ref(db),paths);
+if(clientId===id){status.textContent=business.value.trim()===name&&email.value.trim()===address?'Client details saved.':'Details changed. Save again to update.';renderCurrentCampaign()}
+return true;
+}catch(error){console.warn(error);status.textContent='Client details could not be saved. Please try again.';return false}finally{button.disabled=false}
+}
+$('saveBusinessBtn').addEventListener('click',saveBusinessName);
+for(const id of ['quoteBusinessName','clientEmail'])$(id).addEventListener('input',()=>{$('businessSaveStatus').textContent='Unsaved client details'});
+
+async function savePickup(){
+const address=els.pickupInput.value.trim();if(!address){toast('Enter a pickup address');return}els.pickupBtn.disabled=true;els.pickupBtn.textContent='Saving…';
+try{const id=await ensureClient(),paths={};paths[`campaigns/${id}/planner/pickup`]={address,addedAt:serverTimestamp()};shifts.forEach(shift=>{paths[`campaigns/${id}/planner/shifts/${shift.key}/pickupAddress`]=address});await update(ref(db),paths);shifts=shifts.map(shift=>({...shift,pickupAddress:address}));await addEvent('Pickup address added',address,'add_location_alt');renderShiftSummary();toast('Pickup address saved for all shifts')}catch(error){console.error(error);toast('Pickup address could not be saved')}finally{els.pickupBtn.disabled=false;els.pickupBtn.innerHTML='<span class="material-icons-outlined">add_location_alt</span>Save pickup address'}
+}
+async function addExtraFlyers(){
+const amount=Math.floor(Number(els.extraFlyersInput.value));if(!Number.isFinite(amount)||amount<1){toast('Enter the number of extra flyers');return}els.extraFlyersBtn.disabled=true;els.extraFlyersBtn.textContent='Adding…';
+const previous=extraFlyers;try{const id=await ensureClient();extraFlyers+=amount;const extraPaths={};extraPaths[`campaigns/${id}/planner/meta/extraFlyers`]=extraFlyers;extraPaths[`campaigns/${id}/extraFlyers`]=extraFlyers;extraPaths[`campaigns/${id}/planner/meta/plannedFlyers`]=totalFlyers();extraPaths[`campaigns/${id}/planner/meta/totalFlyers`]=totalFlyers();await update(ref(db),extraPaths);let shiftsUpdated=true;try{await syncShiftsFromBuildingCount(id)}catch(shiftError){shiftsUpdated=false;console.error(shiftError)}await addEvent('Extra flyers added',`${amount.toLocaleString()} extra flyers`,'add_circle');els.extraFlyersInput.value='';refreshHexMetrics();toast(shiftsUpdated?`${amount.toLocaleString()} extra flyers added`:'Extra flyers saved; shifts could not be refreshed')}catch(error){console.error(error);extraFlyers=previous;refreshHexMetrics();toast('Extra flyers could not be added')}finally{els.extraFlyersBtn.disabled=false;els.extraFlyersBtn.textContent='Add flyers'}
+}
+
+function normalizeId(value){const compact=String(value||'').trim().toUpperCase().replace(/\s+/g,'');if(/^XX\d+$/.test(compact))return compact;if(/^\d+$/.test(compact))return `XX${compact}`;return ''}
+function resetPlan(){
+if(campaignDataUnsubscribe){campaignDataUnsubscribe();campaignDataUnsubscribe=null}campaignData={};legacyAutoFit=false;printingDraft=null;printingSaving=false;revenueDraft='';
+closeZonePopup();stopDotWatchers();if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(campaignUnsubscribe){campaignUnsubscribe();campaignUnsubscribe=null}estimateRequest++;clientId='';clientPromise=null;$('quoteBusinessName').value='';$('clientEmail').value='';$('businessSaveStatus').textContent='';selectedAreaFeature=null;hexagons=[];bookedZones=[];events=[];shifts=[];currentCampaign=null;extraFlyers=0;visibleBuildingHexId='';els.pickupInput.value='';els.extraFlyersInput.value='';els.extraFlyersTotal.textContent='Extra flyers added: 0';els.loginInput.value='';renderCampaignTitle();renderPhotoProof();els.buildingCount.textContent='—';els.flyerCount.textContent='—';els.hexCount.textContent='—';els.bookedCount.textContent='0';els.zoneStatus.textContent='';els.areaList.hidden=true;els.areaList.innerHTML='';els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Announce campaign';renderSelectedArea();renderTimeline();renderShiftSummary();watchAnnouncedCampaign('');renderMap();if(mapReady)map.easeTo({center:[10,50],zoom:3.5,duration:500});
+}
+function objectValues(value){return value&&typeof value==='object'?Object.entries(value):[]}
+async function loadCampaign(requestedId){
+const id=normalizeId(requestedId);if(!id){toast('Enter a valid XX ID');return}const loadingState=showCampaignLoading(id);els.loginBtn.disabled=true;els.loginBtn.textContent='Opening…';
+try{
+const results=await Promise.allSettled([get(ref(db,`campaigns/${id}`)),get(ref(db,`campaigns/${id.toLowerCase()}`)),get(ref(db,`announcedCampaigns/${id}`)),...[id,id.toLowerCase(),`FF${id.slice(2)}`,`ff${id.slice(2)}`].flatMap(key=>['userPosts','userPostClicks'].map(root=>get(ref(dotsDb,`${root}/${key}`))))]);
+if(!results.some(r=>r.status==='fulfilled'&&r.value.exists())){toast(results.some(r=>r.status==='rejected')?'Campaign lookup incomplete. Check database access and retry.':`No saved data found for ${id}`);return}
+const rootData=(results[0].status==='fulfilled'&&results[0].value.val())||(results[1].status==='fulfilled'&&results[1].value.val())||{},planner=rootData.planner||{};
+resetPlan();clientId=id;campaignData=rootData;legacyAutoFit=!planner.area&&!planner.zones;renderCampaignTitle();els.loginInput.value=id;watchAnnouncedCampaign(id);
+// Preserve legacy lowercase metadata until an uppercase campaign exists.
+watchCampaignData(id);
+
+if(planner.area){selectedAreaFeature={type:'Feature',geometry:planner.area.geometry||null,properties:{areaId:String(planner.area.areaId||planner.area.code||planner.meta?.areaId||planner.area.name),code:String(planner.area.code||planner.area.areaId||''),name:planner.area.name||planner.meta?.areaName||'Saved area'}};const fresh=allAreas.find(item=>item.properties.areaId===selectedAreaFeature.properties.areaId||item.properties.name===selectedAreaFeature.properties.name);if(fresh)selectedAreaFeature=fresh}
+bookedZones=objectValues(planner.zones).map(([key,zone])=>{const buildings=Object.values(zone.buildingDots||{}).map(point=>({lng:Number(point.lng),lat:Number(point.lat)})).filter(point=>Number.isFinite(point.lng)&&Number.isFinite(point.lat)),estimatedBuildings=Number(zone.estimatedBuildings??buildings.length??0);return{key,hexId:zone.hexId||'',points:Object.values(zone.coordinates||{}).map(point=>Array.isArray(point)?[Number(point[0]),Number(point[1])]:[Number(point.lng),Number(point.lat)]).filter(point=>point.every(Number.isFinite)),buildings,estimatedBuildings,flyersRequired:Math.max(0,Number(zone.flyersRequired??Math.ceil(estimatedBuildings*1.5)))}}).filter(zone=>zone.points.length>=3);
+$('quoteBusinessName').value=String(planner.meta?.businessName||'');$('clientEmail').value=String(planner.meta?.clientEmail||'');$('businessSaveStatus').textContent=planner.meta?.businessName&&planner.meta?.clientEmail?'Client details saved.':'';
+extraFlyers=Math.max(0,Number(planner.meta?.extraFlyers)||0);shifts=objectValues(planner.shifts).map(([key,shift])=>({key,...shift})).sort((a,b)=>shiftNumber(a,0)-shiftNumber(b,0));
+bookedZones.forEach(zone=>{if(zone.buildings.length===zone.estimatedBuildings)saveBuildingResults(zone.points,zone.buildings).catch(console.warn)});
+events=[];
+els.pickupInput.value=planner.pickup?.address||'';renderSelectedArea();if(selectedAreaFeature)generateHexagons(selectedAreaFeature);else{renderMap();refreshHexMetrics()}renderTimeline();renderShiftSummary();const total=totalFlyers(),shiftFlyers=shifts.reduce((sum,item)=>sum+(Number(item.flyers)||0),0);/* Opening historical campaigns never rewrites saved quantities or prices. */if(!selectedAreaFeature)els.zoneStatus.textContent=bookedZones.length?`${bookedZones.length} previously booked zone${bookedZones.length===1?'':'s'} · ${total.toLocaleString()} flyers required.`:'Search a city to create hexagons.';
+watchDotProgress();watchShifts(id);if(planner.meta?.status==='announced')els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Update announcement';if(selectedAreaFeature?.geometry)fitGeometry(selectedAreaFeature.geometry,1150);else if(bookedZones[0])fitGeometry(feature('Polygon',[closeRing(bookedZones[0].points)]).geometry,1150);toast(`${id} opened`);
+}catch(error){console.error(error);toast('The campaign could not be opened')}finally{els.loginBtn.disabled=false;els.loginBtn.textContent='Open';hideCampaignLoading(loadingState)}
+}
+
+// Quotes use current planner quantities and the displayed distribution rate.
+function quoteAmounts(flyers,vatRate){const subtotalCents=Math.round(shiftPrice(flyers)*100),vatCents=Math.round(subtotalCents*vatRate/100);return{subtotal:subtotalCents/100,vat:vatCents/100,total:(subtotalCents+vatCents)/100}}
+function buildQuote(businessName,vatRate){
+const flyers=totalFlyers(),totals=quoteAmounts(flyers,vatRate),progress=campaignDeliveryStats(),now=new Date(),item=currentCampaign||{},date=new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'2-digit'}).format(now),area=selectedAreaFeature?.properties.name||item.areaName||'Not specified',pickup=els.pickupInput.value.trim()||item.pickupAddress||'Not specified',announced=item.clientAnnouncedAt||item.announcedAt;
+const details=[['Prepared for',businessName],['Client email',$('clientEmail').value.trim()],['Quote date',date],['Campaign ID',clientId||'Draft campaign'],['Campaign status',item.status==='announced'?'Announced':'Planning'],['Campaign area',area],['Pickup address',pickup],['Date announced',announced?timeLabel(announced):'Not announced'],['Distribution date','Not scheduled'],['Total flyers',flyers.toLocaleString()],['Flyers delivered',progress.posted.toLocaleString()],['Booked zones',bookedZones.length.toLocaleString()],['Shifts',shifts.length.toLocaleString()],['Estimated buildings',totalBuildings().toLocaleString()],['Extra flyers',extraFlyers.toLocaleString()]];
+const zoneRows=bookedZones.map((zone,index)=>`<tr><td>${escape(zone.hexId||`Zone ${index+1}`)}</td><td class="numeric">${(Number(zone.estimatedBuildings)||zone.buildings?.length||0).toLocaleString()}</td><td class="numeric">${(Number(zone.flyersRequired)||0).toLocaleString()}</td></tr>`).join('');
+const shiftRows=shifts.map((shift,index)=>{const stats=shiftLiveStats(shift,index);return`<tr><td>${escape(shift.title||`Shift ${shiftNumber(shift,index)}`)}</td><td class="numeric">${stats.target.toLocaleString()}</td><td>${escape(shift.pickupAddress||pickup)}</td><td>${stats.pickupDone?'Confirmed':'Pending'}</td><td>${stats.posted.toLocaleString()} / ${stats.target.toLocaleString()}</td></tr>`}).join('');
+return `<header class="quote-header"><div class="quote-brand"><img src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png" alt="">LeuvenFlyers</div><div class="quote-ref"><h1>QUOTATION</h1><p>${escape(clientId||'Draft campaign')}</p><p>${escape(date)}</p></div></header>
+<div class="quote-meta">${details.map(([label,value])=>`<div><span>${escape(label)}</span><strong>${escape(value)}</strong></div>`).join('')}</div>
+<h2>Distribution services</h2><table><thead><tr><th style="width:43%">Service</th><th class="numeric">Flyers</th><th class="numeric">Rate</th><th class="numeric">Amount</th></tr></thead><tbody><tr><td>Flyer distribution<br>1 shift = 1,000 flyers</td><td class="numeric">${flyers.toLocaleString()}</td><td class="numeric">${money(SHIFT_PRICE)}<br>per 1,000 flyers</td><td class="numeric">${money(totals.subtotal)}</td></tr></tbody></table>
+<div class="quote-totals"><div><span>Total excluding VAT</span><strong>${money(totals.subtotal)}</strong></div><div><span>VAT (${escape(vatRate)}%)</span><strong>${money(totals.vat)}</strong></div><div class="quote-grand-total"><span>Total including VAT</span><strong>${money(totals.total)}</strong></div></div>
+<p class="quote-note">Distribution pricing is proportional to the flyer quantity. Flyer printing is not included. This quotation is not an invoice.</p>
+${zoneRows?`<h2>Booked-zone breakdown</h2><table><thead><tr><th style="width:50%">Zone</th><th class="numeric">Estimated buildings</th><th class="numeric">Flyers</th></tr></thead><tbody>${zoneRows}</tbody></table>`:''}
+${extraFlyers?`<p class="quote-note">Additional flyers outside the zone estimate: ${extraFlyers.toLocaleString()}.</p>`:''}
+${shiftRows?`<h2>Shift details</h2><table><thead><tr><th style="width:17%">Shift</th><th style="width:12%" class="numeric">Flyers</th><th style="width:37%">Pickup address</th><th style="width:16%">Pickup</th><th style="width:18%">Delivered</th></tr></thead><tbody>${shiftRows}</tbody></table>`:''}
+<p class="quote-note">Campaign details and progress reflect the information available when this quote was prepared.</p>`;
+}
+let quotePreviousTitle='';
+async function printQuote(){
+const business=$('quoteBusinessName'),email=$('clientEmail'),vat=$('quoteVatRate');business.value=business.value.trim();email.value=email.value.trim();
+if(!business.reportValidity()||!email.reportValidity()||!vat.reportValidity())return;
+if(totalFlyers()<=0){toast('Add booked zones or extra flyers before printing a quote.');return}
+const shiftFlyers=shifts.reduce((sum,shift)=>sum+(Number(shift.flyers)||0),0);
+if(shiftFlyers!==totalFlyers()){toast('Refresh the campaign shifts before printing the quote.');return}
+if(!await saveBusinessName())return;
+$('printQuote').innerHTML=buildQuote(business.value,Number(vat.value));quotePreviousTitle=document.title;
+document.title=`Quote ${clientId||'Draft'} - ${business.value}`;document.body.classList.add('quote-print-ready');
+requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
+}
+window.addEventListener('afterprint',()=>{if(quotePreviousTitle)document.title=quotePreviousTitle;quotePreviousTitle='';document.body.classList.remove('quote-print-ready')});
+$('printQuoteBtn').addEventListener('click',printQuote);
+
+async function announceCampaign(){
+if(!bookedZones.length){toast('Book at least one zone before announcing');return}
+const email=$('clientEmail');email.value=email.value.trim();if(!email.reportValidity())return;
+els.announceBtn.disabled=true;els.announceBtn.textContent='Saving campaign…';
+try{
+const id=await ensureClient(),time=Date.now(),areaId=selectedAreaFeature?.properties.areaId||'custom',areaLabel=selectedAreaFeature?.properties.name||'Custom area',summary={clientId:id,businessName:$('quoteBusinessName').value.trim(),clientEmail:email.value,areaId,areaName:areaLabel,totalFlyers:totalFlyers(),extraFlyers,estimatedBuildings:totalBuildings(),zoneCount:bookedZones.length,shiftCount:shifts.length,fullShiftPrice:SHIFT_PRICE,totalCost:shiftsCost(shifts),pickupAddress:els.pickupInput.value.trim(),status:'announced',announcedAt:serverTimestamp(),clientAnnouncedAt:time},eventRef=push(ref(db,`campaigns/${id}/planner/updates`));
+const paths={};paths[`campaigns/${id}/planner/meta/businessName`]=summary.businessName;paths[`campaigns/${id}/businessName`]=summary.businessName;paths[`campaigns/${id}/planner/meta/clientEmail`]=summary.clientEmail;paths[`campaigns/${id}/clientEmail`]=summary.clientEmail;paths[`campaigns/${id}/extraFlyers`]=summary.extraFlyers;paths[`campaigns/${id}/planner/meta/status`]='announced';paths[`campaigns/${id}/planner/meta/areaId`]=summary.areaId;paths[`campaigns/${id}/planner/meta/areaName`]=summary.areaName;paths[`campaigns/${id}/planner/meta/totalFlyers`]=summary.totalFlyers;paths[`campaigns/${id}/planner/meta/extraFlyers`]=summary.extraFlyers;paths[`campaigns/${id}/planner/meta/estimatedBuildings`]=summary.estimatedBuildings;paths[`campaigns/${id}/planner/meta/zoneCount`]=summary.zoneCount;paths[`campaigns/${id}/planner/meta/shiftCount`]=summary.shiftCount;paths[`campaigns/${id}/planner/meta/fullShiftPrice`]=summary.fullShiftPrice;paths[`campaigns/${id}/planner/meta/shiftPrice`]=null;paths[`campaigns/${id}/planner/meta/totalCost`]=summary.totalCost;paths[`campaigns/${id}/planner/meta/announcedAt`]=serverTimestamp();if(selectedAreaFeature)paths[`campaigns/${id}/planner/area`]={areaId:summary.areaId,code:selectedAreaFeature.properties.code||summary.areaId,name:summary.areaName,geometry:selectedAreaFeature.geometry,selectedAt:serverTimestamp()};paths[`campaigns/${id}/planner/updates/${eventRef.key}`]={title:'Campaign announced',detail:`${summary.areaName} · ${summary.totalFlyers.toLocaleString()} flyers · ${money(summary.totalCost)} excl. VAT`,icon:'campaign',clientTimestamp:time,createdAt:serverTimestamp()};paths[`announcedCampaigns/${id}`]=summary;
+await update(ref(db),paths);$('businessSaveStatus').textContent=summary.businessName?'Client details saved.':'';addLocalEvent('Campaign announced',`${summary.areaName} · ${summary.totalFlyers.toLocaleString()} flyers`,'campaign',time);els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Update announcement';toast(`${id} announced and saved`);
+}catch(error){console.error(error);toast('The campaign could not be announced')}finally{els.announceBtn.disabled=false;if(!els.announceBtn.querySelector('.material-icons-outlined'))els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Announce campaign'}
+}
+
+map=new maplibregl.Map({container:'map',style:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',center:[10,50],zoom:3.5,minZoom:3,maxZoom:20,maxBounds:[[-25,32],[60,72]],attributionControl:{compact:true}});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
+map.on('load',()=>{
+mapReady=true;
+map.addSource('selected-area',{type:'geojson',data:fc()});map.addLayer({id:'selected-area-fill',type:'fill',source:'selected-area',paint:{'fill-color':'#16a394','fill-opacity':.13}});map.addLayer({id:'selected-area-line',type:'line',source:'selected-area',paint:{'line-color':'#087b70','line-width':3}});
+map.addSource('zones',{type:'geojson',data:fc()});map.addLayer({id:'zone-fill',type:'fill',source:'zones',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':['case',['==',['get','hasPostedDots'],true],'#22a861',['==',['get','status'],'booked'],'#efb92f','#1677b8'],'fill-opacity':['case',['==',['get','hasPostedDots'],true],.36,['==',['get','status'],'booked'],.42,.2]}});map.addLayer({id:'zone-line',type:'line',source:'zones',filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':['case',['==',['get','hasPostedDots'],true],'#137a43',['==',['get','status'],'booked'],'#8e6800','#0b5f91'],'line-width':['case',['==',['get','status'],'booked'],2.2,1.35]}});
+map.addSource('buildings',{type:'geojson',data:fc()});map.addLayer({id:'building-dots',type:'circle',source:'buildings',paint:{'circle-radius':2.8,'circle-color':'#8b3fd1','circle-stroke-color':'#fff','circle-stroke-width':.55}});
+map.addSource('campaign-route',{type:'geojson',data:fc()});map.addLayer({id:'campaign-route-line',type:'line',source:'campaign-route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#9ca3af','line-width':1,'line-opacity':.75}});
+map.addSource('delivery-dots',{type:'geojson',data:fc()});map.addLayer({id:'delivery-dots-halo',type:'circle',source:'delivery-dots',paint:{'circle-radius':7,'circle-color':'rgba(139,63,209,.14)','circle-blur':.35}});map.addLayer({id:'delivery-dots-layer',type:'circle',source:'delivery-dots',paint:{'circle-radius':4.2,'circle-color':'#8b3fd1','circle-stroke-color':'#fff','circle-stroke-width':1.1}});
+map.addSource('pickup-dots',{type:'geojson',data:fc()});
+map.addLayer({id:'pickup-dots-halo',type:'circle',source:'pickup-dots',paint:{'circle-radius':18,'circle-color':'#8b3fd1','circle-opacity':.18}});
+map.addLayer({id:'pickup-dots-layer',type:'circle',source:'pickup-dots',paint:{'circle-radius':11,'circle-color':'#8b3fd1','circle-stroke-color':'#fff','circle-stroke-width':2.5}});
+renderSelectedBoundary();renderMap();renderDeliveryDots();renderPhotoProof();
+map.on('click',event=>{
+// Dots are display-only; suppress underlying zone clicks at their positions.
+if(map.queryRenderedFeatures(event.point,{layers:['pickup-dots-layer','delivery-dots-layer','building-dots']}).length)return;
+const zone=map.queryRenderedFeatures(event.point,{layers:['zone-fill']})[0];if(!zone)return;const index=Number(zone.properties.hexIndex);if(Number.isInteger(index)&&index>=0)openHexPopup(index,[event.lngLat.lng,event.lngLat.lat]);
+});
+map.on('mousemove',event=>{const onDot=map.queryRenderedFeatures(event.point,{layers:['pickup-dots-layer','delivery-dots-layer','building-dots']}).length;const onZone=map.queryRenderedFeatures(event.point,{layers:['zone-fill']}).length;map.getCanvas().style.cursor=!onDot&&onZone?'pointer':''});map.on('mouseleave','zone-fill',()=>{map.getCanvas().style.cursor=''});
+$('loader').classList.add('hidden');setTimeout(()=>$('loader')?.remove(),250);
+});
+
+els.areaSearchBtn.addEventListener('click',searchAreas);els.areaSearch.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();searchAreas()}});els.areaList.addEventListener('click',event=>{const button=event.target.closest('[data-area-id]');if(!button)return;const area=allAreas.find(item=>item.properties.areaId===button.dataset.areaId);if(area)selectArea(area)});
+els.pickupBtn.addEventListener('click',savePickup);els.extraFlyersBtn.addEventListener('click',addExtraFlyers);els.extraFlyersInput.addEventListener('keydown',event=>{if(event.key==='Enter')addExtraFlyers()});els.announceBtn.addEventListener('click',announceCampaign);
+els.loginBtn.addEventListener('click',()=>loadCampaign(els.loginInput.value));els.loginInput.addEventListener('keydown',event=>{if(event.key==='Enter')loadCampaign(els.loginInput.value)});els.newPlanBtn.addEventListener('click',()=>{resetPlan();toast('New campaign plan ready')});
+const welcomeDialog=$('welcomeDialog');
+for(const id of ['welcomeClose','welcomeStart'])$(id).addEventListener('click',()=>welcomeDialog.close());
+welcomeDialog.showModal();
+</script>
+</body>
+</html>
