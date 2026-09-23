@@ -341,7 +341,7 @@
  function watchShifts(id){if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(!id)return;shiftUnsubscribe=onValue(ref(db,`campaigns/${id}/planner/shifts`),snapshot=>{shifts=objectValues(snapshot.val()).map(([key,value])=>({key,...value})).sort((a,b)=>shiftNumber(a,0)-shiftNumber(b,0));renderShiftSummary();watchDotProgress()},console.warn)}
  function renderCurrentCampaign(){
  if(!clientId){els.campaignSummary.innerHTML='<div class="empty">Plan a campaign or open an existing XX ID.</div>';return}
- const item=currentCampaign||{},announced=item.status==='announced',hasLivePlan=!!selectedAreaFeature||bookedZones.length>0||shifts.length>0||!!els.pickupInput.value.trim(),areaName=campaignAreaName()||item.areaName||'Area not selected',flyers=hasLivePlan?totalFlyers():(Number(item.totalFlyers)||0),zones=hasLivePlan?bookedZones.length:(Number(item.zoneCount)||0),shiftCount=hasLivePlan?shifts.length:(Number(item.shiftCount)||0),totalCost=hasLivePlan?shiftsCost(shifts):(Number(item.totalCost)||shiftPrice(flyers)),pickup=els.pickupInput.value.trim()||item.pickupAddress||'',announcedTime=item.clientAnnouncedAt||item.announcedAt,progress=campaignDeliveryStats();
+ const item=currentCampaign||{},announced=item.status==='announced',hasLivePlan=!!selectedAreaFeature||bookedZones.length>0||shifts.length>0||!!els.pickupInput.value.trim(),areaName=selectedAreas.length?selectedAreas.map(shortAreaName).join(' · '):String(item.areaName||'Area not selected').split(' · ').map(name=>name.split(',')[0].trim()).join(' · '),flyers=hasLivePlan?totalFlyers():(Number(item.totalFlyers)||0),zones=hasLivePlan?bookedZones.length:(Number(item.zoneCount)||0),shiftCount=hasLivePlan?shifts.length:(Number(item.shiftCount)||0),totalCost=hasLivePlan?shiftsCost(shifts):(Number(item.totalCost)||shiftPrice(flyers)),pickup=els.pickupInput.value.trim()||item.pickupAddress||'',announcedTime=item.clientAnnouncedAt||item.announcedAt,progress=campaignDeliveryStats();
  els.campaignSummary.innerHTML=`<div class="campaign-card organized-summary">
  <div class="campaign-card-head"><span class="campaign-id">${escape(clientId)}</span><span class="campaign-state${announced?'':' planning'}">${announced?'Announced':'Planning'}</span></div>
  <dl class="summary-details"><div><dt>Area</dt><dd>${escape(areaName)}</dd></div><div><dt>Date announced</dt><dd>${announcedTime?escape(timeLabel(announcedTime)):'—'}</dd></div></dl>
@@ -500,10 +500,11 @@
  if(clientId)await push(ref(db,`campaigns/${clientId}/planner/updates`),{title,detail,icon,clientTimestamp:time,createdAt:serverTimestamp()}).catch(console.warn);
  }
 
+ function shortAreaName(area){return String(area?.properties?.name||'Unnamed area').split(',')[0].trim()}
  function renderAreaList(message=''){
  if(message){els.areaList.hidden=false;els.areaList.innerHTML=`<div class="empty">${escape(message)}</div>`;return}
  els.areaList.hidden=!allAreas.length;
- els.areaList.innerHTML=allAreas.map(item=>`<button class="area-row${selectedAreas.some(area=>area.properties.areaId===item.properties.areaId)?' active':''}" data-area-id="${escape(item.properties.areaId)}"><span>${escape(item.properties.name)}</span><span class="material-icons-outlined">${selectedAreas.some(area=>area.properties.areaId===item.properties.areaId)?'check_circle':'add_circle_outline'}</span></button>`).join('');
+ els.areaList.innerHTML=allAreas.map(item=>`<button class="area-row${selectedAreas.some(area=>area.properties.areaId===item.properties.areaId)?' active':''}" data-area-id="${escape(item.properties.areaId)}" title="${escape(item.properties.name)}"><span>${escape(shortAreaName(item))}</span><span class="material-icons-outlined">${selectedAreas.some(area=>area.properties.areaId===item.properties.areaId)?'check_circle':'add_circle_outline'}</span></button>`).join('');
  }
  function campaignAreaName(){return selectedAreas.map(area=>area.properties.name).join(' · ')}
  function areaRecord(area){return {areaId:area.properties.areaId,code:area.properties.code||area.properties.areaId,name:area.properties.name,geometry:area.geometry}}
@@ -513,7 +514,7 @@
  }
  function renderSelectedArea(){
  els.selectedArea.className=selectedAreas.length?'selected-area ready':'selected-area';
- els.selectedArea.innerHTML=selectedAreas.length?`<div style="width:100%"><strong>${selectedAreas.length} campaign area${selectedAreas.length===1?'':'s'}</strong>${selectedAreas.map(area=>`<button type="button" class="area-row active" data-focus-area="${escape(area.properties.areaId)}"><span>${escape(area.properties.name)}</span><span class="material-icons-outlined">my_location</span></button>`).join('')}<button type="button" class="action" data-fit-areas>Show all areas</button></div>`:'<span class="material-icons-outlined">language</span><span>No European area selected</span>';
+ els.selectedArea.innerHTML=selectedAreas.length?`<div style="width:100%"><strong>${selectedAreas.length} campaign area${selectedAreas.length===1?'':'s'}</strong>${selectedAreas.map(area=>`<button type="button" class="area-row active" data-focus-area="${escape(area.properties.areaId)}" title="${escape(area.properties.name)}"><span>${escape(shortAreaName(area))}</span><span class="material-icons-outlined">my_location</span></button>`).join('')}<button type="button" class="action" data-fit-areas>Show all areas</button></div>`:'<span class="material-icons-outlined">language</span><span>No European area selected</span>';
  renderAreaList();renderSelectedBoundary();renderCurrentCampaign();
  }
  function fitAllAreas(duration=650){const coordinates=selectedAreas.flatMap(area=>coordinatesFlat(area.geometry));if(coordinates.length)fitGeometry({type:'MultiPoint',coordinates},duration)}
