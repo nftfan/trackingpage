@@ -1,4 +1,5 @@
 
+
 <!doctype html>
  <html lang="en">
  <head>
@@ -194,13 +195,13 @@
  <section class="tool-section">
  <div class="section-head"><div class="section-title"><span class="material-icons-outlined">public</span>Find an area</div></div>
  <div class="search-row"><input id="areaSearch" class="field" type="search" placeholder="European city or region" autocomplete="off"><button id="areaSearchBtn" class="search-btn">Search</button></div>
- <div class="helper" style="margin-top:7px">Click + to add an area. Search again to add more; your booked hexagons stay in this campaign.</div>
+ <div class="helper" style="margin-top:7px">Click + to add an area. Search again to add more; your booked hexagons stay in this campaign. All areas share the same large, flat-top hexagons; boundary hexagons appear only once.</div>
  <div id="areaList" class="area-list" hidden></div>
  <div id="selectedArea" class="selected-area"><span class="material-icons-outlined">language</span><span>No European area selected</span></div>
  </section>
 
  <section class="tool-section">
- <div class="section-head"><div class="section-title"><span class="material-icons-outlined">hive</span>City hexagons</div></div>
+ <div class="section-head"><div class="section-title"><span class="material-icons-outlined">hive</span>Campaign hexagons</div></div>
  <div class="estimate-grid"><div class="metric"><span>Buildings</span><strong id="buildingCount">—</strong></div><div class="metric"><span>Flyers required</span><strong id="flyerCount">—</strong></div><div class="metric"><span>Hexagons</span><strong id="hexCount">—</strong></div><div class="metric"><span>Booked</span><strong id="bookedCount">0</strong></div></div>
  <div id="buildingCooldown" class="building-cooldown" role="status" hidden></div>
  <div id="zoneStatus" class="helper" role="status"></div>
@@ -254,6 +255,7 @@
 
  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/h3-js@4.3.0/dist/h3-js.umd.js"></script>
  <script type="module">
  import {initializeApp} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
  import {getDatabase,ref,get,set,push,update,remove,onValue,serverTimestamp,runTransaction} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
@@ -340,7 +342,7 @@
  function watchShifts(id){if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(!id)return;shiftUnsubscribe=onValue(ref(db,`campaigns/${id}/planner/shifts`),snapshot=>{shifts=objectValues(snapshot.val()).map(([key,value])=>({key,...value})).sort((a,b)=>shiftNumber(a,0)-shiftNumber(b,0));renderShiftSummary();watchDotProgress()},console.warn)}
  function renderCurrentCampaign(){
  if(!clientId){els.campaignSummary.innerHTML='<div class="empty">Plan a campaign or open an existing XX ID.</div>';return}
- const item=currentCampaign||{},announced=item.status==='announced',hasLivePlan=!!selectedAreaFeature||bookedZones.length>0||shifts.length>0||!!els.pickupInput.value.trim(),areaName=campaignAreaName()||item.areaName||'Area not selected',flyers=hasLivePlan?totalFlyers():(Number(item.totalFlyers)||0),zones=hasLivePlan?bookedZones.length:(Number(item.zoneCount)||0),shiftCount=hasLivePlan?shifts.length:(Number(item.shiftCount)||0),totalCost=hasLivePlan?shiftsCost(shifts):(Number(item.totalCost)||shiftPrice(flyers)),pickup=els.pickupInput.value.trim()||item.pickupAddress||'',announcedTime=item.clientAnnouncedAt||item.announcedAt,progress=campaignDeliveryStats();
+ const item=currentCampaign||{},announced=item.status==='announced',hasLivePlan=!!selectedAreaFeature||bookedZones.length>0||shifts.length>0||!!els.pickupInput.value.trim(),areaName=selectedAreas.length?selectedAreas.map(shortAreaName).join(' · '):String(item.areaName||'Area not selected').split(' · ').map(name=>name.split(',')[0].trim()).join(' · '),flyers=hasLivePlan?totalFlyers():(Number(item.totalFlyers)||0),zones=hasLivePlan?bookedZones.length:(Number(item.zoneCount)||0),shiftCount=hasLivePlan?shifts.length:(Number(item.shiftCount)||0),totalCost=hasLivePlan?shiftsCost(shifts):(Number(item.totalCost)||shiftPrice(flyers)),pickup=els.pickupInput.value.trim()||item.pickupAddress||'',announcedTime=item.clientAnnouncedAt||item.announcedAt,progress=campaignDeliveryStats();
  els.campaignSummary.innerHTML=`<div class="campaign-card organized-summary">
  <div class="campaign-card-head"><span class="campaign-id">${escape(clientId)}</span><span class="campaign-state${announced?'':' planning'}">${announced?'Announced':'Planning'}</span></div>
  <dl class="summary-details"><div><dt>Area</dt><dd>${escape(areaName)}</dd></div><div><dt>Date announced</dt><dd>${announcedTime?escape(timeLabel(announcedTime)):'—'}</dd></div></dl>
@@ -499,20 +501,21 @@
  if(clientId)await push(ref(db,`campaigns/${clientId}/planner/updates`),{title,detail,icon,clientTimestamp:time,createdAt:serverTimestamp()}).catch(console.warn);
  }
 
+ function shortAreaName(area){return String(area?.properties?.name||'Unnamed area').split(',')[0].trim()}
  function renderAreaList(message=''){
  if(message){els.areaList.hidden=false;els.areaList.innerHTML=`<div class="empty">${escape(message)}</div>`;return}
  els.areaList.hidden=!allAreas.length;
- els.areaList.innerHTML=allAreas.map(item=>`<button class="area-row${selectedAreas.some(area=>area.properties.areaId===item.properties.areaId)?' active':''}" data-area-id="${escape(item.properties.areaId)}"><span>${escape(item.properties.name)}</span><span class="material-icons-outlined">${selectedAreas.some(area=>area.properties.areaId===item.properties.areaId)?'check_circle':'add_circle_outline'}</span></button>`).join('');
+ els.areaList.innerHTML=allAreas.map(item=>`<button class="area-row${selectedAreas.some(area=>area.properties.areaId===item.properties.areaId)?' active':''}" data-area-id="${escape(item.properties.areaId)}" title="${escape(item.properties.name)}"><span>${escape(shortAreaName(item))}</span><span class="material-icons-outlined">${selectedAreas.some(area=>area.properties.areaId===item.properties.areaId)?'check_circle':'add_circle_outline'}</span></button>`).join('');
  }
  function campaignAreaName(){return selectedAreas.map(area=>area.properties.name).join(' · ')}
  function areaRecord(area){return {areaId:area.properties.areaId,code:area.properties.code||area.properties.areaId,name:area.properties.name,geometry:area.geometry}}
  function campaignAreaPaths(id,areas=selectedAreas){
  const base=`campaigns/${id}/planner`,records=areas.map(areaRecord);
- return {[`${base}/areas`]:records.length?records:null,[`${base}/area`]:records[0]||null,[`${base}/meta/areaIds`]:records.map(area=>area.areaId),[`${base}/meta/areaId`]:records[0]?.areaId||'custom',[`${base}/meta/areaName`]:records.map(area=>area.name).join(' · ')};
+ return {[`${base}/grid`]:activeGrid,[`${base}/areas`]:records.length?records:null,[`${base}/area`]:records[0]||null,[`${base}/meta/areaIds`]:records.map(area=>area.areaId),[`${base}/meta/areaId`]:records[0]?.areaId||'custom',[`${base}/meta/areaName`]:records.map(area=>area.name).join(' · ')};
  }
  function renderSelectedArea(){
  els.selectedArea.className=selectedAreas.length?'selected-area ready':'selected-area';
- els.selectedArea.innerHTML=selectedAreas.length?`<div style="width:100%"><strong>${selectedAreas.length} campaign area${selectedAreas.length===1?'':'s'}</strong>${selectedAreas.map(area=>`<button type="button" class="area-row active" data-focus-area="${escape(area.properties.areaId)}"><span>${escape(area.properties.name)}</span><span class="material-icons-outlined">my_location</span></button>`).join('')}<button type="button" class="action" data-fit-areas>Show all areas</button></div>`:'<span class="material-icons-outlined">language</span><span>No European area selected</span>';
+ els.selectedArea.innerHTML=selectedAreas.length?`<div style="width:100%"><strong>${selectedAreas.length} campaign area${selectedAreas.length===1?'':'s'}</strong>${selectedAreas.map(area=>`<button type="button" class="area-row active" data-focus-area="${escape(area.properties.areaId)}" title="${escape(area.properties.name)}"><span>${escape(shortAreaName(area))}</span><span class="material-icons-outlined">my_location</span></button>`).join('')}<button type="button" class="action" data-fit-areas>Show all areas</button></div>`:'<span class="material-icons-outlined">language</span><span>No European area selected</span>';
  renderAreaList();renderSelectedBoundary();renderCurrentCampaign();
  }
  function fitAllAreas(duration=650){const coordinates=selectedAreas.flatMap(area=>coordinatesFlat(area.geometry));if(coordinates.length)fitGeometry({type:'MultiPoint',coordinates},duration)}
@@ -525,16 +528,73 @@
  function pointInPolygon(point,rings){return !!rings?.length&&pointInRing(point,rings[0])&&!rings.slice(1).some(ring=>pointInRing(point,ring))}
  function geometryContains(geometry,point){if(!geometry)return false;if(geometry.type==='Polygon')return pointInPolygon(point,geometry.coordinates);if(geometry.type==='MultiPolygon')return geometry.coordinates.some(polygon=>pointInPolygon(point,polygon));return false}
  function refreshHexMetrics(){renderBookingTotals();const booked=hexagons.filter(item=>item.status==='booked').length,buildings=totalBuildings(),flyers=totalFlyers();els.hexCount.textContent=hexagons.length?hexagons.length.toLocaleString():'—';els.bookedCount.textContent=booked.toLocaleString();els.buildingCount.textContent=buildings?buildings.toLocaleString():'—';els.flyerCount.textContent=flyers?flyers.toLocaleString():'—';els.extraFlyersTotal.textContent=`Extra flyers added: ${extraFlyers.toLocaleString()}`;renderCurrentCampaign()}
- function generateHexagons(area){
- if(!area?.geometry||!window.turf){els.zoneStatus.textContent='The city grid could not be created. Search for another city.';renderMap();return}
- try{
- const cityArea=Math.max(window.turf.area(area)/1e6,.01),bbox=window.turf.bbox(area);let side=Math.max(.18,Math.min(4,Math.sqrt(cityArea/(90*2.598)))),grid;
- for(let attempt=0;attempt<4;attempt++){grid=window.turf.hexGrid(bbox,side,{units:'kilometers',mask:area});if((grid.features?.length||0)<=180)break;side*=1.35}for(let attempt=0;attempt<3&&!(grid.features?.length);attempt++){side=Math.max(.04,side/1.7);grid=window.turf.hexGrid(bbox,side,{units:'kilometers',mask:area})}
- const previousHexes=new Map(hexagons.map(hex=>[hex.hexId,hex]));const bookedByHex=new Map(bookedZones.filter(zone=>zone.hexId).map(zone=>[zone.hexId,zone]));const generated=(grid.features||[]).map((item,index)=>{const hexId=`${area.properties.areaId}-h${index+1}`,zone=bookedByHex.get(hexId),points=item.geometry.coordinates[0].slice(0,-1).map(([lng,lat])=>[round(lng),round(lat)]);return previousHexes.get(hexId)||{hexId,areaId:area.properties.areaId,areaName:area.properties.name,points:zone?.points?.length?zone.points:points,status:zone?'booked':'available',buildings:zone?.buildings||[],estimatedBuildings:zone?.estimatedBuildings||zone?.buildings?.length||0,flyersRequired:zone?.flyersRequired||0,estimateReady:!!zone}});
- hexagons.push(...generated.filter(hex=>!previousHexes.has(hex.hexId)));
- for(const zone of bookedZones){if(zone.hexId&&!hexagons.some(hex=>hex.hexId===zone.hexId))hexagons.push({...zone,status:'booked',estimateReady:true})}
- els.zoneStatus.textContent=`${hexagons.length.toLocaleString()} hexagons across ${selectedAreas.length} campaign area(s). Click a hexagon to view buildings and book it.`;refreshHexMetrics();renderMap();
- }catch(error){console.error(error);els.zoneStatus.textContent='The city boundary could not be divided into hexagons. Search for another city.';refreshHexMetrics();renderMap()}
+ // Flat-top 500 m sides: approximately the original Leuven grid scale.
+ // Fixed equirectangular projection, origin and integer lattice for EVERY area.
+ // Distances are nominal at the Leuven reference latitude, not geodesic everywhere.
+ const DEFAULT_GRID=Object.freeze({system:'lf-flat',version:1,sideMeters:500,originLng:4.7005,originLat:50.8798});
+ let activeGrid={...DEFAULT_GRID};
+ const MAX_CAMPAIGN_HEXAGONS=50000;
+ let areaCellCache=new WeakMap();
+ function gridProject([lng,lat]){const scale=Math.PI*6371008.8/180;return [(lng-DEFAULT_GRID.originLng)*scale*Math.cos(DEFAULT_GRID.originLat*Math.PI/180),(lat-DEFAULT_GRID.originLat)*scale]}
+ function gridUnproject([x,y]){const scale=Math.PI*6371008.8/180;return [DEFAULT_GRID.originLng+x/(scale*Math.cos(DEFAULT_GRID.originLat*Math.PI/180)),DEFAULT_GRID.originLat+y/scale]}
+ function flatCell(q,r){
+ const side=DEFAULT_GRID.sideMeters,dx=[2,1,-1,-2,-1,1],dy=[0,1,1,0,-1,-1];
+ // Integer vertex coordinates make neighboring cells share identical endpoints.
+ const points=dx.map((x,i)=>gridUnproject([(3*q+x)*side/2,(2*r+q+dy[i])*Math.sqrt(3)*side/2]));
+ return {hexId:`lf-flat-v1-s500-${q}-${r}`,points,h3Cell:''};
+ }
+ function cellsForArea(area){
+ if(!window.turf)throw new Error('The map tools could not load. Refresh the page and try again.');
+ if(!area?.geometry||!['Polygon','MultiPolygon'].includes(area.geometry.type))throw new Error('This area has no usable boundary.');
+ if(areaCellCache.has(area))return areaCellCache.get(area);
+ if(window.turf.area(area)>2e9)throw new Error('This region is too large. Search for individual municipalities.');
+ const polygons=area.geometry.type==='Polygon'?[area.geometry.coordinates]:area.geometry.coordinates,cells=new Map();
+ let examined=0;
+ for(const polygon of polygons){
+ if(activeGrid.system==='h3'){
+ if(!window.h3)throw new Error('The saved campaign grid could not load. Refresh and try again.');
+ const found=window.h3.polygonToCellsExperimental(polygon,activeGrid.resolution,window.h3.POLYGON_TO_CELLS_FLAGS.containmentOverlapping,true);
+ for(const cell of found){const hexId=`h3-r${activeGrid.resolution}-${cell}`;cells.set(hexId,{hexId,h3Cell:cell,points:window.h3.cellToBoundary(cell,true).slice(0,-1)})}
+ }else{
+ const shape=window.turf.polygon(polygon),bbox=window.turf.bbox(shape),[minX,minY]=gridProject(bbox.slice(0,2)),[maxX,maxY]=gridProject(bbox.slice(2)),side=DEFAULT_GRID.sideMeters,height=Math.sqrt(3)*side;
+ const minQ=Math.floor(minX/(1.5*side))-1,maxQ=Math.ceil(maxX/(1.5*side))+1;
+ for(let q=minQ;q<=maxQ;q++){
+ const minR=Math.floor(minY/height-q/2)-1,maxR=Math.ceil(maxY/height-q/2)+1;
+ for(let r=minR;r<=maxR;r++){
+ if(++examined>250000)throw new Error('This boundary is too extensive. Search for a smaller municipality.');
+ const cell=flatCell(q,r);if(cells.has(cell.hexId))continue;
+ if(window.turf.booleanIntersects(window.turf.polygon([[...cell.points,cell.points[0]]]),shape))cells.set(cell.hexId,cell);
+ }
+ }
+ }
+ if(cells.size>MAX_CAMPAIGN_HEXAGONS)throw new Error('Too many hexagons. Select a smaller area.');
+ }
+ if(!cells.size)throw new Error('No hexagons found within this boundary.');
+ const result=[...cells.values()].sort((a,b)=>a.hexId.localeCompare(b.hexId));areaCellCache.set(area,result);return result;
+ }
+ function checkGridCapacity(cells){
+ const ids=new Set(hexagons.map(hex=>hex.hexId));for(const cell of cells)ids.add(cell.hexId);
+ if(ids.size>MAX_CAMPAIGN_HEXAGONS)throw new Error('This campaign has too many hexagons. Use a separate campaign for additional municipalities.');
+ }
+ function generateHexagons(area,cells=cellsForArea(area)){
+ checkGridCapacity(cells);
+ const byId=new Map(hexagons.map(hex=>[hex.hexId,hex])),bookedById=new Map(bookedZones.map(zone=>[zone.hexId,zone]));
+ const areaId=area.properties.areaId,areaName=area.properties.name;
+ for(const cell of cells){
+ const hexId=cell.hexId,existing=byId.get(hexId);
+ if(existing){
+ existing.areaIds=[...new Set([...(existing.areaIds||[existing.areaId]).filter(Boolean),areaId])].sort();
+ existing.areaNames=[...new Set([...(existing.areaNames||[existing.areaName]).filter(Boolean),areaName])].sort();
+ continue;
+ }
+ const zone=bookedById.get(hexId);
+ // GeoJSON boundary is closed. Keep full precision so shared edges coincide.
+ const points=cell.points;
+ const hex={hexId,h3Cell:cell.h3Cell,areaId,areaName,areaIds:[areaId],areaNames:[areaName],points,status:zone?'booked':'available',buildings:zone?.buildings||[],estimatedBuildings:zone?.estimatedBuildings||zone?.buildings?.length||0,flyersRequired:zone?.flyersRequired||0,estimateReady:!!zone,buildingsFromCache:!!zone};
+ hexagons.push(hex);byId.set(hexId,hex);
+ }
+ els.zoneStatus.textContent=`${hexagons.length.toLocaleString()} unique hexagons across ${selectedAreas.length} campaign area(s). Shared boundary hexagons appear once.`;
+ refreshHexMetrics();renderMap();
  }
 
  async function searchAreas(){
@@ -572,11 +632,11 @@
  if(areaSavePending){toast('Please wait for this area to finish saving');return}
  areaSavePending=true;els.newPlanBtn.disabled=true;els.loginBtn.disabled=true;els.announceBtn.disabled=true;
  try{
- const next=[...selectedAreas,area];
+ const cells=cellsForArea(area);checkGridCapacity(cells);const next=[...selectedAreas,area];
  if(save){const id=await ensureClient();await update(ref(db),campaignAreaPaths(id,next))}
- selectedAreas=next;selectedAreaFeature=area;closeZonePopup();estimateRequest++;renderSelectedArea();generateHexagons(area);if(fit)fitGeometry(area.geometry);
+ selectedAreas=next;selectedAreaFeature=area;closeZonePopup();estimateRequest++;renderSelectedArea();generateHexagons(area,cells);if(fit)fitGeometry(area.geometry);
  if(save){await addEvent('Area added',area.properties.name,'map');toast('Area added. Search again to add more areas.')}
- }catch(error){console.error(error);toast('Area could not be saved. Please try again.')}
+ }catch(error){console.error(error);toast(error.message||'Area could not be saved. Please try again.')}
  finally{areaSavePending=false;els.newPlanBtn.disabled=false;els.loginBtn.disabled=false;els.announceBtn.disabled=false}
  }
 
@@ -713,7 +773,7 @@
  const hex=hexagons[index];if(!hex||hex.status==='booked'||bookingInProgress)return;if(!hex.estimateReady){toast('View the building count before booking');return}
  if(!hex.buildingsFromCache&&bookingCooldownSeconds()>0){toast(`Wait ${bookingCooldownSeconds()}s before booking another new hexagon.`);return}
  bookingInProgress=true;
- try{const id=await ensureClient(),zoneRef=push(ref(db,`campaigns/${id}/planner/zones`)),buildingCount=hex.buildings.length,flyerCount=Math.ceil(buildingCount*1.5);await set(zoneRef,{status:'booked',hexId:hex.hexId,areaId:hex.areaId||selectedAreas[0]?.properties.areaId||'custom',areaName:hex.areaName||selectedAreas[0]?.properties.name||'Saved area',coordinates:hex.points.map(([lng,lat])=>({lat,lng})),buildingDots:hex.buildings,estimatedBuildings:buildingCount,flyersRequired:flyerCount,createdAt:serverTimestamp()});if(!hex.buildingsFromCache)startBuildingCooldown();hex.buildingsFromCache=true;hex.status='booked';hex.flyersRequired=flyerCount;bookedZones.push({key:zoneRef.key,hexId:hex.hexId,areaId:hex.areaId,areaName:hex.areaName,points:[...hex.points],buildings:[...hex.buildings],estimatedBuildings:buildingCount,flyersRequired:flyerCount});let shiftsUpdated=true;try{await syncShiftsFromBuildingCount(id)}catch(shiftError){shiftsUpdated=false;console.error(shiftError)}await addEvent('Hexagon booked',`${buildingCount.toLocaleString()} buildings × 1.5 = ${flyerCount.toLocaleString()} flyers`,'bookmark_added');closeZonePopup();refreshHexMetrics();renderMap();els.zoneStatus.textContent=`${hexagons.filter(item=>item.status==='booked').length} hexagons booked · ${totalFlyers().toLocaleString()} flyers required · ${shifts.length} shifts created.`;toast(shiftsUpdated?`Hexagon booked and ${shifts.length} shifts prepared`:'Hexagon booked; shifts could not be refreshed')}catch(error){console.error(error);toast('Hexagon could not be booked');openHexPopup(index)}finally{bookingInProgress=false}
+ try{const id=await ensureClient(),zoneRef=push(ref(db,`campaigns/${id}/planner/zones`)),buildingCount=hex.buildings.length,flyerCount=Math.ceil(buildingCount*1.5);await set(zoneRef,{status:'booked',hexId:hex.hexId,h3Cell:hex.h3Cell,gridSystem:activeGrid.system,gridResolution:activeGrid.resolution||null,areaIds:hex.areaIds,areaNames:hex.areaNames,areaId:hex.areaId||selectedAreas[0]?.properties.areaId||'custom',areaName:hex.areaName||selectedAreas[0]?.properties.name||'Saved area',coordinates:hex.points.map(([lng,lat])=>({lat,lng})),buildingDots:hex.buildings,estimatedBuildings:buildingCount,flyersRequired:flyerCount,createdAt:serverTimestamp()});if(!hex.buildingsFromCache)startBuildingCooldown();hex.buildingsFromCache=true;hex.status='booked';hex.flyersRequired=flyerCount;bookedZones.push({key:zoneRef.key,hexId:hex.hexId,h3Cell:hex.h3Cell,areaIds:[...hex.areaIds],areaNames:[...hex.areaNames],areaId:hex.areaId,areaName:hex.areaName,points:[...hex.points],buildings:[...hex.buildings],estimatedBuildings:buildingCount,flyersRequired:flyerCount});let shiftsUpdated=true;try{await syncShiftsFromBuildingCount(id)}catch(shiftError){shiftsUpdated=false;console.error(shiftError)}await addEvent('Hexagon booked',`${buildingCount.toLocaleString()} buildings × 1.5 = ${flyerCount.toLocaleString()} flyers`,'bookmark_added');closeZonePopup();refreshHexMetrics();renderMap();els.zoneStatus.textContent=`${hexagons.filter(item=>item.status==='booked').length} hexagons booked · ${totalFlyers().toLocaleString()} flyers required · ${shifts.length} shifts created.`;toast(shiftsUpdated?`Hexagon booked and ${shifts.length} shifts prepared`:'Hexagon booked; shifts could not be refreshed')}catch(error){console.error(error);toast('Hexagon could not be booked');openHexPopup(index)}finally{bookingInProgress=false}
  }
  async function removeHexagon(index){
  const hex=hexagons[index],zone=bookedZones.find(item=>item.hexId===hex?.hexId);if(!hex||!zone||!confirm('Remove this hexagon from the campaign?'))return;
@@ -747,7 +807,7 @@
 
  function normalizeId(value){const compact=String(value||'').trim().toUpperCase().replace(/\s+/g,'');if(/^XX\d+$/.test(compact))return compact;if(/^\d+$/.test(compact))return `XX${compact}`;return ''}
  function resetPlan(){
- if(areaSavePending)return;areaSearchToken++;allAreas=[];selectedAreas=[];els.areaSearch.value='';els.areaSearchBtn.disabled=false;els.areaSearchBtn.textContent='Search';
+ if(areaSavePending)return;activeGrid={...DEFAULT_GRID};areaCellCache=new WeakMap();areaSearchToken++;allAreas=[];selectedAreas=[];els.areaSearch.value='';els.areaSearchBtn.disabled=false;els.areaSearchBtn.textContent='Search';
  closeZonePopup();stopDotWatchers();if(shiftUnsubscribe){shiftUnsubscribe();shiftUnsubscribe=null}if(campaignUnsubscribe){campaignUnsubscribe();campaignUnsubscribe=null}estimateRequest++;clientId='';clientPromise=null;$('quoteBusinessName').value='';$('clientEmail').value='';$('businessSaveStatus').textContent='';selectedAreaFeature=null;hexagons=[];bookedZones=[];events=[];shifts=[];currentCampaign=null;extraFlyers=0;visibleBuildingHexId='';els.pickupInput.value='';els.extraFlyersInput.value='';els.extraFlyersTotal.textContent='Extra flyers added: 0';els.loginInput.value='';renderCampaignTitle();renderPhotoProof();els.buildingCount.textContent='—';els.flyerCount.textContent='—';els.hexCount.textContent='—';els.bookedCount.textContent='0';els.zoneStatus.textContent='';els.areaList.hidden=true;els.areaList.innerHTML='';els.announceBtn.innerHTML='<span class="material-icons-outlined">campaign</span>Announce campaign';renderSelectedArea();renderTimeline();renderShiftSummary();watchAnnouncedCampaign('');renderMap();if(mapReady)map.easeTo({center:[10,50],zoom:3.5,duration:500});
  }
  function objectValues(value){return value&&typeof value==='object'?Object.entries(value):[]}
@@ -755,11 +815,15 @@
  if(areaSavePending){toast('Wait for the area to finish saving');return}
  const id=normalizeId(requestedId);if(!id){toast('Enter a valid XX ID');return}const loadingState=showCampaignLoading(id);els.loginBtn.disabled=true;els.loginBtn.textContent='Opening…';
  try{
- const snapshot=await get(ref(db,`campaigns/${id}/planner`));if(!snapshot.exists()){toast(`No saved plan found for ${id}`);return}const planner=snapshot.val()||{};resetPlan();clientId=id;renderCampaignTitle();els.loginInput.value=id;watchAnnouncedCampaign(id);
+ const snapshot=await get(ref(db,`campaigns/${id}/planner`));if(!snapshot.exists()){toast(`No saved plan found for ${id}`);return}const planner=snapshot.val()||{};resetPlan();
+ // Reopen existing campaigns on their saved grid so booked cells stay visible.
+ const savedResolution=Number(planner.grid?.resolution||Object.values(planner.zones||{}).find(zone=>zone.gridResolution)?.gridResolution);
+ if(Object.keys(planner.zones||{}).length&&[8,9].includes(savedResolution))activeGrid={system:'h3',version:1,resolution:savedResolution};
+ clientId=id;renderCampaignTitle();els.loginInput.value=id;watchAnnouncedCampaign(id);
  const savedAreas=planner.areas?Object.values(planner.areas):(planner.area?[planner.area]:[]);
  selectedAreas=[...new Map(savedAreas.filter(Boolean).map(area=>{const areaId=String(area.areaId||area.code||area.name);return [areaId,{type:'Feature',geometry:area.geometry||null,properties:{areaId,code:String(area.code||areaId),name:area.name||'Saved area'}}]})).values()];selectedAreaFeature=selectedAreas[0]||null;
 
- bookedZones=objectValues(planner.zones).map(([key,zone])=>{const buildings=Object.values(zone.buildingDots||{}).map(point=>({lng:Number(point.lng),lat:Number(point.lat)})).filter(point=>Number.isFinite(point.lng)&&Number.isFinite(point.lat)),estimatedBuildings=Number(zone.estimatedBuildings??buildings.length??0);return{key,hexId:zone.hexId||'',areaId:zone.areaId||selectedAreas[0]?.properties.areaId||'custom',areaName:zone.areaName||selectedAreas[0]?.properties.name||'Saved area',points:Object.values(zone.coordinates||{}).map(point=>Array.isArray(point)?[Number(point[0]),Number(point[1])]:[Number(point.lng),Number(point.lat)]).filter(point=>point.every(Number.isFinite)),buildings,estimatedBuildings,flyersRequired:Math.ceil(estimatedBuildings*1.5)}}).filter(zone=>zone.points.length>=3);
+ bookedZones=objectValues(planner.zones).map(([key,zone])=>{const buildings=Object.values(zone.buildingDots||{}).map(point=>({lng:Number(point.lng),lat:Number(point.lat)})).filter(point=>Number.isFinite(point.lng)&&Number.isFinite(point.lat)),estimatedBuildings=Number(zone.estimatedBuildings??buildings.length??0);return{key,hexId:zone.hexId||'',h3Cell:zone.h3Cell||'',areaIds:zone.areaIds||[],areaNames:zone.areaNames||[],areaId:zone.areaId||selectedAreas[0]?.properties.areaId||'custom',areaName:zone.areaName||selectedAreas[0]?.properties.name||'Saved area',points:Object.values(zone.coordinates||{}).map(point=>Array.isArray(point)?[Number(point[0]),Number(point[1])]:[Number(point.lng),Number(point.lat)]).filter(point=>point.every(Number.isFinite)),buildings,estimatedBuildings,flyersRequired:Math.ceil(estimatedBuildings*1.5)}}).filter(zone=>zone.points.length>=3);
  $('quoteBusinessName').value=String(planner.meta?.businessName||'');$('clientEmail').value=String(planner.meta?.clientEmail||'');$('businessSaveStatus').textContent=planner.meta?.businessName&&planner.meta?.clientEmail?'Client details saved.':'';
  extraFlyers=Math.max(0,Number(planner.meta?.extraFlyers)||0);shifts=objectValues(planner.shifts).map(([key,shift])=>({key,...shift})).sort((a,b)=>shiftNumber(a,0)-shiftNumber(b,0));
  bookedZones.forEach(zone=>{if(zone.buildings.length===zone.estimatedBuildings)saveBuildingResults(zone.points,zone.buildings).catch(console.warn)});
