@@ -1,4 +1,3 @@
-
 <!doctype html>
  <html lang="en">
  <head>
@@ -351,6 +350,7 @@
  // The uploader saves FF proofs under trackingclients campaigns/XX{number}/proofs.
  // PUS proofs use campaigns/{PUS ID}/proofs in the same trackingclients database.
  // Proof records are independent of dot records and never increment delivery/pickup counts.
+ const countedDeliveryColors=new Set(['green','red','blue']);
  const campaignFfId=()=>`FF${clientId.replace(/^XX/i,'')}`;
  function posterIdForShift(shift,index){return shift?.pickupPosterId||(/^PUS/i.test(shift?.posterId||'')?shift.posterId:`PUS${shiftNumber(shift,index)}${clientId.replace(/^XX/i,'')}`)}
  function shiftLiveStats(shift,index){
@@ -358,7 +358,14 @@
   const posted=live?.postedDots||0,pickupDone=!!live?.pickupDone,distributionDone=target>0&&posted>=target;
   return{posterId:posterIdForShift(shift,index),target,posted,pickupDone,distributionDone,percent:target?Math.min(100,Math.round(posted/target*100)):0};
  }
- function campaignDeliveryStats(){let target=0,posted=0;shifts.forEach((shift,index)=>{const stats=shiftLiveStats(shift,index);target+=stats.target;posted+=Math.min(stats.posted,stats.target)});return{target,posted,percent:target?Math.min(100,Math.round(posted/target*100)):0}}
+ function campaignDeliveryStats(){
+  // One rule for current and historical campaigns: green + red + blue count; orange does not.
+  const posted=allDotRecords().filter(record=>record.kind==='delivery'&&record.hasLocation&&countedDeliveryColors.has(record.color)).length;
+  const shiftTarget=shifts.reduce((sum,shift)=>sum+Math.max(0,Number(shift.flyers)||0),0);
+  const savedTarget=Number(currentCampaign?.totalFlyers||legacyCampaignSummary?.totalFlyers||0);
+  const target=shiftTarget||totalFlyers()||savedTarget||0;
+  return{target,posted,percent:target?Math.min(100,Math.round(posted/target*100)):0};
+ }
  function renderBookingTotals(){renderCurrentCampaign()}
  function renderShiftSummary(){
  els.shiftCountBadge.textContent=String(shifts.length);
@@ -436,7 +443,7 @@
   // Count distinct posts, including multiple posts at the same pickup location.
   const unique=[...new Map(records.map(record=>[record.key,record])).values()];
   const pickups=unique.filter(record=>record.kind==='pickup'&&record.hasLocation).length;
-  let remaining=unique.filter(record=>record.kind==='delivery'&&record.hasLocation&&record.outcome==='yes').length;
+  let remaining=unique.filter(record=>record.kind==='delivery'&&record.hasLocation&&countedDeliveryColors.has(record.color)).length;
   return list.map((shift,index)=>{
    const target=Math.max(0,Number(shift.flyers)||0),postedDots=Math.min(target,remaining);remaining-=postedDots;
    // Any delivery dot assigned to a shift means the flyers were already picked up.
@@ -451,7 +458,7 @@
  }
  function renderLatestDeliveryCounter(records){
   const dotsList=records
-   .filter(dot=>dot.kind==='delivery'&&dot.hasLocation)
+   .filter(dot=>dot.kind==='delivery'&&dot.hasLocation&&countedDeliveryColors.has(dot.color))
    .map(dot=>({lat:dot.lat,lng:dot.lng,ts:Number(dot.timestamp)||0,key:String(dot.postKey||dot.key||'')}))
    .sort((a,b)=>a.ts-b.ts||a.key.localeCompare(b.key));
   const total=dotsList.length,latest=dotsList[dotsList.length-1]||null;
