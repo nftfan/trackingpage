@@ -1,4 +1,3 @@
-
 <!doctype html>
  <html lang="en">
  <head>
@@ -351,6 +350,7 @@
  // The uploader saves FF proofs under trackingclients campaigns/XX{number}/proofs.
  // PUS proofs use campaigns/{PUS ID}/proofs in the same trackingclients database.
  // Proof records are independent of dot records and never increment delivery/pickup counts.
+ const visibleDeliveryColors=new Set(['green','red','blue']);
  const campaignFfId=()=>`FF${clientId.replace(/^XX/i,'')}`;
  function posterIdForShift(shift,index){return shift?.pickupPosterId||(/^PUS/i.test(shift?.posterId||'')?shift.posterId:`PUS${shiftNumber(shift,index)}${clientId.replace(/^XX/i,'')}`)}
  function shiftLiveStats(shift,index){
@@ -358,7 +358,15 @@
   const posted=live?.postedDots||0,pickupDone=!!live?.pickupDone,distributionDone=target>0&&posted>=target;
   return{posterId:posterIdForShift(shift,index),target,posted,pickupDone,distributionDone,percent:target?Math.min(100,Math.round(posted/target*100)):0};
  }
- function campaignDeliveryStats(){let target=0,posted=0;shifts.forEach((shift,index)=>{const stats=shiftLiveStats(shift,index);target+=stats.target;posted+=Math.min(stats.posted,stats.target)});return{target,posted,percent:target?Math.min(100,Math.round(posted/target*100)):0}}
+ function campaignDeliveryStats(){
+  // The client-facing delivered total is the number of visible delivery clicks:
+  // green + red + blue. Orange activity is intentionally excluded.
+  const posted=allDotRecords().filter(record=>record.kind==='delivery'&&record.hasLocation&&visibleDeliveryColors.has(record.color)).length;
+  const shiftTarget=shifts.reduce((sum,shift)=>sum+Math.max(0,Number(shift.flyers)||0),0);
+  const savedTarget=Number(currentCampaign?.totalFlyers||legacyCampaignSummary?.totalFlyers||0);
+  const target=shiftTarget||totalFlyers()||savedTarget||0;
+  return{target,posted,percent:target?Math.min(100,Math.round(posted/target*100)):0};
+ }
  function renderBookingTotals(){renderCurrentCampaign()}
  function renderShiftSummary(){
  els.shiftCountBadge.textContent=String(shifts.length);
@@ -421,7 +429,8 @@
    const value=child.val();if(!value||typeof value!=='object')return;
    const coordinate=value=>value===null||value===undefined||String(value).trim()===''?NaN:Number(value);
    const lat=coordinate(value.lat??value.latitude??value.location?.lat),lng=coordinate(value.lng??value.longitude??value.location?.lng);
-   const color=String(value.color||(source==='userPostClicks'?'orange':'blue')).toLowerCase();
+   const rawColor=String(value.color||(source==='userPostClicks'?'orange':'blue')).trim().toLowerCase();
+   const color=({'#22c55e':'green','#16a34a':'green','#31a24c':'green','#ef4444':'red','#dc2626':'red','#e41e3f':'red','#1877f2':'blue','#3b82f6':'blue'}[rawColor]||rawColor);
    const postedAt=recordTime(value.timestamp??value.createdAt??value.clientTimestamp??value.time??value.date)||firebasePushKeyTime(child.key);
    records.push({key:`${source}/${posterId}/${child.key}`,postKey:child.key,posterId,kind,lat,lng,hasLocation:Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180,color,timestamp:postedAt,outcome:color==='red'?'no':color==='orange'?'other':'yes',photos:photoUrls(value)});
   });return records.sort((a,b)=>a.timestamp-b.timestamp||String(a.postKey||'').localeCompare(String(b.postKey||'')));
@@ -437,7 +446,7 @@
   // Count distinct posts, including multiple posts at the same pickup location.
   const unique=[...new Map(records.map(record=>[record.key,record])).values()];
   const pickups=unique.filter(record=>record.kind==='pickup'&&record.hasLocation).length;
-  let remaining=unique.filter(record=>record.kind==='delivery'&&record.hasLocation&&record.outcome==='yes').length;
+  let remaining=unique.filter(record=>record.kind==='delivery'&&record.hasLocation&&visibleDeliveryColors.has(record.color)).length;
   return list.map((shift,index)=>{
    const target=Math.max(0,Number(shift.flyers)||0),postedDots=Math.min(target,remaining);remaining-=postedDots;
    // Any delivery dot assigned to a shift means the flyers were already picked up.
@@ -450,7 +459,6 @@
   renderShiftSummary();renderDeliveryDots();renderPhotoProof();
   if(!sourceErrors.size&&sourceRecords.size===dotUnsubscribers.length)queueDotStatusSync();
  }
- const visibleDeliveryColors=new Set(['green','red','blue']);
  function renderLatestColorCounters(records){
   const delivery=records.filter(dot=>dot.kind==='delivery'&&dot.hasLocation&&visibleDeliveryColors.has(dot.color));
   for(const color of visibleDeliveryColors){
