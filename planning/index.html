@@ -2012,14 +2012,11 @@ select.field{
   </div>
  </div>
 
- <button id="estimateFlyersBtn" class="action primary" disabled>
-  <span class="material-icons-outlined">calculate</span> Estimate flyers
- </button>
  <div id="selectionStatus" class="helper" role="status" style="margin-top:7px"></div>
  <div class="helper" style="margin-top:7px">
-  <span style="display:inline-block;width:11px;height:11px;background:#30343b"></span> Selected · not estimated<br>
-  <span style="display:inline-block;width:11px;height:11px;background:#ffe600;border:1px solid #756b00"></span> Estimated · included in campaign<br>
-  Click hexagons to select and save them. Then click Estimate flyers.
+  <span style="display:inline-block;width:11px;height:11px;background:#d2dae5"></span> Selected · not estimated<br>
+  <span style="display:inline-block;width:11px;height:11px;background:#f5dfa0;border:1px solid #756b00"></span> Estimated · included in campaign<br>
+  Click a hexagon to save it and open its Estimate flyers button.
  </div>
  <div id="buildingCooldown" class="building-cooldown" role="status" hidden></div>
  <div id="zoneStatus" class="helper" role="status"></div>
@@ -2393,8 +2390,11 @@ let legacyCampaignSummary=null;
 let extraFlyers=0;
 
 let estimateRequest=0;
-const SELECTION_COLOR='#30343b';
-const ESTIMATED_COLOR='#ffe600';
+const SELECTION_COLOR='#d2dae5';
+const ESTIMATED_COLOR='#f5dfa0';
+// TEST PROJECT: paste your own ohsome key below. Visible to anyone with this HTML.
+const OHSOME_API_KEY='eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYyN2Q0NTlhMTZjZDRlMDg4NGVkN2M0YzM0ODRkNDA0IiwiaCI6Im11cm11cjY0In0=';
+const OHSOME_COUNT_ENDPOINT='https://api.heigit.org/ohsome-api/v2-rc/stats/features/count.csv';
 let pendingSelections={};
 let selectionWrites=0;
 let estimatingSelection=false;
@@ -6689,13 +6689,7 @@ function applyBuildingResults(
 
 function renderSelectionControls(){
  const count=hexagons.filter(hex=>hex.status==='selected').length;
- const button=$('estimateFlyersBtn');
- if(!button) return;
- button.disabled=estimatingSelection||selectionWrites>0||!count;
- button.textContent=estimatingSelection?'Estimating flyers…':`Estimate flyers${count?` (${count})`:''}`;
- $('selectionStatus').textContent=selectionWrites
-  ?'Saving selection…'
-  :`${count} selected hexagon${count===1?'':'s'} awaiting estimation. Saved selections reopen with your campaign ID.`;
+ $('selectionStatus').textContent=selectionWrites?'Saving selection…':`${count} saved selection(s) awaiting estimation. Open a hexagon to estimate it.`;
 }
 
 async function toggleHexSelection(index){
@@ -6714,7 +6708,7 @@ async function toggleHexSelection(index){
   await set(ref(db,`campaigns/${id}/planner/selections/${hex.hexId}`), selecting?record:null);
   if(selecting) pendingSelections[hex.hexId]=record;
   else delete pendingSelections[hex.hexId];
-  els.zoneStatus.textContent=selecting?'Selection saved. Click Estimate flyers when ready.':'Hexagon deselected.';
+  els.zoneStatus.textContent=selecting?'Selection saved. Use Estimate flyers in this hexagon’s popup.':'Hexagon deselected.';
  }catch(error){
   hex.status=previous;
   console.error(error);
@@ -6727,314 +6721,133 @@ async function toggleHexSelection(index){
  }
 }
 
-async function estimateSelectedFlyers(){
- if(estimatingSelection||selectionWrites||areaSavePending) return;
- const selected=hexagons.filter(hex=>hex.status==='selected');
- if(!selected.length) return;
- estimatingSelection=true;
- closeZonePopup();
- renderSelectionControls();
- let completed=0;
- try{
-  for(const hex of selected){
-   const index=hexagons.indexOf(hex);
-   if(index<0||hex.status!=='selected') continue;
-   els.zoneStatus.textContent=`Estimating hexagon ${completed+1} of ${selected.length}…`;
-   const ok=await estimateBuildings(index);
-   if(ok!==true) continue;
-   // Keep the existing zone/shift/price format used by the distribution app.
-   await bookHexagon(index);
-   if(hex.status==='booked') completed++;
-  }
- }catch(error){
-  console.error(error);
-  toast('Estimation interrupted. Remaining selections are saved; click Estimate flyers to retry.');
- }finally{
-  estimatingSelection=false;
-  visibleBuildingHexId='';
-  refreshHexMetrics();
-  renderMap();
-  const remaining=hexagons.filter(hex=>hex.status==='selected').length;
-  els.zoneStatus.textContent=`${completed} hexagon(s) estimated · ${totalBuildings().toLocaleString()} buildings · ${totalFlyers().toLocaleString()} flyers.${remaining?` ${remaining} selection(s) still pending; click Estimate flyers to retry.`:''}`;
- }
-}
-$('estimateFlyersBtn').addEventListener('click',estimateSelectedFlyers);
-
-function openHexPopup(index,lngLat){
+async function openHexPopup(index,lngLat){
  const hex=hexagons[index];
- if(!hex||estimatingSelection) return;
- if(hex.status!=='booked'){
-  closeZonePopup();
-  void toggleHexSelection(index);
-  return;
- }
+ if(!hex||estimatingSelection||areaSavePending) return;
  closeZonePopup();
  const root=document.createElement('div');
  root.className='zone-popup';
- root.innerHTML=`<div class="zone-popup-title">Estimated hexagon</div>
- <div class="zone-popup-copy">${Number(hex.estimatedBuildings??hex.buildings.length).toLocaleString()} buildings · ${hex.flyersRequired.toLocaleString()} flyers · Saved in campaign</div>`;
- const dots=document.createElement('button');
- dots.className='zone-popup-btn';
- dots.textContent='Show / hide building dots';
- dots.onclick=()=>{visibleBuildingHexId=visibleBuildingHexId===hex.hexId?'':hex.hexId;renderMap();};
- const removeButton=document.createElement('button');
- removeButton.className='zone-popup-btn danger';
- removeButton.textContent='Remove from campaign';
- removeButton.onclick=()=>removeHexagon(index);
+ const title=document.createElement('div');
+ title.className='zone-popup-title';
+ title.textContent=`Hexagon ${index+1}`;
+ const copy=document.createElement('div');
+ copy.className='zone-popup-copy';
  const actions=document.createElement('div');
  actions.className='zone-popup-actions';
- actions.append(dots,removeButton);
- root.append(actions);
+ const estimate=document.createElement('button');
+ estimate.className='zone-popup-btn primary';
+ estimate.style.background=ESTIMATED_COLOR;
+ estimate.style.borderColor='#c6ad67';
+ estimate.textContent='Estimate flyers';
+ const removeButton=document.createElement('button');
+ removeButton.className='zone-popup-btn danger';
+ actions.append(estimate,removeButton);
+ root.append(title,copy,actions);
  const popup=new maplibregl.Popup({closeButton:true,closeOnClick:false,offset:8})
   .setLngLat(lngLat||zoneCenter(hex.points)).setDOMContent(root).addTo(map);
  zonePopup=popup;
- popup.on('close',()=>{if(zonePopup===popup)zonePopup=null;visibleBuildingHexId='';renderMap();});
-}
-
-async function queryBuildings(points){
-
- const polygon=
-  closeRing(points)
-   .map(
-    ([lng,lat])=>`${lat} ${lng}`
-   )
-   .join(' ');
-
- const query=
-  `[out:json][timeout:45];nwr["building"](poly:"${polygon}");out center qt;`;
-
- const endpoints=[
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter'
- ];
-
- let lastError;
-
- for(const endpoint of endpoints){
-
-  const controller=
-   new AbortController();
-
-  const timer=setTimeout(
-   ()=>controller.abort(),
-   50000
-  );
-
+ const active=()=>zonePopup===popup&&hexagons[index]===hex;
+ const refresh=()=>{
+  const booked=hex.status==='booked';
+  estimate.hidden=booked;
+  estimate.disabled=hex.selectionSaving||selectionWrites>0||estimatingSelection||hex.status!=='selected';
+  removeButton.disabled=hex.selectionSaving||estimatingSelection;
+  removeButton.textContent=booked?'Remove from campaign':'Deselect hexagon';
+  copy.textContent=booked
+   ?`${Number(hex.estimatedBuildings??0).toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers · Saved in campaign`
+   :hex.selectionSaving?'Saving selection…':hex.status==='selected'
+    ?'Selection saved. Click Estimate flyers to count this hexagon only.'
+    :'Selection could not be saved. Close and click this hexagon to retry.';
+ };
+ popup.on('close',()=>{if(zonePopup===popup)zonePopup=null;});
+ estimate.onclick=async()=>{
+  if(estimatingSelection||selectionWrites||hex.status!=='selected') return;
+  estimatingSelection=true;
+  refresh();
+  copy.textContent='Estimating this hexagon…';
+  estimate.textContent='Estimating…';
   try{
-
-   const response=await fetch(
-    endpoint,
-    {
-     method:'POST',
-
-     headers:{
-      'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',
-      'Accept':'application/json'
-     },
-
-     body:
-      'data='
-      +encodeURIComponent(query),
-
-     signal:controller.signal
-    }
-   );
-
-   if(!response.ok){
-    throw new Error(
-     `Building server returned ${response.status}`
-    );
-   }
-
-   const data=
-    await response.json();
-
-   if(
-    data.remark
-    ||!Array.isArray(data.elements)
-   ){
-    throw new Error(
-     data.remark
-     ||'Incomplete building response'
-    );
-   }
-
-   const seen=new Set();
-   const pointsOut=[];
-
-   (data.elements||[]).forEach(
-    element=>{
-
-     const lat=
-      element.type==='node'
-       ?Number(element.lat)
-       :Number(element.center?.lat);
-
-     const lng=
-      element.type==='node'
-       ?Number(element.lon)
-       :Number(element.center?.lon);
-
-     const key=
-      `${element.type}:${element.id}`;
-
-     if(
-      Number.isFinite(lat)
-      &&Number.isFinite(lng)
-      &&!seen.has(key)
-     ){
-
-      seen.add(key);
-
-      pointsOut.push({
-       lat:round(lat),
-       lng:round(lng)
-      });
-     }
-    }
-   );
-
-   clearTimeout(timer);
-
-   return pointsOut;
-
+   await estimateBuildings(index);
+   await bookHexagon(index);
+   if(hex.status!=='booked') throw new Error('The estimate could not be saved. Click Estimate flyers to retry.');
+   if(active()) refresh();
+  }catch(error){
+   if(active()) copy.textContent=error.message||'Estimation failed. Click Estimate flyers to retry.';
+  }finally{
+   estimatingSelection=false;
+   estimate.textContent='Estimate flyers';
+   estimate.disabled=hex.status!=='selected';
+   removeButton.disabled=false;
+   refreshHexMetrics();
+   renderMap();
   }
-  catch(error){
-
-   clearTimeout(timer);
-   lastError=error;
-  }
+ };
+ removeButton.onclick=async()=>{
+  if(estimatingSelection||hex.selectionSaving) return;
+  if(hex.status==='booked') await removeHexagon(index);
+  else {await toggleHexSelection(index);if(active()) closeZonePopup();}
+ };
+ refresh();
+ if(hex.status==='available'){
+  const saving=toggleHexSelection(index);
+  refresh();
+  await saving;
+  if(active()) refresh();
  }
-
- throw(
-  lastError
-  ||new Error(
-   'Building service unavailable'
-  )
- );
 }
 
 async function estimateBuildings(index){
-
  const hex=hexagons[index];
-
- if(!hex){
-  return false;
+ if(!hex||hex.status!=='selected') throw new Error('Select this hexagon first.');
+ if(hex.estimateReady&&hex.estimateSource==='ohsome'&&Number.isInteger(hex.estimatedBuildings)) return true;
+ const key=OHSOME_API_KEY.trim();
+ if(!key||key==='PASTE_YOUR_OHSOME_API_KEY_HERE'){
+  throw new Error('Add your ohsome API key to OHSOME_API_KEY in the HTML first.');
  }
-
- const request=++estimateRequest;
-
- const stillSelected=()=>
-  request===estimateRequest
-  &&hexagons[index]===hex;
-
- const saved=
-  await savedBuildingResults(hex);
-
- if(!stillSelected()){
-  return false;
- }
-
- if(saved){
-
-  applyBuildingResults(
-   hex,
-   saved.buildings,
-   true,
-   index
-  );
-
-  return true;
- }
-
- if(!estimatingSelection&&bookingCooldownSeconds()>0){
-  return 'waiting';
- }
-
- els.buildingCount.textContent='…';
- els.flyerCount.textContent='…';
-
- els.zoneStatus.textContent=
-  'Loading buildings for this hexagon for the first time…';
-
- const key=
-  buildingCacheKey(hex.points);
-
+ let response;
  try{
-
-  let pending=
-   buildingRequests.get(key);
-
-  if(!pending){
-
-   pending=(async()=>{
-
-    const found=
-     await queryBuildings(
-      hex.points
-     );
-
-    await saveBuildingResults(
-     hex.points,
-     found
-    );
-
-    return found;
-
-   })();
-
-   buildingRequests.set(
-    key,
-    pending
-   );
-
-   pending
-    .finally(()=>{
-
-     if(
-      buildingRequests.get(key)===pending
-     ){
-      buildingRequests.delete(key);
-     }
-
-    })
-    .catch(()=>{});
-  }
-
-  const found=
-   await pending;
-
-  if(!stillSelected()){
-   return false;
-  }
-
-  applyBuildingResults(
-   hex,
-   found,
-   false,
-   index
-  );
-
-  return true;
-
+  response=await fetch(OHSOME_COUNT_ENDPOINT,{
+   method:'POST',
+   headers:{'Content-Type':'application/json','authorization':key},
+   body:JSON.stringify({
+    aoi:{type:'Polygon',coordinates:[closeRing(hex.points)]},
+    filter:'building=* and building!=no and geometry:polygon',
+    time:'latest'
+   }),
+   signal:AbortSignal.timeout(185000)
+  });
+ }catch(error){
+  throw new Error(error.name==='TimeoutError'
+   ?'The building count timed out. Click Estimate flyers to retry.'
+   :'Cannot reach ohsome. Check your connection. If the browser blocks cross-origin access, this API requires a server proxy.');
  }
- catch(error){
-
-  if(!stillSelected()){
-   return false;
-  }
-
-  console.error(error);
-
-  els.buildingCount.textContent='—';
-  els.flyerCount.textContent='—';
-
-  els.zoneStatus.textContent=
-   'The building count is temporarily unavailable. Try again.';
-
-  return false;
+ if(!response.ok){
+  const messages={
+   401:'ohsome rejected the API key. Check OHSOME_API_KEY in the HTML.',
+   403:'ohsome access or quota is unavailable. Check your API account.',
+   429:'ohsome rate limit reached. Wait one minute, then click Estimate flyers again.'
+  };
+  throw new Error(messages[response.status]||`ohsome returned error ${response.status}. Click Estimate flyers to retry.`);
  }
+ const rows=(await response.text()).split(/\r?\n/)
+  .filter(line=>line.trim()&&!line.trim().replace(/^"/,'').startsWith('#'))
+  .map(line=>line.split(';').map(cell=>cell.trim().replace(/^"|"$/g,'')));
+ const header=rows[0]||[];
+ const valueIndex=header.indexOf('value');
+ const timeIndex=header.indexOf('timestamp');
+ if(rows.length!==2||valueIndex<0||!/^\d+$/.test(rows[1][valueIndex]||'')){
+  throw new Error('Unexpected building count response. No estimate was saved.');
+ }
+ const data={count:Number(rows[1][valueIndex]),timestamp:timeIndex>=0?rows[1][timeIndex]:''};
+ if(!Number.isSafeInteger(data.count)||data.count<0) throw new Error('Invalid building count received.');
+ hex.buildings=[]; // Counts have no building coordinates; do not create artificial dots.
+ hex.estimatedBuildings=data.count;
+ hex.flyersRequired=Math.ceil(data.count*1.5);
+ hex.estimateSource='ohsome';
+ hex.estimateTimestamp=data.timestamp||'';
+ hex.estimateReady=true;
+ hex.buildingsFromCache=true;
+ return true;
 }
 
 /* -----------------------------------------------------
@@ -7254,8 +7067,7 @@ async function bookHexagon(index){
     )
    );
 
-  const buildingCount=
-   hex.buildings.length;
+  const buildingCount=Number(hex.estimatedBuildings??hex.buildings.length);
 
   const flyerCount=
    Math.ceil(
@@ -7310,6 +7122,8 @@ async function bookHexagon(index){
     buildingDots:
      hex.buildings,
 
+    estimateSource:hex.estimateSource||'legacy',
+    estimateTimestamp:hex.estimateTimestamp||'',
     estimatedBuildings:
      buildingCount,
 
@@ -7388,7 +7202,7 @@ async function bookHexagon(index){
    'bookmark_added'
   );
 
-  closeZonePopup();
+  if(!estimatingSelection) closeZonePopup();
 
   refreshHexMetrics();
   renderMap();
@@ -7456,11 +7270,10 @@ async function removeHexagon(index){
 
   hex.flyersRequired=
    Math.ceil(
-    hex.buildings.length*1.5
+    Number(hex.estimatedBuildings??hex.buildings.length)*1.5
    );
 
-  hex.estimatedBuildings=
-   hex.buildings.length;
+  hex.estimatedBuildings=Number(hex.estimatedBuildings??hex.buildings.length);
 
   hex.estimateReady=true;
   hex.buildingsFromCache=true;
@@ -9822,7 +9635,7 @@ map.on('load',()=>{
   paint:{
    'fill-color':['case',['==',['get','status'],'booked'],ESTIMATED_COLOR,['==',['get','status'],'selected'],SELECTION_COLOR,['coalesce',['get','areaColor'],'#2563eb']],
 
-   'fill-opacity':['case',['==',['get','status'],'selected'],.72,['==',['get','status'],'booked'],.68,.17]
+   'fill-opacity':['case',['==',['get','status'],'selected'],.58,['==',['get','status'],'booked'],.58,.17]
   }
  });
 
@@ -9838,7 +9651,7 @@ map.on('load',()=>{
   ],
 
   paint:{
-   'line-color':['case',['==',['get','status'],'booked'],ESTIMATED_COLOR,['==',['get','status'],'selected'],SELECTION_COLOR,['coalesce',['get','areaColor'],'#2563eb']],
+   'line-color':['case',['==',['get','status'],'booked'],'#b9a16a',['==',['get','status'],'selected'],'#8f9dad',['coalesce',['get','areaColor'],'#2563eb']],
 
    'line-opacity':[
     'case',
