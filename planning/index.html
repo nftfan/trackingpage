@@ -2007,11 +2007,20 @@ select.field{
   </div>
 
   <div class="metric">
-   <span>Booked</span>
+   <span>Estimated</span>
    <strong id="bookedCount">0</strong>
   </div>
  </div>
 
+ <button id="estimateFlyersBtn" class="action primary" disabled>
+  <span class="material-icons-outlined">calculate</span> Estimate flyers
+ </button>
+ <div id="selectionStatus" class="helper" role="status" style="margin-top:7px"></div>
+ <div class="helper" style="margin-top:7px">
+  <span style="display:inline-block;width:11px;height:11px;background:#30343b"></span> Selected · not estimated<br>
+  <span style="display:inline-block;width:11px;height:11px;background:#ffe600;border:1px solid #756b00"></span> Estimated · included in campaign<br>
+  Click hexagons to select and save them. Then click Estimate flyers.
+ </div>
  <div id="buildingCooldown" class="building-cooldown" role="status" hidden></div>
  <div id="zoneStatus" class="helper" role="status"></div>
 </section>
@@ -2384,6 +2393,11 @@ let legacyCampaignSummary=null;
 let extraFlyers=0;
 
 let estimateRequest=0;
+const SELECTION_COLOR='#30343b';
+const ESTIMATED_COLOR='#ffe600';
+let pendingSelections={};
+let selectionWrites=0;
+let estimatingSelection=false;
 let zonePopup=null;
 let visibleBuildingHexId='';
 
@@ -2489,7 +2503,7 @@ function campaignTotalCost(){
 
 function validAreaColor(value){
  const color=String(value||'').trim();
- return /^#[0-9a-f]{6}$/i.test(color)?color:'';
+ return /^#[0-9a-f]{6}$/i.test(color)&&![SELECTION_COLOR,ESTIMATED_COLOR].includes(color.toLowerCase())?color:'';
 }
 
 function safeAreaColor(value){
@@ -4977,6 +4991,7 @@ function geometryContains(
 ----------------------------------------------------- */
 
 function refreshHexMetrics(){
+ renderSelectionControls();
 
  renderBookingTotals();
 
@@ -5410,7 +5425,7 @@ function generateHexagons(
    status:
     zone
      ?'booked'
-     :'available',
+     :(pendingSelections[hexId]?'selected':'available'),
    buildings:
     zone?.buildings
     ||[],
@@ -5615,6 +5630,7 @@ async function ensureClient(){
 }
 
 async function handleCountryChange(){
+ if(estimatingSelection||selectionWrites){toast('Please wait for selection saving or estimation to finish.');els.countrySelect.value=selectedCountry;return;}
 
  selectedCountry=
   els.countrySelect.value
@@ -5703,6 +5719,7 @@ async function selectArea(
   fit=true
  }={}
 ){
+ if(estimatingSelection||selectionWrites){toast('Please wait for selection saving or estimation to finish.');return;}
 
  if(!area?.geometry){
   return;
@@ -5832,6 +5849,7 @@ async function selectArea(
 }
 
 async function removeSelectedArea(areaId){
+ if(estimatingSelection||selectionWrites){toast('Please wait for selection saving or estimation to finish.');return;}
 
  const area=selectedAreas.find(
   item=>item.properties.areaId===areaId
@@ -5995,6 +6013,23 @@ async function removeSelectedArea(areaId){
    paths
   );
 
+  const selectionPaths={};
+  for(const [hexId,record] of Object.entries(pendingSelections)){
+   const hex=hexagons.find(item=>item.hexId===hexId);
+   const ids=hex?.areaIds||record.areaIds||[record.areaId];
+   if(ids.includes(areaId)){
+    const kept=ids.filter(value=>value!==areaId&&remainingIds.has(value));
+    selectionPaths[`campaigns/${id}/planner/selections/${hexId}`]=kept.length?{...record,areaIds:kept,areaId:kept[0]}:null;
+   }
+  }
+  if(Object.keys(selectionPaths).length){
+   await update(ref(db),selectionPaths);
+   for(const [path,value] of Object.entries(selectionPaths)){
+    const hexId=path.split('/').pop();
+    if(value) pendingSelections[hexId]=value;
+    else delete pendingSelections[hexId];
+   }
+  }
   selectedAreas=nextAreas;
   selectedAreaFeature=
    nextAreas[0]
@@ -6602,7 +6637,7 @@ function renderBuildingCooldown(){
 
  const node=$('buildingCooldown');
 
- node.hidden=!remaining;
+ node.hidden=true;
 
  node.textContent=
   remaining
@@ -6652,328 +6687,108 @@ function applyBuildingResults(
  renderMap();
 }
 
-function openHexPopup(
- index,
- lngLat
-){
+function renderSelectionControls(){
+ const count=hexagons.filter(hex=>hex.status==='selected').length;
+ const button=$('estimateFlyersBtn');
+ if(!button) return;
+ button.disabled=estimatingSelection||selectionWrites>0||!count;
+ button.textContent=estimatingSelection?'Estimating flyers…':`Estimate flyers${count?` (${count})`:''}`;
+ $('selectionStatus').textContent=selectionWrites
+  ?'Saving selection…'
+  :`${count} selected hexagon${count===1?'':'s'} awaiting estimation. Saved selections reopen with your campaign ID.`;
+}
 
+async function toggleHexSelection(index){
  const hex=hexagons[index];
+ if(!hex||hex.status==='booked'||hex.selectionSaving||estimatingSelection||areaSavePending) return;
+ const previous=hex.status;
+ const selecting=previous!=='selected';
+ hex.selectionSaving=true;
+ selectionWrites++;
+ hex.status=selecting?'selected':'available';
+ renderMap();
+ renderSelectionControls();
+ try{
+  const id=await ensureClient();
+  const record={hexId:hex.hexId, areaIds:hex.areaIds||[], areaId:hex.areaId||'', selectedAt:Date.now()};
+  await set(ref(db,`campaigns/${id}/planner/selections/${hex.hexId}`), selecting?record:null);
+  if(selecting) pendingSelections[hex.hexId]=record;
+  else delete pendingSelections[hex.hexId];
+  els.zoneStatus.textContent=selecting?'Selection saved. Click Estimate flyers when ready.':'Hexagon deselected.';
+ }catch(error){
+  hex.status=previous;
+  console.error(error);
+  toast('Selection could not be saved. Please try again.');
+ }finally{
+  hex.selectionSaving=false;
+  selectionWrites--;
+  renderMap();
+  renderSelectionControls();
+ }
+}
 
- if(!hex){
+async function estimateSelectedFlyers(){
+ if(estimatingSelection||selectionWrites||areaSavePending) return;
+ const selected=hexagons.filter(hex=>hex.status==='selected');
+ if(!selected.length) return;
+ estimatingSelection=true;
+ closeZonePopup();
+ renderSelectionControls();
+ let completed=0;
+ try{
+  for(const hex of selected){
+   const index=hexagons.indexOf(hex);
+   if(index<0||hex.status!=='selected') continue;
+   els.zoneStatus.textContent=`Estimating hexagon ${completed+1} of ${selected.length}…`;
+   const ok=await estimateBuildings(index);
+   if(ok!==true) continue;
+   // Keep the existing zone/shift/price format used by the distribution app.
+   await bookHexagon(index);
+   if(hex.status==='booked') completed++;
+  }
+ }catch(error){
+  console.error(error);
+  toast('Estimation interrupted. Remaining selections are saved; click Estimate flyers to retry.');
+ }finally{
+  estimatingSelection=false;
+  visibleBuildingHexId='';
+  refreshHexMetrics();
+  renderMap();
+  const remaining=hexagons.filter(hex=>hex.status==='selected').length;
+  els.zoneStatus.textContent=`${completed} hexagon(s) estimated · ${totalBuildings().toLocaleString()} buildings · ${totalFlyers().toLocaleString()} flyers.${remaining?` ${remaining} selection(s) still pending; click Estimate flyers to retry.`:''}`;
+ }
+}
+$('estimateFlyersBtn').addEventListener('click',estimateSelectedFlyers);
+
+function openHexPopup(index,lngLat){
+ const hex=hexagons[index];
+ if(!hex||estimatingSelection) return;
+ if(hex.status!=='booked'){
+  closeZonePopup();
+  void toggleHexSelection(index);
   return;
  }
-
  closeZonePopup();
-
  const root=document.createElement('div');
- const copy=document.createElement('div');
- const actions=document.createElement('div');
- const dotsBtn=document.createElement('button');
-
  root.className='zone-popup';
-
- root.innerHTML=`
-  <div class="zone-popup-title">
-   ${
-    hex.status==='booked'
-     ?'Booked hexagon'
-     :`Hexagon ${index+1}`
-   }
-  </div>
- `;
-
- copy.className='zone-popup-copy';
+ root.innerHTML=`<div class="zone-popup-title">Estimated hexagon</div>
+ <div class="zone-popup-copy">${Number(hex.estimatedBuildings??hex.buildings.length).toLocaleString()} buildings · ${hex.flyersRequired.toLocaleString()} flyers · Saved in campaign</div>`;
+ const dots=document.createElement('button');
+ dots.className='zone-popup-btn';
+ dots.textContent='Show / hide building dots';
+ dots.onclick=()=>{visibleBuildingHexId=visibleBuildingHexId===hex.hexId?'':hex.hexId;renderMap();};
+ const removeButton=document.createElement('button');
+ removeButton.className='zone-popup-btn danger';
+ removeButton.textContent='Remove from campaign';
+ removeButton.onclick=()=>removeHexagon(index);
+ const actions=document.createElement('div');
  actions.className='zone-popup-actions';
-
- dotsBtn.className='zone-popup-btn';
-
- const updateDotsButton=()=>{
-
-  dotsBtn.textContent=
-   visibleBuildingHexId===hex.hexId
-    ?'Hide building dots'
-    :'Show building dots';
-
-  dotsBtn.disabled=!hex.estimateReady;
- };
-
- dotsBtn.addEventListener(
-  'click',
-  ()=>{
-
-   visibleBuildingHexId=
-    visibleBuildingHexId===hex.hexId
-     ?''
-     :hex.hexId;
-
-   updateDotsButton();
-   renderMap();
-  }
- );
-
- root.append(copy);
-
- let popup;
- let timer=null;
- let busy=false;
- let waiting=false;
-
- const active=()=>
-  zonePopup===popup
-  &&hexagons[index]===hex;
-
- if(hex.status==='booked'){
-
-  const removeBtn=
-   document.createElement('button');
-
-  const buildingCount=
-   Number(
-    hex.estimatedBuildings
-    ??hex.buildings.length
-   );
-
-  copy.textContent=
-   `${buildingCount.toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers · Saved result`;
-
-  removeBtn.className=
-   'zone-popup-btn danger';
-
-  removeBtn.textContent=
-   'Remove from campaign';
-
-  removeBtn.addEventListener(
-   'click',
-   ()=>removeHexagon(index)
-  );
-
-  updateDotsButton();
-
-  actions.append(
-   dotsBtn,
-   removeBtn
-  );
-
-  root.append(actions);
-
- }
- else{
-
-  const retryBtn=
-   document.createElement('button');
-
-  const bookBtn=
-   document.createElement('button');
-
-  retryBtn.className=
-   'zone-popup-btn';
-
-  retryBtn.textContent=
-   'Retry building count';
-
-  retryBtn.hidden=true;
-
-  bookBtn.className=
-   'zone-popup-btn primary';
-
-  bookBtn.textContent=
-   'Book this hexagon';
-
-  bookBtn.disabled=true;
-
-  updateDotsButton();
-
-  actions.append(
-   retryBtn,
-   dotsBtn,
-   bookBtn
-  );
-
-  root.append(actions);
-
-  const refresh=()=>{
-
-   if(
-    !active()
-    ||busy
-   ){
-    return;
-   }
-
-   const remaining=
-    bookingCooldownSeconds();
-
-   if(waiting){
-
-    copy.textContent=
-     `New building lookup available in ${remaining}s. Saved hexagons can be booked immediately.`;
-
-    bookBtn.disabled=true;
-
-    bookBtn.textContent=
-     `Wait ${remaining}s`;
-
-    if(!remaining){
-     waiting=false;
-     loadCount();
-    }
-
-    return;
-   }
-
-   if(hex.estimateReady){
-
-    const blocked=
-     !hex.buildingsFromCache
-     &&remaining>0;
-
-    bookBtn.disabled=
-     blocked
-     ||bookingInProgress;
-
-    bookBtn.textContent=
-     blocked
-      ?`Book in ${remaining}s`
-      :'Book this hexagon';
-   }
-  };
-
-  const loadCount=async()=>{
-
-   if(
-    !active()
-    ||busy
-   ){
-    return;
-   }
-
-   busy=true;
-   waiting=false;
-
-   retryBtn.hidden=true;
-
-   bookBtn.disabled=true;
-   dotsBtn.disabled=true;
-
-   copy.innerHTML=`
-    <span class="loading-buildings">
-     <span class="building-spinner"></span>
-     <span>Checking saved building results…</span>
-    </span>
-   `;
-
-   const result=
-    await estimateBuildings(index);
-
-   busy=false;
-
-   if(!active()){
-    return;
-   }
-
-   if(result==='waiting'){
-
-    waiting=true;
-    refresh();
-    return;
-   }
-
-   if(result){
-
-    copy.textContent=
-     `${hex.buildings.length.toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers · ${hex.buildingsFromCache?'Saved result':'Result saved'}`;
-
-    updateDotsButton();
-    refresh();
-
-   }
-   else{
-
-    copy.textContent=
-     'Building count failed. No empty result was saved. Please try again.';
-
-    retryBtn.hidden=false;
-    bookBtn.disabled=true;
-    bookBtn.textContent='Book this hexagon';
-   }
-  };
-
-  retryBtn.addEventListener(
-   'click',
-   loadCount
-  );
-
-  bookBtn.addEventListener(
-   'click',
-   async()=>{
-
-    if(
-     busy
-     ||bookingInProgress
-    ){
-     return;
-    }
-
-    busy=true;
-
-    bookBtn.disabled=true;
-    bookBtn.textContent='Booking…';
-
-    await bookHexagon(index);
-
-    busy=false;
-
-    if(active()){
-     refresh();
-    }
-   }
-  );
-
-  timer=setInterval(
-   refresh,
-   1000
-  );
-
-  setTimeout(
-   loadCount,
-   0
-  );
- }
-
- popup=new maplibregl.Popup({
-  closeButton:true,
-  closeOnClick:false,
-  offset:8
- })
- .setLngLat(
-  lngLat
-  ||zoneCenter(hex.points)
- )
- .setDOMContent(root)
- .addTo(map);
-
+ actions.append(dots,removeButton);
+ root.append(actions);
+ const popup=new maplibregl.Popup({closeButton:true,closeOnClick:false,offset:8})
+  .setLngLat(lngLat||zoneCenter(hex.points)).setDOMContent(root).addTo(map);
  zonePopup=popup;
-
- popup.on(
-  'close',
-  ()=>{
-
-   if(timer){
-    clearInterval(timer);
-   }
-
-   if(zonePopup===popup){
-    zonePopup=null;
-   }
-
-   if(
-    visibleBuildingHexId===hex.hexId
-   ){
-    visibleBuildingHexId='';
-    renderMap();
-   }
-  }
- );
+ popup.on('close',()=>{if(zonePopup===popup)zonePopup=null;visibleBuildingHexId='';renderMap();});
 }
 
 async function queryBuildings(points){
@@ -7133,7 +6948,7 @@ async function estimateBuildings(index){
   return true;
  }
 
- if(bookingCooldownSeconds()>0){
+ if(!estimatingSelection&&bookingCooldownSeconds()>0){
   return 'waiting';
  }
 
@@ -7414,7 +7229,8 @@ async function bookHexagon(index){
  }
 
  if(
-  !hex.buildingsFromCache
+  !estimatingSelection
+  &&!hex.buildingsFromCache
   &&bookingCooldownSeconds()>0
  ){
   toast(
@@ -7449,9 +7265,11 @@ async function bookHexagon(index){
   const areaColor=
    colorForHex(hex);
 
-  await set(
-   zoneRef,
+  await update(
+   ref(db),
    {
+    [`campaigns/${id}/planner/selections/${hex.hexId}`]:null,
+    [`campaigns/${id}/planner/zones/${zoneRef.key}`]:{
     status:'booked',
 
     hexId:hex.hexId,
@@ -7500,10 +7318,12 @@ async function bookHexagon(index){
 
     createdAt:
      serverTimestamp()
+    }
    }
   );
+  delete pendingSelections[hex.hexId];
 
-  if(!hex.buildingsFromCache){
+  if(!estimatingSelection&&!hex.buildingsFromCache){
    startBuildingCooldown();
   }
 
@@ -8124,6 +7944,7 @@ function normalizeId(value){
 }
 
 function resetPlan(){
+ if(estimatingSelection||selectionWrites){toast('Please wait for selection saving or estimation to finish.');return;}
 
  if(areaSavePending){
   return;
@@ -8167,6 +7988,7 @@ function resetPlan(){
 
  estimateRequest++;
 
+ pendingSelections={};
  clientId='';
  clientPromise=null;
 
@@ -8239,6 +8061,7 @@ function objectValues(value){
 }
 
 async function loadCampaign(requestedId){
+ if(estimatingSelection||selectionWrites){toast('Please wait for selection saving or estimation to finish.');return;}
 
  if(areaSavePending){
   toast(
@@ -8365,6 +8188,8 @@ async function loadCampaign(requestedId){
    &&typeof rootData.planner==='object'
     ?rootData.planner
     :{};
+
+  pendingSelections=planner.selections&&typeof planner.selections==='object'?planner.selections:{};
 
   const announcedUpper=
    exists(results[2])
@@ -9483,6 +9308,7 @@ function buildQuote(
 let quotePreviousTitle='';
 
 async function printQuote(){
+ if(estimatingSelection||selectionWrites||hexagons.some(hex=>hex.status==='selected')){toast('Please finish estimating your selected hexagons first.');return;}
 
  const business=
   $('quoteBusinessName');
@@ -9586,6 +9412,7 @@ $('printQuoteBtn').addEventListener(
 ----------------------------------------------------- */
 
 async function announceCampaign(){
+ if(estimatingSelection||selectionWrites||hexagons.some(hex=>hex.status==='selected')){toast('Please finish estimating your selected hexagons first.');return;}
 
  if(!bookedZones.length){
 
@@ -9993,31 +9820,9 @@ map.on('load',()=>{
   ],
 
   paint:{
-   'fill-color':[
-    'coalesce',
-    ['get','areaColor'],
-    '#2563eb'
-   ],
+   'fill-color':['case',['==',['get','status'],'booked'],ESTIMATED_COLOR,['==',['get','status'],'selected'],SELECTION_COLOR,['coalesce',['get','areaColor'],'#2563eb']],
 
-   'fill-opacity':[
-    'case',
-
-    [
-     '==',
-     ['get','hasPostedDots'],
-     true
-    ],
-    .50,
-
-    [
-     '==',
-     ['get','status'],
-     'booked'
-    ],
-    .36,
-
-    .17
-   ]
+   'fill-opacity':['case',['==',['get','status'],'selected'],.72,['==',['get','status'],'booked'],.68,.17]
   }
  });
 
@@ -10033,11 +9838,7 @@ map.on('load',()=>{
   ],
 
   paint:{
-   'line-color':[
-    'coalesce',
-    ['get','areaColor'],
-    '#2563eb'
-   ],
+   'line-color':['case',['==',['get','status'],'booked'],ESTIMATED_COLOR,['==',['get','status'],'selected'],SELECTION_COLOR,['coalesce',['get','areaColor'],'#2563eb']],
 
    'line-opacity':[
     'case',
