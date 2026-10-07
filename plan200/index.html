@@ -6955,16 +6955,43 @@ async function loadFastHexArchive(){
  finally{if(fastHexArchivePromise===job) fastHexArchivePromise=null;}
 }
 
+// Use saved polygon boundaries, including edge/vertex contact, rather than
+// relying only on cells generated for the current grid or their centres.
+async function includeSavedBoundaryHexagons(area,archive){
+ const turf=window.turf;
+ if(!turf) throw new Error('Map geometry tools are unavailable. Please refresh.');
+ const areaBounds=turf.bbox(area);
+ const existingByKey=new Map();
+ for(const hex of hexagons) existingByKey.set(await permanentHexKey(hex),hex);
+ const cells=[];
+ for(const [key,saved] of archive){
+  const points=Object.values(saved.coordinates||[]).map(point=>Array.isArray(point)
+   ?[Number(point[0]),Number(point[1])]
+   :[Number(point.lng??point.longitude),Number(point.lat??point.latitude)]);
+  if(points.length<3||points.some(point=>!point.every(Number.isFinite))) continue;
+  let minLng=Infinity,minLat=Infinity,maxLng=-Infinity,maxLat=-Infinity;
+  for(const [lng,lat] of points){minLng=Math.min(minLng,lng);minLat=Math.min(minLat,lat);maxLng=Math.max(maxLng,lng);maxLat=Math.max(maxLat,lat);}
+  // Strict comparisons intentionally retain touching bounding boxes.
+  if(maxLng<areaBounds[0]||minLng>areaBounds[2]||maxLat<areaBounds[1]||minLat>areaBounds[3]) continue;
+  const polygon=turf.polygon([closeRing(points)]);
+  if(!turf.booleanIntersects(polygon,area)) continue;
+  const existing=existingByKey.get(key);
+  cells.push({hexId:existing?.hexId||saved.hexId||`saved-${saved.code}`,
+   h3Cell:existing?.h3Cell||saved.h3Cell||'',points:existing?.points||points});
+ }
+ if(cells.length) generateHexagons(area,cells);
+}
+
 // Selecting an area imports only saved estimates; this path never calls ohsome.
 async function autoBookSavedAreaHexagons(area){
  const areaId=area.properties.areaId;
- const candidates=hexagons.filter(hex=>hex.status!=='booked'&&(hex.areaIds||[hex.areaId]).includes(areaId));
- if(!candidates.length) return 0;
  const id=await ensureClient();
  const countryCode=selectedCountry;
  const countryName=countryConfig().name;
  els.zoneStatus.textContent='Loading saved hexagons for this area…';
  const archive=await loadFastHexArchive();
+ await includeSavedBoundaryHexagons(area,archive);
+ const candidates=hexagons.filter(hex=>hex.status!=='booked'&&(hex.areaIds||[hex.areaId]).includes(areaId));
  const matches=[];
  for(const hex of candidates){
   const saved=archive.get(await permanentHexKey(hex));
