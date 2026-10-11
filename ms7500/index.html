@@ -336,7 +336,6 @@
     .summary-reward.dead strong{color:#b4b4bd}
     .summary-value-row{margin-top:0;border-top:1px solid rgba(255,255,255,.065);}
     .summary-value-row strong{font-size:14px;}
-    #sdEarned{color:#fde68a}.summary-value-row #sdCPC{color:#fdba74}
 
     .compact-sheet-card{gap:0!important;}
     .modal-kicker{font-size:8px;font-weight:900;letter-spacing:1px;color:#73788c;text-transform:uppercase;margin-bottom:2px;}
@@ -412,7 +411,7 @@
     </div>
   </div>
 
-  <div class="map-credits"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> · <a href="https://carto.com/attributions" target="_blank" rel="noopener">© CARTO</a></div>
+  <div class="map-credits"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a></div>
 
   <div id="minuteTimerTrack" class="minute-timer-track" aria-label="Current minute time remaining">
     <div id="minuteTimerFill" class="minute-timer-fill idle"></div>
@@ -511,24 +510,17 @@
       <div class="session-meta">
         <span><b id="sessionAvg">—</b> avg/min</span>
         <span><b id="sessionTotal">0</b> today</span>
-        <span><b id="earnPerHour">€0.00</b> /hr</span>
       </div>
     </div>
 
     <div class="stats-card">
       <div class="stat-box"><div class="stat-label">Today's Dots</div><div class="stat-value dots" id="todayWorkerDots">0</div></div>
-      <div class="stat-divider"></div>
-      <div class="stat-box"><div class="stat-label">Today's Earned</div><div class="stat-value earned" id="todayWorkerEarnings">€0.00</div></div>
-      <div class="stat-divider"></div>
-      <div class="stat-box"><div class="stat-label">Total Earned</div><div class="stat-value total" id="totalWorkerEarnings">€0.00</div></div>
     </div>
 
     <div class="stats-card">
       <div class="stat-box"><div class="stat-label">Today's Conns</div><div class="stat-value conns" id="todayWorkerConns">0</div></div>
       <div class="stat-divider"></div>
       <div class="stat-box"><div class="stat-label">Total Conns</div><div class="stat-value conns" id="totalWorkerConns">0</div></div>
-      <div class="stat-divider"></div>
-      <div class="stat-box"><div class="stat-label">CPC</div><div class="stat-value total" id="cpcValue">€0.00</div></div>
     </div>
 
     <div class="campaign-progress">
@@ -684,11 +676,7 @@
       <div class="summary-reward dead"><span>☠</span><strong id="sdDead">0</strong><small>Missed</small></div>
     </div>
 
-    <div class="summary-section-label">Value</div>
-    <div class="summary-value-row">
-      <div><span>Earned</span><strong id="sdEarned">€0.00</strong></div>
-      <div><span>CPC</span><strong id="sdCPC">—</strong></div>
-    </div>
+
   </div>
 </div>
 
@@ -839,7 +827,6 @@
   const sessionTimerEl   = document.getElementById('sessionTimer');
   const sessionAvgEl     = document.getElementById('sessionAvg');
   const sessionTotalEl   = document.getElementById('sessionTotal');
-  const earnPerHourEl    = document.getElementById('earnPerHour');
   const segSelect        = document.getElementById('segSelect');
   const btnStartWorker   = document.getElementById('btnStartWorker');
   const workerBackdrop   = document.getElementById('workerBackdrop');
@@ -847,11 +834,8 @@
   const workerSaveBtn    = document.getElementById('workerSaveBtn');
   const workerError      = document.getElementById('workerError');
   const todayWorkerDotsEl     = document.getElementById('todayWorkerDots');
-  const todayWorkerEarningsEl = document.getElementById('todayWorkerEarnings');
-  const totalWorkerEarningsEl = document.getElementById('totalWorkerEarnings');
   const todayWorkerConnsEl    = document.getElementById('todayWorkerConns');
   const totalWorkerConnsEl    = document.getElementById('totalWorkerConns');
-  const cpcValueEl            = document.getElementById('cpcValue');
   const campPercentEl         = document.getElementById('campPercent');
   const campBarEl             = document.getElementById('campBar');
   const campRemEl             = document.getElementById('campRem');
@@ -945,7 +929,20 @@
   // ── MapLibre ──────────────────────────────────────────────────────────────
   const map = new maplibregl.Map({
     container: 'map',
-    style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    style: {
+    version: 8,
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    sources: { osm: {
+      type: 'raster', tileSize: 256,
+      tiles: [
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+      ]
+    }},
+    layers: [{ id:'osm', type:'raster', source:'osm',
+               paint:{ 'raster-fade-duration': 0 } }]
+  },
     center: [4.35, 50.85],
     zoom: 12,
     maxZoom: 19,
@@ -1891,8 +1888,8 @@
 
   startChallengeTicker();
 
-  // ── Session & earnings display ────────────────────────────────────────────
-  function updateSessionAndEarningsDisplay(allDots) {
+  // ── Session display ────────────────────────────────────────────
+  function updateSessionDisplay(allDots) {
     let sessionDurationMs=0, sessionDots=0, isActive=false, sessionAvg=0;
     let greenC=0, redC=0, blueC=0, orangeC=0;
     let todayGroupDots=0, totalGroupDots=0, todayGroupPosts=0, totalGroupPosts=0;
@@ -1941,16 +1938,14 @@
     sessionTimerEl.textContent = isActive ? formatHMS(sessionDurationMs) : '00:00:00';
     sessionAvgEl.textContent = isActive ? sessionAvg.toFixed(2) : '—';
     sessionTotalEl.textContent = isActive ? String(sessionDots) : '0';
-    earnPerHourEl.textContent = '€'+(sessionAvg*0.036*60).toFixed(2);
+    
     const todayDotsWithBonus = todayGroupDots + groupBonusToday;
     const totalDotsWithBonus = totalGroupDots + groupBonusTotal;
     todayWorkerDotsEl.textContent = todayDotsWithBonus;
-    todayWorkerEarningsEl.textContent = '€'+(todayDotsWithBonus*0.036).toFixed(2);
-    const totalEarned = totalDotsWithBonus*0.036;
-    totalWorkerEarningsEl.textContent = '€'+totalEarned.toFixed(2);
+    
     todayWorkerConnsEl.textContent = todayGroupPosts;
     totalWorkerConnsEl.textContent = totalGroupPosts;
-    cpcValueEl.textContent = totalGroupPosts>0 ? '€'+(totalEarned/totalGroupPosts).toFixed(2) : '—';
+    
   }
 
   function updateCampaignProgress(totalTeamDots, totalTeamPosts) {
@@ -2008,7 +2003,7 @@
       let teamDots=0, teamPosts=0;
       allDots.forEach(d=>{if(d.color!=='orange')teamDots++;else teamPosts++;});
       rebuildMapLayer(allDots);
-      updateSessionAndEarningsDisplay(allDots);
+      updateSessionDisplay(allDots);
       syncChallengeFromDots(allDots);
       updateCampaignProgress(teamDots,teamPosts);
       populateShiftSelect(allDots);
@@ -2036,9 +2031,9 @@
     if(map.getSource('dots'))map.getSource('dots').setData(fc());
     if(map.getSource('trails'))map.getSource('trails').setData(fc());
     dotMarkers.forEach(m=>m.remove()); dotMarkers.length=0;
-    sessionTimerEl.textContent='00:00:00'; sessionAvgEl.textContent='—'; sessionTotalEl.textContent='0'; earnPerHourEl.textContent='€0.00';
-    todayWorkerDotsEl.textContent='0'; todayWorkerEarningsEl.textContent='€0.00'; totalWorkerEarningsEl.textContent='€0.00';
-    todayWorkerConnsEl.textContent='0'; totalWorkerConnsEl.textContent='0'; cpcValueEl.textContent='€0.00';
+    sessionTimerEl.textContent='00:00:00'; sessionAvgEl.textContent='—'; sessionTotalEl.textContent='0'; 
+    todayWorkerDotsEl.textContent='0';  
+    todayWorkerConnsEl.textContent='0'; totalWorkerConnsEl.textContent='0'; 
     globalAllDots=[]; historyIndex=-1;
     localClicks=[]; globalAbsDCount=0; globalAbsPCount=0; renderLocalClicks();
     resetChallengeUi();
@@ -2268,7 +2263,7 @@
         shiftRegistry[child.key]=v;
         campaignBonusBlueTotal+=Number(v.adminBonusBlue)||0;
       });
-      if(globalAllDots.length){populateShiftSelect(globalAllDots);syncChallengeFromDots(globalAllDots);updateSessionAndEarningsDisplay(globalAllDots);}
+      if(globalAllDots.length){populateShiftSelect(globalAllDots);syncChallengeFromDots(globalAllDots);updateSessionDisplay(globalAllDots);}
       updateCampaignProgress(lastCampaignRawDots,lastCampaignPosts);
     });
   }
@@ -2327,7 +2322,6 @@
     const safe=shift.workerName.toLowerCase().replace(/[^a-z0-9]/g,'');
     const bonusBlue=Number(shiftRegistry[safe]?.adminBonusBlue)||0;
     const blue=rawBlue+bonusBlue;
-    const totalConn=green+red+blue,earned=totalConn*0.036,cpc=orange>0?earned/orange:null;
     const dur=Math.max(0,shift.lastTs-shift.firstTs),hrs=Math.floor(dur/3600000),mins=Math.floor((dur%3600000)/60000);
     const dateStr=new Date(shift.firstTs).toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
     const dn=shiftRegistry[safe]?.firstName||shift.workerName;
@@ -2340,8 +2334,6 @@
     document.getElementById('sdOrange').textContent=orange;
     const bonusNote=document.getElementById('sdBlueBonusNote');
     if(bonusNote)bonusNote.textContent='';
-    document.getElementById('sdEarned').textContent='€'+earned.toFixed(2);
-    document.getElementById('sdCPC').textContent=cpc!==null?'€'+cpc.toFixed(2):'—';
 
     const savedChallenge=shiftRegistry[safe]?.challenge||null;
     const orangeTs=dots.filter(d=>d.color==='orange'&&Number.isFinite(d.timestamp)).map(d=>d.timestamp).sort((a,b)=>a-b);
