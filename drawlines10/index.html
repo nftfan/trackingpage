@@ -1325,13 +1325,26 @@ function loadSegments() {
   const button = document.getElementById('planOpen');
   const info = document.getElementById('planInfo');
   const clear = document.getElementById('planClear');
-  let features = [], requestId = 0, ready = false, pendingFit = false;
+  // Plans and segments live in separate Firebase projects.
+  const planApp = firebase.apps.find(app => app.name === 'xxPlanReader') ||
+    firebase.initializeApp({
+      apiKey:'AIzaSyD_c9jMxAA6dtyk_EXAHnH09OEAoalUADA',
+      authDomain:'trackingclients.firebaseapp.com',
+      projectId:'trackingclients',
+      storageBucket:'trackingclients.appspot.com',
+      messagingSenderId:'27490943622',
+      appId:'1:27490943622:web:d6c87547aa5df440508707',
+      databaseURL:'https://trackingclients-default-rtdb.firebaseio.com/'
+    }, 'xxPlanReader');
+  const planDB = planApp.database();
+  let features = [], areas = [], requestId = 0, ready = false, pendingFit = false;
 
   function renderPlan() {
     if (!ready) return;
     map.getSource('xx-plan-booked').setData(fc(features));
-    if (pendingFit && features.length && mode === 'idle') {
-      fitRings(features.map(f => f.geometry.coordinates[0]), { maxZoom:16 });
+    map.getSource('xx-plan-areas').setData(fc(areas));
+    if (pendingFit && (features.length || areas.length) && mode === 'idle') {
+      fitRings([...areas, ...features].flatMap(f => geomRings(f.geometry)), { maxZoom:16 });
       pendingFit = false;
     }
   }
@@ -1340,6 +1353,11 @@ function loadSegments() {
     // Insert above base tiles and below existing zones, segments and edit handles.
     map.addSource('xx-plan-booked', {type:'geojson', data:fc()});
     const before = map.getLayer('muni-fill') ? 'muni-fill' : undefined;
+    map.addSource('xx-plan-areas', {type:'geojson', data:fc()});
+    map.addLayer({id:'xx-plan-area-fill', type:'fill', source:'xx-plan-areas',
+      paint:{'fill-color':'#c4b5fd', 'fill-opacity':0.08}}, before);
+    map.addLayer({id:'xx-plan-area-outline', type:'line', source:'xx-plan-areas',
+      paint:{'line-color':'#a78bfa', 'line-width':2, 'line-opacity':0.75}}, before);
     map.addLayer({id:'xx-plan-booked-fill', type:'fill', source:'xx-plan-booked',
       paint:{'fill-color':'#c7dff8', 'fill-opacity':0.30}}, before);
     map.addLayer({id:'xx-plan-booked-outline', type:'line', source:'xx-plan-booked',
@@ -1370,6 +1388,28 @@ function loadSegments() {
     return {features:result, skipped};
   }
 
+  function savedAreas(root) {
+    const planner = root.planner || {};
+    const raw = planner.areas ? Object.values(planner.areas) :
+      planner.area ? [planner.area] : root.areas ? Object.values(root.areas) :
+      root.area ? [root.area] : [];
+    const result = [];
+    raw.filter(Boolean).forEach((area, index) => {
+      const geometry = area.geometry;
+      if (!geometry || !['Polygon', 'MultiPolygon'].includes(geometry.type)) return;
+      try {
+        const rings = geomRings(geometry);
+        if (!rings.length || rings.some(r => !Array.isArray(r) || r.length < 4 ||
+          r.some(p => !Array.isArray(p) || p.length < 2 ||
+            !Number.isFinite(p[0]) || !Number.isFinite(p[1])))) return;
+        result.push({type:'Feature', geometry,
+          properties:{name:area.name || area.areaName || area.properties?.name ||
+            'Saved area ' + (index + 1)}});
+      } catch (_) { /* Ignore malformed legacy geometry. */ }
+    });
+    return result;
+  }
+
   form.addEventListener('submit', async e => {
     e.preventDefault();
     if (mode !== 'idle') { toast('Finish or cancel the current drawing or edit before opening a plan.'); return; }
@@ -1382,7 +1422,7 @@ function loadSegments() {
     info.textContent = 'Opening ' + id + '…';
     try {
       const results = await Promise.allSettled([id, id.toLowerCase()].map(key =>
-        DB.ref('campaigns/' + key).once('value')));
+        planDB.ref('campaigns/' + key).once('value')));
       if (ticket !== requestId) return;
       const found = results.find(r => r.status === 'fulfilled' && r.value.exists());
       if (!found) throw new Error(results.some(r => r.status === 'rejected')
@@ -1390,15 +1430,17 @@ function loadSegments() {
         : 'No saved plan found for ' + id + '.');
       const parsed = bookedFeatures(found.value.val());
       features = parsed.features;
+      areas = savedAreas(found.value.val());
       pendingFit = true;
       renderPlan();
       clear.classList.remove('hidden');
       info.textContent = id + ' · ' + features.length + ' booked hexagon' +
-        (features.length === 1 ? '' : 's') +
+        (features.length === 1 ? '' : 's') + ' · ' + areas.length +
+        ' saved area' + (areas.length === 1 ? '' : 's') +
         (parsed.skipped ? ' · ' + parsed.skipped + ' invalid outline(s) skipped' : '');
     } catch (err) {
       if (ticket === requestId) info.textContent = err.message +
-        (features.length ? ' Previous plan is still displayed.' : '');
+        ((features.length || areas.length) ? ' Previous plan is still displayed.' : '');
     } finally {
       if (ticket === requestId) { button.disabled = false; button.textContent = 'Open'; }
     }
@@ -1407,6 +1449,7 @@ function loadSegments() {
   clear.addEventListener('click', () => {
     requestId++;
     features = [];
+    areas = [];
     pendingFit = false;
     renderPlan();
     input.value = '';
