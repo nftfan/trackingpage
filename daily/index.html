@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>Daily Notes</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --panel:#f7f7f8;
+      --panel-2:#f1f1f3;
+      --text:#171717;
+      --muted:#777;
+      --line:#e8e8ea;
+      --accent:#10a37f;
+      --danger:#d84b4b;
+      --shadow:0 8px 30px rgba(0,0,0,.07);
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+    body{min-height:100dvh}
+    button,input,textarea{font:inherit}
+    .app{min-height:100dvh;max-width:760px;margin:0 auto;display:flex;flex-direction:column;background:#fff}
+    .topbar{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
+    .brand-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .brand{display:flex;align-items:center;gap:9px;min-width:0}
+    .logo{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#111;color:#fff;font-size:15px;flex:0 0 auto}
+    .brand-copy{min-width:0}.brand-title{font-size:15px;font-weight:600;line-height:1.15}.sync{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap}.sync.ok{color:var(--accent)}.sync.err{color:var(--danger)}
+    .today-btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 11px;font-size:12px;color:#333}
+    .date-nav{display:grid;grid-template-columns:42px 1fr 42px;gap:8px;margin-top:10px;align-items:center}
+    .nav-btn{height:42px;border:1px solid var(--line);border-radius:12px;background:#fff;color:#333;font-size:20px}
+    .date-box{position:relative;min-width:0;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 38px;min-height:42px}
+    .date-main{font-size:14px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .date-sub{font-size:10px;color:var(--muted);margin-top:2px}
+    #datePicker{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+    main{flex:1;padding:18px 14px calc(100px + env(safe-area-inset-bottom))}
+    .day-heading{margin:4px 2px 16px}.day-heading h1{margin:0;font-size:27px;letter-spacing:-.7px;line-height:1.08}.day-heading p{margin:7px 0 0;color:var(--muted);font-size:12px}
+    .composer{border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
+    .composer textarea{width:100%;min-height:110px;max-height:260px;resize:none;border:0;outline:0;background:transparent;padding:15px 15px 8px;color:var(--text);font-size:14px;line-height:1.5}.composer textarea::placeholder{color:#aaa}
+    .composer-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px 10px 12px}.hint{font-size:10px;color:#999;min-width:0}.add-btn{height:36px;min-width:74px;border:0;border-radius:11px;background:#111;color:#fff;font-size:12px;padding:0 14px}.add-btn:disabled{opacity:.35}
+    .section-row{display:flex;align-items:center;justify-content:space-between;margin:0 2px 9px}.section-title{font-size:12px;color:#555}.count{min-width:22px;height:22px;border-radius:999px;padding:0 7px;display:grid;place-items:center;background:var(--panel);color:#777;font-size:10px}
+    .notes{display:flex;flex-direction:column;gap:10px}.note{border:1px solid var(--line);border-radius:16px;padding:13px;background:#fff;transition:.15s ease}.note:active{transform:scale(.997)}.note-text{white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.5}
+    .note-bottom{margin-top:11px;display:flex;align-items:center;justify-content:space-between;gap:10px}.note-time{font-size:10px;color:#999;white-space:nowrap}.note-actions{display:flex;gap:5px}.mini-btn{border:1px solid var(--line);background:#fff;border-radius:8px;min-width:32px;height:30px;padding:0 9px;font-size:10px;color:#555}.mini-btn.delete{color:var(--danger)}
+    .empty{text-align:center;padding:48px 20px;color:#999;border:1px dashed #ddd;border-radius:16px;background:#fcfcfc}.empty-icon{width:42px;height:42px;border-radius:13px;margin:0 auto 11px;display:grid;place-items:center;background:var(--panel);font-size:18px}.empty-title{font-size:13px;color:#666}.empty-copy{font-size:11px;margin-top:5px;line-height:1.45}
+    .loading{display:flex;align-items:center;justify-content:center;gap:7px;padding:36px 0;color:#999;font-size:11px}.dot{width:7px;height:7px;border-radius:50%;background:#aaa;animation:pulse 1s infinite ease-in-out alternate}@keyframes pulse{from{opacity:.3;transform:scale(.85)}to{opacity:1;transform:scale(1.1)}}
+    .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translate(-50%,18px);max-width:calc(100vw - 28px);background:#111;color:#fff;font-size:11px;padding:10px 13px;border-radius:11px;opacity:0;pointer-events:none;transition:.2s ease;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.2)}.toast.show{opacity:1;transform:translate(-50%,0)}
+    .edit-area{width:100%;min-height:100px;border:1px solid var(--line);border-radius:11px;padding:10px;outline:none;resize:vertical;font-size:14px;line-height:1.5}.edit-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:8px}
+    @media (min-width:700px){.topbar{padding-left:18px;padding-right:18px}main{padding-left:20px;padding-right:20px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand-row">
+      <div class="brand"><div class="logo">✦</div><div class="brand-copy"><div class="brand-title">Daily Notes</div><div id="syncStatus" class="sync">Connecting…</div></div></div>
+      <button id="todayBtn" class="today-btn">Today</button>
+    </div>
+    <div class="date-nav">
+      <button id="prevBtn" class="nav-btn" aria-label="Previous day">‹</button>
+      <div class="date-box"><div id="dateMain" class="date-main"></div><div id="dateSub" class="date-sub"></div><input id="datePicker" type="date" aria-label="Choose date"></div>
+      <button id="nextBtn" class="nav-btn" aria-label="Next day">›</button>
+    </div>
+  </header>
+  <main>
+    <div class="day-heading"><h1 id="dayTitle">Today</h1><p id="daySubtitle">Write down anything you want to remember.</p></div>
+    <section class="composer"><textarea id="noteInput" placeholder="Add a note for this day…"></textarea><div class="composer-bottom"><div class="hint">Saved to Firebase</div><button id="addBtn" class="add-btn" disabled>Save</button></div></section>
+    <div class="section-row"><div class="section-title">Notes</div><div id="noteCount" class="count">0</div></div>
+    <section id="notes" class="notes"><div class="loading"><span class="dot"></span>Loading notes…</div></section>
+  </main>
+</div>
+<div id="toast" class="toast"></div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, push, set, update, remove, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  async function loadFirebaseConfig(){
+    const source = await fetch('../autosav/index.html', {cache:'no-store'}).then(r=>{if(!r.ok) throw new Error('Could not load Firebase config');return r.text();});
+    const block = source.match(/const\s+firebaseConfig\s*=\s*\{([\s\S]*?)\};/);
+    if(!block) throw new Error('Firebase config not found');
+    const pick = key => { const m = block[1].match(new RegExp(key + '\\s*:\\s*[\"\']([^\"\']+)[\"\']')); return m ? m[1] : ''; };
+    return {apiKey:pick('apiKey'),authDomain:pick('authDomain'),projectId:pick('projectId'),storageBucket:pick('storageBucket'),messagingSenderId:pick('messagingSenderId'),appId:pick('appId'),databaseURL:pick('databaseURL')};
+  }
+
+  const firebaseConfig = await loadFirebaseConfig();
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const ROOT = "dailyNotes";
+  const $ = id => document.getElementById(id);
+  const notesEl = $("notes"), noteInput = $("noteInput"), addBtn = $("addBtn"), datePicker = $("datePicker"), syncStatus = $("syncStatus");
+  let selectedDate = startOfDay(new Date()), unsubscribe = null, currentNotes = {};
+
+  function startOfDay(d){const x=new Date(d);x.setHours(12,0,0,0);return x}
+  function dateKey(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return `${y}-${m}-${day}`}
+  function fromKey(key){const [y,m,d]=key.split("-").map(Number);return startOfDay(new Date(y,m-1,d))}
+  function sameDay(a,b){return dateKey(a)===dateKey(b)}
+  function niceDate(d){return new Intl.DateTimeFormat("en-BE",{weekday:"long",day:"numeric",month:"long"}).format(d)}
+  function fullDate(d){return new Intl.DateTimeFormat("en-BE",{year:"numeric",month:"long",day:"numeric"}).format(d)}
+  function relativeTitle(d){const t=startOfDay(new Date()),y=new Date(t),tm=new Date(t);y.setDate(t.getDate()-1);tm.setDate(t.getDate()+1);if(sameDay(d,t))return"Today";if(sameDay(d,y))return"Yesterday";if(sameDay(d,tm))return"Tomorrow";return new Intl.DateTimeFormat("en-BE",{weekday:"long"}).format(d)}
+  function setDateUI(){$("dateMain").textContent=niceDate(selectedDate);$("dateSub").textContent=fullDate(selectedDate);$("dayTitle").textContent=relativeTitle(selectedDate);$("daySubtitle").textContent=sameDay(selectedDate,new Date())?"Write down anything you want to remember.":`Notes for ${fullDate(selectedDate)}.`;datePicker.value=dateKey(selectedDate)}
+  function setSync(text,type=""){syncStatus.textContent=text;syncStatus.className="sync"+(type?" "+type:"")}
+  function showToast(text){const t=$("toast");t.textContent=text;t.classList.add("show");clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove("show"),1800)}
+  function formatTime(value){if(!value)return"";const d=new Date(value);if(Number.isNaN(d.getTime()))return"";return new Intl.DateTimeFormat("en-BE",{hour:"2-digit",minute:"2-digit"}).format(d)}
+  function escapeHtml(str){return String(str??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+  function renderNotes(){const entries=Object.entries(currentNotes||{}).map(([id,n])=>({id,...n})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));$("noteCount").textContent=entries.length;if(!entries.length){notesEl.innerHTML=`<div class="empty"><div class="empty-icon">✎</div><div class="empty-title">No notes for this day</div><div class="empty-copy">Write something above and tap Save.</div></div>`;return}notesEl.innerHTML=entries.map(note=>`<article class="note" data-id="${note.id}"><div class="note-view"><div class="note-text">${escapeHtml(note.text)}</div><div class="note-bottom"><div class="note-time">${formatTime(note.createdAt)}${note.updatedAt?" · edited":""}</div><div class="note-actions"><button class="mini-btn edit-btn">Edit</button><button class="mini-btn delete delete-btn">Delete</button></div></div></div></article>`).join("");notesEl.querySelectorAll(".edit-btn").forEach(btn=>btn.addEventListener("click",()=>startEdit(btn.closest(".note").dataset.id)));notesEl.querySelectorAll(".delete-btn").forEach(btn=>btn.addEventListener("click",()=>deleteNote(btn.closest(".note").dataset.id)))}
+  function loadDay(){if(unsubscribe)unsubscribe();setDateUI();currentNotes={};notesEl.innerHTML=`<div class="loading"><span class="dot"></span>Loading notes…</div>`;$("noteCount").textContent="…";setSync("Syncing…");const dayRef=ref(db,`${ROOT}/${dateKey(selectedDate)}/notes`);unsubscribe=onValue(dayRef,snap=>{currentNotes=snap.val()||{};renderNotes();setSync("Synced","ok")},err=>{console.error(err);setSync("Firebase error","err");notesEl.innerHTML=`<div class="empty"><div class="empty-title">Could not load notes</div><div class="empty-copy">${escapeHtml(err.message)}</div></div>`})}
+  async function addNote(){const text=noteInput.value.trim();if(!text)return;addBtn.disabled=true;setSync("Saving…");try{const newRef=push(ref(db,`${ROOT}/${dateKey(selectedDate)}/notes`));await set(newRef,{text,createdAt:Date.now(),serverCreatedAt:serverTimestamp()});noteInput.value="";autoResize();showToast("Note saved");setSync("Synced","ok")}catch(err){console.error(err);showToast("Could not save note");setSync("Save failed","err")}finally{addBtn.disabled=!noteInput.value.trim()}}
+  function startEdit(id){const card=notesEl.querySelector(`.note[data-id="${CSS.escape(id)}"]`),note=currentNotes[id];if(!card||!note)return;card.innerHTML=`<textarea class="edit-area">${escapeHtml(note.text)}</textarea><div class="edit-actions"><button class="mini-btn cancel-edit">Cancel</button><button class="mini-btn save-edit">Save</button></div>`;const area=card.querySelector(".edit-area");area.focus();area.setSelectionRange(area.value.length,area.value.length);card.querySelector(".cancel-edit").onclick=renderNotes;card.querySelector(".save-edit").onclick=async()=>{const text=area.value.trim();if(!text)return;try{await update(ref(db,`${ROOT}/${dateKey(selectedDate)}/notes/${id}`),{text,updatedAt:Date.now()});showToast("Note updated")}catch(err){console.error(err);showToast("Could not update")}}}
+  async function deleteNote(id){if(!confirm("Delete this note?"))return;try{await remove(ref(db,`${ROOT}/${dateKey(selectedDate)}/notes/${id}`));showToast("Note deleted")}catch(err){console.error(err);showToast("Could not delete")}}
+  function moveDay(amount){selectedDate=new Date(selectedDate);selectedDate.setDate(selectedDate.getDate()+amount);selectedDate=startOfDay(selectedDate);history.replaceState(null,"",`#${dateKey(selectedDate)}`);loadDay()}
+  function autoResize(){noteInput.style.height="auto";noteInput.style.height=Math.min(noteInput.scrollHeight,260)+"px"}
+  noteInput.addEventListener("input",()=>{addBtn.disabled=!noteInput.value.trim();autoResize()});noteInput.addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){e.preventDefault();addNote()}});addBtn.addEventListener("click",addNote);$("prevBtn").addEventListener("click",()=>moveDay(-1));$("nextBtn").addEventListener("click",()=>moveDay(1));$("todayBtn").addEventListener("click",()=>{selectedDate=startOfDay(new Date());history.replaceState(null,"",`#${dateKey(selectedDate)}`);loadDay()});datePicker.addEventListener("change",()=>{if(!datePicker.value)return;selectedDate=fromKey(datePicker.value);history.replaceState(null,"",`#${dateKey(selectedDate)}`);loadDay()});
+  let touchStartX=0,touchStartY=0;document.addEventListener("touchstart",e=>{if(e.touches.length!==1)return;touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY},{passive:true});document.addEventListener("touchend",e=>{if(!e.changedTouches.length)return;const dx=e.changedTouches[0].clientX-touchStartX,dy=e.changedTouches[0].clientY-touchStartY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.4)moveDay(dx<0?1:-1)},{passive:true});
+  const hash=location.hash.replace("#","");if(/^\d{4}-\d{2}-\d{2}$/.test(hash)){selectedDate=fromKey(hash)}else{history.replaceState(null,"",`#${dateKey(selectedDate)}`)}loadDay();
+</script>
+</body>
+</html>
