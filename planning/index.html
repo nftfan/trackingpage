@@ -1729,6 +1729,18 @@ select.field{
 .cost-preview-card.total{background:#d0f3e4;border-color:#75cba9}
 .helper:empty{display:none}
 
+
+.simple-shift{display:block;width:100%;text-align:left;cursor:pointer;color:var(--ink);transition:border-color .15s,background .15s}
+.simple-shift:hover{background:#f0fdf4;border-color:#86c99c}
+.simple-shift.selected{background:#eaf9ee;border-color:#16a34a;border-left-color:#16a34a;box-shadow:0 0 0 1px #16a34a}
+.simple-shift:focus-visible{outline:3px solid #2563eb;outline-offset:2px}
+.simple-shift .shift-head{align-items:center}
+.shift-price{font-size:11px;color:#526b7f;white-space:nowrap}
+.simple-shift .progress-track,.simple-shift .progress-fill{display:block}
+.simple-shift.selected .progress-fill{background:#16a34a}
+.shift-completion{display:block;margin-top:8px;font-size:11px;color:#607487}
+.shift-completion.complete{color:#13733c;font-weight:600}
+
 </style>
 </head>
 
@@ -2265,6 +2277,7 @@ let dotWatchSignature='';
 let campaignLoadToken=0;
 
 const dotStats=new Map();
+let selectedShiftKey=null;
 const lastSyncedDotStatus=new Map();
 
 const AREA_COLORS=[
@@ -2556,6 +2569,7 @@ function shiftLiveStats(shift,index){
   target,
   posted,
   pickupDone,
+  completedAt:live?.completedAt||0,
   distributionDone,
   percent:target
    ?Math.min(100,Math.round(posted/target*100))
@@ -2606,88 +2620,52 @@ function renderBookingTotals(){
  renderCurrentCampaign();
 }
 
+function shiftCompletionLabel(timestamp,now=Date.now()){
+ if(!Number.isFinite(timestamp)||timestamp<=0) return 'Completed';
+ const dateKey=value=>{
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Brussels',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(value));
+  const values=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+  return Date.UTC(Number(values.year),Number(values.month)-1,Number(values.day));
+ };
+ const days=Math.max(0,Math.round((dateKey(now)-dateKey(timestamp))/86400000));
+ return days===0?'Completed today':`Completed ${days} ${days===1?'day':'days'} ago`;
+}
+
 function renderShiftSummary(){
-
  els.shiftCountBadge.textContent=String(shifts.length);
-
- els.shiftList.innerHTML=shifts.length
-  ?shifts.map((shift,index)=>{
-
-   const pickup=
-    shift.pickupAddress
-    ||els.pickupInput.value.trim()
-    ||'Pickup address not added';
-
-   const stats=shiftLiveStats(shift,index);
-   const number=shiftNumber(shift,index);
-
-   return`
-    <div class="shift-item">
-
-     <div class="shift-head">
-      <div>
-       <div class="shift-name">
-        ${escape(shift.title||`Shift ${number}`)}
-       </div>
-
-       <div class="shift-quantity">
-        ${stats.target.toLocaleString()} flyers ·
-        ${money(shiftPrice(stats.target))}
-       </div>
-      </div>
-
-      ${
-       stats.distributionDone
-        ?'<span class="campaign-state">Done</span>'
-        :''
-      }
-     </div>
-
-     <div class="shift-pickup">
-      <span class="material-icons-outlined">location_on</span>
-      <span>${escape(pickup)}</span>
-     </div>
-
-     <div class="shift-statuses">
-
-      <div class="shift-status${stats.pickupDone?' done':''}">
-       Pickup status
-       <strong>${stats.pickupDone?'Done':'Pending'}</strong>
-      </div>
-
-      <div class="shift-status${stats.distributionDone?' done':''}">
-       Distribution status
-       <strong>${stats.distributionDone?'Done':'Pending'}</strong>
-      </div>
-
-     </div>
-
-     <div class="progress-row">
-      <span>
-       ${stats.posted.toLocaleString()}
-       of
-       ${stats.target.toLocaleString()}
-       delivery dots
-      </span>
-
-      <strong>${stats.percent}%</strong>
-     </div>
-
-     <div class="progress-track">
-      <div
-       class="progress-fill"
-       style="width:${stats.percent}%"
-      ></div>
-     </div>
-
-    </div>
-   `;
-  }).join('')
-  :'<div class="empty">No shifts created yet.</div>';
-
+ if(!shifts.some(shift=>shift.key===selectedShiftKey)) selectedShiftKey=null;
+ els.shiftList.innerHTML=shifts.length?shifts.map((shift,index)=>{
+  const stats=shiftLiveStats(shift,index);
+  const selected=shift.key===selectedShiftKey;
+  const status=stats.distributionDone?shiftCompletionLabel(stats.completedAt):stats.pickupDone?'In progress':'Not started';
+  return `<button type="button" class="shift-item simple-shift${selected?' selected':''}" data-shift-index="${index}" aria-pressed="${selected}">
+   <span class="shift-head"><span class="shift-name">${escape(shift.title||`Shift ${shiftNumber(shift,index)}`)}</span><span class="shift-price">${money(shiftPrice(stats.target))}</span></span>
+   <span class="progress-row"><span>${stats.posted.toLocaleString('en-GB')} of ${stats.target.toLocaleString('en-GB')} Flyers</span><strong>${stats.percent}%</strong></span>
+   <span class="progress-track"><span class="progress-fill" style="width:${stats.percent}%"></span></span>
+   <span class="shift-completion${stats.distributionDone?' complete':''}"${stats.completedAt?` title="${escape(new Date(stats.completedAt).toLocaleString('en-GB',{timeZone:'Europe/Brussels'}))}"`:''}>${escape(status)}</span>
+  </button>`;
+ }).join(''):'<div class="empty">No shifts created yet.</div>';
  renderCostPreview();
  renderCurrentCampaign();
 }
+
+els.shiftList.addEventListener('click',event=>{
+ const card=event.target.closest('[data-shift-index]');
+ if(!card) return;
+ const shift=shifts[Number(card.dataset.shiftIndex)];
+ if(!shift) return;
+ selectedShiftKey=selectedShiftKey===shift.key?null:shift.key;
+ renderShiftSummary();
+ renderDeliveryDots();
+ const selectedKeys=new Set(dotStats.get(selectedShiftKey)?.dotKeys||[]);
+ const dots=allDotRecords().filter(dot=>selectedKeys.has(dot.key)&&dot.hasLocation);
+ if(dots.length&&mapReady){
+  const bounds=new maplibregl.LngLatBounds();
+  dots.forEach(dot=>bounds.extend([dot.lng,dot.lat]));
+  map.fitBounds(bounds,{padding:45,maxZoom:17,duration:450});
+ }
+});
+
 
 function watchShifts(id){
 
@@ -3062,6 +3040,7 @@ function stopDotWatchers(){
 
  dotWatchSignature='';
 
+ selectedShiftKey=null;
  dotStats.clear();
  sourceRecords.clear();
  sourceErrors.clear();
@@ -3292,67 +3271,27 @@ function allDotRecords(){
 }
 
 function progressFromRecords(records,list){
-
- const unique=[
-  ...new Map(
-   records.map(record=>[
-    record.key,
-    record
-   ])
-  ).values()
- ];
-
-
- // Any valid delivery click starts pickup, including a dot that is not counted as delivered.
- const started=new Set();
- let shiftIndex=0, deliveredInShift=0;
+ const unique=[...new Map(records.map(record=>[record.key,record])).values()]
+  .sort((a,b)=>a.timestamp-b.timestamp||a.key.localeCompare(b.key));
+ const stats=list.map(shift=>({target:Math.max(0,Number(shift.flyers)||0),postedDots:0,pickupDone:false,distributionDone:false,percent:0,completedAt:0,dotKeys:[]}));
+ let index=0;
  for(const record of unique){
   if(record.kind!=='delivery'||!record.hasLocation) continue;
-  while(shiftIndex<list.length && deliveredInShift>=Math.max(0,Number(list[shiftIndex].flyers)||0)){
-   deliveredInShift-=Math.max(0,Number(list[shiftIndex].flyers)||0);
-   shiftIndex++;
+  while(index<stats.length&&stats[index].postedDots>=stats[index].target) index++;
+  if(index>=stats.length) break;
+  const stat=stats[index];
+  stat.pickupDone=true;
+  stat.dotKeys.push(record.key);
+  if(countedDeliveryColors.has(record.color)){
+   stat.postedDots++;
+   if(stat.postedDots>=stat.target){
+    stat.distributionDone=true;
+    stat.completedAt=Number(record.timestamp)||0;
+   }
   }
-  if(shiftIndex>=list.length) break;
-  started.add(shiftIndex);
-  if(countedDeliveryColors.has(record.color)) deliveredInShift++;
+  stat.percent=stat.target?Math.min(100,Math.round(stat.postedDots/stat.target*100)):0;
  }
- let remaining=unique.filter(
-  record=>
-   record.kind==='delivery'
-   &&record.hasLocation
-   &&countedDeliveryColors.has(record.color)
- ).length;
-
- return list.map((shift,index)=>{
-
-  const target=Math.max(
-   0,
-   Number(shift.flyers)||0
-  );
-
-  const postedDots=Math.min(
-   target,
-   remaining
-  );
-
-  remaining-=postedDots;
-
-  const pickupDone=started.has(index);
-
-  return{
-   postedDots,
-   pickupDone,
-   distributionDone:
-    target>0
-    &&postedDots>=target,
-   percent:target
-    ?Math.min(
-     100,
-     Math.round(postedDots/target*100)
-    )
-    :0
-  };
- });
+ return stats;
 }
 
 function rebuildDotProgress(){
@@ -3464,6 +3403,7 @@ function renderDeliveryDots(){
  const records=allDotRecords().filter(
   dot=>dot.hasLocation
  );
+ const selectedKeys=new Set(dotStats.get(selectedShiftKey)?.dotKeys||[]);
 
  map.getSource('campaign-route')?.setData(
   fc(
@@ -3497,6 +3437,7 @@ function renderDeliveryDots(){
         dot.lat
        ],
        {
+        selected:selectedKeys.has(dot.key),
         color:dot.color,
         outcome:dot.outcome,
         posterId:dot.posterId,
@@ -9057,7 +8998,7 @@ map.on('load',()=>{
 
   paint:{
    'circle-radius':7,
-   'circle-color':'rgba(139,63,209,.14)',
+   'circle-color':['case',['==',['get','selected'],true],'rgba(22,163,74,.28)','rgba(139,63,209,.14)'],
    'circle-blur':.35
   }
  });
@@ -9068,8 +9009,8 @@ map.on('load',()=>{
   source:'delivery-dots',
 
   paint:{
-   'circle-radius':4.2,
-   'circle-color':'#8b3fd1',
+   'circle-radius':['case',['==',['get','selected'],true],5.5,4.2],
+   'circle-color':['case',['==',['get','selected'],true],'#16a34a','#8b3fd1'],
    'circle-stroke-color':'#fff',
    'circle-stroke-width':1.1
   }
