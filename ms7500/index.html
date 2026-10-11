@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>Dot Poster - Action View · Shift Sort</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="theme-color" content="#0f0f12" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
@@ -37,7 +38,7 @@
 
     .map-card{position:relative;overflow:hidden;background:#0f0f12;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.08);}
     #map{height:230px;width:100%;}
-    .maplibregl-ctrl-attrib{display:none!important;}
+    .maplibregl-ctrl-attrib{display:block!important;font-size:10px;background:rgba(255,255,255,.9)!important;color:#333;}
     .maplibregl-ctrl-group{background:rgba(20,20,28,0.85)!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:8px!important;}
     .maplibregl-ctrl-group button{background:transparent!important;color:#aab7ff!important;}
     .maplibregl-ctrl-group button:hover{background:rgba(255,255,255,.08)!important;}
@@ -402,6 +403,12 @@
     .controls{margin:0!important;}
     .modal,.worker-modal,.chat-modal,.bottom-sheet{box-shadow:none!important;}
 
+    .dropdown-row{display:flex;flex-wrap:nowrap;gap:6px;padding:8px 6px;background:#181b29;overflow-x:auto;flex-shrink:0;border-bottom:1px solid #30374f;}
+    .dropdown-field{display:flex;flex-direction:column;gap:4px;flex:1 0 78px;min-width:0;color:#c7cce1;font-size:10px;font-weight:700;}
+    .dropdown-field select,.dropdown-field button,#hexSelect{width:100%;min-width:0;height:34px;border:1px solid #424965;border-radius:7px;background:#242a3e;color:#fff;font:600 11px Inter,sans-serif;padding:0 5px;}
+    .dropdown-field select:focus-visible,.dropdown-field button:focus-visible{outline:2px solid #8daaff;outline-offset:1px;}
+    .dropdown-field select:disabled{opacity:.5;}
+    .dropdown-field option{background:#242a3e;color:#fff;}
   </style>
 </head>
 <body>
@@ -509,21 +516,11 @@
     </button>
     <!-- Hidden file input: on mobile the OS chooser offers Camera OR Gallery -->
     <input type="file" id="proofFileInput" accept="image/*" style="display:none">
-    <div class="icon-bar-divider"></div>
-    <div class="icon-bar-select-group">
-      <span class="icon-bar-label">S</span>
-      <select id="segSelect" class="icon-bar-select"><option value="" disabled selected>—</option></select>
-    </div>
-    <div class="icon-bar-divider"></div>
-    <div class="icon-bar-select-group" id="hexSelectGroup">
-      <span class="icon-bar-label">HX</span>
-      <select id="hexSelect" class="icon-bar-select" aria-label="Campaign hexagon" title="Select a campaign hexagon" disabled><option value="">—</option></select>
-    </div>
-    <div class="icon-bar-divider"></div>
-    <div class="icon-bar-select-group">
-      <span class="icon-bar-label">S</span>
-      <button id="shiftSelect" class="icon-bar-select shift-picker-btn" type="button" title="View shifts">—</button>
-    </div>
+  </div>
+  <div class="dropdown-row" aria-label="Map and shift selections">
+    <label class="dropdown-field"><span>Seg</span><select id="segSelect"><option value="">None</option></select></label>
+    <label class="dropdown-field" id="hexSelectGroup"><span>Hexa</span><select id="hexSelect" disabled><option value="">None</option></select></label>
+    <div class="dropdown-field"><label for="shiftSelect">Shifts</label><button id="shiftSelect" class="shift-picker-btn" type="button" title="View shifts">—</button></div>
   </div>
 
   <button id="btnLatestDot" style="display:none;"></button>
@@ -651,14 +648,6 @@
         <div class="sheet-title">Choose a shift</div>
       </div>
       <button id="closeShiftPicker" class="sheet-close" type="button">&times;</button>
-    </div>
-    <div class="shift-picker-tools">
-      <span>Sort shifts</span>
-      <select id="shiftSortSelect" class="shift-sort-select" aria-label="Sort shifts">
-        <option value="newest">Newest</option>
-        <option value="orangeDesc">Most orange</option>
-        <option value="orangeAsc">Least orange</option>
-      </select>
     </div>
     <div id="shiftPickerList" class="shift-picker-list"></div>
   </div>
@@ -948,7 +937,6 @@
   const shiftPickerBackdrop = document.getElementById('shiftPickerBackdrop');
   const shiftPickerList = document.getElementById('shiftPickerList');
   const closeShiftPicker = document.getElementById('closeShiftPicker');
-  const shiftSortSelect = document.getElementById('shiftSortSelect');
   const backToShiftPicker = document.getElementById('backToShiftPicker');
 
   // ── State ─────────────────────────────────────────────────────────────────
@@ -1004,6 +992,8 @@
     fadeDuration: 0
   });
 
+  map.addControl(new maplibregl.AttributionControl({compact:false}), 'bottom-right');
+
   // Marker arrays (DOM markers we manage manually)
   let locationMarker = null;
   const dotMarkers  = [];
@@ -1017,7 +1007,7 @@
   function clearCampaignHexagons(){
     hexLoadToken++;
     campaignHexagons=[];
-    hexSelect.replaceChildren(new Option('—',''));
+    hexSelect.replaceChildren(new Option('None',''));
     hexSelect.disabled=true;
     renderCampaignHexagons();
   }
@@ -1045,7 +1035,7 @@
   function renderCampaignHexagons(){
     const source=map.getSource('campaign-hexagons');
     if(!source) return;
-    source.setData(fc(campaignHexagons.map(hex=>{
+    source.setData(fc(campaignHexagons.filter(hex=>hex.id===hexSelect.value).map(hex=>{
       const ring=hex.points.map(point=>[...point]);
       if(ring[0][0]!==ring[ring.length-1][0]||ring[0][1]!==ring[ring.length-1][1]) ring.push([...ring[0]]);
       return feat('Polygon',[ring],{hexId:hex.id,label:hex.label});
@@ -1061,7 +1051,7 @@
     if(token!==hexLoadToken||currentUserId!==id) return;
     campaignHexagons=decodeCampaignHexagons(results.filter(result=>result.status==='fulfilled').map(result=>result.value.val()));
     const failed=results.some(result=>result.status==='rejected');
-    hexSelect.replaceChildren(new Option(campaignHexagons.length?'Select hexagon':failed?'Load error':'No hexagons',''));
+    hexSelect.replaceChildren(new Option(campaignHexagons.length?'None':failed?'Load error':'No hexagons',''));
     for(const hex of campaignHexagons) hexSelect.appendChild(new Option(hex.label,hex.id));
     hexSelect.disabled=!campaignHexagons.length;
     renderCampaignHexagons();
@@ -1084,17 +1074,6 @@
     map.addLayer({id:'campaign-hexagons-outline',type:'line',source:'campaign-hexagons',paint:{'line-color':'#756b00','line-width':1,'line-opacity':0.7}});
     map.addLayer({id:'campaign-hexagons-selected',type:'line',source:'campaign-hexagons',filter:['==',['get','hexId'],''],paint:{'line-color':'#7a5cff','line-width':3}});
     renderCampaignHexagons();
-
-    // Zone polygons — outlines only, no labels.
-    map.addSource('zones', { type: 'geojson', data: fc() });
-    map.addLayer({
-      id: 'zones-fill', type: 'fill', source: 'zones',
-      paint: { 'fill-color': '#ef4444', 'fill-opacity': 0.05 }
-    });
-    map.addLayer({
-      id: 'zones-line', type: 'line', source: 'zones',
-      paint: { 'line-color': '#ef4444', 'line-width': 1.5, 'line-opacity': 0.7 }
-    });
 
     // Segments — thin purple line (hidden at load; shown only on selection)
     map.addSource('segments', { type: 'geojson', data: fc() });
@@ -1155,46 +1134,8 @@
     });
 
     // After style is ready, load Firebase data
-    loadAndDrawPolygons();
     loadSegments();
   });
-
-  // ── Zone polygon loading — NO zone labels drawn on map ────────────────────
-  function loadAndDrawPolygons() {
-    get(ref(polyDb, 'polygons')).then(snapshot => {
-      const features = [];
-      let idx = 1;
-
-      snapshot.forEach(child => {
-        const raw = child.val();
-
-        let coords = [];
-        const keys = Object.keys(raw).filter(k => !isNaN(Number(k)));
-        if (keys.length > 0) {
-          coords = keys.sort((a, b) => Number(a) - Number(b)).map(k => {
-            const pt = raw[k];
-            return [parseFloat(pt.lng), parseFloat(pt.lat)];
-          });
-        }
-
-        if (coords.length < 3) { idx++; return; }
-
-        const ring = [...coords];
-        if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
-          ring.push(ring[0]);
-        }
-
-        features.push(feat('Polygon', [ring], { zoneIdx: idx }));
-        idx++;
-      });
-
-      if (map.getSource('zones')) {
-        map.getSource('zones').setData(fc(features));
-      }
-
-      console.log(`Loaded ${features.length} zone polygon(s) (no labels)`);
-    }).catch(err => console.error('Polygon load error:', err));
-  }
 
   // ── Segment loading ───────────────────────────────────────────────────────
   function haversineKm(a, b) {
@@ -1275,16 +1216,15 @@
     mkSquare('end-sq',   `S#${s.id} End`,   end);
   }
 
-  // ── Render ALL segment endpoint squares (no lines drawn) ─────────────────
-  function renderAllSegmentEndpoints() {
+  // Clear segment lines, endpoint squares, labels and distance markers.
+  function clearSegmentDisplay() {
     segMarkers.forEach(m => m.remove()); segMarkers.length = 0;
     distMarkers.forEach(m => m.remove()); distMarkers.length = 0;
 
     // Keep segment source empty — lines shown only on selection
     if (map.getSource('segments')) map.getSource('segments').setData(fc());
 
-    // Draw only start/end squares for every segment
-    segments.forEach(s => addSegmentEndpointSquares(s));
+    // Unselected segments have no markers or lines.
   }
 
   function addSegmentDetailMarkers(s) {
@@ -1351,7 +1291,7 @@
   function loadSegments() {
     get(ref(polyDb, 'segments')).then(snapshot => {
       let idx = 1;
-      segSelect.innerHTML = '<option value="" disabled selected>—</option>';
+      segSelect.innerHTML = '<option value="">None</option>';
       segments.length = 0;
 
       snapshot.forEach(child => {
@@ -1373,9 +1313,9 @@
         idx++;
       });
 
-      // On load: show only start/end squares, no segment lines
-      renderAllSegmentEndpoints();
-      console.log(`Loaded ${segments.length} segment(s) — endpoint squares only`);
+      // Load choices only; keep all segment geometry hidden.
+      clearSegmentDisplay();
+      console.log(`Loaded ${segments.length} segment(s) — hidden until selected`);
     }).catch(err => console.error('Segment load error:', err));
   }
 
@@ -1385,6 +1325,11 @@
   }
 
   segSelect.addEventListener('change', e => {
+    if (!e.target.value) {
+      segLiveDotSelected = false;
+      clearSegmentDisplay();
+      return;
+    }
     const n = parseInt(e.target.value, 10);
     segLiveDotSelected = true;
     if (isolateSegment(n)) showToast(`Focused Segment #${n}`);
@@ -1392,12 +1337,7 @@
     updateSegLiveDot(currentLatLng);
   });
 
-  // When clicking on blank map area: reset to endpoint-squares-only view
-  map.on('click', () => {
-    segLiveDotSelected = false;
-    renderAllSegmentEndpoints();
-    updateSegLiveDot(currentLatLng);
-  });
+  // Selections remain visible until their dropdown is set to None.
 
   // ── Dots & trails rendering ───────────────────────────────────────────────
   function colorForDot(color) {
@@ -2411,7 +2351,7 @@
     shiftPickerList.innerHTML='';
     if(!shifts.length){shiftPickerList.innerHTML='<div class="shift-picker-empty">No completed shift data yet.</div>';return;}
 
-    const mode=shiftSortSelect?.value||'newest';
+    const mode='newest';
     const entries=shifts.map((sh,originalIndex)=>({
       sh,originalIndex,orange:sh.dots.filter(d=>d.color==='orange').length
     }));
@@ -2480,7 +2420,6 @@
 
   shiftSelect.addEventListener('click',openShiftPicker);
   closeShiftPicker.addEventListener('click',()=>shiftPickerBackdrop.classList.remove('show'));
-  shiftSortSelect?.addEventListener('change',renderShiftPickerList);
   backToShiftPicker?.addEventListener('click',()=>{shiftDashBackdrop.classList.remove('show');openShiftPicker();});
   shiftPickerBackdrop.addEventListener('click',e=>{if(e.target===shiftPickerBackdrop)shiftPickerBackdrop.classList.remove('show');});
   document.getElementById('closeShiftDash').addEventListener('click',()=>shiftDashBackdrop.classList.remove('show'));
