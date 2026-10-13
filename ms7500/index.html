@@ -440,6 +440,11 @@
     .job-admin-actions{grid-column:1/-1;display:flex;gap:5px;justify-content:flex-end;border-top:1px solid #2c303c;padding-top:6px;}
     .job-delete{font-size:8px;padding:4px 6px;}
     #jobStatus[hidden]{display:none;}
+    .job-row{grid-template-columns:minmax(0,1fr);}
+    .job-actions{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;}
+    .job-actions>.job-pay,.job-actions>.job-view,.job-actions>.job-accept{box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-width:0;height:30px;min-height:30px;margin:0;padding:6px 5px;border-radius:6px;font-size:10px;line-height:1.2;}
+    .job-actions>.job-pay{background:rgba(34,197,94,.12);border:1px solid rgba(74,222,128,.28);}
+    .job-actions .job-pay-amount{font-size:12px;line-height:1.2;font-weight:800;}
   </style>
 </head>
 <body>
@@ -2170,7 +2175,7 @@
   let jobsMigrationRunning=false, jobsMigrationDone=false;
   const JOBS_PATH='jobs';
   const jobCurrency=new Intl.NumberFormat('en-BE',{style:'currency',currency:'EUR'});
-  function jobLabel(job){return job.jobId?`Job ${job.jobId}`:'Job (ID not set)';}
+  function jobLabel(job){return job.jobId?`Job ID: ${job.jobId}`:'Job ID: not set';}
   function jobPay(job){return `${jobCurrency.format(job.amountCents/100)} / 3-hour shift`;}
   function jobSeg(job){return segments.find(s=>s.key===job.segmentKey);}
   const jobDistanceElements=new Map();
@@ -2207,16 +2212,16 @@
       const segment=document.createElement('span');segment.className='job-segment';segment.textContent=`Seg #${seg?seg.id:job.segmentNumber}`;
       const pay=document.createElement('span');pay.className='job-pay';
       const amount=document.createElement('b');amount.className='job-pay-amount';amount.textContent=jobCurrency.format(job.amountCents/100);
-      const period=document.createElement('small');period.textContent='per 3-hour shift';pay.append(amount,period);
+      pay.append(amount);pay.setAttribute('aria-label',`${jobCurrency.format(job.amountCents/100)} per 3-hour shift`);pay.title='Per 3-hour shift';
       if(!seg){const unavailable=document.createElement('span');unavailable.textContent='Segment unavailable';open.append(unavailable);}
       const distance=document.createElement('span');distance.className='job-distance';distance.textContent=jobDistanceText(job);jobDistanceElements.set(job.id,distance);
-      const target=document.createElement('span');target.className='job-target';target.textContent='Target: 1,000 flyers';
+      const target=document.createElement('span');target.className='job-target';target.textContent='Target: 1,000 flyers · 3-hour shift';
       const heading=document.createElement('div');heading.className='job-heading';heading.append(title,segment);
-      open.append(heading,target,distance);row.append(open,pay);
+      open.append(heading,target,distance);row.append(open);
       const actions=document.createElement('div');actions.className='job-actions';
       const view=document.createElement('button');view.type='button';view.className='job-view';view.textContent='View Seg';
       view.setAttribute('aria-label',`View segment for ${jobLabel(job)}`);
-      view.addEventListener('click',()=>showJobOnMap(job.id));actions.append(view);row.append(actions);
+      view.addEventListener('click',()=>showJobOnMap(job.id));actions.append(pay,view);row.append(actions);
       const accept=document.createElement('a');accept.className='job-accept';accept.textContent='Accept';
       accept.href='https://chat.google.com/';accept.target='_blank';accept.rel='noopener noreferrer';
       accept.setAttribute('aria-label',`Accept ${jobLabel(job)} — open Google Chat`);actions.append(accept);
