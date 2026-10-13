@@ -445,6 +445,7 @@
     .job-actions>.job-pay,.job-actions>.job-view,.job-actions>.job-accept{box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-width:0;height:30px;min-height:30px;margin:0;padding:6px 5px;border-radius:6px;font-size:10px;line-height:1.2;}
     .job-actions>.job-pay{background:rgba(34,197,94,.12);border:1px solid rgba(74,222,128,.28);}
     .job-actions .job-pay-amount{font-size:12px;line-height:1.2;font-weight:800;}
+    .jobs-admin-toggle{display:block;margin:10px 0 0 auto;padding:5px 7px;border:1px solid #303746;border-radius:5px;background:transparent;color:#9ba8bf;font-size:9px;cursor:pointer;}
   </style>
 </head>
 <body>
@@ -691,6 +692,7 @@
     <div class="sheet-head"><div><div class="sheet-kicker">3-HOUR SHIFTS</div><div class="sheet-title" id="jobsTitle">Available jobs</div></div><button id="closeJobs" class="sheet-close" type="button" aria-label="Close jobs">&times;</button></div>
     <div class="jobs-pickup-note">Click <strong>Accept</strong> and send the <strong>Job ID</strong> in Google Chat to pick up the flyers.</div>
     <div id="jobStatus" role="status"></div><div id="jobsList" class="jobs-list"></div>
+    <button id="jobsAdminBtn" class="jobs-admin-toggle" type="button">Jobs admin</button>
     <form id="jobForm" hidden><strong>Post a job</strong>
       <label for="jobPublicId">Job ID</label><input id="jobPublicId" class="input" type="text" maxlength="40" placeholder="e.g. LF-001" required>
       <label for="jobSegment">Segment number</label><select id="jobSegment" class="input" required><option value="">Select segment</option></select>
@@ -2172,7 +2174,7 @@
   const jobAmount=document.getElementById('jobAmount'), postJob=document.getElementById('postJob');
   const jobStatus=document.getElementById('jobStatus');
   let jobs=[], jobsUnsub=null, jobsLoaded=false, jobsError='', jobSaving=false;
-  let jobsMigrationRunning=false, jobsMigrationDone=false;
+  let jobsAdmin=false, jobsLoadTimer=null;
   const JOBS_PATH='jobs';
   const jobCurrency=new Intl.NumberFormat('en-BE',{style:'currency',currency:'EUR'});
   function jobLabel(job){return job.jobId?`Job ID: ${job.jobId}`:'Job ID: not set';}
@@ -2200,7 +2202,8 @@
   function renderJobs(){
     jobsBadge.textContent=String(jobs.length);jobsBadge.classList.toggle('show',jobs.length>0);
     jobsBtn.setAttribute('aria-label',`Jobs: ${jobs.length} available`);
-    jobForm.hidden=!isAdmin;
+    jobForm.hidden=!jobsAdmin;
+    document.getElementById('jobsAdminBtn').textContent=jobsAdmin?'Exit Jobs admin':'Jobs admin';
     postJob.disabled=jobSaving||!jobsLoaded||!!jobsError||!segments.length;
     jobsList.replaceChildren();jobDistanceElements.clear();
     jobStatus.textContent=jobsError||(!jobsLoaded?'Loading jobs…':jobs.length?'':'No jobs available yet.');
@@ -2226,26 +2229,26 @@
       accept.href='https://chat.google.com/';accept.target='_blank';accept.rel='noopener noreferrer';
       accept.setAttribute('aria-label',`Accept ${jobLabel(job)} — open Google Chat`);actions.append(accept);
 
-      if(isAdmin){
+      if(jobsAdmin){
         const adminActions=document.createElement('div');adminActions.className='job-admin-actions';
         const editId=document.createElement('button');editId.type='button';editId.className='job-delete';editId.textContent=job.jobId?'Edit ID':'Set ID';
         editId.addEventListener('click',async()=>{
-          if(!isAdmin||!currentUserId)return;
+          if(!jobsAdmin)return;
           const value=window.prompt('Job ID (1–40 characters)',job.jobId||'');
           if(value===null)return;
           const jobId=value.trim();
           if(!jobId||jobId.length>40){showToast('Enter a Job ID with 1–40 characters.');return;}
-          const campaign=currentUserId;editId.disabled=true;
-          try{await update(ref(db,`${JOBS_PATH}/${job.id}`),{jobId});if(currentUserId===campaign)showToast('Job ID saved');}
-          catch(error){console.error(error);if(currentUserId===campaign)showToast('Could not save Job ID. Please retry.');}
+          editId.disabled=true;
+          try{await update(ref(db,`${JOBS_PATH}/${job.id}`),{jobId});showToast('Job ID saved');}
+          catch(error){console.error(error);showToast('Could not save Job ID. Please retry.');}
           finally{editId.disabled=false;}
         });adminActions.append(editId);
         const del=document.createElement('button');del.type='button';del.className='job-delete';del.textContent='Delete';del.setAttribute('aria-label',`Delete job for ${title.textContent}`);
         del.addEventListener('click',async()=>{
-          if(!isAdmin||!currentUserId)return;
-          const campaign=currentUserId;del.disabled=true;
-          try{await remove(ref(db,`${JOBS_PATH}/${job.id}`));if(currentUserId===campaign)showToast('Job deleted');}
-          catch(error){console.error(error);if(currentUserId===campaign){showToast('Could not delete job. Please retry.');del.disabled=false;}}
+          if(!jobsAdmin)return;
+          del.disabled=true;
+          try{await remove(ref(db,`${JOBS_PATH}/${job.id}`));showToast('Job deleted');}
+          catch(error){console.error(error);{showToast('Could not delete job. Please retry.');del.disabled=false;}}
         });adminActions.append(del);row.append(adminActions);
       }
       jobsList.append(row);
@@ -2266,47 +2269,29 @@
   function attachJobs(){
     if(jobsUnsub)jobsUnsub();
     jobsLoaded=false;jobsError='';renderJobs();
+    clearTimeout(jobsLoadTimer);jobsLoadTimer=setTimeout(()=>{if(!jobsLoaded){jobsError='Jobs are taking too long to load. Check your connection and reopen Jobs to retry.';renderJobs();}},15000);
     jobsUnsub=onValue(ref(db,JOBS_PATH),snapshot=>{
-      jobs=[];snapshot.forEach(child=>{const j=child.val();
+      clearTimeout(jobsLoadTimer);jobs=[];snapshot.forEach(child=>{const j=child.val();
         if(j&&typeof j.segmentKey==='string'&&Number.isSafeInteger(j.amountCents)&&j.amountCents>0&&Number.isInteger(j.segmentNumber))
           jobs.push({id:child.key,jobId:typeof j.jobId==='string'?j.jobId:'',segmentKey:j.segmentKey,segmentNumber:j.segmentNumber,amountCents:j.amountCents,createdAt:Number(j.createdAt)||0});
       });
       jobs.sort((a,b)=>b.createdAt-a.createdAt);jobsLoaded=true;jobsError='';renderJobs();
-    },error=>{console.error(error);jobs=[];jobsLoaded=false;jobsError='Jobs could not load. Close and reopen Jobs to retry.';renderJobs();});
-  }
-  // Admin-only migration: move existing campaign offers to the shared board
-  // in one atomic database update, preserving their IDs, pay and segment keys.
-  async function migrateLegacyJobs(){
-    if(!isAdmin||jobsMigrationRunning||jobsMigrationDone)return;
-    jobsMigrationRunning=true;
-    try{
-      const snapshot=await get(ref(db,'users'));
-      if(!isAdmin)return;
-      const changes={};let count=0;
-      snapshot.forEach(campaign=>{
-        if(!/^[A-Z0-9]{3,10}$/.test(campaign.key))return;
-        campaign.child('jobs').forEach(child=>{
-          const j=child.val();
-          if(!j||typeof j.segmentKey!=='string'||!Number.isSafeInteger(j.amountCents)||j.amountCents<=0||!Number.isInteger(j.segmentNumber))return;
-          const sharedId='legacy_'+campaign.key+'_'+child.key;
-          changes[JOBS_PATH+'/'+sharedId]=j;
-          changes['users/'+campaign.key+'/jobs/'+child.key]=null;
-          count++;
-        });
-      });
-      if(count)await update(ref(db),changes);
-      jobsMigrationDone=true;
-      if(count)showToast('Existing jobs moved to the shared board');
-    }catch(error){console.error(error);showToast('Existing jobs could not be moved. Reopen Jobs as admin to retry.');}
-    finally{jobsMigrationRunning=false;}
+    },error=>{clearTimeout(jobsLoadTimer);console.error(error);jobs=[];jobsLoaded=false;jobsError=String(error.code||'').toLowerCase().includes('permission')?'Jobs access is blocked by the database permissions.':'Jobs could not load. Close and reopen Jobs to retry.';renderJobs();});
   }
   function openJobsPanel(){
     if(jobsError)attachJobs();
-    if(isAdmin)migrateLegacyJobs();
+
     refreshJobSegments();renderJobs();jobsBackdrop.classList.add('show');if(!currentLatLng)goToCurrentLocation({focus:false});document.getElementById('closeJobs').focus();
   }
   function closeJobsPanel(){jobsBackdrop.classList.remove('show');jobsBtn.focus();}
   document.getElementById('browseJobsBtn').addEventListener('click',()=>{hideLogin();openJobsPanel();});
+  document.getElementById('jobsAdminBtn').addEventListener('click',()=>{
+    if(jobsAdmin){jobsAdmin=false;renderJobs();return;}
+    const pin=window.prompt('Enter admin PIN to manage jobs');
+    if(pin===null)return;
+    if(pin!==ADMIN_PIN){showToast('Incorrect admin PIN');return;}
+    jobsAdmin=true;refreshJobSegments();renderJobs();
+  });
   jobsBtn.addEventListener('click',openJobsPanel);
   document.getElementById('closeJobs').addEventListener('click',closeJobsPanel);
   jobsBackdrop.addEventListener('click',e=>{if(e.target===jobsBackdrop)closeJobsPanel();});
@@ -2320,15 +2305,15 @@
     }
   });
   jobForm.addEventListener('submit',async e=>{
-    e.preventDefault();if(jobSaving||!isAdmin||!currentUserId||!jobsLoaded||jobsError)return;
+    e.preventDefault();if(jobSaving||!jobsAdmin||!jobsLoaded||jobsError)return;
     const seg=segments.find(s=>s.key===jobSegment.value),amount=Number(jobAmount.value),cents=Math.round(amount*100);
     if(!seg||!Number.isFinite(amount)||cents<1||cents>10000000||Math.abs(amount*100-cents)>0.00001){showToast('Select a segment and enter a valid amount with up to two decimals.');return;}
     const jobId=jobPublicId.value.trim();
     if(!jobId||jobId.length>40){showToast('Enter a Job ID with 1–40 characters.');return;}
-    const campaign=currentUserId;jobSaving=true;postJob.disabled=true;
+    jobSaving=true;postJob.disabled=true;
     try{await set(push(ref(db,JOBS_PATH)),{jobId,segmentKey:seg.key,segmentNumber:seg.id,amountCents:cents,shiftHours:3,currency:'EUR',createdAt:Date.now()});
-      if(currentUserId===campaign){jobForm.reset();showToast('Job posted');}
-    }catch(error){console.error(error);if(currentUserId===campaign)showToast('Could not post job. Please retry.');}
+      {jobForm.reset();showToast('Job posted');}
+    }catch(error){console.error(error);showToast('Could not post job. Please retry.');}
     finally{jobSaving=false;renderJobs();}
   });
 
@@ -2413,7 +2398,7 @@
 
   attachJobs();
   const stored=normalizeUserId(localStorage.getItem(LS_KEY));
-  if(validateUserId(stored)){registerUser(stored).then(()=>onUserReady(stored));}else{showLogin();}
+  if(validateUserId(stored)){registerUser(stored).then(()=>onUserReady(stored));}else{hideLoader();setPostEnabled(false);}
 
   userJoinBtn.addEventListener('click',async()=>{
     loginError.textContent=''; const id=normalizeUserId(userIdInput.value);
@@ -2449,7 +2434,7 @@
   adminPinInput.addEventListener('keyup',e=>{if(e.key==='Enter')workerSaveBtn.click();});
 
   btnStartWorker.addEventListener('click',()=>{
-    if(!currentUserId){showToast('Join with User ID first');return;}
+    if(!currentUserId){showLogin();return;}
     if(isAdmin){openAdminPanel();return;}
     openWorkerModal();
   });
@@ -2466,7 +2451,6 @@
         await saveWorkerName('admin');
         document.body.classList.add('admin-mode');
         updateWorkerUi();
-        migrateLegacyJobs();
         setPostEnabled(false);
         closeWorkerModal();
         resetChallengeUi();
