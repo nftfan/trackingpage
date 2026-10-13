@@ -694,10 +694,8 @@
     <div id="jobStatus" role="status"></div><div id="jobsList" class="jobs-list"></div>
     <button id="jobsAdminBtn" class="jobs-admin-toggle" type="button">Jobs admin</button>
     <form id="jobForm" hidden><strong>Post a job</strong>
-      <label for="jobPublicId">Job ID</label><input id="jobPublicId" class="input" type="text" maxlength="40" placeholder="e.g. LF-001" required>
-      <label for="jobCampaign">Recent XX campaign</label><select id="jobCampaign" class="input" required><option value="">Select recent XX ID</option></select>
-      <div id="jobCampaignAreas" class="admin-note" style="margin-top:5px">Select an XX ID to load its saved campaign areas.</div>
-      <label for="jobAmount">Amount per 3-hour shift (€)</label><input id="jobAmount" class="input" type="number" min="0.01" max="100000" step="0.01" inputmode="decimal" placeholder="e.g. 36.00" required>
+      <label for="jobCampaignId">XX ID</label><input id="jobCampaignId" class="input" type="text" maxlength="40" placeholder="e.g. XX290922" autocomplete="off" autocapitalize="characters" required>
+      <label for="jobAmount">Money per 3-hour shift (€)</label><input id="jobAmount" class="input" type="number" min="0.01" max="100000" step="0.01" inputmode="decimal" placeholder="e.g. 36.00" required>
       <button id="postJob" class="btn-modal" type="submit" style="margin-top:10px;width:100%">Post job</button>
     </form>
   </div>
@@ -1141,11 +1139,11 @@
     map.addSource('job-area', { type: 'geojson', data: fc() });
     map.addLayer({
       id: 'job-area-fill', type: 'fill', source: 'job-area',
-      paint: { 'fill-color': '#22c55e', 'fill-opacity': 0.14 }
+      paint: { 'fill-color': '#ef4444', 'fill-opacity': 0.20 }
     });
     map.addLayer({
       id: 'job-area-outline', type: 'line', source: 'job-area',
-      paint: { 'line-color': '#4ade80', 'line-width': 3, 'line-opacity': 0.95 },
+      paint: { 'line-color': '#f87171', 'line-width': 2.5, 'line-opacity': 0.95 },
       layout: { 'line-cap': 'round', 'line-join': 'round' }
     });
 
@@ -2178,24 +2176,21 @@
   });
 
   // One shared jobs board, independent of the selected worker campaign.
-  // Admin posts a job by choosing a saved XX campaign. “View Area” then reloads
+  // Admin posts a job by entering an XX campaign ID. “View Area” then reloads
   // every saved planner area from that XX campaign, just like the planner does.
   // Production authorization must still be enforced by Firebase rules; the
   // client-side PIN below is only a UI gate, not server-side authentication.
   const jobsBtn=document.getElementById('jobsBtn'), jobsBadge=document.getElementById('jobsBadge');
   const jobsBackdrop=document.getElementById('jobsBackdrop'), jobsList=document.getElementById('jobsList');
-  const jobForm=document.getElementById('jobForm'), jobCampaign=document.getElementById('jobCampaign');
-  const jobCampaignAreas=document.getElementById('jobCampaignAreas');
-  const jobPublicId=document.getElementById('jobPublicId');
+  const jobForm=document.getElementById('jobForm'), jobCampaignId=document.getElementById('jobCampaignId');
   const jobAmount=document.getElementById('jobAmount'), postJob=document.getElementById('postJob');
   const jobStatus=document.getElementById('jobStatus');
   let jobs=[], jobsUnsub=null, jobsLoaded=false, jobsError='', jobSaving=false;
   let jobsAdmin=false, jobsLoadTimer=null;
-  let recentJobCampaigns=[], recentJobCampaignsLoaded=false, recentJobCampaignsLoading=false, recentJobCampaignsError='';
   const JOBS_PATH='jobs';
-  const RECENT_JOB_CAMPAIGN_LIMIT=30;
   const jobCurrency=new Intl.NumberFormat('en-BE',{style:'currency',currency:'EUR'});
-  function jobLabel(job){return job.jobId?`Job ID: ${job.jobId}`:'Job ID: not set';}
+  function jobLabel(job){return `Job ID: ${job.jobId||jobIdFromXX(job.sourceCampaignId)||'—'}`;}
+  function jobIdFromXX(value){const m=String(value||'').trim().toUpperCase().match(/^XX(\d+)$/);return m?m[1]:'';}
   const jobDistanceElements=new Map();
 
   function timestampNumber(value){
@@ -2262,71 +2257,12 @@
     }).filter(area=>area&&area.geometry);
   }
 
-  function campaignRecentTime(campaign){
-    const planner=campaign?.planner||{}, meta=planner.meta||campaign?.meta||{};
-    return timestampNumber(meta.updatedAt)||timestampNumber(meta.announcedAt)||timestampNumber(meta.createdAt)||
-      timestampNumber(campaign?.updatedAt)||timestampNumber(campaign?.announcedAt)||timestampNumber(campaign?.createdAt)||0;
-  }
-
-  async function loadRecentJobCampaigns({force=false}={}){
-    if(recentJobCampaignsLoading)return;
-    if(recentJobCampaignsLoaded&&!force){refreshJobCampaigns();return;}
-    recentJobCampaignsLoading=true;recentJobCampaignsError='';refreshJobCampaigns();
-    try{
-      const snapshot=await get(ref(proofDb,'campaigns'));
-      const all=[];
-      snapshot.forEach(child=>{
-        const campaignId=String(child.key||'').toUpperCase();
-        if(!/^XX[A-Z0-9_-]+$/.test(campaignId))return;
-        const campaign=child.val()||{};
-        const areas=campaignPlannerAreas(campaignId,campaign);
-        if(!areas.length)return;
-        all.push({
-          campaignId,
-          areas,
-          areaNames:areas.map(a=>a.areaName),
-          areaCenter:geometriesCenter(areas.map(a=>a.geometry)),
-          recentRank:campaignRecentTime(campaign)
-        });
-      });
-      all.sort((a,b)=>(b.recentRank-a.recentRank)||b.campaignId.localeCompare(a.campaignId,undefined,{numeric:true}));
-      recentJobCampaigns=all.slice(0,RECENT_JOB_CAMPAIGN_LIMIT);
-      recentJobCampaignsLoaded=true;
-    }catch(error){
-      console.error('Recent XX campaign load error:',error);
-      recentJobCampaigns=[];recentJobCampaignsLoaded=false;
-      recentJobCampaignsError='Recent XX campaigns could not load.';
-    }finally{
-      recentJobCampaignsLoading=false;refreshJobCampaigns();renderJobs();
-    }
-  }
-
-  function refreshJobCampaigns(){
-    const previous=jobCampaign.value;
-    const firstLabel=recentJobCampaignsLoading?'Loading recent XX IDs…':recentJobCampaignsError?'XX campaigns unavailable':'Select recent XX ID';
-    jobCampaign.replaceChildren(new Option(firstLabel,''));
-    recentJobCampaigns.forEach(item=>jobCampaign.add(new Option(item.campaignId,item.campaignId)));
-    if(recentJobCampaigns.some(item=>item.campaignId===previous))jobCampaign.value=previous;
-    jobCampaign.disabled=recentJobCampaignsLoading||!!recentJobCampaignsError||!recentJobCampaigns.length;
-    updateJobCampaignAreaPreview();
-  }
-
-  function updateJobCampaignAreaPreview(){
-    const item=recentJobCampaigns.find(c=>c.campaignId===jobCampaign.value);
-    if(!item){
-      jobCampaignAreas.textContent=recentJobCampaignsLoading?'Loading saved campaigns…':'Select an XX ID to load its saved campaign areas.';
-      return;
-    }
-    jobCampaignAreas.textContent=`Areas: ${item.areaNames.join(' · ')}`;
-  }
-  jobCampaign.addEventListener('change',updateJobCampaignAreaPreview);
-
   function renderJobs(){
     jobsBadge.textContent=String(jobs.length);jobsBadge.classList.toggle('show',jobs.length>0);
     jobsBtn.setAttribute('aria-label',`Jobs: ${jobs.length} available`);
     jobForm.hidden=!jobsAdmin;
     document.getElementById('jobsAdminBtn').textContent=jobsAdmin?'Exit Jobs admin':'Jobs admin';
-    postJob.disabled=jobSaving||!jobsLoaded||!!jobsError||recentJobCampaignsLoading||!!recentJobCampaignsError||!recentJobCampaigns.length;
+    postJob.disabled=jobSaving||!jobsLoaded||!!jobsError;
     jobsList.replaceChildren();jobDistanceElements.clear();
     jobStatus.textContent=jobsError||(!jobsLoaded?'Loading jobs…':jobs.length?'':'No jobs available yet.');
     jobStatus.hidden=!jobStatus.textContent;
@@ -2354,18 +2290,6 @@
 
       if(jobsAdmin){
         const adminActions=document.createElement('div');adminActions.className='job-admin-actions';
-        const editId=document.createElement('button');editId.type='button';editId.className='job-delete';editId.textContent=job.jobId?'Edit ID':'Set ID';
-        editId.addEventListener('click',async()=>{
-          if(!jobsAdmin)return;
-          const value=window.prompt('Job ID (1–40 characters)',job.jobId||'');
-          if(value===null)return;
-          const jobId=value.trim();
-          if(!jobId||jobId.length>40){showToast('Enter a Job ID with 1–40 characters.');return;}
-          editId.disabled=true;
-          try{await update(ref(db,`${JOBS_PATH}/${job.id}`),{jobId});showToast('Job ID saved');}
-          catch(error){console.error(error);showToast('Could not save Job ID. Please retry.');}
-          finally{editId.disabled=false;}
-        });adminActions.append(editId);
         const del=document.createElement('button');del.type='button';del.className='job-delete';del.textContent='Delete';del.setAttribute('aria-label',`Delete job for ${title.textContent}`);
         del.addEventListener('click',async()=>{
           if(!jobsAdmin)return;
@@ -2440,7 +2364,7 @@
         const sourceCampaignId=typeof j?.sourceCampaignId==='string'?j.sourceCampaignId.toUpperCase():'';
         if(j&&sourceCampaignId&&Number.isSafeInteger(j.amountCents)&&j.amountCents>0){
           const areaNames=Array.isArray(j.areaNames)?j.areaNames.map(String).filter(Boolean):[];
-          jobs.push({id:child.key,jobId:typeof j.jobId==='string'?j.jobId:'',sourceCampaignId,areaNames,areaName:typeof j.areaName==='string'?j.areaName:'',areaId:typeof j.areaId==='string'?j.areaId:'',areaCenter:center,amountCents:j.amountCents,createdAt:Number(j.createdAt)||0});
+          jobs.push({id:child.key,jobId:(typeof j.jobId==='string'&&j.jobId)||jobIdFromXX(sourceCampaignId),sourceCampaignId,areaNames,areaName:typeof j.areaName==='string'?j.areaName:'',areaId:typeof j.areaId==='string'?j.areaId:'',areaCenter:center,amountCents:j.amountCents,createdAt:Number(j.createdAt)||0});
         }
       });
       jobs.sort((a,b)=>b.createdAt-a.createdAt);jobsLoaded=true;jobsError='';renderJobs();
@@ -2449,7 +2373,6 @@
   function openJobsPanel(){
     if(jobsError)attachJobs();
     renderJobs();jobsBackdrop.classList.add('show');if(!currentLatLng)goToCurrentLocation({focus:false});document.getElementById('closeJobs').focus();
-    if(jobsAdmin)loadRecentJobCampaigns();
   }
   function closeJobsPanel(){jobsBackdrop.classList.remove('show');jobsBtn.focus();}
   document.getElementById('browseJobsBtn').addEventListener('click',()=>{hideLogin();openJobsPanel();});
@@ -2458,7 +2381,7 @@
     const pin=window.prompt('Enter admin PIN to manage jobs');
     if(pin===null)return;
     if(pin!==ADMIN_PIN){showToast('Incorrect admin PIN');return;}
-    jobsAdmin=true;renderJobs();loadRecentJobCampaigns();
+    jobsAdmin=true;renderJobs();
   });
   jobsBtn.addEventListener('click',openJobsPanel);
   document.getElementById('closeJobs').addEventListener('click',closeJobsPanel);
@@ -2474,23 +2397,32 @@
   });
   jobForm.addEventListener('submit',async e=>{
     e.preventDefault();if(jobSaving||!jobsAdmin||!jobsLoaded||jobsError)return;
-    const selectedCampaign=recentJobCampaigns.find(item=>item.campaignId===jobCampaign.value),amount=Number(jobAmount.value),cents=Math.round(amount*100);
-    if(!selectedCampaign||!Number.isFinite(amount)||cents<1||cents>10000000||Math.abs(amount*100-cents)>0.00001){showToast('Select an XX campaign and enter a valid amount with up to two decimals.');return;}
-    const jobId=jobPublicId.value.trim();
-    if(!jobId||jobId.length>40){showToast('Enter a Job ID with 1–40 characters.');return;}
+    const sourceCampaignId=String(jobCampaignId.value||'').trim().toUpperCase();
+    const jobId=jobIdFromXX(sourceCampaignId);
+    const amount=Number(jobAmount.value),cents=Math.round(amount*100);
+    if(!jobId){showToast('Enter a valid XX ID, for example XX290922.');return;}
+    if(!Number.isFinite(amount)||cents<1||cents>10000000||Math.abs(amount*100-cents)>0.00001){showToast('Enter a valid money amount with up to two decimals.');return;}
     jobSaving=true;postJob.disabled=true;
     try{
+      let campaign=null;
+      for(const id of [sourceCampaignId,sourceCampaignId.toLowerCase()]){
+        const snapshot=await get(ref(proofDb,`campaigns/${id}`));
+        if(snapshot.exists()){campaign=snapshot.val();break;}
+      }
+      if(!campaign){showToast('XX campaign was not found.');return;}
+      const areas=campaignPlannerAreas(sourceCampaignId,campaign);
+      if(!areas.length){showToast('No saved areas were found in this XX campaign.');return;}
       await set(push(ref(db,JOBS_PATH)),{
         jobId,
-        sourceCampaignId:selectedCampaign.campaignId,
-        areaNames:selectedCampaign.areaNames,
-        areaCenter:selectedCampaign.areaCenter||null,
+        sourceCampaignId,
+        areaNames:areas.map(a=>a.areaName),
+        areaCenter:geometriesCenter(areas.map(a=>a.geometry))||null,
         amountCents:cents,
         shiftHours:3,
         currency:'EUR',
         createdAt:Date.now()
       });
-      jobForm.reset();refreshJobCampaigns();showToast('Job posted');
+      jobForm.reset();showToast(`Job ${jobId} posted`);
     }catch(error){console.error(error);showToast('Could not post job. Please retry.');}
     finally{jobSaving=false;renderJobs();}
   });
