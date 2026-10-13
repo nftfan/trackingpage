@@ -455,11 +455,16 @@
     .job-actions>.job-pay,.job-actions>.job-view,.job-actions>.job-accept{box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-width:0;height:30px;min-height:30px;margin:0;padding:6px 5px;border-radius:6px;font-size:10px;line-height:1.2;}
     .job-actions>.job-pay{background:rgba(34,197,94,.12);border:1px solid rgba(74,222,128,.28);}
     .job-actions .job-pay-amount{font-size:12px;line-height:1.2;font-weight:800;}
-    .jobs-admin-toggle{display:block;margin:10px 0 0 auto;padding:5px 7px;border:1px solid #303746;border-radius:5px;background:transparent;color:#9ba8bf;font-size:9px;cursor:pointer;}
   
     #jobsBackdrop .jobs-list{max-height:none;overflow:visible;}
     @media(max-width:600px){#jobsBackdrop .jobs-modal{width:min(94vw,430px);height:68vh;max-height:560px;}}
-</style>
+
+    /* Simple salary tab in the top-right of every job card. */
+    .job-row{grid-template-columns:minmax(0,1fr) auto!important;align-items:start;}
+    .job-pay-summary{grid-column:2;grid-row:1;display:flex!important;align-items:center;justify-content:center;margin:0!important;padding:4px 7px!important;border-radius:6px;background:rgba(34,197,94,.10)!important;border:1px solid rgba(74,222,128,.22)!important;color:#86efac!important;font-size:10px;font-weight:800;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums;}
+    .job-actions{grid-column:1/-1!important;grid-template-columns:1fr 1fr!important;}
+
+  </style>
 </head>
 <body>
 <div id="loaderOverlay" class="loader-overlay">
@@ -713,7 +718,6 @@
       <div class="jobs-pickup-note">Click <strong>Accept</strong> and send the <strong>Job ID</strong> in Google Chat to pick up the flyers.</div>
       <div id="jobStatus" role="status"></div>
       <div id="jobsList" class="jobs-list"></div>
-      <button id="jobsAdminBtn" class="jobs-admin-toggle" type="button">Jobs admin</button>
       <form id="jobForm" hidden><strong>Post a job</strong>
         <label for="jobCampaignId">XX ID</label><input id="jobCampaignId" class="input" type="text" maxlength="40" placeholder="e.g. XX290922" autocomplete="off" autocapitalize="characters" required>
         <label for="jobAmount">Money per 3-hour shift (€)</label><input id="jobAmount" class="input" type="number" min="0.01" max="100000" step="0.01" inputmode="decimal" placeholder="e.g. 36.00" required>
@@ -2282,8 +2286,8 @@
   function renderJobs(){
     jobsBadge.textContent=String(jobs.length);jobsBadge.classList.toggle('show',jobs.length>0);
     jobsBtn.setAttribute('aria-label',`Jobs: ${jobs.length} available`);
+    jobsAdmin=isAdmin;
     jobForm.hidden=!jobsAdmin;
-    document.getElementById('jobsAdminBtn').textContent=jobsAdmin?'Exit Jobs admin':'Jobs admin';
     postJob.disabled=jobSaving||!jobsLoaded||!!jobsError;
     jobsList.replaceChildren();jobDistanceElements.clear();
     jobStatus.textContent=jobsError||(!jobsLoaded?'Loading jobs…':jobs.length?'':'No jobs available yet.');
@@ -2293,17 +2297,17 @@
       const open=document.createElement('div');open.className='job-open';
       const title=document.createElement('strong');title.textContent=jobLabel(job);
       const campaignTag=document.createElement('span');campaignTag.className='job-area';campaignTag.textContent=job.sourceCampaignId||'XX campaign unavailable';
-      const pay=document.createElement('span');pay.className='job-pay';
-      const amount=document.createElement('b');amount.className='job-pay-amount';amount.textContent=jobCurrency.format(job.amountCents/100);
-      pay.append(amount);pay.setAttribute('aria-label',`${jobCurrency.format(job.amountCents/100)} per 3-hour shift`);pay.title='Per 3-hour shift';
+      const pay=document.createElement('span');pay.className='job-pay job-pay-summary';
+      pay.textContent=`Salary €${(job.amountCents/100).toFixed(2)}`;
+      pay.setAttribute('aria-label',`Salary €${(job.amountCents/100).toFixed(2)}`);
       const distance=document.createElement('span');distance.className='job-distance';distance.textContent=jobDistanceText(job);jobDistanceElements.set(job.id,distance);
       const target=document.createElement('span');target.className='job-target';target.textContent='Target: 1,000 flyers · 3-hour shift';
       const heading=document.createElement('div');heading.className='job-heading';heading.append(title,campaignTag);
-      open.append(heading,target,distance);row.append(open);
+      open.append(heading,target,distance);row.append(open,pay);
       const actions=document.createElement('div');actions.className='job-actions';
       const view=document.createElement('button');view.type='button';view.className='job-view';view.textContent='View Area';
       view.setAttribute('aria-label',`View areas for ${job.sourceCampaignId||jobLabel(job)}`);
-      view.addEventListener('click',()=>showJobOnMap(job.id));actions.append(pay,view);row.append(actions);
+      view.addEventListener('click',()=>showJobOnMap(job.id));actions.append(view);row.append(actions);
       const accept=document.createElement('a');accept.className='job-accept';accept.textContent='Accept';
       accept.href='https://chat.google.com/';accept.target='_blank';accept.rel='noopener noreferrer';
       accept.setAttribute('aria-label',`Accept ${jobLabel(job)} — open Google Chat`);actions.append(accept);
@@ -2396,13 +2400,6 @@
   }
   function closeJobsPanel(){jobsBackdrop.classList.remove('show');jobsBtn.focus();}
   document.getElementById('browseJobsBtn').addEventListener('click',()=>{hideLogin();openJobsPanel();});
-  document.getElementById('jobsAdminBtn').addEventListener('click',()=>{
-    if(jobsAdmin){jobsAdmin=false;renderJobs();return;}
-    const pin=window.prompt('Enter admin PIN to manage jobs');
-    if(pin===null)return;
-    if(pin!==ADMIN_PIN){showToast('Incorrect admin PIN');return;}
-    jobsAdmin=true;renderJobs();
-  });
   jobsBtn.addEventListener('click',openJobsPanel);
   document.getElementById('closeJobs').addEventListener('click',closeJobsPanel);
   jobsBackdrop.addEventListener('click',e=>{if(e.target===jobsBackdrop)closeJobsPanel();});
