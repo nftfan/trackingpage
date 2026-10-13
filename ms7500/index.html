@@ -394,11 +394,17 @@
     .job-row{display:flex;gap:8px;align-items:center;border:1px solid #30303b;border-radius:9px;padding:9px;background:#191920}
     .job-open{flex:1;text-align:left;background:none;border:0;color:#f2f2f7;cursor:pointer;padding:6px}
     .job-open strong,.job-open span{display:block}.job-open span{color:#aab7ff;font-size:12px;margin-top:5px}
+    .job-accept{display:inline-flex;align-items:center;justify-content:center;background:#2563eb;color:#fff;padding:9px 12px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:700;flex-shrink:0}.job-accept:hover{background:#1d4ed8}.job-accept:focus-visible{outline:2px solid #fff;outline-offset:2px}
     .job-delete{border:1px solid #793535;background:#391c22;color:#fca5a5;padding:8px;border-radius:6px;cursor:pointer}
     #jobForm{margin-top:12px;padding-top:12px;border-top:1px solid #30303b}#jobForm[hidden]{display:none}
     #jobForm label{display:block;font-size:12px;margin:8px 0 4px}#jobForm .input{width:100%}
     #jobStatus{font-size:12px;color:#aab7ff;margin-top:10px}#jobsBackdrop .bottom-sheet{max-height:85vh;overflow:auto}
     #jobMapLabel{position:absolute;top:8px;left:8px;right:8px;z-index:1002;background:#171323ed;border:1px solid #a78bfa;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;pointer-events:none}
+    .icon-bar{flex-wrap:nowrap;gap:2px;padding:4px;}
+    .icon-bar>.icon-btn{flex:1 1 0;min-width:0;flex-direction:column;gap:4px;padding:6px 2px;min-height:43px;}
+    .icon-bar>.icon-btn>svg{width:20px;height:20px;flex-shrink:0;}
+    .icon-caption{font-size:8px;line-height:1;font-weight:500;letter-spacing:0;color:#8b8b95;white-space:nowrap;pointer-events:none;}
+    .icon-bar>.icon-btn:hover .icon-caption{color:#c5c5d0;}
   </style>
 </head>
 <body>
@@ -487,20 +493,25 @@
   <div class="icon-bar">
     <button id="btnLocate" class="icon-btn" title="Locate me">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"></circle><line x1="12" y1="1" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="23"></line><line x1="1" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="23" y2="12"></line></svg>
+          <span class="icon-caption">My location</span>
     </button>
     <button id="chatBtn" class="icon-btn" title="Chat">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
       <span id="chatBadge" class="badge">0</span>
+          <span class="icon-caption">Chat</span>
     </button>
     <button id="cameraBtn" class="icon-btn" title="Upload Proof">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          <span class="icon-caption">Proof</span>
     </button>
     <button id="workerHistory" class="icon-btn" type="button" title="Play history" aria-label="Play history" aria-pressed="false">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11a9 9 0 1 1 2.6 7"/><path d="M3 4v7h7"/><path d="M12 7v5l3 2"/></svg>
+          <span class="icon-caption">Performance</span>
     </button>
-    <button id="jobsBtn" class="icon-btn" type="button" title="Jobs" aria-label="Jobs" aria-haspopup="dialog" style="gap:4px">
+    <button id="jobsBtn" class="icon-btn" type="button" title="Jobs" aria-label="Jobs" aria-haspopup="dialog">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12a20 20 0 0 0 18 0M12 11v4"/></svg>
-      <span style="font-size:10px;font-weight:700">Jobs</span><span id="jobsBadge" class="badge" aria-live="polite">0</span>
+      <span id="jobsBadge" class="badge" aria-live="polite">0</span>
+          <span class="icon-caption">Jobs</span>
     </button>
     <!-- Hidden file input: on mobile the OS chooser offers Camera OR Gallery -->
     <input type="file" id="proofFileInput" accept="image/*" style="display:none">
@@ -1319,6 +1330,7 @@
 
   // Segment snap helper intentionally does not draw a live purple dot.
   function updateSegLiveDot(latlng) {
+    updateJobMapLabel();
     return;
   }
 
@@ -2049,7 +2061,7 @@
     const label=replayActive?(replayPaused?'Resume history':'Pause history'):'Play history';
     replayButton.title=label;replayButton.setAttribute('aria-label',label);
     replayButton.innerHTML=replayActive&&!replayPaused?
-      '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>':historySvg;
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span class="icon-caption">Performance</span>':historySvg;
   }
   function showHistoryPoint(dot,total,follow){
     if(!dot)return;
@@ -2123,6 +2135,20 @@
   function jobPay(job){return `${jobCurrency.format(job.amountCents/100)} / 3-hour shift`;}
   function jobSeg(job){return segments.find(s=>s.key===job.segmentKey);}
   function clearJobSelection(){selectedJobId=null;jobMapLabel.hidden=true;jobMapLabel.textContent='';}
+  function updateJobMapLabel(){
+    if(!selectedJobId)return;
+    const job=jobs.find(j=>j.id===selectedJobId),seg=job&&jobSeg(job);
+    if(!job||!seg){clearJobSelection();return;}
+    const start=seg.coords[0];
+    let distanceText='Enable location to see distance to start';
+    if(currentLatLng&&Number.isFinite(currentLatLng[0])&&Number.isFinite(currentLatLng[1])&&start&&Number.isFinite(start.lat)&&Number.isFinite(start.lng)){
+      const km=haversineKm({lat:currentLatLng[0],lng:currentLatLng[1]},start);
+      distanceText=`Start: ${km<1?Math.round(km*1000)+' m':km.toFixed(1)+' km'} away (straight-line)`;
+    }
+    jobMapLabel.textContent=`${jobLabel(job)} · Seg #${seg.id} · ${distanceText}`;
+    jobMapLabel.hidden=false;
+  }
+
   function refreshJobSegments(){
     const previous=jobSegment.value;
     jobSegment.replaceChildren(new Option('Select segment',''));
@@ -2142,6 +2168,10 @@
       const title=document.createElement('strong');title.textContent=`${jobLabel(job)} · Seg #${seg?seg.id:job.segmentNumber}`;
       const pay=document.createElement('span');pay.textContent=jobPay(job)+(seg?'':' · Segment unavailable');
       open.append(title,pay);open.addEventListener('click',()=>showJobOnMap(job.id));row.append(open);
+      const accept=document.createElement('a');accept.className='job-accept';accept.textContent='Accept';
+      accept.href='https://chat.google.com/';accept.target='_blank';accept.rel='noopener noreferrer';
+      accept.setAttribute('aria-label',`Accept ${jobLabel(job)} — open Google Chat`);row.append(accept);
+
       if(isAdmin){
         const editId=document.createElement('button');editId.type='button';editId.className='job-delete';editId.textContent=job.jobId?'Edit ID':'Set ID';
         editId.addEventListener('click',async()=>{
@@ -2165,7 +2195,7 @@
       }
       jobsList.append(row);
     }
-    if(selectedJobId){const job=jobs.find(j=>j.id===selectedJobId);if(!job){clearJobSelection();}else{const seg=jobSeg(job);jobMapLabel.textContent=`${jobLabel(job)} · Seg #${seg?seg.id:job.segmentNumber} · ${jobPay(job)}`;}}
+    updateJobMapLabel();
   }
   function showJobOnMap(id){
     const job=jobs.find(j=>j.id===id),seg=job&&jobSeg(job);
@@ -2174,7 +2204,8 @@
     stopHistory();
     if(!isolateSegment(seg.id))return;
     segSelect.value=String(seg.id);segLiveDotSelected=true;
-    selectedJobId=id;jobMapLabel.textContent=`${jobLabel(job)} · Seg #${seg.id} · ${jobPay(job)}`;jobMapLabel.hidden=false;
+    selectedJobId=id;updateJobMapLabel();
+    if(!currentLatLng)goToCurrentLocation({focus:false});
     closeJobsPanel();document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'});
   }
   function detachJobs(){
