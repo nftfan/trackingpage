@@ -423,6 +423,23 @@
     .job-open .job-pay{display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px;padding:5px 8px;margin:4px 0 2px;border-radius:6px;background:rgba(34,197,94,.10);border:1px solid rgba(74,222,128,.22);}
     .job-pay-amount{font-size:15px;line-height:1.1;font-weight:800;color:#86efac;font-variant-numeric:tabular-nums;}
     .job-pay small{font-size:8px;line-height:1.2;color:#b4c8bc;font-weight:500;}
+    /* Shared-board card layout: details left, pay right, actions below. */
+    .jobs-list{gap:7px;margin-top:8px;}
+    .job-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:7px 10px;padding:10px;background:#181a21;border:1px solid #2c303c;border-radius:10px;}
+    .job-open{min-width:0;padding:0;}
+    .job-heading{display:flex;align-items:center;flex-wrap:wrap;gap:5px;}
+    .job-heading strong{font-size:11px;line-height:1.3;color:#f3f4f6;}
+    .job-open .job-segment{margin:0;padding:2px 5px;border-radius:4px;background:#262a36;color:#aeb9d0;font-size:8px;line-height:1.2;}
+    .job-open .job-target{font-size:9px;color:#bdc4d4;margin-top:5px;}
+    .job-open .job-distance{font-size:9px;color:#8e99af;margin-top:3px;line-height:1.3;}
+    .job-row>.job-pay{display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin:0;padding:0;background:none;border:0;}
+    .job-pay-amount{color:#86efac;font-size:17px;line-height:1;font-weight:800;}
+    .job-pay small{font-size:8px;color:#8e99af;white-space:nowrap;}
+    .job-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+    .job-view,.job-accept{padding:6px 8px;min-height:29px;font-size:10px;border-radius:6px;}
+    .job-admin-actions{grid-column:1/-1;display:flex;gap:5px;justify-content:flex-end;border-top:1px solid #2c303c;padding-top:6px;}
+    .job-delete{font-size:8px;padding:4px 6px;}
+    #jobStatus[hidden]{display:none;}
   </style>
 </head>
 <body>
@@ -615,6 +632,7 @@
       <button id="userJoinBtn" class="btn-modal">Join</button>
     </div>
     <div id="loginError" class="error"></div>
+    <button id="browseJobsBtn" type="button" class="btn-modal" style="width:100%;margin-top:12px">Browse jobs</button>
   </div>
 </div>
 
@@ -2139,7 +2157,7 @@
     }
   });
 
-  // Jobs share the campaign's existing Firebase connection and admin UI.
+  // One shared jobs board, independent of the selected campaign.
   // Production authorization must be enforced by Firebase rules; the existing
   // client-side PIN is only a UI gate, not server-side authentication.
   const jobsBtn=document.getElementById('jobsBtn'), jobsBadge=document.getElementById('jobsBadge');
@@ -2149,6 +2167,8 @@
   const jobAmount=document.getElementById('jobAmount'), postJob=document.getElementById('postJob');
   const jobStatus=document.getElementById('jobStatus');
   let jobs=[], jobsUnsub=null, jobsLoaded=false, jobsError='', jobSaving=false;
+  let jobsMigrationRunning=false, jobsMigrationDone=false;
+  const JOBS_PATH='jobs';
   const jobCurrency=new Intl.NumberFormat('en-BE',{style:'currency',currency:'EUR'});
   function jobLabel(job){return job.jobId?`Job ${job.jobId}`:'Job (ID not set)';}
   function jobPay(job){return `${jobCurrency.format(job.amountCents/100)} / 3-hour shift`;}
@@ -2175,21 +2195,24 @@
   function renderJobs(){
     jobsBadge.textContent=String(jobs.length);jobsBadge.classList.toggle('show',jobs.length>0);
     jobsBtn.setAttribute('aria-label',`Jobs: ${jobs.length} available`);
-    jobForm.hidden=!isAdmin||!currentUserId;
+    jobForm.hidden=!isAdmin;
     postJob.disabled=jobSaving||!jobsLoaded||!!jobsError||!segments.length;
     jobsList.replaceChildren();jobDistanceElements.clear();
-    jobStatus.textContent=jobsError||(!currentUserId?'Open a campaign to view jobs.':!jobsLoaded?'Loading jobs…':jobs.length?`${jobs.length} available job${jobs.length===1?'':'s'}. Select a segment to view it on the map.`:'No jobs available yet.');
+    jobStatus.textContent=jobsError||(!jobsLoaded?'Loading jobs…':jobs.length?'':'No jobs available yet.');
+    jobStatus.hidden=!jobStatus.textContent;
     for(const job of jobs){
       const seg=jobSeg(job),row=document.createElement('div');row.className='job-row';
       const open=document.createElement('div');open.className='job-open';
-      const title=document.createElement('strong');title.textContent=`${jobLabel(job)} · Seg #${seg?seg.id:job.segmentNumber}`;
+      const title=document.createElement('strong');title.textContent=jobLabel(job);
+      const segment=document.createElement('span');segment.className='job-segment';segment.textContent=`Seg #${seg?seg.id:job.segmentNumber}`;
       const pay=document.createElement('span');pay.className='job-pay';
       const amount=document.createElement('b');amount.className='job-pay-amount';amount.textContent=jobCurrency.format(job.amountCents/100);
       const period=document.createElement('small');period.textContent='per 3-hour shift';pay.append(amount,period);
       if(!seg){const unavailable=document.createElement('span');unavailable.textContent='Segment unavailable';open.append(unavailable);}
       const distance=document.createElement('span');distance.className='job-distance';distance.textContent=jobDistanceText(job);jobDistanceElements.set(job.id,distance);
-      const target=document.createElement('span');target.textContent='Target: 1,000 flyers';
-      open.append(title,pay,target,distance);row.append(open);
+      const target=document.createElement('span');target.className='job-target';target.textContent='Target: 1,000 flyers';
+      const heading=document.createElement('div');heading.className='job-heading';heading.append(title,segment);
+      open.append(heading,target,distance);row.append(open,pay);
       const actions=document.createElement('div');actions.className='job-actions';
       const view=document.createElement('button');view.type='button';view.className='job-view';view.textContent='View Seg';
       view.setAttribute('aria-label',`View segment for ${jobLabel(job)}`);
@@ -2199,6 +2222,7 @@
       accept.setAttribute('aria-label',`Accept ${jobLabel(job)} — open Google Chat`);actions.append(accept);
 
       if(isAdmin){
+        const adminActions=document.createElement('div');adminActions.className='job-admin-actions';
         const editId=document.createElement('button');editId.type='button';editId.className='job-delete';editId.textContent=job.jobId?'Edit ID':'Set ID';
         editId.addEventListener('click',async()=>{
           if(!isAdmin||!currentUserId)return;
@@ -2207,17 +2231,17 @@
           const jobId=value.trim();
           if(!jobId||jobId.length>40){showToast('Enter a Job ID with 1–40 characters.');return;}
           const campaign=currentUserId;editId.disabled=true;
-          try{await update(ref(db,`users/${campaign}/jobs/${job.id}`),{jobId});if(currentUserId===campaign)showToast('Job ID saved');}
+          try{await update(ref(db,`${JOBS_PATH}/${job.id}`),{jobId});if(currentUserId===campaign)showToast('Job ID saved');}
           catch(error){console.error(error);if(currentUserId===campaign)showToast('Could not save Job ID. Please retry.');}
           finally{editId.disabled=false;}
-        });row.append(editId);
+        });adminActions.append(editId);
         const del=document.createElement('button');del.type='button';del.className='job-delete';del.textContent='Delete';del.setAttribute('aria-label',`Delete job for ${title.textContent}`);
         del.addEventListener('click',async()=>{
           if(!isAdmin||!currentUserId)return;
           const campaign=currentUserId;del.disabled=true;
-          try{await remove(ref(db,`users/${campaign}/jobs/${job.id}`));if(currentUserId===campaign)showToast('Job deleted');}
+          try{await remove(ref(db,`${JOBS_PATH}/${job.id}`));if(currentUserId===campaign)showToast('Job deleted');}
           catch(error){console.error(error);if(currentUserId===campaign){showToast('Could not delete job. Please retry.');del.disabled=false;}}
-        });row.append(del);
+        });adminActions.append(del);row.append(adminActions);
       }
       jobsList.append(row);
     }
@@ -2234,34 +2258,57 @@
     if(!currentLatLng)goToCurrentLocation({focus:false});
     closeJobsPanel();document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'});
   }
-  function detachJobs(){
-    if(jobsUnsub){jobsUnsub();jobsUnsub=null;}
-    jobs=[];jobsLoaded=false;jobsError='';
-    jobsBackdrop.classList.remove('show');jobForm.reset();renderJobs();
-  }
-  function attachJobs(id){
-    detachJobs();
-    jobsUnsub=onValue(ref(db,`users/${id}/jobs`),snapshot=>{
-      if(currentUserId!==id)return;
+  function attachJobs(){
+    if(jobsUnsub)jobsUnsub();
+    jobsLoaded=false;jobsError='';renderJobs();
+    jobsUnsub=onValue(ref(db,JOBS_PATH),snapshot=>{
       jobs=[];snapshot.forEach(child=>{const j=child.val();
         if(j&&typeof j.segmentKey==='string'&&Number.isSafeInteger(j.amountCents)&&j.amountCents>0&&Number.isInteger(j.segmentNumber))
           jobs.push({id:child.key,jobId:typeof j.jobId==='string'?j.jobId:'',segmentKey:j.segmentKey,segmentNumber:j.segmentNumber,amountCents:j.amountCents,createdAt:Number(j.createdAt)||0});
       });
       jobs.sort((a,b)=>b.createdAt-a.createdAt);jobsLoaded=true;jobsError='';renderJobs();
-    },error=>{if(currentUserId!==id)return;console.error(error);jobs=[];jobsLoaded=false;jobsError='Jobs could not load. Close and reopen Jobs to retry.';renderJobs();});
+    },error=>{console.error(error);jobs=[];jobsLoaded=false;jobsError='Jobs could not load. Close and reopen Jobs to retry.';renderJobs();});
+  }
+  // Admin-only migration: move existing campaign offers to the shared board
+  // in one atomic database update, preserving their IDs, pay and segment keys.
+  async function migrateLegacyJobs(){
+    if(!isAdmin||jobsMigrationRunning||jobsMigrationDone)return;
+    jobsMigrationRunning=true;
+    try{
+      const snapshot=await get(ref(db,'users'));
+      if(!isAdmin)return;
+      const changes={};let count=0;
+      snapshot.forEach(campaign=>{
+        if(!/^[A-Z0-9]{3,10}$/.test(campaign.key))return;
+        campaign.child('jobs').forEach(child=>{
+          const j=child.val();
+          if(!j||typeof j.segmentKey!=='string'||!Number.isSafeInteger(j.amountCents)||j.amountCents<=0||!Number.isInteger(j.segmentNumber))return;
+          const sharedId='legacy_'+campaign.key+'_'+child.key;
+          changes[JOBS_PATH+'/'+sharedId]=j;
+          changes['users/'+campaign.key+'/jobs/'+child.key]=null;
+          count++;
+        });
+      });
+      if(count)await update(ref(db),changes);
+      jobsMigrationDone=true;
+      if(count)showToast('Existing jobs moved to the shared board');
+    }catch(error){console.error(error);showToast('Existing jobs could not be moved. Reopen Jobs as admin to retry.');}
+    finally{jobsMigrationRunning=false;}
   }
   function openJobsPanel(){
-    if(jobsError&&currentUserId)attachJobs(currentUserId);
+    if(jobsError)attachJobs();
+    if(isAdmin)migrateLegacyJobs();
     refreshJobSegments();renderJobs();jobsBackdrop.classList.add('show');if(!currentLatLng)goToCurrentLocation({focus:false});document.getElementById('closeJobs').focus();
   }
   function closeJobsPanel(){jobsBackdrop.classList.remove('show');jobsBtn.focus();}
+  document.getElementById('browseJobsBtn').addEventListener('click',()=>{hideLogin();openJobsPanel();});
   jobsBtn.addEventListener('click',openJobsPanel);
   document.getElementById('closeJobs').addEventListener('click',closeJobsPanel);
   jobsBackdrop.addEventListener('click',e=>{if(e.target===jobsBackdrop)closeJobsPanel();});
   jobsBackdrop.addEventListener('keydown',e=>{
     if(e.key==='Escape'){e.preventDefault();closeJobsPanel();}
     if(e.key==='Tab'){
-      const controls=[...jobsBackdrop.querySelectorAll('button,select,input')].filter(el=>!el.disabled&&el.getClientRects().length);
+      const controls=[...jobsBackdrop.querySelectorAll('button,a[href],select,input')].filter(el=>!el.disabled&&el.getClientRects().length);
       const first=controls[0],last=controls[controls.length-1];
       if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
       else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
@@ -2274,7 +2321,7 @@
     const jobId=jobPublicId.value.trim();
     if(!jobId||jobId.length>40){showToast('Enter a Job ID with 1–40 characters.');return;}
     const campaign=currentUserId;jobSaving=true;postJob.disabled=true;
-    try{await set(push(ref(db,`users/${campaign}/jobs`)),{jobId,segmentKey:seg.key,segmentNumber:seg.id,amountCents:cents,shiftHours:3,currency:'EUR',createdAt:Date.now()});
+    try{await set(push(ref(db,JOBS_PATH)),{jobId,segmentKey:seg.key,segmentNumber:seg.id,amountCents:cents,shiftHours:3,currency:'EUR',createdAt:Date.now()});
       if(currentUserId===campaign){jobForm.reset();showToast('Job posted');}
     }catch(error){console.error(error);if(currentUserId===campaign)showToast('Could not post job. Please retry.');}
     finally{jobSaving=false;renderJobs();}
@@ -2312,7 +2359,7 @@
   function validateUserId(id){return /^[A-Z0-9]{3,10}$/.test(id);}
 
   function showLogin(){
-    detachJobs();
+    jobsBackdrop.classList.remove('show');jobForm.reset();
     stopHistory(true);
     clearCampaignHexagons();
     hideLoader(); loginBackdrop.classList.add('show'); userIdInput.value=''; loginError.textContent=''; setPostEnabled(false);
@@ -2355,10 +2402,11 @@
     isAdmin=false;document.body.classList.remove('admin-mode');
     currentUserId=id; localStorage.setItem(LS_KEY,id); userPillText.textContent=id; userPill.style.display='flex';
     loadCampaignHexagons(id).catch(error=>{console.error(error);showToast('Hexagons could not load.');});
-    loadLocalClicks(id); attachMyPostsListener(id); attachChatListener(id); loadShiftRegistry(id); attachCampaignSettings(id); attachJobs(id);
+    loadLocalClicks(id); attachMyPostsListener(id); attachChatListener(id); loadShiftRegistry(id); attachCampaignSettings(id); renderJobs();
     setPostEnabled(!!currentLatLng); goToCurrentLocation({focus:true});
   }
 
+  attachJobs();
   const stored=normalizeUserId(localStorage.getItem(LS_KEY));
   if(validateUserId(stored)){registerUser(stored).then(()=>onUserReady(stored));}else{showLogin();}
 
@@ -2413,6 +2461,7 @@
         await saveWorkerName('admin');
         document.body.classList.add('admin-mode');
         updateWorkerUi();
+        migrateLegacyJobs();
         setPostEnabled(false);
         closeWorkerModal();
         resetChallengeUi();
