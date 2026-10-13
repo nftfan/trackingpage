@@ -391,20 +391,21 @@
     .worker-history-age{background:white;color:#334155;font:600 10px system-ui;padding:3px 6px;border-radius:5px;white-space:nowrap}
     .worker-history-dot{width:17px;height:17px;border:2px solid white;border-radius:50%;box-shadow:0 0 0 3px rgba(15,23,42,.2)}
     .jobs-list{display:flex;flex-direction:column;gap:8px;margin-top:12px;max-height:40vh;overflow:auto}
-    .job-row{display:flex;gap:8px;align-items:center;border:1px solid #30303b;border-radius:9px;padding:9px;background:#191920}
-    .job-open{flex:1;text-align:left;background:none;border:0;color:#f2f2f7;cursor:pointer;padding:6px}
+    .job-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border:1px solid #30303b;border-radius:9px;padding:9px;background:#191920}
+    .job-open{flex:1;min-width:0;text-align:left;background:none;border:0;color:#f2f2f7;cursor:pointer;padding:6px}
     .job-open strong,.job-open span{display:block}.job-open span{color:#aab7ff;font-size:12px;margin-top:5px}
+    .job-open .job-distance{font-size:10px;color:var(--muted);line-height:1.4}
     .job-accept{display:inline-flex;align-items:center;justify-content:center;background:#2563eb;color:#fff;padding:9px 12px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:700;flex-shrink:0}.job-accept:hover{background:#1d4ed8}.job-accept:focus-visible{outline:2px solid #fff;outline-offset:2px}
     .job-delete{border:1px solid #793535;background:#391c22;color:#fca5a5;padding:8px;border-radius:6px;cursor:pointer}
     #jobForm{margin-top:12px;padding-top:12px;border-top:1px solid #30303b}#jobForm[hidden]{display:none}
     #jobForm label{display:block;font-size:12px;margin:8px 0 4px}#jobForm .input{width:100%}
     #jobStatus{font-size:12px;color:#aab7ff;margin-top:10px}#jobsBackdrop .bottom-sheet{max-height:85vh;overflow:auto}
-    #jobMapLabel{position:absolute;top:8px;left:8px;right:8px;z-index:1002;background:#171323ed;border:1px solid #a78bfa;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;pointer-events:none}
     .icon-bar{flex-wrap:nowrap;gap:2px;padding:4px;}
     .icon-bar>.icon-btn{flex:1 1 0;min-width:0;flex-direction:column;gap:4px;padding:6px 2px;min-height:43px;}
     .icon-bar>.icon-btn>svg{width:20px;height:20px;flex-shrink:0;}
     .icon-caption{font-size:8px;line-height:1;font-weight:500;letter-spacing:0;color:#8b8b95;white-space:nowrap;pointer-events:none;}
     .icon-bar>.icon-btn:hover .icon-caption{color:#c5c5d0;}
+    .jobs-pickup-note{margin-top:12px;padding:12px 14px;border:1px solid rgba(96,165,250,.35);border-radius:10px;background:rgba(37,99,235,.12);color:#bfdbfe;font-size:13px;line-height:1.55;font-weight:500}.jobs-pickup-note strong{color:#fff;font-weight:800}
   </style>
 </head>
 <body>
@@ -415,7 +416,7 @@
 
 <div class="app">
   <div class="map-card">
-    <div id="map" role="application" aria-label="Map showing posted dots"></div><div id="jobMapLabel" hidden role="status"></div>
+    <div id="map" role="application" aria-label="Map showing posted dots"></div>
 
     <div id="challengeDotsChip" class="challenge-chip left inactive" aria-label="Orange posts remaining">
       <span class="challenge-icon">📮</span>
@@ -648,6 +649,7 @@
 <div id="jobsBackdrop" class="modal-backdrop sheet-backdrop" role="dialog" aria-modal="true" aria-labelledby="jobsTitle">
   <div class="bottom-sheet"><div class="sheet-handle"></div>
     <div class="sheet-head"><div><div class="sheet-kicker">3-HOUR SHIFTS</div><div class="sheet-title" id="jobsTitle">Available jobs</div></div><button id="closeJobs" class="sheet-close" type="button" aria-label="Close jobs">&times;</button></div>
+    <div class="jobs-pickup-note">Click <strong>Accept</strong> and send the <strong>Job ID</strong> in Google Chat to pick up the flyers.</div>
     <div id="jobStatus" role="status"></div><div id="jobsList" class="jobs-list"></div>
     <form id="jobForm" hidden><strong>Post a job</strong>
       <label for="jobPublicId">Job ID</label><input id="jobPublicId" class="input" type="text" maxlength="40" placeholder="e.g. LF-001" required>
@@ -1223,7 +1225,7 @@
 
   // Clear segment lines, endpoint squares, labels and distance markers.
   function clearSegmentDisplay() {
-    clearJobSelection();
+    
     segMarkers.forEach(m => m.remove()); segMarkers.length = 0;
     distMarkers.forEach(m => m.remove()); distMarkers.length = 0;
 
@@ -1254,7 +1256,7 @@
   }
 
   function isolateSegment(id) {
-    clearJobSelection();
+    
     const s = segments.find(seg => seg.id === id);
     if (!s) return false;
 
@@ -1330,7 +1332,7 @@
 
   // Segment snap helper intentionally does not draw a live purple dot.
   function updateSegLiveDot(latlng) {
-    updateJobMapLabel();
+    updateJobDistances();
     return;
   }
 
@@ -2128,25 +2130,23 @@
   const jobForm=document.getElementById('jobForm'), jobSegment=document.getElementById('jobSegment');
   const jobPublicId=document.getElementById('jobPublicId');
   const jobAmount=document.getElementById('jobAmount'), postJob=document.getElementById('postJob');
-  const jobStatus=document.getElementById('jobStatus'), jobMapLabel=document.getElementById('jobMapLabel');
-  let jobs=[], jobsUnsub=null, jobsLoaded=false, jobsError='', selectedJobId=null, jobSaving=false;
+  const jobStatus=document.getElementById('jobStatus');
+  let jobs=[], jobsUnsub=null, jobsLoaded=false, jobsError='', jobSaving=false;
   const jobCurrency=new Intl.NumberFormat('en-BE',{style:'currency',currency:'EUR'});
   function jobLabel(job){return job.jobId?`Job ${job.jobId}`:'Job (ID not set)';}
   function jobPay(job){return `${jobCurrency.format(job.amountCents/100)} / 3-hour shift`;}
   function jobSeg(job){return segments.find(s=>s.key===job.segmentKey);}
-  function clearJobSelection(){selectedJobId=null;jobMapLabel.hidden=true;jobMapLabel.textContent='';}
-  function updateJobMapLabel(){
-    if(!selectedJobId)return;
-    const job=jobs.find(j=>j.id===selectedJobId),seg=job&&jobSeg(job);
-    if(!job||!seg){clearJobSelection();return;}
-    const start=seg.coords[0];
-    let distanceText='Enable location to see distance to start';
-    if(currentLatLng&&Number.isFinite(currentLatLng[0])&&Number.isFinite(currentLatLng[1])&&start&&Number.isFinite(start.lat)&&Number.isFinite(start.lng)){
-      const km=haversineKm({lat:currentLatLng[0],lng:currentLatLng[1]},start);
-      distanceText=`Start: ${km<1?Math.round(km*1000)+' m':km.toFixed(1)+' km'} away (straight-line)`;
-    }
-    jobMapLabel.textContent=`${jobLabel(job)} · Seg #${seg.id} · ${distanceText}`;
-    jobMapLabel.hidden=false;
+  const jobDistanceElements=new Map();
+  function jobDistanceText(job){
+    const seg=jobSeg(job),start=seg?.coords[0];
+    if(!start)return 'Start distance unavailable';
+    if(!currentLatLng||!Number.isFinite(currentLatLng[0])||!Number.isFinite(currentLatLng[1]))return 'Enable location to see distance to start';
+    if(!Number.isFinite(start.lat)||!Number.isFinite(start.lng))return 'Start distance unavailable';
+    const km=haversineKm({lat:currentLatLng[0],lng:currentLatLng[1]},start);
+    return `Start: ${km<1?Math.round(km*1000)+' m':km.toFixed(1)+' km'} away (straight-line)`;
+  }
+  function updateJobDistances(){
+    for(const job of jobs){const el=jobDistanceElements.get(job.id);if(el)el.textContent=jobDistanceText(job);}
   }
 
   function refreshJobSegments(){
@@ -2160,14 +2160,16 @@
     jobsBtn.setAttribute('aria-label',`Jobs: ${jobs.length} available`);
     jobForm.hidden=!isAdmin||!currentUserId;
     postJob.disabled=jobSaving||!jobsLoaded||!!jobsError||!segments.length;
-    jobsList.replaceChildren();
+    jobsList.replaceChildren();jobDistanceElements.clear();
     jobStatus.textContent=jobsError||(!currentUserId?'Open a campaign to view jobs.':!jobsLoaded?'Loading jobs…':jobs.length?`${jobs.length} available job${jobs.length===1?'':'s'}. Select a segment to view it on the map.`:'No jobs available yet.');
     for(const job of jobs){
       const seg=jobSeg(job),row=document.createElement('div');row.className='job-row';
       const open=document.createElement('button');open.type='button';open.className='job-open';
       const title=document.createElement('strong');title.textContent=`${jobLabel(job)} · Seg #${seg?seg.id:job.segmentNumber}`;
       const pay=document.createElement('span');pay.textContent=jobPay(job)+(seg?'':' · Segment unavailable');
-      open.append(title,pay);open.addEventListener('click',()=>showJobOnMap(job.id));row.append(open);
+      const distance=document.createElement('span');distance.className='job-distance';distance.textContent=jobDistanceText(job);jobDistanceElements.set(job.id,distance);
+      const target=document.createElement('span');target.textContent='Target: 1,000 flyers';
+      open.append(title,pay,target,distance);open.addEventListener('click',()=>showJobOnMap(job.id));row.append(open);
       const accept=document.createElement('a');accept.className='job-accept';accept.textContent='Accept';
       accept.href='https://chat.google.com/';accept.target='_blank';accept.rel='noopener noreferrer';
       accept.setAttribute('aria-label',`Accept ${jobLabel(job)} — open Google Chat`);row.append(accept);
@@ -2195,7 +2197,7 @@
       }
       jobsList.append(row);
     }
-    updateJobMapLabel();
+    updateJobDistances();
   }
   function showJobOnMap(id){
     const job=jobs.find(j=>j.id===id),seg=job&&jobSeg(job);
@@ -2204,13 +2206,13 @@
     stopHistory();
     if(!isolateSegment(seg.id))return;
     segSelect.value=String(seg.id);segLiveDotSelected=true;
-    selectedJobId=id;updateJobMapLabel();
+    updateJobDistances();
     if(!currentLatLng)goToCurrentLocation({focus:false});
     closeJobsPanel();document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'});
   }
   function detachJobs(){
     if(jobsUnsub){jobsUnsub();jobsUnsub=null;}
-    jobs=[];jobsLoaded=false;jobsError='';clearJobSelection();
+    jobs=[];jobsLoaded=false;jobsError='';
     jobsBackdrop.classList.remove('show');jobForm.reset();renderJobs();
   }
   function attachJobs(id){
@@ -2222,11 +2224,11 @@
           jobs.push({id:child.key,jobId:typeof j.jobId==='string'?j.jobId:'',segmentKey:j.segmentKey,segmentNumber:j.segmentNumber,amountCents:j.amountCents,createdAt:Number(j.createdAt)||0});
       });
       jobs.sort((a,b)=>b.createdAt-a.createdAt);jobsLoaded=true;jobsError='';renderJobs();
-    },error=>{if(currentUserId!==id)return;console.error(error);jobs=[];jobsLoaded=false;jobsError='Jobs could not load. Close and reopen Jobs to retry.';clearJobSelection();renderJobs();});
+    },error=>{if(currentUserId!==id)return;console.error(error);jobs=[];jobsLoaded=false;jobsError='Jobs could not load. Close and reopen Jobs to retry.';renderJobs();});
   }
   function openJobsPanel(){
     if(jobsError&&currentUserId)attachJobs(currentUserId);
-    refreshJobSegments();renderJobs();jobsBackdrop.classList.add('show');document.getElementById('closeJobs').focus();
+    refreshJobSegments();renderJobs();jobsBackdrop.classList.add('show');if(!currentLatLng)goToCurrentLocation({focus:false});document.getElementById('closeJobs').focus();
   }
   function closeJobsPanel(){jobsBackdrop.classList.remove('show');jobsBtn.focus();}
   jobsBtn.addEventListener('click',openJobsPanel);
