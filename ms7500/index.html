@@ -386,11 +386,19 @@
     .map-credits a{color:inherit;text-decoration:none;}
   
     #workerHistory.history-active{color:#c4b5fd;background:rgba(124,58,237,.2)}
-    #workerHistorySpeed{width:51px;flex-shrink:0}
     .worker-history-marker{pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:3px;z-index:30}
     .worker-history-count{background:#111827;color:white;font:700 12px system-ui;padding:5px 9px;border-radius:7px;white-space:nowrap}
     .worker-history-age{background:white;color:#334155;font:600 10px system-ui;padding:3px 6px;border-radius:5px;white-space:nowrap}
     .worker-history-dot{width:17px;height:17px;border:2px solid white;border-radius:50%;box-shadow:0 0 0 3px rgba(15,23,42,.2)}
+    .jobs-list{display:flex;flex-direction:column;gap:8px;margin-top:12px;max-height:40vh;overflow:auto}
+    .job-row{display:flex;gap:8px;align-items:center;border:1px solid #30303b;border-radius:9px;padding:9px;background:#191920}
+    .job-open{flex:1;text-align:left;background:none;border:0;color:#f2f2f7;cursor:pointer;padding:6px}
+    .job-open strong,.job-open span{display:block}.job-open span{color:#aab7ff;font-size:12px;margin-top:5px}
+    .job-delete{border:1px solid #793535;background:#391c22;color:#fca5a5;padding:8px;border-radius:6px;cursor:pointer}
+    #jobForm{margin-top:12px;padding-top:12px;border-top:1px solid #30303b}#jobForm[hidden]{display:none}
+    #jobForm label{display:block;font-size:12px;margin:8px 0 4px}#jobForm .input{width:100%}
+    #jobStatus{font-size:12px;color:#aab7ff;margin-top:10px}#jobsBackdrop .bottom-sheet{max-height:85vh;overflow:auto}
+    #jobMapLabel{position:absolute;top:8px;left:8px;right:8px;z-index:1002;background:#171323ed;border:1px solid #a78bfa;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;pointer-events:none}
   </style>
 </head>
 <body>
@@ -401,7 +409,7 @@
 
 <div class="app">
   <div class="map-card">
-    <div id="map" role="application" aria-label="Map showing posted dots"></div>
+    <div id="map" role="application" aria-label="Map showing posted dots"></div><div id="jobMapLabel" hidden role="status"></div>
 
     <div id="challengeDotsChip" class="challenge-chip left inactive" aria-label="Orange posts remaining">
       <span class="challenge-icon">📮</span>
@@ -490,9 +498,10 @@
     <button id="workerHistory" class="icon-btn" type="button" title="Play history" aria-label="Play history" aria-pressed="false">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11a9 9 0 1 1 2.6 7"/><path d="M3 4v7h7"/><path d="M12 7v5l3 2"/></svg>
     </button>
-    <select id="workerHistorySpeed" class="icon-bar-select" aria-label="History playback speed" title="History speed">
-      <option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option>
-    </select>
+    <button id="jobsBtn" class="icon-btn" type="button" title="Jobs" aria-label="Jobs" aria-haspopup="dialog" style="gap:4px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12a20 20 0 0 0 18 0M12 11v4"/></svg>
+      <span style="font-size:10px;font-weight:700">Jobs</span><span id="jobsBadge" class="badge" aria-live="polite">0</span>
+    </button>
     <!-- Hidden file input: on mobile the OS chooser offers Camera OR Gallery -->
     <input type="file" id="proofFileInput" accept="image/*" style="display:none">
   </div>
@@ -625,6 +634,19 @@
   </div>
 </div>
 
+<div id="jobsBackdrop" class="modal-backdrop sheet-backdrop" role="dialog" aria-modal="true" aria-labelledby="jobsTitle">
+  <div class="bottom-sheet"><div class="sheet-handle"></div>
+    <div class="sheet-head"><div><div class="sheet-kicker">3-HOUR SHIFTS</div><div class="sheet-title" id="jobsTitle">Available jobs</div></div><button id="closeJobs" class="sheet-close" type="button" aria-label="Close jobs">&times;</button></div>
+    <div id="jobStatus" role="status"></div><div id="jobsList" class="jobs-list"></div>
+    <form id="jobForm" hidden><strong>Post a job</strong>
+      <label for="jobPublicId">Job ID</label><input id="jobPublicId" class="input" type="text" maxlength="40" placeholder="e.g. LF-001" required>
+      <label for="jobSegment">Segment number</label><select id="jobSegment" class="input" required><option value="">Select segment</option></select>
+      <label for="jobAmount">Amount per 3-hour shift (€)</label><input id="jobAmount" class="input" type="number" min="0.01" max="100000" step="0.01" inputmode="decimal" placeholder="e.g. 36.00" required>
+      <button id="postJob" class="btn-modal" type="submit" style="margin-top:10px;width:100%">Post job</button>
+    </form>
+  </div>
+</div>
+
 <div id="adminBackdrop" class="modal-backdrop sheet-backdrop" aria-modal="true" role="dialog">
   <div class="bottom-sheet admin-sheet">
     <div class="sheet-handle"></div>
@@ -651,6 +673,7 @@
     </div>
 
 
+    <button id="adminJobsBtn" class="btn-modal" type="button" style="width:100%;margin-top:10px">Manage jobs</button>
     <button id="adminExitBtn" class="admin-exit-btn" type="button">Exit admin mode</button>
   </div>
 </div>
@@ -1189,6 +1212,7 @@
 
   // Clear segment lines, endpoint squares, labels and distance markers.
   function clearSegmentDisplay() {
+    clearJobSelection();
     segMarkers.forEach(m => m.remove()); segMarkers.length = 0;
     distMarkers.forEach(m => m.remove()); distMarkers.length = 0;
 
@@ -1219,6 +1243,7 @@
   }
 
   function isolateSegment(id) {
+    clearJobSelection();
     const s = segments.find(seg => seg.id === id);
     if (!s) return false;
 
@@ -1275,7 +1300,7 @@
           lng: parseFloat(raw[k].lng)
         }));
 
-        segments.push({ id: idx, coords });
+        segments.push({ id: idx, key: child.key, coords });
 
         const opt = document.createElement('option');
         opt.value = String(idx);
@@ -1284,10 +1309,12 @@
         idx++;
       });
 
+      refreshJobSegments();
+      renderJobs();
       // Load choices only; keep all segment geometry hidden.
       clearSegmentDisplay();
       console.log(`Loaded ${segments.length} segment(s) — hidden until selected`);
-    }).catch(err => console.error('Segment load error:', err));
+    }).catch(err => { console.error('Segment load error:', err); jobStatus.textContent='Segments could not load. Reload to try again.'; });
   }
 
   // Segment snap helper intentionally does not draw a live purple dot.
@@ -2006,7 +2033,6 @@
 
   // Reverse history uses a snapshot while playing; new live dots remain visible.
   const replayButton=document.getElementById('workerHistory');
-  const replaySpeed=document.getElementById('workerHistorySpeed');
   const historySvg=replayButton.innerHTML;
   let replayDots=[], replayPosition=-1, replayActive=false, replayPaused=false;
   let replayTimer=null, replayMarker=null;
@@ -2044,7 +2070,7 @@
     if(follow){
       const p=map.project([dot.lng,dot.lat]),c=map.getContainer();
       if(p.x<c.clientWidth*.14||p.x>c.clientWidth*.86||p.y<c.clientHeight*.16||p.y>c.clientHeight*.84)
-        map.easeTo({center:[dot.lng,dot.lat],duration:Math.max(70,220/Number(replaySpeed.value)),essential:true});
+        map.easeTo({center:[dot.lng,dot.lat],duration:220,essential:true});
     }
   }
   function syncLiveHistory(){
@@ -2062,7 +2088,7 @@
   }
   function scheduleHistory(){
     clearTimeout(replayTimer);
-    replayTimer=setTimeout(()=>{replayPosition--;historyStep();},Math.max(35,420/Number(replaySpeed.value)));
+    replayTimer=setTimeout(()=>{replayPosition--;historyStep();},420);
   }
   function historyStep(){
     if(!replayActive||replayPaused)return;
@@ -2081,7 +2107,121 @@
       if(!replayPaused)historyStep();
     }
   });
-  replaySpeed.addEventListener('change',()=>{if(replayActive&&!replayPaused)scheduleHistory();});
+
+  // Jobs share the campaign's existing Firebase connection and admin UI.
+  // Production authorization must be enforced by Firebase rules; the existing
+  // client-side PIN is only a UI gate, not server-side authentication.
+  const jobsBtn=document.getElementById('jobsBtn'), jobsBadge=document.getElementById('jobsBadge');
+  const jobsBackdrop=document.getElementById('jobsBackdrop'), jobsList=document.getElementById('jobsList');
+  const jobForm=document.getElementById('jobForm'), jobSegment=document.getElementById('jobSegment');
+  const jobPublicId=document.getElementById('jobPublicId');
+  const jobAmount=document.getElementById('jobAmount'), postJob=document.getElementById('postJob');
+  const jobStatus=document.getElementById('jobStatus'), jobMapLabel=document.getElementById('jobMapLabel');
+  let jobs=[], jobsUnsub=null, jobsLoaded=false, jobsError='', selectedJobId=null, jobSaving=false;
+  const jobCurrency=new Intl.NumberFormat('en-BE',{style:'currency',currency:'EUR'});
+  function jobLabel(job){return job.jobId?`Job ${job.jobId}`:'Job (ID not set)';}
+  function jobPay(job){return `${jobCurrency.format(job.amountCents/100)} / 3-hour shift`;}
+  function jobSeg(job){return segments.find(s=>s.key===job.segmentKey);}
+  function clearJobSelection(){selectedJobId=null;jobMapLabel.hidden=true;jobMapLabel.textContent='';}
+  function refreshJobSegments(){
+    const previous=jobSegment.value;
+    jobSegment.replaceChildren(new Option('Select segment',''));
+    segments.forEach(s=>jobSegment.add(new Option(`Seg #${s.id}`,s.key)));
+    if(segments.some(s=>s.key===previous))jobSegment.value=previous;
+  }
+  function renderJobs(){
+    jobsBadge.textContent=String(jobs.length);jobsBadge.classList.toggle('show',jobs.length>0);
+    jobsBtn.setAttribute('aria-label',`Jobs: ${jobs.length} available`);
+    jobForm.hidden=!isAdmin||!currentUserId;
+    postJob.disabled=jobSaving||!jobsLoaded||!!jobsError||!segments.length;
+    jobsList.replaceChildren();
+    jobStatus.textContent=jobsError||(!currentUserId?'Open a campaign to view jobs.':!jobsLoaded?'Loading jobs…':jobs.length?`${jobs.length} available job${jobs.length===1?'':'s'}. Select a segment to view it on the map.`:'No jobs available yet.');
+    for(const job of jobs){
+      const seg=jobSeg(job),row=document.createElement('div');row.className='job-row';
+      const open=document.createElement('button');open.type='button';open.className='job-open';
+      const title=document.createElement('strong');title.textContent=`${jobLabel(job)} · Seg #${seg?seg.id:job.segmentNumber}`;
+      const pay=document.createElement('span');pay.textContent=jobPay(job)+(seg?'':' · Segment unavailable');
+      open.append(title,pay);open.addEventListener('click',()=>showJobOnMap(job.id));row.append(open);
+      if(isAdmin){
+        const editId=document.createElement('button');editId.type='button';editId.className='job-delete';editId.textContent=job.jobId?'Edit ID':'Set ID';
+        editId.addEventListener('click',async()=>{
+          if(!isAdmin||!currentUserId)return;
+          const value=window.prompt('Job ID (1–40 characters)',job.jobId||'');
+          if(value===null)return;
+          const jobId=value.trim();
+          if(!jobId||jobId.length>40){showToast('Enter a Job ID with 1–40 characters.');return;}
+          const campaign=currentUserId;editId.disabled=true;
+          try{await update(ref(db,`users/${campaign}/jobs/${job.id}`),{jobId});if(currentUserId===campaign)showToast('Job ID saved');}
+          catch(error){console.error(error);if(currentUserId===campaign)showToast('Could not save Job ID. Please retry.');}
+          finally{editId.disabled=false;}
+        });row.append(editId);
+        const del=document.createElement('button');del.type='button';del.className='job-delete';del.textContent='Delete';del.setAttribute('aria-label',`Delete job for ${title.textContent}`);
+        del.addEventListener('click',async()=>{
+          if(!isAdmin||!currentUserId)return;
+          const campaign=currentUserId;del.disabled=true;
+          try{await remove(ref(db,`users/${campaign}/jobs/${job.id}`));if(currentUserId===campaign)showToast('Job deleted');}
+          catch(error){console.error(error);if(currentUserId===campaign){showToast('Could not delete job. Please retry.');del.disabled=false;}}
+        });row.append(del);
+      }
+      jobsList.append(row);
+    }
+    if(selectedJobId){const job=jobs.find(j=>j.id===selectedJobId);if(!job){clearJobSelection();}else{const seg=jobSeg(job);jobMapLabel.textContent=`${jobLabel(job)} · Seg #${seg?seg.id:job.segmentNumber} · ${jobPay(job)}`;}}
+  }
+  function showJobOnMap(id){
+    const job=jobs.find(j=>j.id===id),seg=job&&jobSeg(job);
+    if(!seg){showToast('This segment is unavailable. Please reload or ask the admin.');return;}
+    if(!map.getSource('segments')){showToast('Map is loading. Please try again.');return;}
+    stopHistory();
+    if(!isolateSegment(seg.id))return;
+    segSelect.value=String(seg.id);segLiveDotSelected=true;
+    selectedJobId=id;jobMapLabel.textContent=`${jobLabel(job)} · Seg #${seg.id} · ${jobPay(job)}`;jobMapLabel.hidden=false;
+    closeJobsPanel();document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  function detachJobs(){
+    if(jobsUnsub){jobsUnsub();jobsUnsub=null;}
+    jobs=[];jobsLoaded=false;jobsError='';clearJobSelection();
+    jobsBackdrop.classList.remove('show');jobForm.reset();renderJobs();
+  }
+  function attachJobs(id){
+    detachJobs();
+    jobsUnsub=onValue(ref(db,`users/${id}/jobs`),snapshot=>{
+      if(currentUserId!==id)return;
+      jobs=[];snapshot.forEach(child=>{const j=child.val();
+        if(j&&typeof j.segmentKey==='string'&&Number.isSafeInteger(j.amountCents)&&j.amountCents>0&&Number.isInteger(j.segmentNumber))
+          jobs.push({id:child.key,jobId:typeof j.jobId==='string'?j.jobId:'',segmentKey:j.segmentKey,segmentNumber:j.segmentNumber,amountCents:j.amountCents,createdAt:Number(j.createdAt)||0});
+      });
+      jobs.sort((a,b)=>b.createdAt-a.createdAt);jobsLoaded=true;jobsError='';renderJobs();
+    },error=>{if(currentUserId!==id)return;console.error(error);jobs=[];jobsLoaded=false;jobsError='Jobs could not load. Close and reopen Jobs to retry.';clearJobSelection();renderJobs();});
+  }
+  function openJobsPanel(){
+    if(jobsError&&currentUserId)attachJobs(currentUserId);
+    refreshJobSegments();renderJobs();jobsBackdrop.classList.add('show');document.getElementById('closeJobs').focus();
+  }
+  function closeJobsPanel(){jobsBackdrop.classList.remove('show');jobsBtn.focus();}
+  jobsBtn.addEventListener('click',openJobsPanel);
+  document.getElementById('closeJobs').addEventListener('click',closeJobsPanel);
+  jobsBackdrop.addEventListener('click',e=>{if(e.target===jobsBackdrop)closeJobsPanel();});
+  jobsBackdrop.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();closeJobsPanel();}
+    if(e.key==='Tab'){
+      const controls=[...jobsBackdrop.querySelectorAll('button,select,input')].filter(el=>!el.disabled&&el.getClientRects().length);
+      const first=controls[0],last=controls[controls.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  });
+  jobForm.addEventListener('submit',async e=>{
+    e.preventDefault();if(jobSaving||!isAdmin||!currentUserId||!jobsLoaded||jobsError)return;
+    const seg=segments.find(s=>s.key===jobSegment.value),amount=Number(jobAmount.value),cents=Math.round(amount*100);
+    if(!seg||!Number.isFinite(amount)||cents<1||cents>10000000||Math.abs(amount*100-cents)>0.00001){showToast('Select a segment and enter a valid amount with up to two decimals.');return;}
+    const jobId=jobPublicId.value.trim();
+    if(!jobId||jobId.length>40){showToast('Enter a Job ID with 1–40 characters.');return;}
+    const campaign=currentUserId;jobSaving=true;postJob.disabled=true;
+    try{await set(push(ref(db,`users/${campaign}/jobs`)),{jobId,segmentKey:seg.key,segmentNumber:seg.id,amountCents:cents,shiftHours:3,currency:'EUR',createdAt:Date.now()});
+      if(currentUserId===campaign){jobForm.reset();showToast('Job posted');}
+    }catch(error){console.error(error);if(currentUserId===campaign)showToast('Could not post job. Please retry.');}
+    finally{jobSaving=false;renderJobs();}
+  });
 
   // ── Posts listener ────────────────────────────────────────────────────────
   function attachMyPostsListener(id) {
@@ -2115,6 +2255,7 @@
   function validateUserId(id){return /^[A-Z0-9]{3,10}$/.test(id);}
 
   function showLogin(){
+    detachJobs();
     stopHistory(true);
     clearCampaignHexagons();
     hideLoader(); loginBackdrop.classList.add('show'); userIdInput.value=''; loginError.textContent=''; setPostEnabled(false);
@@ -2157,7 +2298,7 @@
     isAdmin=false;document.body.classList.remove('admin-mode');
     currentUserId=id; localStorage.setItem(LS_KEY,id); userPillText.textContent=id; userPill.style.display='flex';
     loadCampaignHexagons(id).catch(error=>{console.error(error);showToast('Hexagons could not load.');});
-    loadLocalClicks(id); attachMyPostsListener(id); attachChatListener(id); loadShiftRegistry(id); attachCampaignSettings(id);
+    loadLocalClicks(id); attachMyPostsListener(id); attachChatListener(id); loadShiftRegistry(id); attachCampaignSettings(id); attachJobs(id);
     setPostEnabled(!!currentLatLng); goToCurrentLocation({focus:true});
   }
 
@@ -2174,6 +2315,7 @@
 
   // ── Worker / admin session ────────────────────────────────────────────────
   function updateWorkerUi(){
+    renderJobs();
     btnStartWorker.textContent=isAdmin?'Admin':(currentWorkerName||'Start');
     userPillText.textContent=currentUserId||'';
   }
@@ -2465,6 +2607,7 @@
     adminTargetInput.value='';
     adminBackdrop.classList.add('show');
   }
+  document.getElementById('adminJobsBtn').addEventListener('click',()=>{adminBackdrop.classList.remove('show');openJobsPanel();});
   closeAdminPanel.addEventListener('click',()=>adminBackdrop.classList.remove('show'));
   adminBackdrop.addEventListener('click',e=>{if(e.target===adminBackdrop)adminBackdrop.classList.remove('show');});
 
