@@ -251,7 +251,7 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     #loader p{font-size:11px;color:#3a4466;font-weight:500}
 
-    /* XX plan controls — booked hexagons are a read-only overlay. */
+    /* XX plan controls — saved area boundary overlay. */
     #planForm{display:flex;gap:6px;margin-bottom:7px}
     #planId{min-width:0;flex:1;background:#191d29;border:1px solid #343d58;
       border-radius:7px;color:#e2e4f0;padding:8px;font:600 12px inherit;text-transform:uppercase}
@@ -290,7 +290,7 @@
         autocomplete="off" spellcheck="false" maxlength="80" required>
       <button class="btn" id="planOpen" type="submit">Open</button>
     </form>
-    <div id="planInfo" role="status" aria-live="polite">Enter an XX ID to show booked hexagons.</div>
+    <div id="planInfo" role="status" aria-live="polite">Enter an XX ID to show the saved area boundary.</div>
     <button class="btn hidden" id="planClear" type="button">Clear plan</button>
   </div>
 
@@ -1267,7 +1267,7 @@ function segmentTouchesGeometry(coords, geometry) {
   if (!rings.length || coords.length < 2) return false;
   // Any segment vertex inside or on the plan polygon.
   if (coords.some(pt => rings.some(r => pointInRing(pt,r) || pointOnRingEdge(pt,r)))) return true;
-  // Any segment piece crossing a booked-hex boundary.
+  // Any segment piece crossing a saved-area boundary.
   for (let i=0;i<coords.length-1;i++) {
     const a=coords[i], b=coords[i+1];
     for (const ring of rings) {
@@ -1289,10 +1289,10 @@ function clearPlanSegments() {
   if (map.getSource('editLine')) map.getSource('editLine').setData(fc());
 }
 
-async function loadSegmentsForPlan(planFeatures) {
+async function loadSegmentsForPlan(areaFeatures) {
   clearPlanSegments();
-  if (!Array.isArray(planFeatures) || !planFeatures.length) {
-    setStatus('XX plan has no booked hexagons', false);
+  if (!Array.isArray(areaFeatures) || !areaFeatures.length) {
+    setStatus('XX plan has no saved area boundary', false);
     return 0;
   }
   const ticket = ++planSegmentLoadTicket;
@@ -1304,7 +1304,7 @@ async function loadSegmentsForPlan(planFeatures) {
     snap.forEach(child => {
       const coords=parseCoords(child.val());
       if (coords.length<2) return;
-      if (!planFeatures.some(f => segmentTouchesGeometry(coords, f.geometry))) return;
+      if (!areaFeatures.some(f => segmentTouchesGeometry(coords, f.geometry))) return;
       matches.push([child.key, coords]);
     });
     if (ticket !== planSegmentLoadTicket) return 0;
@@ -1325,7 +1325,7 @@ async function loadSegmentsForPlan(planFeatures) {
 </script>
 
 <script>
-// XX plan overlay only. Original map, drawing and segment writes are unchanged.
+// XX saved-area overlay only. Segment matching uses saved area boundaries, not hexagons.
 (() => {
   const input = document.getElementById('planId');
   const form = document.getElementById('planForm');
@@ -1344,63 +1344,32 @@ async function loadSegmentsForPlan(planFeatures) {
       databaseURL:'https://trackingclients-default-rtdb.firebaseio.com/'
     }, 'xxPlanReader');
   const planDB = planApp.database();
-  let features = [], areas = [], boundaryFeatures = [], requestId = 0, ready = false, pendingFit = false;
+  let areas = [], requestId = 0, ready = false, pendingFit = false;
 
   function renderPlan() {
     if (!ready) return;
-    map.getSource('xx-plan-booked').setData(fc(features));
     map.getSource('xx-plan-areas').setData(fc(areas));
-    map.getSource('xx-plan-boundary').setData(fc(boundaryFeatures));
-    if (pendingFit && (features.length || areas.length) && mode === 'idle') {
-      fitRings([...areas, ...features].flatMap(f => geomRings(f.geometry)), { maxZoom:16 });
+    if (pendingFit && areas.length && mode === 'idle') {
+      fitRings(areas.flatMap(f => geomRings(f.geometry)), { maxZoom:16 });
       pendingFit = false;
     }
   }
 
   function initPlanOverlay() {
     // Insert above base tiles and below existing zones, segments and edit handles.
-    map.addSource('xx-plan-booked', {type:'geojson', data:fc()});
-    map.addSource('xx-plan-boundary', {type:'geojson', data:fc()});
     const before = map.getLayer('muni-fill') ? 'muni-fill' : undefined;
     map.addSource('xx-plan-areas', {type:'geojson', data:fc()});
     map.addLayer({id:'xx-plan-area-fill', type:'fill', source:'xx-plan-areas',
-      paint:{'fill-color':'#c4b5fd', 'fill-opacity':0.08}}, before);
+      paint:{'fill-color':'#4f7cff', 'fill-opacity':0.16}}, before);
+    map.addLayer({id:'xx-plan-area-glow', type:'line', source:'xx-plan-areas',
+      paint:{'line-color':'#020617','line-width':16,'line-opacity':0.48,'line-blur':4}}, before);
     map.addLayer({id:'xx-plan-area-outline', type:'line', source:'xx-plan-areas',
-      paint:{'line-color':'#a78bfa', 'line-width':2, 'line-opacity':0.75}}, before);
-    map.addLayer({id:'xx-plan-booked-fill', type:'fill', source:'xx-plan-booked',
-      paint:{'fill-color':'#4f7cff', 'fill-opacity':0.30}}, before);
-    map.addLayer({id:'xx-plan-booked-outline', type:'line', source:'xx-plan-booked',
-      paint:{'line-color':'#315ed8', 'line-width':1.25, 'line-opacity':0.55}}, before);
-    map.addLayer({id:'xx-plan-boundary-glow', type:'line', source:'xx-plan-boundary',
-      paint:{'line-color':'#ffffff','line-width':10,'line-opacity':0.46,'line-blur':3}}, before);
-    map.addLayer({id:'xx-plan-boundary-line', type:'line', source:'xx-plan-boundary',
-      paint:{'line-color':'#0b1f4d','line-width':5.5,'line-opacity':1}}, before);
+      paint:{'line-color':'#071226', 'line-width':8.5, 'line-opacity':1}}, before);
     ready = true;
     renderPlan();
   }
   if (map.loaded()) initPlanOverlay();
   else map.once('load', initPlanOverlay);
-
-  function bookedFeatures(root) {
-    const saved = root?.planner?.zones || root?.zones || {};
-    let skipped = 0;
-    const result = [];
-    const hexColors = ['#93c5fd','#fca5a5','#86efac','#fde68a','#c4b5fd','#fdba74','#67e8f9','#f9a8d4'];
-    Object.entries(saved).sort(([a],[b]) => a.localeCompare(b)).forEach(([key, zone]) => {
-      if (!zone || (zone.status && String(zone.status).toLowerCase() !== 'booked')) return;
-      const raw = zone.coordinates || zone.points || [];
-      const points = (Array.isArray(raw) ? raw : Object.values(raw)).map(p =>
-        Array.isArray(p) ? [Number(p[0]), Number(p[1])] :
-          [Number(p?.lng ?? p?.longitude), Number(p?.lat ?? p?.latitude)]);
-      if (points.length < 3 || points.some(p => !p.every(Number.isFinite) ||
-          Math.abs(p[0]) > 180 || Math.abs(p[1]) > 90) ||
-          new Set(points.map(p => p.join(','))).size < 3) { skipped++; return; }
-      const first = points[0], last = points[points.length - 1];
-      if (first[0] !== last[0] || first[1] !== last[1]) points.push([...first]);
-      result.push(feat('Polygon', [points], {key, hexId:zone.hexId || key, hexColor:hexColors[result.length % hexColors.length]}));
-    });
-    return {features:result, skipped};
-  }
 
   function savedAreas(root) {
     const planner = root.planner || {};
@@ -1424,21 +1393,6 @@ async function loadSegmentsForPlan(planFeatures) {
     return result;
   }
 
-  function makeOuterBoundary(hexFeatures) {
-    const precision=7, edges=new Map();
-    const snap=p=>[Number(p[0].toFixed(precision)),Number(p[1].toFixed(precision))];
-    const pk=p=>`${p[0].toFixed(precision)},${p[1].toFixed(precision)}`;
-    const ek=(a,b)=>{ const ka=pk(a),kb=pk(b); return ka<kb?`${ka}|${kb}`:`${kb}|${ka}`; };
-    hexFeatures.forEach(f=>geomRings(f.geometry).forEach(r=>{
-      for(let i=0;i<r.length-1;i++){
-        const a=snap(r[i]),b=snap(r[i+1]),k=ek(a,b),old=edges.get(k);
-        if(old) old.count++; else edges.set(k,{count:1,a,b});
-      }
-    }));
-    return [...edges.values()].filter(e=>e.count===1)
-      .map((e,i)=>feat('LineString',[e.a,e.b],{edge:i}));
-  }
-
   form.addEventListener('submit', async e => {
     e.preventDefault();
     if (mode !== 'idle') { toast('Finish or cancel the current drawing or edit before opening a plan.'); return; }
@@ -1457,23 +1411,21 @@ async function loadSegmentsForPlan(planFeatures) {
       if (!found) throw new Error(results.some(r => r.status === 'rejected')
         ? 'Could not read this plan. Check database access and try again.'
         : 'No saved plan found for ' + id + '.');
-      const parsed = bookedFeatures(found.value.val());
-      features = parsed.features;
       areas = savedAreas(found.value.val());
-      boundaryFeatures = makeOuterBoundary(features);
+      if (!areas.length) throw new Error('This XX plan has no saved area boundary.');
       pendingFit = true;
       renderPlan();
       clear.classList.remove('hidden');
 
-      // Only now read segments, and keep only lines touching/passing through booked hexagons.
-      const touchingSegments = await loadSegmentsForPlan(features);
-      info.textContent = id + ' · ' + features.length + ' booked hexagon' +
-        (features.length === 1 ? '' : 's') + ' · ' + areas.length +
-        ' saved area' + (areas.length === 1 ? '' : 's') + ' · ' + touchingSegments + ' touching segment' + (touchingSegments === 1 ? '' : 's') +
-        (parsed.skipped ? ' · ' + parsed.skipped + ' invalid outline(s) skipped' : '');
+      // Read segments only after the saved area boundary is loaded.
+      // Matching uses the saved area polygon only — no hexagons.
+      const touchingSegments = await loadSegmentsForPlan(areas);
+      info.textContent = id + ' · ' + areas.length +
+        ' saved area' + (areas.length === 1 ? '' : 's') + ' · ' + touchingSegments +
+        ' touching/passing segment' + (touchingSegments === 1 ? '' : 's');
     } catch (err) {
       if (ticket === requestId) info.textContent = err.message +
-        ((features.length || areas.length) ? ' Previous plan is still displayed.' : '');
+        (areas.length ? ' Previous plan is still displayed.' : '');
     } finally {
       if (ticket === requestId) { button.disabled = false; button.textContent = 'Open'; }
     }
@@ -1481,7 +1433,6 @@ async function loadSegmentsForPlan(planFeatures) {
 
   clear.addEventListener('click', () => {
     requestId++;
-    features = [];
     areas = [];
     pendingFit = false;
     renderPlan();
@@ -1489,7 +1440,7 @@ async function loadSegmentsForPlan(planFeatures) {
     input.value = '';
     button.disabled = false;
     button.textContent = 'Open';
-    info.textContent = 'Enter an XX ID to show booked hexagons.';
+    info.textContent = 'Enter an XX ID to show the saved area boundary.';
     clear.classList.add('hidden');
   });
 })();
