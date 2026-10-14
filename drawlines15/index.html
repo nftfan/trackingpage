@@ -287,29 +287,6 @@
     <button class="btn hidden" id="planClear" type="button">Clear plan</button>
   </div>
 
-  <!-- Layers / area selection -->
-  <div class="sb-section">
-    <div class="sb-section-label">Area & Zones</div>
-    <button class="btn b-layer" id="bMunis">
-      <svg viewBox="0 0 24 24"><path d="M3 9l9-6 9 6v11a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M9 21V12h6v9"/></svg>
-      <span class="btn-label">Municipalities</span>
-      <span class="kbd">M</span>
-    </button>
-    <button class="btn b-layer" id="bZones">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      <span class="btn-label">All Zones</span>
-      <span class="kbd">A</span>
-    </button>
-    <div class="sel-chip muni" id="chipMuni">
-      <span class="sel-name" id="chipMuniName"></span>
-      <button class="sel-x" id="chipMuniX" title="Clear municipality">×</button>
-    </div>
-    <div class="sel-chip zone" id="chipZone">
-      <span class="sel-name" id="chipZoneName"></span>
-      <button class="sel-x" id="chipZoneX" title="Clear zone">×</button>
-    </div>
-  </div>
-
   <!-- Draw section -->
   <div class="sb-section" id="secIdle">
     <div class="sb-section-label">New Segment</div>
@@ -366,9 +343,6 @@
 
 <!-- Help bar -->
 <div id="helpBar">
-  <div class="help-item"><span class="help-key">M</span> Municipalities</div>
-  <div class="help-item"><span class="help-key">A</span> All zones</div>
-  <div class="help-item"><span class="help-key">Click muni/zone</span> Select area to draw in</div>
   <div class="help-item"><span class="help-key">Click map</span> Start / pause drawing</div>
   <div class="help-item"><span class="help-key">Hover</span> Draw line continuously</div>
   <div class="help-item"><span class="help-key">Drag dots</span> Edit · dashed = insert</div>
@@ -667,53 +641,6 @@ cvs.addEventListener('contextmenu', e => { e.preventDefault(); });
 // ═══════════════════════════════════════════
 map.on('load', () => {
 
-  // ── Municipalities (purple, selectable — bottom of the click stack) ──
-  map.addSource('munis', { type:'geojson', data: fc() });
-  map.addLayer({ id:'muni-fill', type:'fill', source:'munis',
-    paint:{
-      'fill-color': ['case',['get','sel'],'#a78bfa','#7c3aed'],
-      'fill-opacity': ['case',['get','sel'],0.14,0.05]
-    }
-  });
-  map.addLayer({ id:'muni-line', type:'line', source:'munis',
-    paint:{
-      'line-color': ['case',['get','sel'],'#a78bfa','#7c3aed'],
-      'line-width': ['case',['get','sel'],2.5,1.5],
-      'line-opacity': ['case',['get','sel'],1,0.7]
-    }, layout:{ 'line-cap':'round','line-join':'round' }
-  });
-
-  // ── Zone polygons (selectable target areas) ──
-  map.addSource('zones', { type:'geojson', data: fc() });
-  map.addLayer({ id:'zones-fill', type:'fill', source:'zones',
-    paint:{
-      'fill-color': ['case',['get','sel'],'#22c55e','#e63946'],
-      'fill-opacity': ['case',['get','sel'],0.16,['case',['get','dim'],0.03,0.08]]
-    }
-  });
-  map.addLayer({ id:'zones-glow', type:'line', source:'zones',
-    paint:{
-      'line-color': ['case',['get','sel'],'#22c55e','#e63946'],
-      'line-width': 8,
-      'line-opacity': ['case',['get','sel'],0.28,['case',['get','dim'],0.06,0.18]],
-      'line-blur': 4
-    }, layout:{ 'line-cap':'round', 'line-join':'round' }
-  });
-  map.addLayer({ id:'zones-line', type:'line', source:'zones',
-    paint:{
-      'line-color': ['case',['get','sel'],'#22c55e','#e63946'],
-      'line-width': ['case',['get','sel'],3,2.5],
-      'line-opacity': ['case',['get','sel'],1,['case',['get','dim'],0.3,0.85]]
-    }, layout:{ 'line-cap':'round', 'line-join':'round' }
-  });
-  map.addLayer({ id:'zones-inner', type:'line', source:'zones',
-    paint:{
-      'line-color': ['case',['get','sel'],'#86efac','#ff6b7a'],
-      'line-width': 1,
-      'line-opacity': ['case',['get','sel'],0.7,['case',['get','dim'],0.15,0.5]]
-    }, layout:{ 'line-cap':'round', 'line-join':'round' }
-  });
-
   // ── Segments ──
   map.addSource('segs', { type:'geojson', data: fc() });
   map.addLayer({ id:'segs-shadow', type:'line', source:'segs',
@@ -746,7 +673,7 @@ map.on('load', () => {
   });
 
   // Hover cursors
-  ['segs-line','zones-fill','muni-fill'].forEach(id => {
+  ['segs-line'].forEach(id => {
     map.on('mouseenter', id, ()=>{ if (mode==='idle') map.getCanvas().style.cursor='pointer'; });
     map.on('mouseleave', id, ()=>{ if (mode==='idle') map.getCanvas().style.cursor=''; });
   });
@@ -773,18 +700,11 @@ map.on('load', () => {
     const segHits = q(['segs-line','segs-shadow']);
     if (mode === 'idle' && segHits.length) { enterEdit(segHits[0].properties.key); return; }
 
-    const zoneHits = q(['zones-fill']);
-    if (mode === 'idle' && zoneHits.length) { selectZone(zoneHits[0].properties.id); return; }
-
-    const muniHits = q(['muni-fill']);
-    if (mode === 'idle' && muniHits.length) { selectMuni(muniHits[0].properties.name); return; }
 
     if (mode === 'editing') exitEdit(false);
   });
 
   resizeCvs();
-  loadZones();
-  loadSegments();
   document.getElementById('loader').classList.add('gone');
   syncUI();
 });
@@ -1000,7 +920,7 @@ function visibleSegKeys() {
     ? window.__xxPlanHexFeatures
     : [];
 
-  if (!planHexes.length) return segKeys.slice();
+  if (!planHexes.length) return [];
 
   return segKeys.filter(key => {
     const s = segs[key];
@@ -1024,7 +944,7 @@ function refreshSegs() {
   const filtered = Array.isArray(window.__xxPlanHexFeatures) && window.__xxPlanHexFeatures.length;
   document.getElementById('sbSub').textContent = filtered
     ? n + ' touching segment' + (n!==1?'s':'') + ' shown'
-    : n + ' segment' + (n!==1?'s':'') + ' loaded';
+    : 'Open an XX ID';
   renderSegList();
 }
 
@@ -1251,19 +1171,6 @@ function syncUI() {
     mb.style.display='none';
   }
 
-  // Layer buttons
-  document.getElementById('bMunis').classList.toggle('on', showMunis);
-  document.getElementById('bZones').classList.toggle('on', showZones);
-
-  // Selection chips
-  const cm = document.getElementById('chipMuni');
-  cm.classList.toggle('show', !!selMuniName);
-  document.getElementById('chipMuniName').textContent = selMuniName ? ('⌂ ' + selMuniName) : '';
-  const cz = document.getElementById('chipZone');
-  cz.classList.toggle('show', !!selZoneId);
-  document.getElementById('chipZoneName').textContent =
-    selZoneId && zones[selZoneId] ? ('▣ Zone ' + zones[selZoneId].name) : '';
-
   renderSegList();
 }
 
@@ -1278,46 +1185,6 @@ document.getElementById('bSaveEdit')  .onclick = ()=>exitEdit(true);
 document.getElementById('bDelete')    .onclick = deleteSelected;
 document.getElementById('bCancelEdit').onclick = ()=>exitEdit(false);
 
-document.getElementById('bMunis').onclick = async () => {
-  showMunis = !showMunis;
-  syncUI();
-  if (showMunis) {
-    const ok = await loadMunis();
-    if (!ok) { showMunis=false; syncUI(); return; }
-    renderMunis();
-    if (!selMuniName) toast('Click a municipality to select it — its zones appear automatically.');
-  } else {
-    renderMunis();
-  }
-};
-
-document.getElementById('bZones').onclick = () => {
-  showZones = !showZones;
-  if (!showZones) { selZoneId = null; }
-  renderZones();
-  syncUI();
-  if (showZones) {
-    const ids = visibleZoneIds();
-    if (ids.length) {
-      fitRings(ids.map(id=>zones[id].ring), { maxZoom: 14 });
-      toast(`${ids.length} zone${ids.length!==1?'s':''} shown — click one to select where you want to draw.`);
-    } else {
-      toast('No zones found' + (selMuniName ? ' in ' + selMuniName : '') + '.');
-    }
-  }
-};
-
-document.getElementById('chipMuniX').onclick = () => {
-  selMuniName = null;
-  renderMunis(); renderZones(); syncUI();
-  setStatus('Municipality cleared');
-};
-document.getElementById('chipZoneX').onclick = () => {
-  selZoneId = null;
-  renderZones(); syncUI();
-  setStatus('Zone cleared');
-};
-
 // Stop sidebar events from reaching map
 document.getElementById('sidebar').addEventListener('mousedown', e=>e.stopPropagation());
 
@@ -1327,8 +1194,6 @@ document.getElementById('sidebar').addEventListener('mousedown', e=>e.stopPropag
 document.addEventListener('keydown', e => {
   if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   if (e.key==='d'||e.key==='D') { if (mode==='idle') enterDraw(); }
-  if (e.key==='m'||e.key==='M') { if (mode==='idle') document.getElementById('bMunis').click(); }
-  if (e.key==='a'||e.key==='A') { if (mode==='idle') document.getElementById('bZones').click(); }
   if (e.key==='s'||e.key==='S') {
     if (mode==='drawing') saveNewSeg();
     else if (mode==='editing') exitEdit(true);
@@ -1344,42 +1209,76 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════════════════════════
 //  FIREBASE — SEGMENTS
 // ═══════════════════════════════════════════
-function loadSegments() {
-  DB.ref('segments').on('child_added', snap => {
-    const c = parseCoords(snap.val()); if (c.length<2) return;
-    segs[snap.key] = { coords:c, endMarkers:[] };
-    segKeys.push(snap.key);
-    addEndpts(snap.key);
-    refreshSegs();
-    // Just-saved segment → drop straight into edit mode for smooth fine-tuning
-    if (pendingEditKey && snap.key === pendingEditKey) {
-      pendingEditKey = null;
-      enterEdit(snap.key);
-    }
+let segmentsPlanLoadTicket = 0;
+
+function clearLoadedSegments() {
+  segmentsPlanLoadTicket++;
+  if (selKey) {
+    try { clearHdls(); } catch(e) {}
+    selKey = null;
+    editCoords = [];
+    mode = 'idle';
+  }
+  Object.keys(segs).forEach(k => {
+    try { remEndpts(k); } catch(e) {}
+    delete segs[k];
   });
-  DB.ref('segments').on('child_changed', snap => {
-    if (!segs[snap.key]) return;
-    remEndpts(snap.key);
-    segs[snap.key].coords = parseCoords(snap.val());
-    if (snap.key===selKey) {
-      editCoords = segs[snap.key].coords.map(c=>[...c]);
-      buildHdls(); updateEditLine();
-    } else { addEndpts(snap.key); }
-    refreshSegs();
-  });
-  DB.ref('segments').on('child_removed', snap => {
-    remEndpts(snap.key); delete segs[snap.key];
-    segKeys = segKeys.filter(k=>k!==snap.key);
-    if (selKey===snap.key) { clearHdls(); selKey=null; mode='idle'; syncUI(); }
-    renumber(); refreshSegs();
-  });
+  segKeys = [];
+  if (map.getSource('segs')) map.getSource('segs').setData(fc());
+  if (map.getSource('editLine')) map.getSource('editLine').setData(fc());
+  const sub = document.getElementById('sbSub');
+  if (sub) sub.textContent = 'Open an XX ID';
 }
+
+async function loadSegmentsForOpenedPlan() {
+  const planHexes = Array.isArray(window.__xxPlanHexFeatures)
+    ? window.__xxPlanHexFeatures
+    : [];
+
+  clearLoadedSegments();
+  if (!planHexes.length) return 0;
+
+  const ticket = ++segmentsPlanLoadTicket;
+  setStatus('Loading touching segments…', false);
+
+  try {
+    const snap = await DB.ref('segments').once('value');
+    if (ticket !== segmentsPlanLoadTicket) return 0;
+
+    const matches = [];
+    snap.forEach(child => {
+      const coords = parseCoords(child.val());
+      if (coords.length < 2) return;
+      const touches = planHexes.some(hex => segmentTouchesGeometry(coords, hex.geometry));
+      if (!touches) return;
+      matches.push([child.key, coords]);
+    });
+
+    if (ticket !== segmentsPlanLoadTicket) return 0;
+
+    matches.forEach(([key, coords]) => {
+      segs[key] = { coords, endMarkers:[] };
+      segKeys.push(key);
+    });
+
+    // Render once after filtering. No all-segment intermediate state.
+    refreshSegs();
+    renumber();
+    setStatus(`${matches.length} touching segment${matches.length===1?'':'s'} shown`);
+    return matches.length;
+  } catch (err) {
+    console.warn('Segment load failed:', err);
+    setStatus('Could not load touching segments', false);
+    return 0;
+  }
+}
+
 </script>
 
 <script>
 window.__xxPlanHexFeatures = [];
 // XX PLAN OVERLAY + THICK OUTER BOUNDARY + PUBLIC TRANSPORT HIGHLIGHTS
-// Original drawing, municipality, zone and segment behaviour is kept unchanged.
+// XX-only area view. Segments load only after opening a plan.
 (() => {
   const input  = document.getElementById('planId');
   const form   = document.getElementById('planForm');
@@ -1446,10 +1345,6 @@ window.__xxPlanHexFeatures = [];
       : [];
     map.getSource('xx-plan-transit').setData(fc(visibleTransit));
 
-    // Keep lines, sidebar entries and endpoint markers synchronized with the XX area.
-    if (typeof refreshSegs === 'function') refreshSegs();
-    if (typeof renumber === 'function') renumber();
-
     if (pendingFit && (features.length || areas.length) && mode === 'idle') {
       fitRings(allPlanRings(), { maxZoom:16, padding:75 });
       pendingFit = false;
@@ -1458,7 +1353,7 @@ window.__xxPlanHexFeatures = [];
 
   function initPlanOverlay() {
     // Insert plan shading above the base map and below the existing editable layers.
-    const before = map.getLayer('muni-fill') ? 'muni-fill' : undefined;
+    const before = map.getLayer('segs-shadow') ? 'segs-shadow' : undefined;
 
     map.addSource('xx-plan-areas',    { type:'geojson', data:fc() });
     map.addSource('xx-plan-booked',   { type:'geojson', data:fc() });
@@ -1897,6 +1792,11 @@ out body;`;
       renderPlan();
       clear.classList.remove('hidden');
 
+      // Segments are intentionally loaded ONLY after an XX plan is open,
+      // then filtered before anything is drawn on the map.
+      await loadSegmentsForOpenedPlan();
+      if (ticket !== requestId) return;
+
       const baseInfo = id + ' · ' + features.length + ' booked hexagon' +
         (features.length === 1 ? '' : 's') + ' · ' + areas.length +
         ' saved area' + (areas.length === 1 ? '' : 's') +
@@ -1937,6 +1837,7 @@ out body;`;
     transitFeatures = [];
     pendingFit = false;
     renderPlan();
+    clearLoadedSegments();
     input.value = '';
     button.disabled = false;
     button.textContent = 'Open';
