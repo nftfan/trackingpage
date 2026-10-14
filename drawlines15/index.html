@@ -258,7 +258,14 @@
     #planOpen{width:auto;margin:0;padding:8px 10px;flex-shrink:0}
     #planInfo{font-size:10px;line-height:1.5;color:#b9c7df;overflow-wrap:anywhere}
     #planClear{margin-top:7px;padding:6px 10px}
-  </style>
+  
+    /* XX-only simplified UI */
+    #sidebar .sb-section:has(#bMunis),
+    #segList,
+    #helpBar .help-item:nth-child(1),
+    #helpBar .help-item:nth-child(2),
+    #helpBar .help-item:nth-child(3){display:none!important}
+</style>
 </head>
 <body>
 
@@ -270,7 +277,7 @@
 <div id="sidebar">
   <div class="sb-head">
     <div class="sb-title">Segment Saver</div>
-    <div class="sb-sub" id="sbSub">0 segments loaded</div>
+    <div class="sb-sub" id="sbSub">Open an XX ID</div>
   </div>
 
   <div id="modeBadge"><div id="modeDot"></div><span id="modeText">Drawing</span></div>
@@ -285,6 +292,29 @@
     </form>
     <div id="planInfo" role="status" aria-live="polite">Enter an XX ID to show booked hexagons.</div>
     <button class="btn hidden" id="planClear" type="button">Clear plan</button>
+  </div>
+
+  <!-- Layers / area selection -->
+  <div class="sb-section">
+    <div class="sb-section-label">Area & Zones</div>
+    <button class="btn b-layer" id="bMunis">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-6 9 6v11a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M9 21V12h6v9"/></svg>
+      <span class="btn-label">Municipalities</span>
+      <span class="kbd">M</span>
+    </button>
+    <button class="btn b-layer" id="bZones">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <span class="btn-label">All Zones</span>
+      <span class="kbd">A</span>
+    </button>
+    <div class="sel-chip muni" id="chipMuni">
+      <span class="sel-name" id="chipMuniName"></span>
+      <button class="sel-x" id="chipMuniX" title="Clear municipality">×</button>
+    </div>
+    <div class="sel-chip zone" id="chipZone">
+      <span class="sel-name" id="chipZoneName"></span>
+      <button class="sel-x" id="chipZoneX" title="Clear zone">×</button>
+    </div>
   </div>
 
   <!-- Draw section -->
@@ -335,6 +365,12 @@
     </button>
   </div>
 
+  <!-- Segment list -->
+  <div class="sb-section" style="padding-bottom:6px">
+    <div class="sb-section-label">All Segments</div>
+  </div>
+  <div class="sb-list" id="segList"></div>
+
   <div id="statusBar">
     <div id="statusDot"></div>
     <span id="statusTxt">Ready</span>
@@ -343,6 +379,9 @@
 
 <!-- Help bar -->
 <div id="helpBar">
+  <div class="help-item"><span class="help-key">M</span> Municipalities</div>
+  <div class="help-item"><span class="help-key">A</span> All zones</div>
+  <div class="help-item"><span class="help-key">Click muni/zone</span> Select area to draw in</div>
   <div class="help-item"><span class="help-key">Click map</span> Start / pause drawing</div>
   <div class="help-item"><span class="help-key">Hover</span> Draw line continuously</div>
   <div class="help-item"><span class="help-key">Drag dots</span> Edit · dashed = insert</div>
@@ -641,6 +680,53 @@ cvs.addEventListener('contextmenu', e => { e.preventDefault(); });
 // ═══════════════════════════════════════════
 map.on('load', () => {
 
+  // ── Municipalities (purple, selectable — bottom of the click stack) ──
+  map.addSource('munis', { type:'geojson', data: fc() });
+  map.addLayer({ id:'muni-fill', type:'fill', source:'munis',
+    paint:{
+      'fill-color': ['case',['get','sel'],'#a78bfa','#7c3aed'],
+      'fill-opacity': ['case',['get','sel'],0.14,0.05]
+    }
+  });
+  map.addLayer({ id:'muni-line', type:'line', source:'munis',
+    paint:{
+      'line-color': ['case',['get','sel'],'#a78bfa','#7c3aed'],
+      'line-width': ['case',['get','sel'],2.5,1.5],
+      'line-opacity': ['case',['get','sel'],1,0.7]
+    }, layout:{ 'line-cap':'round','line-join':'round' }
+  });
+
+  // ── Zone polygons (selectable target areas) ──
+  map.addSource('zones', { type:'geojson', data: fc() });
+  map.addLayer({ id:'zones-fill', type:'fill', source:'zones',
+    paint:{
+      'fill-color': ['case',['get','sel'],'#22c55e','#e63946'],
+      'fill-opacity': ['case',['get','sel'],0.16,['case',['get','dim'],0.03,0.08]]
+    }
+  });
+  map.addLayer({ id:'zones-glow', type:'line', source:'zones',
+    paint:{
+      'line-color': ['case',['get','sel'],'#22c55e','#e63946'],
+      'line-width': 8,
+      'line-opacity': ['case',['get','sel'],0.28,['case',['get','dim'],0.06,0.18]],
+      'line-blur': 4
+    }, layout:{ 'line-cap':'round', 'line-join':'round' }
+  });
+  map.addLayer({ id:'zones-line', type:'line', source:'zones',
+    paint:{
+      'line-color': ['case',['get','sel'],'#22c55e','#e63946'],
+      'line-width': ['case',['get','sel'],3,2.5],
+      'line-opacity': ['case',['get','sel'],1,['case',['get','dim'],0.3,0.85]]
+    }, layout:{ 'line-cap':'round', 'line-join':'round' }
+  });
+  map.addLayer({ id:'zones-inner', type:'line', source:'zones',
+    paint:{
+      'line-color': ['case',['get','sel'],'#86efac','#ff6b7a'],
+      'line-width': 1,
+      'line-opacity': ['case',['get','sel'],0.7,['case',['get','dim'],0.15,0.5]]
+    }, layout:{ 'line-cap':'round', 'line-join':'round' }
+  });
+
   // ── Segments ──
   map.addSource('segs', { type:'geojson', data: fc() });
   map.addLayer({ id:'segs-shadow', type:'line', source:'segs',
@@ -673,7 +759,7 @@ map.on('load', () => {
   });
 
   // Hover cursors
-  ['segs-line'].forEach(id => {
+  ['segs-line','zones-fill','muni-fill'].forEach(id => {
     map.on('mouseenter', id, ()=>{ if (mode==='idle') map.getCanvas().style.cursor='pointer'; });
     map.on('mouseleave', id, ()=>{ if (mode==='idle') map.getCanvas().style.cursor=''; });
   });
@@ -700,11 +786,18 @@ map.on('load', () => {
     const segHits = q(['segs-line','segs-shadow']);
     if (mode === 'idle' && segHits.length) { enterEdit(segHits[0].properties.key); return; }
 
+    const zoneHits = q(['zones-fill']);
+    if (mode === 'idle' && zoneHits.length) { selectZone(zoneHits[0].properties.id); return; }
+
+    const muniHits = q(['muni-fill']);
+    if (mode === 'idle' && muniHits.length) { selectMuni(muniHits[0].properties.name); return; }
 
     if (mode === 'editing') exitEdit(false);
   });
 
   resizeCvs();
+  // XX-only mode: do not load legacy zones or all segments at startup.
+  // Segments are loaded only after an XX plan has been opened.
   document.getElementById('loader').classList.add('gone');
   syncUI();
 });
@@ -874,77 +967,18 @@ function selectZone(id) {
 
 // ═══════════════════════════════════════════
 //  SEGMENTS SOURCE
-//  When an XX plan is open, only segments touching one of its booked hexagons
-//  are shown. Clearing the XX plan restores all segments.
 // ═══════════════════════════════════════════
-function segLineIntersects(a,b,c,d) {
-  const eps = 1e-12;
-  const cross = (p,q,r) => (q[0]-p[0])*(r[1]-p[1]) - (q[1]-p[1])*(r[0]-p[0]);
-  const onSeg = (p,q,r) =>
-    q[0] >= Math.min(p[0],r[0])-eps && q[0] <= Math.max(p[0],r[0])+eps &&
-    q[1] >= Math.min(p[1],r[1])-eps && q[1] <= Math.max(p[1],r[1])+eps;
-
-  const o1=cross(a,b,c), o2=cross(a,b,d), o3=cross(c,d,a), o4=cross(c,d,b);
-  if (((o1>eps && o2<-eps)||(o1<-eps && o2>eps)) &&
-      ((o3>eps && o4<-eps)||(o3<-eps && o4>eps))) return true;
-  if (Math.abs(o1)<=eps && onSeg(a,c,b)) return true;
-  if (Math.abs(o2)<=eps && onSeg(a,d,b)) return true;
-  if (Math.abs(o3)<=eps && onSeg(c,a,d)) return true;
-  if (Math.abs(o4)<=eps && onSeg(c,b,d)) return true;
-  return false;
-}
-
-function segmentTouchesGeometry(coords, geometry) {
-  if (!Array.isArray(coords) || coords.length < 2 || !geometry) return false;
-  const rings = geomRings(geometry);
-  if (!rings.length) return false;
-
-  // Any segment vertex inside/on the booked polygon counts as touching.
-  if (coords.some(pt => pointInGeom(pt, geometry))) return true;
-
-  // Also catch a segment that passes through a hexagon while both of its
-  // vertices remain outside the hexagon.
-  for (let i=0; i<coords.length-1; i++) {
-    const a=coords[i], b=coords[i+1];
-    for (const ring of rings) {
-      for (let j=0; j<ring.length-1; j++) {
-        if (segLineIntersects(a,b,ring[j],ring[j+1])) return true;
-      }
-    }
-  }
-  return false;
-}
-
-function visibleSegKeys() {
-  const planHexes = Array.isArray(window.__xxPlanHexFeatures)
-    ? window.__xxPlanHexFeatures
-    : [];
-
-  if (!planHexes.length) return [];
-
-  return segKeys.filter(key => {
-    const s = segs[key];
-    return !!s && s.coords.length >= 2 &&
-      planHexes.some(hex => segmentTouchesGeometry(s.coords, hex.geometry));
-  });
-}
-
 function refreshSegs() {
   if (!map.getSource('segs')) return;
-  const shownKeys = visibleSegKeys();
   map.getSource('segs').setData(fc(
-    shownKeys.map((key,i) => {
+    segKeys.map((key,i) => {
       const s = segs[key];
       if (!s || s.coords.length < 2) return null;
       return feat('LineString', s.coords, { key, sel: key===selKey, idx: i+1 });
     }).filter(Boolean)
   ));
-
-  const n = shownKeys.length;
-  const filtered = Array.isArray(window.__xxPlanHexFeatures) && window.__xxPlanHexFeatures.length;
-  document.getElementById('sbSub').textContent = filtered
-    ? n + ' touching segment' + (n!==1?'s':'') + ' shown'
-    : 'Open an XX ID';
+  const n = segKeys.length;
+  document.getElementById('sbSub').textContent = n + ' segment' + (n!==1?'s':'') + ' loaded';
   renderSegList();
 }
 
@@ -955,14 +989,11 @@ function renderSegList() {
   const list = document.getElementById('segList');
   if (!list) return;
   list.innerHTML = '';
-  const shownKeys = visibleSegKeys();
-  if (!shownKeys.length) {
-    const filtered = Array.isArray(window.__xxPlanHexFeatures) && window.__xxPlanHexFeatures.length;
-    list.innerHTML = '<div style="font-size:10px;color:#2a3050;padding:4px 2px">' +
-      (filtered ? 'No segments touch this XX area' : 'No segments yet') + '</div>';
+  if (!segKeys.length) {
+    list.innerHTML = '<div style="font-size:10px;color:#2a3050;padding:4px 2px">No segments yet</div>';
     return;
   }
-  shownKeys.forEach((key,i) => {
+  segKeys.forEach((key,i) => {
     const s = segs[key];
     if (!s) return;
     const el = document.createElement('div');
@@ -985,9 +1016,7 @@ function renderSegList() {
 // ═══════════════════════════════════════════
 function addEndpts(key) {
   const s = segs[key]; if (!s || !s.coords.length) return;
-  const shownKeys = visibleSegKeys();
-  if (!shownKeys.includes(key)) return;
-  const n = shownKeys.indexOf(key)+1;
+  const n = segKeys.indexOf(key)+1;
   const mk = (coord, cls) => {
     const el = document.createElement('div');
     el.className = 'ep ' + cls; el.textContent = n;
@@ -1002,7 +1031,7 @@ function remEndpts(key) {
   const s = segs[key]; if (!s) return;
   s.endMarkers.forEach(m=>m.remove()); s.endMarkers=[];
 }
-function renumber() { segKeys.forEach(k=>remEndpts(k)); visibleSegKeys().forEach(k=>addEndpts(k)); }
+function renumber() { segKeys.forEach(k=>{ remEndpts(k); addEndpts(k); }); }
 
 // ═══════════════════════════════════════════
 //  EDIT MODE — with midpoint-insert + right-click delete
@@ -1171,7 +1200,11 @@ function syncUI() {
     mb.style.display='none';
   }
 
-  renderSegList();
+  // Layer buttons
+  // Municipality / all-zones controls disabled in XX-only mode.
+
+  // Selection chips
+  // No municipality chips, zone chips, or segment list in XX-only mode.
 }
 
 // ═══════════════════════════════════════════
@@ -1185,6 +1218,7 @@ document.getElementById('bSaveEdit')  .onclick = ()=>exitEdit(true);
 document.getElementById('bDelete')    .onclick = deleteSelected;
 document.getElementById('bCancelEdit').onclick = ()=>exitEdit(false);
 
+// Municipality and All Zones UI intentionally disabled in XX-only mode.
 // Stop sidebar events from reaching map
 document.getElementById('sidebar').addEventListener('mousedown', e=>e.stopPropagation());
 
@@ -1209,83 +1243,95 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════════════════════════
 //  FIREBASE — SEGMENTS
 // ═══════════════════════════════════════════
-let segmentsPlanLoadTicket = 0;
-
-function clearLoadedSegments() {
-  segmentsPlanLoadTicket++;
-  if (selKey) {
-    try { clearHdls(); } catch(e) {}
-    selKey = null;
-    editCoords = [];
-    mode = 'idle';
+function orient2d(a,b,c) {
+  const v = (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]);
+  return Math.abs(v) < 1e-12 ? 0 : (v > 0 ? 1 : -1);
+}
+function onSegment2d(a,b,p) {
+  return Math.min(a[0],b[0])-1e-12 <= p[0] && p[0] <= Math.max(a[0],b[0])+1e-12 &&
+         Math.min(a[1],b[1])-1e-12 <= p[1] && p[1] <= Math.max(a[1],b[1])+1e-12 &&
+         orient2d(a,b,p) === 0;
+}
+function segmentsCross2d(a,b,c,d) {
+  const o1=orient2d(a,b,c), o2=orient2d(a,b,d), o3=orient2d(c,d,a), o4=orient2d(c,d,b);
+  if (o1!==o2 && o3!==o4) return true;
+  return (o1===0 && onSegment2d(a,b,c)) || (o2===0 && onSegment2d(a,b,d)) ||
+         (o3===0 && onSegment2d(c,d,a)) || (o4===0 && onSegment2d(c,d,b));
+}
+function pointOnRingEdge(pt, ring) {
+  for (let i=0;i<ring.length-1;i++) if (onSegment2d(ring[i],ring[i+1],pt)) return true;
+  return false;
+}
+function segmentTouchesGeometry(coords, geometry) {
+  const rings = geomRings(geometry);
+  if (!rings.length || coords.length < 2) return false;
+  // Any segment vertex inside or on the plan polygon.
+  if (coords.some(pt => rings.some(r => pointInRing(pt,r) || pointOnRingEdge(pt,r)))) return true;
+  // Any segment piece crossing a booked-hex boundary.
+  for (let i=0;i<coords.length-1;i++) {
+    const a=coords[i], b=coords[i+1];
+    for (const ring of rings) {
+      for (let j=0;j<ring.length-1;j++) {
+        if (segmentsCross2d(a,b,ring[j],ring[j+1])) return true;
+      }
+    }
   }
-  Object.keys(segs).forEach(k => {
-    try { remEndpts(k); } catch(e) {}
-    delete segs[k];
-  });
-  segKeys = [];
-  if (map.getSource('segs')) map.getSource('segs').setData(fc());
-  if (map.getSource('editLine')) map.getSource('editLine').setData(fc());
-  const sub = document.getElementById('sbSub');
-  if (sub) sub.textContent = 'Open an XX ID';
+  return false;
 }
 
-async function loadSegmentsForOpenedPlan() {
-  const planHexes = Array.isArray(window.__xxPlanHexFeatures)
-    ? window.__xxPlanHexFeatures
-    : [];
+let planSegmentLoadTicket = 0;
+function clearPlanSegments() {
+  planSegmentLoadTicket++;
+  Object.keys(segs).forEach(k => { try { remEndpts(k); } catch(_){} delete segs[k]; });
+  segKeys = [];
+  selKey = null;
+  if (map.getSource('segs')) map.getSource('segs').setData(fc());
+  if (map.getSource('editLine')) map.getSource('editLine').setData(fc());
+}
 
-  clearLoadedSegments();
-  if (!planHexes.length) return 0;
-
-  const ticket = ++segmentsPlanLoadTicket;
+async function loadSegmentsForPlan(planFeatures) {
+  clearPlanSegments();
+  if (!Array.isArray(planFeatures) || !planFeatures.length) {
+    setStatus('XX plan has no booked hexagons', false);
+    return 0;
+  }
+  const ticket = ++planSegmentLoadTicket;
   setStatus('Loading touching segments…', false);
-
   try {
     const snap = await DB.ref('segments').once('value');
-    if (ticket !== segmentsPlanLoadTicket) return 0;
-
-    const matches = [];
+    if (ticket !== planSegmentLoadTicket) return 0;
+    const matches=[];
     snap.forEach(child => {
-      const coords = parseCoords(child.val());
-      if (coords.length < 2) return;
-      const touches = planHexes.some(hex => segmentTouchesGeometry(coords, hex.geometry));
-      if (!touches) return;
+      const coords=parseCoords(child.val());
+      if (coords.length<2) return;
+      if (!planFeatures.some(f => segmentTouchesGeometry(coords, f.geometry))) return;
       matches.push([child.key, coords]);
     });
-
-    if (ticket !== segmentsPlanLoadTicket) return 0;
-
-    matches.forEach(([key, coords]) => {
-      segs[key] = { coords, endMarkers:[] };
+    if (ticket !== planSegmentLoadTicket) return 0;
+    matches.forEach(([key,coords]) => {
+      segs[key]={coords,endMarkers:[]};
       segKeys.push(key);
+      addEndpts(key);
     });
-
-    // Render once after filtering. No all-segment intermediate state.
     refreshSegs();
-    renumber();
     setStatus(`${matches.length} touching segment${matches.length===1?'':'s'} shown`);
     return matches.length;
-  } catch (err) {
-    console.warn('Segment load failed:', err);
+  } catch(err) {
+    console.warn('Could not load plan segments',err);
     setStatus('Could not load touching segments', false);
     return 0;
   }
 }
-
 </script>
 
 <script>
-window.__xxPlanHexFeatures = [];
-// XX PLAN OVERLAY + THICK OUTER BOUNDARY + PUBLIC TRANSPORT HIGHLIGHTS
-// XX-only area view. Segments load only after opening a plan.
+// XX plan overlay only. Original map, drawing and segment writes are unchanged.
 (() => {
-  const input  = document.getElementById('planId');
-  const form   = document.getElementById('planForm');
+  const input = document.getElementById('planId');
+  const form = document.getElementById('planForm');
   const button = document.getElementById('planOpen');
-  const info   = document.getElementById('planInfo');
-  const clear  = document.getElementById('planClear');
-
+  const info = document.getElementById('planInfo');
+  const clear = document.getElementById('planClear');
   // Plans and segments live in separate Firebase projects.
   const planApp = firebase.apps.find(app => app.name === 'xxPlanReader') ||
     firebase.initializeApp({
@@ -1297,242 +1343,63 @@ window.__xxPlanHexFeatures = [];
       appId:'1:27490943622:web:d6c87547aa5df440508707',
       databaseURL:'https://trackingclients-default-rtdb.firebaseio.com/'
     }, 'xxPlanReader');
-
   const planDB = planApp.database();
-
-  const PLAN_HEX_COLOR     = '#4f7cff';
-  const PLAN_HEX_LINE      = '#315ed8';
-  const PLAN_BOUNDARY      = '#0b1f4d';
-  const BUS_COLOR          = '#f59e0b';
-  const TRAIN_COLOR        = '#ef4444';
-  const TRANSIT_TEXT_COLOR = '#111827';
-
-  let features = [];
-  let areas = [];
-  let boundaryFeatures = [];
-  let transitFeatures = [];
-  let requestId = 0;
-  let transitRequestId = 0;
-  let ready = false;
-  let pendingFit = false;
-  let currentPlanId = '';
-
-  function allPlanRings() {
-    const fromFeatures = features.flatMap(f => geomRings(f.geometry));
-    const fromAreas = areas.flatMap(f => geomRings(f.geometry));
-    return fromFeatures.length ? fromFeatures : fromAreas;
-  }
+  let features = [], areas = [], boundaryFeatures = [], requestId = 0, ready = false, pendingFit = false;
 
   function renderPlan() {
     if (!ready) return;
-
-    // Expose ONLY the currently opened plan's booked hexagons to the existing
-    // segment renderer. An empty array means no XX filter is active.
-    window.__xxPlanHexFeatures = features.slice();
-
     map.getSource('xx-plan-booked').setData(fc(features));
     map.getSource('xx-plan-areas').setData(fc(areas));
     map.getSource('xx-plan-boundary').setData(fc(boundaryFeatures));
-
-    // HARD SAFETY FILTER: never render a transit marker unless it is inside
-    // one of the booked hexagons of the currently opened XX plan.
-    const visibleTransit = features.length
-      ? transitFeatures.filter(f => {
-          const c = f?.geometry?.coordinates;
-          return Array.isArray(c) && c.length >= 2 &&
-            features.some(hex => pointInGeom(c, hex.geometry));
-        })
-      : [];
-    map.getSource('xx-plan-transit').setData(fc(visibleTransit));
-
     if (pendingFit && (features.length || areas.length) && mode === 'idle') {
-      fitRings(allPlanRings(), { maxZoom:16, padding:75 });
+      fitRings([...areas, ...features].flatMap(f => geomRings(f.geometry)), { maxZoom:16 });
       pendingFit = false;
     }
   }
 
   function initPlanOverlay() {
-    // Insert plan shading above the base map and below the existing editable layers.
-    const before = map.getLayer('segs-shadow') ? 'segs-shadow' : undefined;
-
-    map.addSource('xx-plan-areas',    { type:'geojson', data:fc() });
-    map.addSource('xx-plan-booked',   { type:'geojson', data:fc() });
-    map.addSource('xx-plan-boundary', { type:'geojson', data:fc() });
-    map.addSource('xx-plan-transit',  { type:'geojson', data:fc() });
-
-    // Saved area: subtle underlay only.
-    map.addLayer({
-      id:'xx-plan-area-fill', type:'fill', source:'xx-plan-areas',
-      paint:{ 'fill-color':PLAN_HEX_COLOR, 'fill-opacity':0.035 }
-    }, before);
-
-    // ALL booked hexagons use exactly the same color.
-    map.addLayer({
-      id:'xx-plan-booked-fill', type:'fill', source:'xx-plan-booked',
-      paint:{ 'fill-color':PLAN_HEX_COLOR, 'fill-opacity':0.30 }
-    }, before);
-
-    // Thin internal hex outlines so individual booked cells are still visible.
-    map.addLayer({
-      id:'xx-plan-booked-outline', type:'line', source:'xx-plan-booked',
-      paint:{ 'line-color':PLAN_HEX_LINE, 'line-width':1.25, 'line-opacity':0.48 }
-    }, before);
-
-    // Thick outer booked-area boundary. Only outside edges are included in source.
-    map.addLayer({
-      id:'xx-plan-boundary-glow', type:'line', source:'xx-plan-boundary',
-      paint:{
-        'line-color':'#ffffff',
-        'line-width':10,
-        'line-opacity':0.48,
-        'line-blur':3
-      },
-      layout:{ 'line-cap':'round', 'line-join':'round' }
-    }, before);
-
-    map.addLayer({
-      id:'xx-plan-boundary-line', type:'line', source:'xx-plan-boundary',
-      paint:{
-        'line-color':PLAN_BOUNDARY,
-        'line-width':5.5,
-        'line-opacity':1
-      },
-      layout:{ 'line-cap':'round', 'line-join':'round' }
-    }, before);
-
-    // Bus-stop halo + dot.
-    map.addLayer({
-      id:'xx-transit-bus-halo', type:'circle', source:'xx-plan-transit',
-      filter:['==',['get','kind'],'bus'],
-      paint:{
-        'circle-radius':9,
-        'circle-color':'#ffffff',
-        'circle-opacity':0.92,
-        'circle-stroke-width':1.5,
-        'circle-stroke-color':'#7c4a03'
-      }
-    });
-    map.addLayer({
-      id:'xx-transit-bus', type:'circle', source:'xx-plan-transit',
-      filter:['==',['get','kind'],'bus'],
-      paint:{
-        'circle-radius':5.5,
-        'circle-color':BUS_COLOR,
-        'circle-stroke-width':1.5,
-        'circle-stroke-color':'#ffffff'
-      }
-    });
-
-    // Train / rail station halo + dot.
-    map.addLayer({
-      id:'xx-transit-train-halo', type:'circle', source:'xx-plan-transit',
-      filter:['==',['get','kind'],'train'],
-      paint:{
-        'circle-radius':11,
-        'circle-color':'#ffffff',
-        'circle-opacity':0.96,
-        'circle-stroke-width':2,
-        'circle-stroke-color':'#7f1d1d'
-      }
-    });
-    map.addLayer({
-      id:'xx-transit-train', type:'circle', source:'xx-plan-transit',
-      filter:['==',['get','kind'],'train'],
-      paint:{
-        'circle-radius':7,
-        'circle-color':TRAIN_COLOR,
-        'circle-stroke-width':2,
-        'circle-stroke-color':'#ffffff'
-      }
-    });
-
-    // Names appear when zoomed in enough to be useful.
-    map.addLayer({
-      id:'xx-transit-labels', type:'symbol', source:'xx-plan-transit',
-      minzoom:13.2,
-      layout:{
-        'text-field':['coalesce',['get','name'],['get','label']],
-        'text-font':['Open Sans Regular'],
-        'text-size':11,
-        'text-offset':[0,1.15],
-        'text-anchor':'top',
-        'text-allow-overlap':false,
-        'text-ignore-placement':false
-      },
-      paint:{
-        'text-color':TRANSIT_TEXT_COLOR,
-        'text-halo-color':'#ffffff',
-        'text-halo-width':2,
-        'text-halo-blur':0.5
-      }
-    });
-
-    // Small popup on public-transport markers.
-    ['xx-transit-bus','xx-transit-train'].forEach(layerId => {
-      map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', layerId, () => { if (mode === 'idle') map.getCanvas().style.cursor = ''; });
-      map.on('click', layerId, e => {
-        const f = e.features && e.features[0];
-        if (!f) return;
-        const p = f.properties || {};
-        const coords = f.geometry.coordinates.slice();
-        const typeName = p.kind === 'train' ? 'Train station' : 'Bus stop';
-        new maplibregl.Popup({ closeButton:true, closeOnClick:true, offset:12 })
-          .setLngLat(coords)
-          .setHTML('<div style="font:600 12px Inter,sans-serif;color:#111827">' +
-            escapeHtml(p.name || p.label || typeName) +
-            '</div><div style="font:500 10px Inter,sans-serif;color:#64748b;margin-top:2px">' +
-            typeName + '</div>')
-          .addTo(map);
-      });
-    });
-
+    // Insert above base tiles and below existing zones, segments and edit handles.
+    map.addSource('xx-plan-booked', {type:'geojson', data:fc()});
+    map.addSource('xx-plan-boundary', {type:'geojson', data:fc()});
+    const before = map.getLayer('muni-fill') ? 'muni-fill' : undefined;
+    map.addSource('xx-plan-areas', {type:'geojson', data:fc()});
+    map.addLayer({id:'xx-plan-area-fill', type:'fill', source:'xx-plan-areas',
+      paint:{'fill-color':'#c4b5fd', 'fill-opacity':0.08}}, before);
+    map.addLayer({id:'xx-plan-area-outline', type:'line', source:'xx-plan-areas',
+      paint:{'line-color':'#a78bfa', 'line-width':2, 'line-opacity':0.75}}, before);
+    map.addLayer({id:'xx-plan-booked-fill', type:'fill', source:'xx-plan-booked',
+      paint:{'fill-color':'#4f7cff', 'fill-opacity':0.30}}, before);
+    map.addLayer({id:'xx-plan-booked-outline', type:'line', source:'xx-plan-booked',
+      paint:{'line-color':'#315ed8', 'line-width':1.25, 'line-opacity':0.55}}, before);
+    map.addLayer({id:'xx-plan-boundary-glow', type:'line', source:'xx-plan-boundary',
+      paint:{'line-color':'#ffffff','line-width':10,'line-opacity':0.46,'line-blur':3}}, before);
+    map.addLayer({id:'xx-plan-boundary-line', type:'line', source:'xx-plan-boundary',
+      paint:{'line-color':'#0b1f4d','line-width':5.5,'line-opacity':1}}, before);
     ready = true;
     renderPlan();
   }
-
   if (map.loaded()) initPlanOverlay();
   else map.once('load', initPlanOverlay);
-
-  function escapeHtml(v) {
-    return String(v ?? '')
-      .replaceAll('&','&amp;')
-      .replaceAll('<','&lt;')
-      .replaceAll('>','&gt;')
-      .replaceAll('"','&quot;')
-      .replaceAll("'",'&#039;');
-  }
 
   function bookedFeatures(root) {
     const saved = root?.planner?.zones || root?.zones || {};
     let skipped = 0;
     const result = [];
-
+    const hexColors = ['#93c5fd','#fca5a5','#86efac','#fde68a','#c4b5fd','#fdba74','#67e8f9','#f9a8d4'];
     Object.entries(saved).sort(([a],[b]) => a.localeCompare(b)).forEach(([key, zone]) => {
       if (!zone || (zone.status && String(zone.status).toLowerCase() !== 'booked')) return;
-
       const raw = zone.coordinates || zone.points || [];
       const points = (Array.isArray(raw) ? raw : Object.values(raw)).map(p =>
         Array.isArray(p) ? [Number(p[0]), Number(p[1])] :
           [Number(p?.lng ?? p?.longitude), Number(p?.lat ?? p?.latitude)]);
-
-      if (points.length < 3 ||
-          points.some(p => !p.every(Number.isFinite) || Math.abs(p[0]) > 180 || Math.abs(p[1]) > 90) ||
-          new Set(points.map(p => p.join(','))).size < 3) {
-        skipped++;
-        return;
-      }
-
+      if (points.length < 3 || points.some(p => !p.every(Number.isFinite) ||
+          Math.abs(p[0]) > 180 || Math.abs(p[1]) > 90) ||
+          new Set(points.map(p => p.join(','))).size < 3) { skipped++; return; }
       const first = points[0], last = points[points.length - 1];
       if (first[0] !== last[0] || first[1] !== last[1]) points.push([...first]);
-
-      result.push(feat('Polygon', [points], {
-        key,
-        hexId:zone.hexId || key
-      }));
+      result.push(feat('Polygon', [points], {key, hexId:zone.hexId || key, hexColor:hexColors[result.length % hexColors.length]}));
     });
-
-    return { features:result, skipped };
+    return {features:result, skipped};
   }
 
   function savedAreas(root) {
@@ -1540,304 +1407,85 @@ window.__xxPlanHexFeatures = [];
     const raw = planner.areas ? Object.values(planner.areas) :
       planner.area ? [planner.area] : root.areas ? Object.values(root.areas) :
       root.area ? [root.area] : [];
-
     const result = [];
     raw.filter(Boolean).forEach((area, index) => {
       const geometry = area.geometry;
-      if (!geometry || !['Polygon','MultiPolygon'].includes(geometry.type)) return;
-
+      if (!geometry || !['Polygon', 'MultiPolygon'].includes(geometry.type)) return;
       try {
         const rings = geomRings(geometry);
         if (!rings.length || rings.some(r => !Array.isArray(r) || r.length < 4 ||
           r.some(p => !Array.isArray(p) || p.length < 2 ||
             !Number.isFinite(p[0]) || !Number.isFinite(p[1])))) return;
-
-        result.push({
-          type:'Feature',
-          geometry,
-          properties:{
-            name:area.name || area.areaName || area.properties?.name || ('Saved area ' + (index + 1))
-          }
-        });
-      } catch (_) {}
+        result.push({type:'Feature', geometry,
+          properties:{name:area.name || area.areaName || area.properties?.name ||
+            'Saved area ' + (index + 1)}});
+      } catch (_) { /* Ignore malformed legacy geometry. */ }
     });
     return result;
   }
 
-  // ---------------------------------------------------------------------------
-  // Build a thick boundary around the OUTSIDE of the booked hexagon collection.
-  // Shared edges occur twice and are removed; outside edges occur once.
-  // ---------------------------------------------------------------------------
   function makeOuterBoundary(hexFeatures) {
-    if (!hexFeatures.length) return [];
-
-    const precision = 7;
-    const snap = p => [Number(p[0].toFixed(precision)), Number(p[1].toFixed(precision))];
-    const pointKey = p => `${p[0].toFixed(precision)},${p[1].toFixed(precision)}`;
-    const edgeKey = (a,b) => {
-      const ka = pointKey(a), kb = pointKey(b);
-      return ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
-    };
-
-    const edges = new Map();
-
-    hexFeatures.forEach(f => {
-      geomRings(f.geometry).forEach(ring => {
-        for (let i = 0; i < ring.length - 1; i++) {
-          const a = snap(ring[i]);
-          const b = snap(ring[i+1]);
-          const k = edgeKey(a,b);
-          const existing = edges.get(k);
-          if (existing) existing.count++;
-          else edges.set(k, { count:1, a, b });
-        }
-      });
-    });
-
-    // Only outside edges remain. Keep each as a tiny LineString; MapLibre renders
-    // them continuously with round joins, producing one strong area boundary.
-    return [...edges.values()]
-      .filter(e => e.count === 1)
-      .map((e, i) => feat('LineString', [e.a, e.b], { edge:i }));
-  }
-
-  function planBounds() {
-    // Transit search bounds come ONLY from booked hexagons in the opened XX plan.
-    // Saved/general areas are deliberately ignored.
-    const rings = features.flatMap(f => geomRings(f.geometry));
-    if (!rings.length) return null;
-
-    let minLng=Infinity, minLat=Infinity, maxLng=-Infinity, maxLat=-Infinity;
-    rings.forEach(ring => ring.forEach(([lng,lat]) => {
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-    }));
-
-    if (![minLng,minLat,maxLng,maxLat].every(Number.isFinite)) return null;
-    return { minLng, minLat, maxLng, maxLat };
-  }
-
-  function pointInsidePlan(pt) {
-    // STRICT: only booked hexagons from the currently opened XX ID count.
-    // Never fall back to municipality, saved-area, viewport, or any other map area.
-    return features.length > 0 && features.some(f => pointInGeom(pt, f.geometry));
-  }
-
-  function transitKind(tags={}) {
-    const railway = String(tags.railway || '').toLowerCase();
-    const publicTransport = String(tags.public_transport || '').toLowerCase();
-    const highway = String(tags.highway || '').toLowerCase();
-    const bus = String(tags.bus || '').toLowerCase();
-    const train = String(tags.train || '').toLowerCase();
-
-    if (railway === 'station' || railway === 'halt' || railway === 'tram_stop' ||
-        train === 'yes' || publicTransport === 'station') return 'train';
-
-    if (highway === 'bus_stop' || bus === 'yes' ||
-        publicTransport === 'platform' || publicTransport === 'stop_position') return 'bus';
-
-    return null;
-  }
-
-  async function loadTransitForCurrentPlan(ticket) {
-    const b = planBounds();
-    if (!b || !features.length) {
-      transitFeatures = [];
-      renderPlan();
-      return {bus:0, train:0};
-    }
-
-    // Query only the smallest bounding box around the booked XX hexagons.
-    // A second exact polygon test below removes anything outside those hexagons.
-    const south = b.minLat;
-    const west  = b.minLng;
-    const north = b.maxLat;
-    const east  = b.maxLng;
-    const bbox = `${south},${west},${north},${east}`;
-
-    const query = `
-[out:json][timeout:25];
-(
-  node[highway=bus_stop](${bbox});
-  node[public_transport=platform][bus=yes](${bbox});
-  node[public_transport=stop_position][bus=yes](${bbox});
-  node[railway=station](${bbox});
-  node[railway=halt](${bbox});
-  node[railway=tram_stop](${bbox});
-  node[public_transport=station](${bbox});
-);
-out body;`;
-
-    const endpoints = [
-      'https://overpass-api.de/api/interpreter',
-      'https://overpass.kumi.systems/api/interpreter'
-    ];
-
-    let data = null;
-    let lastErr = null;
-
-    for (const endpoint of endpoints) {
-      if (ticket !== transitRequestId) return {bus:0, train:0};
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 18000);
-        const r = await fetch(endpoint, {
-          method:'POST',
-          headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-          body:'data=' + encodeURIComponent(query),
-          signal:controller.signal
-        });
-        clearTimeout(timeout);
-        if (!r.ok) throw new Error('Transit service returned HTTP ' + r.status);
-        data = await r.json();
-        break;
-      } catch (err) {
-        lastErr = err;
+    const precision=7, edges=new Map();
+    const snap=p=>[Number(p[0].toFixed(precision)),Number(p[1].toFixed(precision))];
+    const pk=p=>`${p[0].toFixed(precision)},${p[1].toFixed(precision)}`;
+    const ek=(a,b)=>{ const ka=pk(a),kb=pk(b); return ka<kb?`${ka}|${kb}`:`${kb}|${ka}`; };
+    hexFeatures.forEach(f=>geomRings(f.geometry).forEach(r=>{
+      for(let i=0;i<r.length-1;i++){
+        const a=snap(r[i]),b=snap(r[i+1]),k=ek(a,b),old=edges.get(k);
+        if(old) old.count++; else edges.set(k,{count:1,a,b});
       }
-    }
-
-    if (ticket !== transitRequestId) return {bus:0, train:0};
-    if (!data || !Array.isArray(data.elements)) throw lastErr || new Error('Transit data unavailable');
-
-    const seen = new Set();
-    const out = [];
-    let busCount = 0, trainCount = 0;
-
-    data.elements.forEach(el => {
-      if (!Number.isFinite(el.lon) || !Number.isFinite(el.lat)) return;
-      const tags = el.tags || {};
-      const kind = transitKind(tags);
-      if (!kind) return;
-
-      const pt = [el.lon, el.lat];
-      if (!pointInsidePlan(pt)) return;
-
-      const name = tags.name || tags['name:nl'] || tags['name:fr'] || tags.ref || '';
-      // Avoid duplicate OSM nodes that represent the same named stop almost on top
-      // of one another, while preserving different stop names.
-      const dedupe = `${kind}|${name}|${el.lon.toFixed(5)}|${el.lat.toFixed(5)}`;
-      if (seen.has(dedupe)) return;
-      seen.add(dedupe);
-
-      if (kind === 'train') trainCount++;
-      else busCount++;
-
-      out.push(feat('Point', pt, {
-        id:String(el.id),
-        kind,
-        name:name || (kind === 'train' ? 'Train station' : 'Bus stop'),
-        label:kind === 'train' ? 'Train station' : 'Bus stop'
-      }));
-    });
-
-    transitFeatures = out;
-    renderPlan();
-    return {bus:busCount, train:trainCount};
-  }
-
-  function updatePlanInfo(base, counts, transitFailed=false) {
-    let suffix = '';
-    if (counts) {
-      suffix = ` · ${counts.bus} bus stop${counts.bus===1?'':'s'} · ${counts.train} train station${counts.train===1?'':'s'}`;
-    } else if (transitFailed) {
-      suffix = ' · transit data unavailable';
-    }
-    info.textContent = base + suffix;
+    }));
+    return [...edges.values()].filter(e=>e.count===1)
+      .map((e,i)=>feat('LineString',[e.a,e.b],{edge:i}));
   }
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
-    if (mode !== 'idle') {
-      toast('Finish or cancel the current drawing or edit before opening a plan.');
-      return;
-    }
-
+    if (mode !== 'idle') { toast('Finish or cancel the current drawing or edit before opening a plan.'); return; }
     const id = input.value.trim().toUpperCase();
-    if (!/^XX[A-Z0-9_-]+$/.test(id)) {
-      info.textContent = 'Enter a valid XX ID, for example XX290871.';
-      return;
-    }
-
+    if (!/^XX[A-Z0-9_-]+$/.test(id)) { info.textContent = 'Enter a valid XX ID, for example XX290871.'; return; }
     const ticket = ++requestId;
-    ++transitRequestId; // cancel any transit fetch belonging to an older plan
-    const thisTransitTicket = transitRequestId;
-
-    currentPlanId = id;
     input.value = id;
     button.disabled = true;
     button.textContent = '…';
     info.textContent = 'Opening ' + id + '…';
-
     try {
       const results = await Promise.allSettled([id, id.toLowerCase()].map(key =>
         planDB.ref('campaigns/' + key).once('value')));
-
       if (ticket !== requestId) return;
-
       const found = results.find(r => r.status === 'fulfilled' && r.value.exists());
-      if (!found) {
-        throw new Error(results.some(r => r.status === 'rejected')
-          ? 'Could not read this plan. Check database access and try again.'
-          : 'No saved plan found for ' + id + '.');
-      }
-
+      if (!found) throw new Error(results.some(r => r.status === 'rejected')
+        ? 'Could not read this plan. Check database access and try again.'
+        : 'No saved plan found for ' + id + '.');
       const parsed = bookedFeatures(found.value.val());
       features = parsed.features;
       areas = savedAreas(found.value.val());
       boundaryFeatures = makeOuterBoundary(features);
-      transitFeatures = [];
       pendingFit = true;
       renderPlan();
       clear.classList.remove('hidden');
 
-      // Segments are intentionally loaded ONLY after an XX plan is open,
-      // then filtered before anything is drawn on the map.
-      await loadSegmentsForOpenedPlan();
-      if (ticket !== requestId) return;
-
-      const baseInfo = id + ' · ' + features.length + ' booked hexagon' +
+      // Only now read segments, and keep only lines touching/passing through booked hexagons.
+      const touchingSegments = await loadSegmentsForPlan(features);
+      info.textContent = id + ' · ' + features.length + ' booked hexagon' +
         (features.length === 1 ? '' : 's') + ' · ' + areas.length +
-        ' saved area' + (areas.length === 1 ? '' : 's') +
+        ' saved area' + (areas.length === 1 ? '' : 's') + ' · ' + touchingSegments + ' touching segment' + (touchingSegments === 1 ? '' : 's') +
         (parsed.skipped ? ' · ' + parsed.skipped + ' invalid outline(s) skipped' : '');
-
-      info.textContent = baseInfo + ' · loading bus/train stops…';
-
-      try {
-        const counts = await loadTransitForCurrentPlan(thisTransitTicket);
-        if (ticket === requestId && thisTransitTicket === transitRequestId)
-          updatePlanInfo(baseInfo, counts, false);
-      } catch (transitErr) {
-        console.warn('Transit overlay failed:', transitErr);
-        if (ticket === requestId && thisTransitTicket === transitRequestId)
-          updatePlanInfo(baseInfo, null, true);
-      }
-
     } catch (err) {
-      if (ticket === requestId) {
-        info.textContent = err.message +
-          ((features.length || areas.length) ? ' Previous plan is still displayed.' : '');
-      }
+      if (ticket === requestId) info.textContent = err.message +
+        ((features.length || areas.length) ? ' Previous plan is still displayed.' : '');
     } finally {
-      if (ticket === requestId) {
-        button.disabled = false;
-        button.textContent = 'Open';
-      }
+      if (ticket === requestId) { button.disabled = false; button.textContent = 'Open'; }
     }
   });
 
   clear.addEventListener('click', () => {
     requestId++;
-    transitRequestId++;
-    currentPlanId = '';
     features = [];
     areas = [];
-    boundaryFeatures = [];
-    transitFeatures = [];
     pendingFit = false;
     renderPlan();
-    clearLoadedSegments();
+    clearPlanSegments();
     input.value = '';
     button.disabled = false;
     button.textContent = 'Open';
@@ -1848,3 +1496,5 @@ out body;`;
 </script>
 </body>
 </html>
+
+
