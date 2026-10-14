@@ -1280,6 +1280,9 @@ function segmentTouchesGeometry(coords, geometry) {
 }
 
 let planSegmentLoadTicket = 0;
+let allSegmentsCache = null;
+let allSegmentsPromise = null;
+
 function clearPlanSegments() {
   planSegmentLoadTicket++;
   Object.keys(segs).forEach(k => { try { remEndpts(k); } catch(_){} delete segs[k]; });
@@ -1289,31 +1292,84 @@ function clearPlanSegments() {
   if (map.getSource('editLine')) map.getSource('editLine').setData(fc());
 }
 
-async function loadSegmentsForPlan(areaFeatures) {
+function geometryBBox(geometry) {
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  geomRings(geometry).forEach(r => r.forEach(([x,y]) => {
+    if (x<minX) minX=x; if (x>maxX) maxX=x;
+    if (y<minY) minY=y; if (y>maxY) maxY=y;
+  }));
+  return Number.isFinite(minX) ? [minX,minY,maxX,maxY] : null;
+}
+function coordsBBox(coords) {
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  coords.forEach(([x,y]) => {
+    if (x<minX) minX=x; if (x>maxX) maxX=x;
+    if (y<minY) minY=y; if (y>maxY) maxY=y;
+  });
+  return [minX,minY,maxX,maxY];
+}
+function bboxIntersects(a,b) {
+  return !!a && !!b && !(a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3]);
+}
+
+// Fetch the Firebase segment collection once per page session, parse it once, and cache it.
+// Starting this as soon as an XX ID is submitted lets the segment download happen in parallel
+// with the plan download instead of waiting for the plan first.
+function getAllSegmentsCached() {
+  if (allSegmentsCache) return Promise.resolve(allSegmentsCache);
+  if (allSegmentsPromise) return allSegmentsPromise;
+  allSegmentsPromise = DB.ref('segments').once('value').then(snap => {
+    const arr=[];
+    snap.forEach(child => {
+      const coords=parseCoords(child.val());
+      if (coords.length<2) return;
+      arr.push({ key:child.key, coords, bbox:coordsBBox(coords) });
+    });
+    allSegmentsCache = arr;
+    return arr;
+  }).catch(err => {
+    allSegmentsPromise = null;
+    throw err;
+  });
+  return allSegmentsPromise;
+}
+
+async function loadSegmentsForPlan(areaFeatures, preloadPromise) {
   clearPlanSegments();
   if (!Array.isArray(areaFeatures) || !areaFeatures.length) {
     setStatus('XX plan has no saved area boundary', false);
     return 0;
   }
   const ticket = ++planSegmentLoadTicket;
-  setStatus('Loading touching segments…', false);
+  setStatus('Finding touching segments…', false);
   try {
-    const snap = await DB.ref('segments').once('value');
+    const all = await (preloadPromise || getAllSegmentsCached());
     if (ticket !== planSegmentLoadTicket) return 0;
+
+    // Cheap bounding-box rejection first. Exact line/polygon testing only runs for nearby segments.
+    const areaTests = areaFeatures.map(f => ({ feature:f, bbox:geometryBBox(f.geometry) }));
     const matches=[];
-    snap.forEach(child => {
-      const coords=parseCoords(child.val());
-      if (coords.length<2) return;
-      if (!areaFeatures.some(f => segmentTouchesGeometry(coords, f.geometry))) return;
-      matches.push([child.key, coords]);
-    });
+    for (const item of all) {
+      let hit=false;
+      for (const a of areaTests) {
+        if (!bboxIntersects(item.bbox, a.bbox)) continue;
+        if (segmentTouchesGeometry(item.coords, a.feature.geometry)) { hit=true; break; }
+      }
+      if (hit) matches.push(item);
+    }
     if (ticket !== planSegmentLoadTicket) return 0;
-    matches.forEach(([key,coords]) => {
-      segs[key]={coords,endMarkers:[]};
-      segKeys.push(key);
-      addEndpts(key);
+
+    // Populate the editable segment store, but do NOT create individual DOM endpoint markers.
+    // One GeoJSON setData call is dramatically faster for large result sets.
+    const featuresOut=[];
+    matches.forEach((item,i) => {
+      segs[item.key]={coords:item.coords,endMarkers:[]};
+      segKeys.push(item.key);
+      featuresOut.push(feat('LineString', item.coords, {key:item.key, sel:false, idx:i+1}));
     });
-    refreshSegs();
+    if (map.getSource('segs')) map.getSource('segs').setData(fc(featuresOut));
+    const sub=document.getElementById('sbSub');
+    if (sub) sub.textContent = matches.length + ' segment' + (matches.length!==1?'s':'') + ' loaded';
     setStatus(`${matches.length} touching segment${matches.length===1?'':'s'} shown`);
     return matches.length;
   } catch(err) {
@@ -1344,10 +1400,11 @@ async function loadSegmentsForPlan(areaFeatures) {
       databaseURL:'https://trackingclients-default-rtdb.firebaseio.com/'
     }, 'xxPlanReader');
   const planDB = planApp.database();
-  let areas = [], requestId = 0, ready = false, pendingFit = false;
+  let features = [], areas = [], requestId = 0, ready = false, pendingFit = false;
 
   function renderPlan() {
     if (!ready) return;
+    map.getSource('xx-plan-booked').setData(fc(features));
     map.getSource('xx-plan-areas').setData(fc(areas));
     if (pendingFit && areas.length && mode === 'idle') {
       fitRings(areas.flatMap(f => geomRings(f.geometry)), { maxZoom:16 });
@@ -1358,9 +1415,14 @@ async function loadSegmentsForPlan(areaFeatures) {
   function initPlanOverlay() {
     // Insert above base tiles and below existing zones, segments and edit handles.
     const before = map.getLayer('muni-fill') ? 'muni-fill' : undefined;
+    map.addSource('xx-plan-booked', {type:'geojson', data:fc()});
     map.addSource('xx-plan-areas', {type:'geojson', data:fc()});
-    map.addLayer({id:'xx-plan-area-fill', type:'fill', source:'xx-plan-areas',
+    map.addLayer({id:'xx-plan-booked-fill', type:'fill', source:'xx-plan-booked',
       paint:{'fill-color':'#4f7cff', 'fill-opacity':0.16}}, before);
+    map.addLayer({id:'xx-plan-booked-outline', type:'line', source:'xx-plan-booked',
+      paint:{'line-color':'#4f7cff', 'line-width':1.2, 'line-opacity':0.38}}, before);
+    map.addLayer({id:'xx-plan-area-fill', type:'fill', source:'xx-plan-areas',
+      paint:{'fill-color':'#4f7cff', 'fill-opacity':0.10}}, before);
     map.addLayer({id:'xx-plan-area-glow', type:'line', source:'xx-plan-areas',
       paint:{'line-color':'#020617','line-width':16,'line-opacity':0.48,'line-blur':4}}, before);
     map.addLayer({id:'xx-plan-area-outline', type:'line', source:'xx-plan-areas',
@@ -1370,6 +1432,27 @@ async function loadSegmentsForPlan(areaFeatures) {
   }
   if (map.loaded()) initPlanOverlay();
   else map.once('load', initPlanOverlay);
+
+
+  function bookedFeatures(root) {
+    const saved = root?.planner?.zones || root?.zones || {};
+    let skipped = 0;
+    const result = [];
+    Object.entries(saved).sort(([a],[b]) => a.localeCompare(b)).forEach(([key, zone]) => {
+      if (!zone || (zone.status && String(zone.status).toLowerCase() !== 'booked')) return;
+      const raw = zone.coordinates || zone.points || [];
+      const points = (Array.isArray(raw) ? raw : Object.values(raw)).map(p =>
+        Array.isArray(p) ? [Number(p[0]), Number(p[1])] :
+          [Number(p?.lng ?? p?.longitude), Number(p?.lat ?? p?.latitude)]);
+      if (points.length < 3 || points.some(p => !p.every(Number.isFinite) ||
+          Math.abs(p[0]) > 180 || Math.abs(p[1]) > 90) ||
+          new Set(points.map(p => p.join(','))).size < 3) { skipped++; return; }
+      const first = points[0], last = points[points.length - 1];
+      if (first[0] !== last[0] || first[1] !== last[1]) points.push([...first]);
+      result.push(feat('Polygon', [points], {key, hexId:zone.hexId || key}));
+    });
+    return {features:result, skipped};
+  }
 
   function savedAreas(root) {
     const planner = root.planner || {};
@@ -1400,6 +1483,8 @@ async function loadSegmentsForPlan(areaFeatures) {
     if (!/^XX[A-Z0-9_-]+$/.test(id)) { info.textContent = 'Enter a valid XX ID, for example XX290871.'; return; }
     const ticket = ++requestId;
     input.value = id;
+    // Start downloading/parsing segments immediately, in parallel with the XX plan request.
+    const segmentPreload = getAllSegmentsCached();
     button.disabled = true;
     button.textContent = '…';
     info.textContent = 'Opening ' + id + '…';
@@ -1411,6 +1496,8 @@ async function loadSegmentsForPlan(areaFeatures) {
       if (!found) throw new Error(results.some(r => r.status === 'rejected')
         ? 'Could not read this plan. Check database access and try again.'
         : 'No saved plan found for ' + id + '.');
+      const parsed = bookedFeatures(found.value.val());
+      features = parsed.features;
       areas = savedAreas(found.value.val());
       if (!areas.length) throw new Error('This XX plan has no saved area boundary.');
       pendingFit = true;
@@ -1419,10 +1506,12 @@ async function loadSegmentsForPlan(areaFeatures) {
 
       // Read segments only after the saved area boundary is loaded.
       // Matching uses the saved area polygon only — no hexagons.
-      const touchingSegments = await loadSegmentsForPlan(areas);
-      info.textContent = id + ' · ' + areas.length +
+      const touchingSegments = await loadSegmentsForPlan(areas, segmentPreload);
+      info.textContent = id + ' · ' + features.length +
+        ' booked hexagon' + (features.length === 1 ? '' : 's') + ' · ' + areas.length +
         ' saved area' + (areas.length === 1 ? '' : 's') + ' · ' + touchingSegments +
-        ' touching/passing segment' + (touchingSegments === 1 ? '' : 's');
+        ' touching/passing segment' + (touchingSegments === 1 ? '' : 's') +
+        (parsed.skipped ? ' · ' + parsed.skipped + ' invalid hex outline(s) skipped' : '');
     } catch (err) {
       if (ticket === requestId) info.textContent = err.message +
         (areas.length ? ' Previous plan is still displayed.' : '');
@@ -1433,6 +1522,7 @@ async function loadSegmentsForPlan(areaFeatures) {
 
   clear.addEventListener('click', () => {
     requestId++;
+    features = [];
     areas = [];
     pendingFit = false;
     renderPlan();
