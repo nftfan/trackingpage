@@ -1359,8 +1359,9 @@ async function loadSegmentsForPlan(areaFeatures, preloadPromise) {
     }
     if (ticket !== planSegmentLoadTicket) return 0;
 
-    // Populate the editable segment store, but do NOT create individual DOM endpoint markers.
-    // One GeoJSON setData call is dramatically faster for large result sets.
+    // Populate the editable segment store first, then render all segment lines in ONE GeoJSON update.
+    // Endpoint number markers are added only for these filtered/matching segments, after the lines
+    // are already visible, so we keep the fast loading behaviour.
     const featuresOut=[];
     matches.forEach((item,i) => {
       segs[item.key]={coords:item.coords,endMarkers:[]};
@@ -1368,6 +1369,16 @@ async function loadSegmentsForPlan(areaFeatures, preloadPromise) {
       featuresOut.push(feat('LineString', item.coords, {key:item.key, sel:false, idx:i+1}));
     });
     if (map.getSource('segs')) map.getSource('segs').setData(fc(featuresOut));
+
+    // Add the same segment number at BOTH ends of every visible segment.
+    // Defer marker creation by one frame so the segment lines appear immediately.
+    requestAnimationFrame(() => {
+      if (ticket !== planSegmentLoadTicket) return;
+      segKeys.forEach(key => {
+        if (segs[key] && (!segs[key].endMarkers || !segs[key].endMarkers.length)) addEndpts(key);
+      });
+    });
+
     const sub=document.getElementById('sbSub');
     if (sub) sub.textContent = matches.length + ' segment' + (matches.length!==1?'s':'') + ' loaded';
     setStatus(`${matches.length} touching segment${matches.length===1?'':'s'} shown`);
@@ -1424,9 +1435,9 @@ async function loadSegmentsForPlan(areaFeatures, preloadPromise) {
     map.addLayer({id:'xx-plan-area-fill', type:'fill', source:'xx-plan-areas',
       paint:{'fill-color':'#4f7cff', 'fill-opacity':0.10}}, before);
     map.addLayer({id:'xx-plan-area-glow', type:'line', source:'xx-plan-areas',
-      paint:{'line-color':'#020617','line-width':16,'line-opacity':0.48,'line-blur':4}}, before);
+      paint:{'line-color':'#0f172a','line-width':7,'line-opacity':0.22,'line-blur':2}}, before);
     map.addLayer({id:'xx-plan-area-outline', type:'line', source:'xx-plan-areas',
-      paint:{'line-color':'#071226', 'line-width':8.5, 'line-opacity':1}}, before);
+      paint:{'line-color':'#111827', 'line-width':4, 'line-opacity':0.92}}, before);
     ready = true;
     renderPlan();
   }
