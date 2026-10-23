@@ -1806,7 +1806,15 @@ body{font-size:12px;background:var(--wash)}
 .delivery-overview{background:transparent;border:0;border-radius:0;padding:0;margin-top:18px}.delivery-overview strong{font-size:22px}.summary-facts{gap:12px}.summary-facts span{background:transparent;border:0}
 #emailStartDialog{width:min(400px,calc(100vw - 32px));padding:28px;border:1px solid #dce3d7;border-radius:16px;background:#f5f6f2;color:var(--ink);box-shadow:0 20px 80px #172a3d30}#emailStartDialog::backdrop{background:rgba(27,42,32,.4)}
 .email-start-head h2{font-size:25px;font-weight:500;margin:12px 0}.email-start-head p{font-size:12px;line-height:1.7;color:#687b6e;margin-bottom:20px}.email-start-fields label{display:block;font-size:12px;margin-bottom:8px}.email-start-fields .field{height:42px;font-size:13px}.email-start-fields .action{width:100%;height:40px;border-radius:9px;margin-top:12px!important}.email-secondary{display:block;border:0;background:transparent;color:#46775c;font-size:11px;cursor:pointer;padding:8px 0;margin-top:10px}.email-secondary:hover{text-decoration:underline}
-</style></head>
+</style><style>
+#myPlansDialog{width:min(540px,calc(100vw - 32px));max-height:80vh;padding:0;border:1px solid #dce3d7;border-radius:16px;background:#f5f6f2;color:var(--ink);box-shadow:0 24px 80px #172a3d30}#myPlansDialog::backdrop{background:rgba(27,42,32,.4)}#closeMyPlans{border:0;background:transparent;color:inherit;font-size:25px;cursor:pointer}.my-plans-body{padding:20px}.my-plans-body label{display:block;font-size:11px;margin-bottom:8px}.my-plans-search{display:flex;gap:8px}.my-plans-search input{flex:1;min-width:0}.my-plans-search button{white-space:nowrap}#myPlansStatus{font-size:11px;color:#687b6e;line-height:1.6;margin:14px 0}#myPlansList{display:grid;gap:8px}.my-plan-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:14px;text-align:left;border:1px solid #dbe2d7;border-radius:10px;background:transparent;color:inherit;cursor:pointer}.my-plan-row:hover,.my-plan-row:focus-visible{background:#eaf0e5;border-color:#93ad94}.my-plan-name{display:block;font-size:13px;font-weight:500}.my-plan-meta{display:block;font-size:10px;color:#738075;margin-top:6px}.my-plan-open{font-size:11px;color:#46775c;white-space:nowrap}
+</style><style>#activeBusinessEmail{font-size:11px;font-weight:400;color:#627267;border-left:1px solid #d9e1d5;padding-left:14px;margin-left:5px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.brand{flex-shrink:1;min-width:0}@media(max-width:1100px){#activeBusinessEmail{max-width:150px;padding-left:9px;margin-left:0}.topbar{gap:10px}}</style><style id="prominent-guest-button">
+#continueAsGuest{display:flex;align-items:center;justify-content:center;width:100%;min-height:46px;padding:12px 18px;margin:16px 0 4px;border:1px solid #243e35;border-radius:10px;background:#243e35;color:#fff;font-size:13px;font-weight:600;line-height:1.4;text-align:center;text-decoration:none;cursor:pointer;transition:background .15s,transform .15s}
+#continueAsGuest:hover{background:#365847;border-color:#365847;text-decoration:none}
+#continueAsGuest:active{transform:translateY(1px)}
+#continueAsGuest:focus-visible{outline:3px solid #8bae8e;outline-offset:3px}
+</style>
+</head>
 <body>
 <div class="loader" id="loader">
 <div class="loader-box">
@@ -1840,7 +1848,7 @@ body{font-size:12px;background:var(--wash)}
 <div class="brand-name">LeuvenFlyers</div>
 <div class="brand-sub">Plan · Estimate · Track</div>
 </div>
-</div>
+<span aria-live="polite" id="activeBusinessEmail">No email selected</span></div>
 <nav aria-label="Planning links" class="header-actions">
 <button class="help-button" id="sharePlanBtn" type="button">Share link</button>
 </nav>
@@ -1848,7 +1856,7 @@ body{font-size:12px;background:var(--wash)}
 <label class="login-label" for="loginInput">Open plan</label>
 <input aria-label="Existing XX campaign ID" class="login-input" id="loginInput" inputmode="text" placeholder="XX plan ID" type="text"/>
 <button class="login-btn" id="loginBtn">Open</button>
-<button class="new-btn" id="newPlanBtn">New plan</button>
+<button class="new-btn" id="newPlanBtn">New plan</button><button aria-controls="myPlansDialog" aria-haspopup="dialog" class="new-btn" id="myPlansBtn" type="button">My Plans</button>
 </div>
 <div class="client-badge" hidden="" id="clientBadge"></div>
 </header>
@@ -1922,7 +1930,7 @@ body{font-size:12px;background:var(--wash)}
 </div>
 </section></div>
 </aside>
-<section aria-label="Campaign map and photo proof" class="map-workspace"><div class="map-heading"><div><span class="eyebrow">CAMPAIGN MAP</span><h2>Areas &amp; deliveries</h2></div><div class="map-key"><span><i style="background:#f5dfa0"></i>Estimated area</span><span><i style="background:#f97316"></i>Delivery</span><span>▣ Photo proof</span></div></div>
+<section aria-label="Campaign map and photo proof" class="map-workspace">
 <main aria-label="Campaign planning map" id="map"></main>
 <section aria-label="Photo proof" class="proof-bar">
 <div class="proof-heading">
@@ -1968,7 +1976,8 @@ import {
  remove,
  onValue,
  serverTimestamp,
- runTransaction
+ runTransaction,
+ query, orderByChild, equalTo
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
 
 /* -----------------------------------------------------
@@ -2117,6 +2126,11 @@ let areaSearchToken=0;
 let areaSuggestTimer=null;
 
 let clientId='';
+let plansEmail='';
+try{plansEmail=sessionStorage.getItem('lfPlansEmail')||'';}catch(ignore){}
+function renderActiveBusinessEmail(){const el=$('activeBusinessEmail');if(el){el.textContent=plansEmail||'Guest';el.title=plansEmail||'Browsing as guest';}}
+function rememberPlansEmail(value){plansEmail=String(value||'').trim();try{sessionStorage.setItem('lfPlansEmail',plansEmail);}catch(ignore){}renderActiveBusinessEmail();}
+renderActiveBusinessEmail();
 let clientPromise=null;
 
 let hexagons=[];
@@ -6720,10 +6734,12 @@ async function saveBusinessName(){
   const id=await ensureClient();
   const paths={
    [`campaigns/${id}/planner/meta/clientEmail`]:address,
-   [`campaigns/${id}/clientEmail`]:address
+   [`campaigns/${id}/clientEmail`]:address,
+   [`campaigns/${id}/clientEmailNormalized`]:address.toLowerCase()
   };
   if(currentCampaign?.status==='announced')paths[`announcedCampaigns/${id}/clientEmail`]=address;
   await update(ref(db),paths);
+  rememberPlansEmail(address);
   if(clientId===id)status.textContent=email.value.trim()===address?'Email saved.':'Email changed. Save again to update.';
   return true;
  }catch(error){
@@ -7742,6 +7758,8 @@ async function loadCampaign(requestedId){
 
   $('clientEmail').value=
    String(savedEmail);
+
+  rememberPlansEmail(savedEmail);
 
   $('businessSaveStatus').textContent=
    savedEmail
@@ -8962,12 +8980,73 @@ $('editBusinessEmail').addEventListener('click',()=>{
  $('saveBusinessBtn').textContent='Save email';
  $('emailStartDialog').showModal();
 });
+$('continueAsGuest').addEventListener('click',()=>{
+ $('clientEmail').value='';
+ $('businessSaveStatus').textContent='';
+ rememberPlansEmail('');
+ $('emailStartDialog').close();
+ $('areaSearch').focus();
+});
 $('openExistingInstead').addEventListener('click',()=>{
  $('emailStartDialog').close();els.loginInput.focus();
 });
 $('clientEmail').addEventListener('keydown',event=>{
  if(event.key==='Enter'){event.preventDefault();if(!$('saveBusinessBtn').disabled)$('saveBusinessBtn').click();}
 });
+
+
+const myPlansDialog=$('myPlansDialog');
+let plansLookupToken=0;
+async function findMyPlans(){
+ const input=$('myPlansEmail');input.value=input.value.trim();
+ if(!input.reportValidity())return;
+ const address=input.value,token=++plansLookupToken;
+ $('myPlansList').replaceChildren();$('myPlansStatus').textContent='Finding your plans…';$('findMyPlans').disabled=true;
+ try{
+  const queries=[get(query(ref(db,'campaigns'),orderByChild('clientEmailNormalized'),equalTo(address.toLowerCase())))];
+  for(const value of new Set([address,address.toLowerCase()])){
+   for(const field of ['clientEmail','planner/meta/clientEmail'])queries.push(get(query(ref(db,'campaigns'),orderByChild(field),equalTo(value))));
+  }
+  const results=await Promise.allSettled(queries);
+  if(token!==plansLookupToken)return;
+  const found=new Map();let failed=0;
+  results.forEach(result=>{
+   if(result.status!=='fulfilled'){failed++;return;}
+   result.value.forEach(child=>{
+    const data=child.val()||{},meta=data.planner?.meta||{};
+    if(String(data.clientEmail||meta.clientEmail||'').trim().toLowerCase()!==address.toLowerCase())return;
+    const id=normalizeId(child.key);if(!id)return;
+    found.set(id,{id,data,meta,time:Number(meta.updatedAt||data.updatedAt||meta.createdAt||data.createdAt)||0});
+   });
+  });
+  const plans=[...found.values()].sort((a,b)=>b.time-a.time||b.id.localeCompare(a.id,undefined,{numeric:true}));
+  $('myPlansStatus').textContent=failed===results.length?'Could not load plans. Please try again.':plans.length?`${plans.length} saved plan${plans.length===1?'':'s'}${failed?' · Some results could not be loaded.':''}`:failed?'Could not complete the search. Please try again.':'No plans found for this email. Use the email saved with your plan.';
+  if(failed!==results.length)rememberPlansEmail(address);
+  for(const plan of plans){
+   const row=document.createElement('button');row.type='button';row.className='my-plan-row';
+   const body=document.createElement('span'),name=document.createElement('span'),detail=document.createElement('span'),open=document.createElement('span');
+   name.className='my-plan-name';name.textContent=String(plan.meta.areaName||plan.data.areaName||plan.data.businessName||'Flyer distribution plan');
+   detail.className='my-plan-meta';detail.textContent=plan.id+(plan.time?' · '+new Date(plan.time).toLocaleDateString('en-GB'):'');
+   open.className='my-plan-open';open.textContent=plan.id===clientId?'Current plan':'Open →';body.append(name,detail);row.append(body,open);
+   row.addEventListener('click',async()=>{
+    if(areaSavePending||selectionWrites||estimatingSelection||bookingInProgress||clientPromise||els.loginBtn.disabled){toast('Please wait for the current plan to finish saving.');return;}
+    myPlansDialog.close();els.loginInput.value=plan.id;
+    if(mapReady)await loadCampaign(plan.id);else map.once('load',()=>loadCampaign(plan.id));
+   });
+   $('myPlansList').append(row);
+  }
+ }catch(error){if(token===plansLookupToken)$('myPlansStatus').textContent='Could not load plans. Please try again.';}
+ finally{if(token===plansLookupToken)$('findMyPlans').disabled=false;}
+}
+$('myPlansBtn').addEventListener('click',()=>{
+ $('myPlansEmail').value=plansEmail||$('clientEmail').value.trim();
+ myPlansDialog.showModal();
+ if($('myPlansEmail').value)findMyPlans();else{$('myPlansList').replaceChildren();$('myPlansStatus').textContent='Enter the email saved with your plans.';$('myPlansEmail').focus();}
+});
+$('myPlansForm').addEventListener('submit',event=>{event.preventDefault();findMyPlans();});
+$('closeMyPlans').addEventListener('click',()=>myPlansDialog.close());
+myPlansDialog.addEventListener('close',()=>{plansLookupToken++;$('findMyPlans').disabled=false;});
+myPlansDialog.addEventListener('click',event=>{const r=myPlansDialog.getBoundingClientRect();if(event.target===myPlansDialog&&(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom))myPlansDialog.close();});
 
 /* INITIAL VALUES */
 
@@ -9056,5 +9135,5 @@ shiftsDialog.addEventListener('click',event=>{
 document.getElementById('shiftList').addEventListener('click',event=>{
  if(event.target.closest('[data-shift-index]'))shiftsDialog.close();
 });
-</script><dialog aria-labelledby="emailStartTitle" id="emailStartDialog"><div class="email-start-head"><span class="eyebrow">LEUVENFLYERS</span><h2 id="emailStartTitle">Start your plan</h2><p>Enter your business email to save it with your plan.</p></div><section aria-label="Your business email" class="email-start-fields"><label class="quote-field-label" for="clientEmail">Your business email</label><input autocomplete="email" class="field" id="clientEmail" maxlength="254" placeholder="name@business.com" required="" type="email"/><button class="action" id="saveBusinessBtn" style="margin-top:7px" type="button">Save &amp; continue</button><div aria-live="polite" class="helper" id="businessSaveStatus" role="status" style="margin-top:5px"></div></section><button class="email-secondary" id="openExistingInstead" type="button">Open an existing plan instead</button></dialog></body>
+</script><dialog aria-labelledby="emailStartTitle" id="emailStartDialog"><div class="email-start-head"><span class="eyebrow">LEUVENFLYERS</span><h2 id="emailStartTitle">Start your plan</h2><p>Enter your business email to save it with your plan.</p></div><section aria-label="Your business email" class="email-start-fields"><label class="quote-field-label" for="clientEmail">Your business email</label><input autocomplete="email" class="field" id="clientEmail" maxlength="254" placeholder="name@business.com" required="" type="email"/><button class="action" id="saveBusinessBtn" style="margin-top:7px" type="button">Save &amp; continue</button><div aria-live="polite" class="helper" id="businessSaveStatus" role="status" style="margin-top:5px"></div></section><button class="email-secondary" id="continueAsGuest" type="button">Continue as guest</button><button class="email-secondary" id="openExistingInstead" type="button">Open an existing plan instead</button></dialog><dialog aria-labelledby="myPlansTitle" id="myPlansDialog"><div class="shifts-modal-head"><h2 id="myPlansTitle">My Plans</h2><button aria-label="Close plans" id="closeMyPlans" type="button">×</button></div><div class="my-plans-body"><form id="myPlansForm"><label for="myPlansEmail">Your business email</label><div class="my-plans-search"><input autocomplete="email" class="field" id="myPlansEmail" placeholder="name@business.com" required="" type="email"/><button class="login-btn" id="findMyPlans" type="submit">Find plans</button></div></form><div aria-live="polite" id="myPlansStatus" role="status"></div><div id="myPlansList"></div></div></dialog></body>
 </html>
