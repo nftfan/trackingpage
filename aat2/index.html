@@ -4996,39 +4996,21 @@ async function ensureClient(){
    candidate=`XX${++number}`;
   }
 
+  const address=$('clientEmail').value.trim()||plansEmail;
+  const meta={
+   clientId:candidate,businessName:$('quoteBusinessName').value.trim(),clientEmail:address,
+   countryCode:selectedCountry,countryName:countryConfig().name,fullShiftPrice:currentShiftPrice(),
+   otherCost:extraCampaignCost(),extraFlyers:0,status:'planning',createdAt:serverTimestamp()
+  };
+  await update(ref(db),{
+   [`campaigns/${candidate}/planner/meta`]:meta,
+   [`campaigns/${candidate}/clientEmail`]:address,
+   [`campaigns/${candidate}/clientEmailNormalized`]:address.toLowerCase(),
+   [`campaigns/${candidate}/createdAt`]:serverTimestamp()
+  });
   clientId=candidate;
-
-  renderCampaignTitle();
-
-  watchAnnouncedCampaign(
-   clientId
-  );
-
-  renderCurrentCampaign();
-
-  await set(
-   ref(
-    db,
-    `campaigns/${clientId}/planner/meta`
-   ),
-   {
-    clientId,
-    businessName:
-     $('quoteBusinessName').value.trim(),
-    clientEmail:
-     $('clientEmail').value.trim(),
-
-    countryCode:selectedCountry,
-    countryName:countryConfig().name,
-    fullShiftPrice:currentShiftPrice(),
-
-    otherCost:extraCampaignCost(),
-
-    extraFlyers:0,
-    status:'planning',
-    createdAt:serverTimestamp()
-   }
-  );
+  $('clientEmail').value=address;
+  renderCampaignTitle();watchAnnouncedCampaign(clientId);renderCurrentCampaign();
 
   watchShifts(clientId);
 
@@ -7038,8 +7020,8 @@ function normalizeId(value){
    .toUpperCase()
    .replace(/\s+/g,'');
 
- if(/^XX\d+$/.test(compact)){
-  return compact;
+ if(/^(XX|FF)\d+$/.test(compact)){
+  return 'XX'+compact.slice(2);
  }
 
  if(/^\d+$/.test(compact)){
@@ -8897,9 +8879,7 @@ els.announceBtn.addEventListener(
 
 els.loginBtn.addEventListener(
  'click',
- ()=>loadCampaign(
-  els.loginInput.value
- )
+ ()=>{if(els.loginInput.value.trim())loadCampaign(els.loginInput.value);else $('myPlansBtn').click();}
 );
 
 els.loginInput.addEventListener(
@@ -8922,6 +8902,8 @@ els.newPlanBtn.addEventListener(
  ()=>{
 
   resetPlan();
+  $('clientEmail').value=plansEmail;
+  $('saveBusinessBtn').textContent='Save & continue';
   $('emailStartDialog').showModal();
  }
 );
@@ -8995,6 +8977,14 @@ $('clientEmail').addEventListener('keydown',event=>{
 });
 
 
+function planMatchesEmail(data,address){
+ const target=String(address||'').trim().toLowerCase();
+ if(!target)return false;
+ const meta=data?.planner?.meta||{};
+ // A non-empty root address is authoritative after an email change.
+ const stored=data.clientEmail||meta.clientEmail||data.clientEmailNormalized||'';
+ return String(stored).trim().toLowerCase()===target;
+}
 const myPlansDialog=$('myPlansDialog');
 let plansLookupToken=0;
 async function findMyPlans(){
@@ -9003,24 +8993,27 @@ async function findMyPlans(){
  const address=input.value,token=++plansLookupToken;
  $('myPlansList').replaceChildren();$('myPlansStatus').textContent='Finding your plans…';$('findMyPlans').disabled=true;
  try{
-  const queries=[get(query(ref(db,'campaigns'),orderByChild('clientEmailNormalized'),equalTo(address.toLowerCase())))];
-  for(const value of new Set([address,address.toLowerCase()])){
-   for(const field of ['clientEmail','planner/meta/clientEmail'])queries.push(get(query(ref(db,'campaigns'),orderByChild(field),equalTo(value))));
-  }
-  const results=await Promise.allSettled(queries);
+  // Read both existing plan stores, as the admin manager does. This also
+  // finds legacy mixed-case emails without requiring new Firebase indexes.
+  const results=await Promise.allSettled([
+   get(ref(db,'campaigns')),get(ref(db,'announcedCampaigns'))
+  ]);
   if(token!==plansLookupToken)return;
   const found=new Map();let failed=0;
   results.forEach(result=>{
    if(result.status!=='fulfilled'){failed++;return;}
    result.value.forEach(child=>{
     const data=child.val()||{},meta=data.planner?.meta||{};
-    if(String(data.clientEmail||meta.clientEmail||'').trim().toLowerCase()!==address.toLowerCase())return;
+    if(!planMatchesEmail(data,address))return;
     const id=normalizeId(child.key);if(!id)return;
-    found.set(id,{id,data,meta,time:Number(meta.updatedAt||data.updatedAt||meta.createdAt||data.createdAt)||0});
+    const existing=found.get(id);
+    const time=Number(meta.updatedAt||data.updatedAt||meta.createdAt||data.createdAt||data.announcedAt)||0;
+    if(!existing)found.set(id,{id,data,meta,time});
+    else existing.time=Math.max(existing.time,time);
    });
   });
   const plans=[...found.values()].sort((a,b)=>b.time-a.time||b.id.localeCompare(a.id,undefined,{numeric:true}));
-  $('myPlansStatus').textContent=failed===results.length?'Could not load plans. Please try again.':plans.length?`${plans.length} saved plan${plans.length===1?'':'s'}${failed?' · Some results could not be loaded.':''}`:failed?'Could not complete the search. Please try again.':'No plans found for this email. Use the email saved with your plan.';
+  $('myPlansStatus').textContent=failed===results.length?'Cannot read saved plans. Check Firebase read permissions for campaigns and announcedCampaigns.':plans.length?`${plans.length} saved plan${plans.length===1?'':'s'}${failed?' · Some results could not be loaded.':''}`:failed?'Could not complete the search. Please try again.':'No plans found for this email. Use the email saved with your plan.';
   if(failed!==results.length)rememberPlansEmail(address);
   for(const plan of plans){
    const row=document.createElement('button');row.type='button';row.className='my-plan-row';
