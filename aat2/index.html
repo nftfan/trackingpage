@@ -1814,7 +1814,10 @@ body{font-size:12px;background:var(--wash)}
 #continueAsGuest:active{transform:translateY(1px)}
 #continueAsGuest:focus-visible{outline:3px solid #8bae8e;outline-offset:3px}
 </style>
-</head>
+<style>.sidebar-email{padding:18px 20px 0;background:#f5f6f2}.sidebar-email label{display:block;font-size:11px;color:#687b6e;margin-bottom:7px}.sidebar-email-row{display:flex;gap:7px;align-items:center}.sidebar-email-row .field{min-width:0;flex:1;height:34px;font-size:11px;font-weight:400;background:transparent}.sidebar-email-row #saveBusinessBtn{width:auto;margin:0!important;height:34px;padding:0 14px;border-radius:8px;font-size:11px}.sidebar-email #businessSaveStatus{font-size:10px;line-height:1.5}.panel-intro{padding-top:15px}</style><style id="full-photo-display">
+.proof-list{height:190px;padding:0 0 8px;gap:12px;align-items:stretch}.proof-card{flex:0 0 200px;border-radius:10px;background:#edf0e9}.proof-card img{width:100%;height:100%;object-fit:contain;object-position:center;background:#edf0e9}
+#proofViewer{width:min(1100px,94vw);height:90vh;max-height:90vh;padding:0;border:1px solid #dce3d7;border-radius:14px;background:#f5f6f2;color:#293b31;overflow:hidden}#proofViewer::backdrop{background:rgba(15,25,19,.75)}.proof-viewer-head{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid #dce3d7}.proof-viewer-head button{width:32px;height:32px;border:0;background:transparent;color:inherit;font-size:25px;cursor:pointer}#proofViewerImages{height:calc(100% - 52px);display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory}#proofViewerImages img{display:block;flex:0 0 100%;width:100%;min-width:0;height:100%;object-fit:contain;object-position:center;padding:12px;scroll-snap-align:start}
+</style></head>
 <body>
 <div class="loader" id="loader">
 <div class="loader-box">
@@ -1822,19 +1825,7 @@ body{font-size:12px;background:var(--wash)}
   Opening campaign planner…
  </div>
 </div>
-<dialog aria-describedby="welcomeIntro" aria-labelledby="welcomeTitle" class="welcome-dialog" id="welcomeDialog">
-<div class="welcome-inner">
-<button aria-label="Close welcome notice" class="welcome-close" id="welcomeClose" type="button">×</button>
-<div class="welcome-brand">
-<img alt="" src="https://res.cloudinary.com/de3kzkvhd/image/upload/v1749533761/4HirECt_srdsx7.png"/>
-   LeuvenFlyers
-  </div>
-<h2 id="welcomeTitle">Plan, estimate &amp; track</h2><p>Search an area, select zones and estimate your flyers. Delivery dots and photo proofs appear here when distribution starts.</p>
-<div class="welcome-actions">
-<button class="welcome-start" id="welcomeStart" type="button">Explore the map</button>
-</div>
-</div>
-</dialog>
+
 <dialog aria-label="Share plan" id="sharePlanDialog">
 <input aria-label="Plan link" id="sharePlanUrl" readonly="" type="url"/>
 <div class="share-controls">
@@ -1848,7 +1839,7 @@ body{font-size:12px;background:var(--wash)}
 <div class="brand-name">LeuvenFlyers</div>
 <div class="brand-sub">Plan · Estimate · Track</div>
 </div>
-<span aria-live="polite" id="activeBusinessEmail">No email selected</span></div>
+</div>
 <nav aria-label="Planning links" class="header-actions">
 <button class="help-button" id="sharePlanBtn" type="button">Share link</button>
 </nav>
@@ -1856,11 +1847,11 @@ body{font-size:12px;background:var(--wash)}
 <label class="login-label" for="loginInput">Open plan</label>
 <input aria-label="Existing XX campaign ID" class="login-input" id="loginInput" inputmode="text" placeholder="XX plan ID" type="text"/>
 <button class="login-btn" id="loginBtn">Open</button>
-<button class="new-btn" id="newPlanBtn">New plan</button><button aria-controls="myPlansDialog" aria-haspopup="dialog" class="new-btn" id="myPlansBtn" type="button">My Plans</button>
+<button class="new-btn" id="newPlanBtn">New plan</button>
 </div>
 <div class="client-badge" hidden="" id="clientBadge"></div>
 </header>
-<aside aria-label="Planning and estimates" class="left-panel"><div class="panel-intro"><h1>Your plan</h1><p>Select areas to estimate distribution.</p><button class="email-secondary" id="editBusinessEmail" type="button">Business email</button></div>
+<aside aria-label="Planning and estimates" class="left-panel"><section aria-label="Your business email" class="sidebar-email"><label class="quote-field-label" for="clientEmail">Email (optional)</label><div class="sidebar-email-row"><input autocomplete="email" class="field" id="clientEmail" maxlength="254" placeholder="Enter email" type="email"/><button class="action" id="saveBusinessBtn" style="margin-top:7px" type="button">Save</button></div><div aria-live="polite" class="helper" id="businessSaveStatus" role="status" style="margin-top:5px"></div></section><div class="panel-intro"><h1>Your plan</h1><p>Select areas to estimate distribution.</p></div>
 <div class="tool-scroll">
 <!-- AREA -->
 <section class="tool-section">
@@ -2126,11 +2117,7 @@ let areaSearchToken=0;
 let areaSuggestTimer=null;
 
 let clientId='';
-let plansEmail='';
-try{plansEmail=sessionStorage.getItem('lfPlansEmail')||'';}catch(ignore){}
-function renderActiveBusinessEmail(){const el=$('activeBusinessEmail');if(el){el.textContent=plansEmail||'Guest';el.title=plansEmail||'Browsing as guest';}}
-function rememberPlansEmail(value){plansEmail=String(value||'').trim();try{sessionStorage.setItem('lfPlansEmail',plansEmail);}catch(ignore){}renderActiveBusinessEmail();}
-renderActiveBusinessEmail();
+
 let clientPromise=null;
 
 let hexagons=[];
@@ -3275,69 +3262,14 @@ function allPhotoProof(){
 }
 
 function openPhotoProof(photo,photos=[photo]){
-
- if(!mapReady){
-  return;
- }
-
- closeZonePopup();
-
- photoPopup?.remove();
-
- const located=photo.hasLocation;
-
- const center=located
-  ?[
-   photo.lng,
-   photo.lat
-  ]
-  :map.getCenter();
-
- const content=document.createElement('div');
- content.className='photo-popup-images';
-
- photos.forEach(item=>{
-
-  const img=document.createElement('img');
-
-  img.src=item.url;
-  img.alt='Photo proof';
-  img.referrerPolicy='no-referrer';
-
-  content.appendChild(img);
- });
-
- photoPopup=new maplibregl.Popup({
-  className:'photo-popup',
-  maxWidth:'min(360px, calc(100vw - 36px))',
-  offset:18,
-  closeOnMove:false
- })
- .setLngLat(center)
- .setDOMContent(content)
- .addTo(map);
-
- if(located){
-
-  map.flyTo({
-   center,
-   zoom:Math.max(
-    map.getZoom(),
-    16
-   ),
-   padding:{
-    top:Math.min(
-     145,
-     map.getContainer().clientHeight/3
-    ),
-    bottom:20,
-    left:20,
-    right:20
-   },
-   duration:700
-  });
- }
+ closeZonePopup();photoPopup?.remove();
+ const viewer=$('proofViewer'),images=$('proofViewerImages');images.replaceChildren();
+ photos.forEach(item=>{const img=document.createElement('img');img.src=item.url;img.alt='Full photo proof';img.referrerPolicy='no-referrer';images.append(img);});
+ if(!viewer.open)viewer.showModal();
+ images.scrollLeft=0;
 }
+$('closeProofViewer').addEventListener('click',()=>$('proofViewer').close());
+$('proofViewer').addEventListener('click',event=>{const d=$('proofViewer'),r=d.getBoundingClientRect();if(event.target===d&&(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom))d.close();});
 
 function renderPhotoMarkers(photos){
 
@@ -4878,159 +4810,41 @@ function generateHexagons(
    CREATE / SELECT COUNTRY
 ----------------------------------------------------- */
 
-async function highestNumber(){
-
- const results=await Promise.allSettled(
-  [
-   TRACKING_ROOT,
-   DOTS_ROOT
-  ].map(
-   url=>fetch(
-    url,
-    {
-     cache:'no-store'
-    }
-   ).then(
-    response=>
-     response.ok
-      ?response.json()
-      :{}
-   )
-  )
- );
-
- let highest=0;
-
- results.forEach(result=>{
-
-  if(result.status!=='fulfilled'){
-   return;
-  }
-
-  Object.keys(result.value||{}).forEach(key=>{
-
-   const match=String(key).match(
-    /^(?:XX|FF)(\d+)$/i
-   );
-
-   if(match){
-    highest=Math.max(
-     highest,
-     Number(match[1])||0
-    );
-   }
-  });
- });
-
- return highest;
+function randomPlanNumber(){
+ const range=499999,limit=Math.floor(4294967296/range)*range;
+ const values=new Uint32Array(1);let value;
+ do{crypto.getRandomValues(values);value=values[0];}while(value>=limit);
+ return 500001+(value%range);
 }
-
 async function ensureClient(){
-
- if(clientId){
-  return clientId;
- }
-
- if(clientPromise){
-  return clientPromise;
- }
-
+ if(clientId)return clientId;
+ if(clientPromise)return clientPromise;
  clientPromise=(async()=>{
-
   renderCampaignTitle();
-
-  const highest=
-   await highestNumber();
-
-  let number=highest+1;
-
-  try{
-
-   const result=await runTransaction(
-    ref(
-     db,
-     'system/nextCampaignNumber'
-    ),
-
-    current=>
-     Math.max(
-      Number(current)||0,
-      highest
-     )+1,
-
-    {
-     applyLocally:false
-    }
-   );
-
-   if(result.committed){
-    number=
-     Number(result.snapshot.val())
-     ||number;
-   }
-
+  for(let attempt=0;attempt<40;attempt++){
+   const candidate='XX'+randomPlanNumber();
+   const aliases=[candidate,candidate.toLowerCase(),'FF'+candidate.slice(2),'ff'+candidate.slice(2)];
+   // Do not reuse an ID already present in saved plans or worker tracking.
+   const checks=await Promise.all(aliases.flatMap(key=>[
+    get(ref(db,`campaigns/${key}`)),get(ref(db,`announcedCampaigns/${key}`)),
+    get(ref(dotsDb,`userPosts/${key}`)),get(ref(dotsDb,`userPostClicks/${key}`)),get(ref(dotsDb,`users/${key}`))
+   ]));
+   if(checks.some(snapshot=>snapshot.exists()))continue;
+   const address=$('clientEmail').value.trim();
+   const meta={clientId:candidate,businessName:$('quoteBusinessName').value.trim(),clientEmail:address,
+    countryCode:selectedCountry,countryName:countryConfig().name,fullShiftPrice:currentShiftPrice(),
+    otherCost:extraCampaignCost(),extraFlyers:0,status:'planning',createdAt:serverTimestamp()};
+   const record={clientEmail:address,clientEmailNormalized:address.toLowerCase(),createdAt:serverTimestamp(),planner:{meta}};
+   // Atomic creation prevents simultaneous clients from claiming the same ID.
+   const result=await runTransaction(ref(db,`campaigns/${candidate}`),current=>current===null?record:undefined,{applyLocally:false});
+   if(!result.committed)continue;
+   clientId=candidate;
+   renderCampaignTitle();watchAnnouncedCampaign(clientId);renderCurrentCampaign();watchShifts(clientId);
+   try{await addEvent('Campaign planning started',`${clientId} assigned to this campaign`,'flag');}catch(error){console.warn('Plan saved; activity entry unavailable.',error);}
+   return clientId;
   }
-  catch(error){
-   console.warn(error);
-  }
-
-  let candidate=`XX${number}`;
-
-  for(
-   let attempt=0;
-   attempt<30;
-   attempt++
-  ){
-
-   const existing=await get(
-    ref(
-     db,
-     `campaigns/${candidate}`
-    )
-   );
-
-   if(!existing.exists()){
-    break;
-   }
-
-   candidate=`XX${++number}`;
-  }
-
-  const address=$('clientEmail').value.trim()||plansEmail;
-  const meta={
-   clientId:candidate,businessName:$('quoteBusinessName').value.trim(),clientEmail:address,
-   countryCode:selectedCountry,countryName:countryConfig().name,fullShiftPrice:currentShiftPrice(),
-   otherCost:extraCampaignCost(),extraFlyers:0,status:'planning',createdAt:serverTimestamp()
-  };
-  await update(ref(db),{
-   [`campaigns/${candidate}/planner/meta`]:meta,
-   [`campaigns/${candidate}/clientEmail`]:address,
-   [`campaigns/${candidate}/clientEmailNormalized`]:address.toLowerCase(),
-   [`campaigns/${candidate}/createdAt`]:serverTimestamp()
-  });
-  clientId=candidate;
-  $('clientEmail').value=address;
-  renderCampaignTitle();watchAnnouncedCampaign(clientId);renderCurrentCampaign();
-
-  watchShifts(clientId);
-
-  await addEvent(
-   'Campaign planning started',
-   `${clientId} assigned to this campaign`,
-   'flag'
-  );
-
-  return clientId;
-
- })()
- .catch(error=>{
-  renderCampaignTitle();
-  throw error;
- })
- .finally(
-  ()=>clientPromise=null
- );
-
+  throw new Error('Could not allocate an unused plan ID. Please try again.');
+ })().catch(error=>{renderCampaignTitle();throw error;}).finally(()=>clientPromise=null);
  return clientPromise;
 }
 
@@ -6721,7 +6535,7 @@ async function saveBusinessName(){
   };
   if(currentCampaign?.status==='announced')paths[`announcedCampaigns/${id}/clientEmail`]=address;
   await update(ref(db),paths);
-  rememberPlansEmail(address);
+
   if(clientId===id)status.textContent=email.value.trim()===address?'Email saved.':'Email changed. Save again to update.';
   return true;
  }catch(error){
@@ -6732,7 +6546,7 @@ async function saveBusinessName(){
 
 $('saveBusinessBtn').addEventListener(
  'click',
- async()=>{if(await saveBusinessName()) $('emailStartDialog').close();}
+ saveBusinessName
 );
 
 for(const id of [
@@ -7741,7 +7555,7 @@ async function loadCampaign(requestedId){
   $('clientEmail').value=
    String(savedEmail);
 
-  rememberPlansEmail(savedEmail);
+
 
   $('businessSaveStatus').textContent=
    savedEmail
@@ -8879,7 +8693,7 @@ els.announceBtn.addEventListener(
 
 els.loginBtn.addEventListener(
  'click',
- ()=>{if(els.loginInput.value.trim())loadCampaign(els.loginInput.value);else $('myPlansBtn').click();}
+ ()=>loadCampaign(els.loginInput.value)
 );
 
 els.loginInput.addEventListener(
@@ -8902,9 +8716,7 @@ els.newPlanBtn.addEventListener(
  ()=>{
 
   resetPlan();
-  $('clientEmail').value=plansEmail;
-  $('saveBusinessBtn').textContent='Save & continue';
-  $('emailStartDialog').showModal();
+  toast('New plan ready');
  }
 );
 
@@ -8942,104 +8754,9 @@ $('copySharePlan').addEventListener('click',async()=>{
   $('copySharePlan').textContent=copied?'Copied':'Copy';
  }
 });
-/* WELCOME */
-
-const welcomeDialog=
- $('welcomeDialog');
-
-for(const id of [
- 'welcomeClose',
- 'welcomeStart'
-]){
- $(id).addEventListener(
-  'click',
-  ()=>welcomeDialog.close()
- );
-}
-
-
-$('editBusinessEmail').addEventListener('click',()=>{
- $('saveBusinessBtn').textContent='Save email';
- $('emailStartDialog').showModal();
-});
-$('continueAsGuest').addEventListener('click',()=>{
- $('clientEmail').value='';
- $('businessSaveStatus').textContent='';
- rememberPlansEmail('');
- $('emailStartDialog').close();
- $('areaSearch').focus();
-});
-$('openExistingInstead').addEventListener('click',()=>{
- $('emailStartDialog').close();els.loginInput.focus();
-});
 $('clientEmail').addEventListener('keydown',event=>{
  if(event.key==='Enter'){event.preventDefault();if(!$('saveBusinessBtn').disabled)$('saveBusinessBtn').click();}
 });
-
-
-function planMatchesEmail(data,address){
- const target=String(address||'').trim().toLowerCase();
- if(!target)return false;
- const meta=data?.planner?.meta||{};
- // A non-empty root address is authoritative after an email change.
- const stored=data.clientEmail||meta.clientEmail||data.clientEmailNormalized||'';
- return String(stored).trim().toLowerCase()===target;
-}
-const myPlansDialog=$('myPlansDialog');
-let plansLookupToken=0;
-async function findMyPlans(){
- const input=$('myPlansEmail');input.value=input.value.trim();
- if(!input.reportValidity())return;
- const address=input.value,token=++plansLookupToken;
- $('myPlansList').replaceChildren();$('myPlansStatus').textContent='Finding your plans…';$('findMyPlans').disabled=true;
- try{
-  // Read both existing plan stores, as the admin manager does. This also
-  // finds legacy mixed-case emails without requiring new Firebase indexes.
-  const results=await Promise.allSettled([
-   get(ref(db,'campaigns')),get(ref(db,'announcedCampaigns'))
-  ]);
-  if(token!==plansLookupToken)return;
-  const found=new Map();let failed=0;
-  results.forEach(result=>{
-   if(result.status!=='fulfilled'){failed++;return;}
-   result.value.forEach(child=>{
-    const data=child.val()||{},meta=data.planner?.meta||{};
-    if(!planMatchesEmail(data,address))return;
-    const id=normalizeId(child.key);if(!id)return;
-    const existing=found.get(id);
-    const time=Number(meta.updatedAt||data.updatedAt||meta.createdAt||data.createdAt||data.announcedAt)||0;
-    if(!existing)found.set(id,{id,data,meta,time});
-    else existing.time=Math.max(existing.time,time);
-   });
-  });
-  const plans=[...found.values()].sort((a,b)=>b.time-a.time||b.id.localeCompare(a.id,undefined,{numeric:true}));
-  $('myPlansStatus').textContent=failed===results.length?'Cannot read saved plans. Check Firebase read permissions for campaigns and announcedCampaigns.':plans.length?`${plans.length} saved plan${plans.length===1?'':'s'}${failed?' · Some results could not be loaded.':''}`:failed?'Could not complete the search. Please try again.':'No plans found for this email. Use the email saved with your plan.';
-  if(failed!==results.length)rememberPlansEmail(address);
-  for(const plan of plans){
-   const row=document.createElement('button');row.type='button';row.className='my-plan-row';
-   const body=document.createElement('span'),name=document.createElement('span'),detail=document.createElement('span'),open=document.createElement('span');
-   name.className='my-plan-name';name.textContent=String(plan.meta.areaName||plan.data.areaName||plan.data.businessName||'Flyer distribution plan');
-   detail.className='my-plan-meta';detail.textContent=plan.id+(plan.time?' · '+new Date(plan.time).toLocaleDateString('en-GB'):'');
-   open.className='my-plan-open';open.textContent=plan.id===clientId?'Current plan':'Open →';body.append(name,detail);row.append(body,open);
-   row.addEventListener('click',async()=>{
-    if(areaSavePending||selectionWrites||estimatingSelection||bookingInProgress||clientPromise||els.loginBtn.disabled){toast('Please wait for the current plan to finish saving.');return;}
-    myPlansDialog.close();els.loginInput.value=plan.id;
-    if(mapReady)await loadCampaign(plan.id);else map.once('load',()=>loadCampaign(plan.id));
-   });
-   $('myPlansList').append(row);
-  }
- }catch(error){if(token===plansLookupToken)$('myPlansStatus').textContent='Could not load plans. Please try again.';}
- finally{if(token===plansLookupToken)$('findMyPlans').disabled=false;}
-}
-$('myPlansBtn').addEventListener('click',()=>{
- $('myPlansEmail').value=plansEmail||$('clientEmail').value.trim();
- myPlansDialog.showModal();
- if($('myPlansEmail').value)findMyPlans();else{$('myPlansList').replaceChildren();$('myPlansStatus').textContent='Enter the email saved with your plans.';$('myPlansEmail').focus();}
-});
-$('myPlansForm').addEventListener('submit',event=>{event.preventDefault();findMyPlans();});
-$('closeMyPlans').addEventListener('click',()=>myPlansDialog.close());
-myPlansDialog.addEventListener('close',()=>{plansLookupToken++;$('findMyPlans').disabled=false;});
-myPlansDialog.addEventListener('click',event=>{const r=myPlansDialog.getBoundingClientRect();if(event.target===myPlansDialog&&(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom))myPlansDialog.close();});
 
 /* INITIAL VALUES */
 
@@ -9059,7 +8776,6 @@ if(sharedPlanId){
  else map.once('load',()=>loadCampaign(sharedPlanId));
 }else{
  renderCurrentCampaign();
- $('emailStartDialog').showModal();
  if(sharedPlanValue) toast('The shared plan link has an invalid XX ID.');
 }
 
@@ -9128,5 +8844,5 @@ shiftsDialog.addEventListener('click',event=>{
 document.getElementById('shiftList').addEventListener('click',event=>{
  if(event.target.closest('[data-shift-index]'))shiftsDialog.close();
 });
-</script><dialog aria-labelledby="emailStartTitle" id="emailStartDialog"><div class="email-start-head"><span class="eyebrow">LEUVENFLYERS</span><h2 id="emailStartTitle">Start your plan</h2><p>Enter your business email to save it with your plan.</p></div><section aria-label="Your business email" class="email-start-fields"><label class="quote-field-label" for="clientEmail">Your business email</label><input autocomplete="email" class="field" id="clientEmail" maxlength="254" placeholder="name@business.com" required="" type="email"/><button class="action" id="saveBusinessBtn" style="margin-top:7px" type="button">Save &amp; continue</button><div aria-live="polite" class="helper" id="businessSaveStatus" role="status" style="margin-top:5px"></div></section><button class="email-secondary" id="continueAsGuest" type="button">Continue as guest</button><button class="email-secondary" id="openExistingInstead" type="button">Open an existing plan instead</button></dialog><dialog aria-labelledby="myPlansTitle" id="myPlansDialog"><div class="shifts-modal-head"><h2 id="myPlansTitle">My Plans</h2><button aria-label="Close plans" id="closeMyPlans" type="button">×</button></div><div class="my-plans-body"><form id="myPlansForm"><label for="myPlansEmail">Your business email</label><div class="my-plans-search"><input autocomplete="email" class="field" id="myPlansEmail" placeholder="name@business.com" required="" type="email"/><button class="login-btn" id="findMyPlans" type="submit">Find plans</button></div></form><div aria-live="polite" id="myPlansStatus" role="status"></div><div id="myPlansList"></div></div></dialog></body>
+</script><dialog id="proofViewer" aria-label="Full photo proof"><div class="proof-viewer-head"><span>Photo proof</span><button type="button" id="closeProofViewer" aria-label="Close photo">×</button></div><div id="proofViewerImages"></div></dialog></body>
 </html>
