@@ -1817,6 +1817,15 @@ body{font-size:12px;background:var(--wash)}
 <style>.sidebar-email{padding:18px 20px 0;background:#f5f6f2}.sidebar-email label{display:block;font-size:11px;color:#687b6e;margin-bottom:7px}.sidebar-email-row{display:flex;gap:7px;align-items:center}.sidebar-email-row .field{min-width:0;flex:1;height:34px;font-size:11px;font-weight:400;background:transparent}.sidebar-email-row #saveBusinessBtn{width:auto;margin:0!important;height:34px;padding:0 14px;border-radius:8px;font-size:11px}.sidebar-email #businessSaveStatus{font-size:10px;line-height:1.5}.panel-intro{padding-top:15px}</style><style id="full-photo-display">
 .proof-list{height:190px;padding:0 0 8px;gap:12px;align-items:stretch}.proof-card{flex:0 0 200px;border-radius:10px;background:#edf0e9}.proof-card img{width:100%;height:100%;object-fit:contain;object-position:center;background:#edf0e9}
 #proofViewer{width:min(1100px,94vw);height:90vh;max-height:90vh;padding:0;border:1px solid #dce3d7;border-radius:14px;background:#f5f6f2;color:#293b31;overflow:hidden}#proofViewer::backdrop{background:rgba(15,25,19,.75)}.proof-viewer-head{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid #dce3d7}.proof-viewer-head button{width:32px;height:32px;border:0;background:transparent;color:inherit;font-size:25px;cursor:pointer}#proofViewerImages{height:calc(100% - 52px);display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory}#proofViewerImages img{display:block;flex:0 0 100%;width:100%;min-width:0;height:100%;object-fit:contain;object-position:center;padding:12px;scroll-snap-align:start}
+</style><style id="photo-strip-fit">
+.proof-bar{height:auto;min-height:0;max-height:none;padding:10px 12px;overflow:hidden;border-radius:10px;box-shadow:none}
+.proof-heading{height:auto;min-height:20px;padding:0;margin-bottom:8px;font-size:11px}
+.proof-heading strong{font-weight:500}#proofCount{font-size:9px;padding:2px 5px;background:#edf3e9;color:#46775c}
+.proof-list{height:96px;min-height:0;padding:0 0 6px;gap:8px;align-items:stretch;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:#b6c4b5 transparent}
+.proof-card{flex:0 0 112px;height:84px;padding:3px;border:1px solid #e0e5de;border-radius:6px;background:#f5f6f2;scroll-snap-align:start;transition:border-color .15s}
+.proof-card img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;background:transparent;border-radius:3px}
+.proof-empty{padding:12px 8px;font-size:10px}.proof-card:hover{border-color:#79977f}
+.proof-notice{font-size:10px}
 </style></head>
 <body>
 <div class="loader" id="loader">
@@ -1967,8 +1976,7 @@ import {
  remove,
  onValue,
  serverTimestamp,
- runTransaction,
- query, orderByChild, equalTo
+ runTransaction
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
 
 /* -----------------------------------------------------
@@ -2117,7 +2125,6 @@ let areaSearchToken=0;
 let areaSuggestTimer=null;
 
 let clientId='';
-
 let clientPromise=null;
 
 let hexagons=[];
@@ -4810,40 +4817,43 @@ function generateHexagons(
    CREATE / SELECT COUNTRY
 ----------------------------------------------------- */
 
-function randomPlanNumber(){
- const range=499999,limit=Math.floor(4294967296/range)*range;
- const values=new Uint32Array(1);let value;
- do{crypto.getRandomValues(values);value=values[0];}while(value>=limit);
- return 500001+(value%range);
-}
+// Independent sequential allocator. Existing legacy IDs never seed this counter.
 async function ensureClient(){
- if(clientId)return clientId;
- if(clientPromise)return clientPromise;
+ if(clientId) return clientId;
+ if(clientPromise) return clientPromise;
  clientPromise=(async()=>{
   renderCampaignTitle();
-  for(let attempt=0;attempt<40;attempt++){
-   const candidate='XX'+randomPlanNumber();
-   const aliases=[candidate,candidate.toLowerCase(),'FF'+candidate.slice(2),'ff'+candidate.slice(2)];
-   // Do not reuse an ID already present in saved plans or worker tracking.
-   const checks=await Promise.all(aliases.flatMap(key=>[
-    get(ref(db,`campaigns/${key}`)),get(ref(db,`announcedCampaigns/${key}`)),
-    get(ref(dotsDb,`userPosts/${key}`)),get(ref(dotsDb,`userPostClicks/${key}`)),get(ref(dotsDb,`users/${key}`))
-   ]));
-   if(checks.some(snapshot=>snapshot.exists()))continue;
-   const address=$('clientEmail').value.trim();
-   const meta={clientId:candidate,businessName:$('quoteBusinessName').value.trim(),clientEmail:address,
-    countryCode:selectedCountry,countryName:countryConfig().name,fullShiftPrice:currentShiftPrice(),
-    otherCost:extraCampaignCost(),extraFlyers:0,status:'planning',createdAt:serverTimestamp()};
-   const record={clientEmail:address,clientEmailNormalized:address.toLowerCase(),createdAt:serverTimestamp(),planner:{meta}};
-   // Atomic creation prevents simultaneous clients from claiming the same ID.
-   const result=await runTransaction(ref(db,`campaigns/${candidate}`),current=>current===null?record:undefined,{applyLocally:false});
-   if(!result.committed)continue;
+  for(let attempt=0;attempt<1000;attempt++){
+   const sequence=await runTransaction(ref(db,'system/campaignSequence60000'),current=>{
+    const previous=Number(current);
+    return Number.isSafeInteger(previous)&&previous>=60000 ? previous+1 : 60000;
+   },{applyLocally:false});
+   if(!sequence.committed) throw new Error('Campaign number could not be reserved');
+   const candidate=`XX${sequence.snapshot.val()}`;
+   // Avoid reusing an ID present in either the planner or historical delivery data.
+   const legacy=await fetch(`https://betbtc-6d881-default-rtdb.firebaseio.com/userPosts/${candidate}.json?shallow=true`,{cache:'no-store'});
+   if(!legacy.ok) throw new Error('Could not check existing delivery IDs');
+   if(await legacy.json()!==null) continue;
+   const meta={
+    clientId:candidate,
+    businessName:$('quoteBusinessName').value.trim(),
+    clientEmail:$('clientEmail').value.trim(),
+    countryCode:selectedCountry,countryName:countryConfig().name,
+    fullShiftPrice:currentShiftPrice(),otherCost:extraCampaignCost(),
+    extraFlyers:0,status:'planning',createdAt:serverTimestamp()
+   };
+   const claim=await runTransaction(ref(db,`campaigns/${candidate}`),current=>
+    current===null?{planner:{meta}}:undefined,{applyLocally:false});
+   if(!claim.committed) continue;
    clientId=candidate;
-   renderCampaignTitle();watchAnnouncedCampaign(clientId);renderCurrentCampaign();watchShifts(clientId);
-   try{await addEvent('Campaign planning started',`${clientId} assigned to this campaign`,'flag');}catch(error){console.warn('Plan saved; activity entry unavailable.',error);}
+   renderCampaignTitle();
+   watchAnnouncedCampaign(clientId);
+   renderCurrentCampaign();
+   watchShifts(clientId);
+   await addEvent('Campaign planning started',`${clientId} assigned to this campaign`,'flag');
    return clientId;
   }
-  throw new Error('Could not allocate an unused plan ID. Please try again.');
+  throw new Error('No free campaign ID found in the next 1000 sequence numbers');
  })().catch(error=>{renderCampaignTitle();throw error;}).finally(()=>clientPromise=null);
  return clientPromise;
 }
@@ -5932,7 +5942,7 @@ async function openHexPopup(index,lngLat){
  root.className='zone-popup';
  const title=document.createElement('div');
  title.className='zone-popup-title';
- title.textContent=`Area ${index+1}`;
+ title.textContent=`Hexagon ${index+1}`;
  const copy=document.createElement('div');
  copy.className='zone-popup-copy';
  const actions=document.createElement('div');
@@ -5955,7 +5965,7 @@ async function openHexPopup(index,lngLat){
   estimate.hidden=booked;
   estimate.disabled=hex.selectionSaving||selectionWrites>0||estimatingSelection||hex.status!=='selected';
   removeButton.disabled=hex.selectionSaving||estimatingSelection;
-  removeButton.textContent=booked?'Remove from campaign':'Deselect area';
+  removeButton.textContent=booked?'Remove from campaign':'Deselect hexagon';
   copy.textContent=booked
    ?`${Number(hex.estimatedBuildings??0).toLocaleString()} buildings × 1.5 = ${hex.flyersRequired.toLocaleString()} flyers · Saved in campaign`
    :hex.selectionSaving?'Saving selection…':hex.status==='selected'
@@ -6521,27 +6531,141 @@ async function removeHexagon(index){
 ----------------------------------------------------- */
 
 async function saveBusinessName(){
- const email=$('clientEmail'),button=$('saveBusinessBtn'),status=$('businessSaveStatus');
- email.value=email.value.trim();
- if(!email.reportValidity())return false;
- const address=email.value;
- button.disabled=true;status.textContent='Saving email…';
- try{
-  const id=await ensureClient();
-  const paths={
-   [`campaigns/${id}/planner/meta/clientEmail`]:address,
-   [`campaigns/${id}/clientEmail`]:address,
-   [`campaigns/${id}/clientEmailNormalized`]:address.toLowerCase()
-  };
-  if(currentCampaign?.status==='announced')paths[`announcedCampaigns/${id}/clientEmail`]=address;
-  await update(ref(db),paths);
 
-  if(clientId===id)status.textContent=email.value.trim()===address?'Email saved.':'Email changed. Save again to update.';
-  return true;
- }catch(error){
-  status.textContent='Email could not be saved. Please try again.';
+ const business=
+  $('quoteBusinessName');
+
+ const email=
+  $('clientEmail');
+
+ const button=
+  $('saveBusinessBtn');
+
+ const status=
+  $('businessSaveStatus');
+
+ business.value=
+  business.value.trim();
+
+ email.value=
+  email.value.trim();
+
+ if(
+  !business.reportValidity()
+  ||!email.reportValidity()
+ ){
   return false;
- }finally{button.disabled=false;}
+ }
+
+ const name=
+  business.value;
+
+ const address=
+  email.value;
+
+ const otherCost=
+  extraCampaignCost();
+
+ button.disabled=true;
+
+ status.textContent=
+  'Saving client details…';
+
+ try{
+
+  const id=
+   await ensureClient();
+
+  const paths={};
+
+  paths[
+   `campaigns/${id}/planner/meta/businessName`
+  ]=name;
+
+  paths[
+   `campaigns/${id}/businessName`
+  ]=name;
+
+  paths[
+   `campaigns/${id}/planner/meta/clientEmail`
+  ]=address;
+
+  paths[
+   `campaigns/${id}/clientEmail`
+  ]=address;
+
+  paths[
+   `campaigns/${id}/planner/meta/countryCode`
+  ]=selectedCountry;
+
+  paths[
+   `campaigns/${id}/planner/meta/countryName`
+  ]=countryConfig().name;
+
+  paths[
+   `campaigns/${id}/planner/meta/fullShiftPrice`
+  ]=currentShiftPrice();
+
+  paths[
+   `campaigns/${id}/planner/meta/otherCost`
+  ]=otherCost;
+
+  paths[
+   `campaigns/${id}/otherCost`
+  ]=otherCost;
+
+  paths[
+   `campaigns/${id}/planner/meta/distributionCost`
+  ]=distributionCost();
+
+  paths[
+   `campaigns/${id}/planner/meta/totalCost`
+  ]=campaignTotalCost();
+
+  if(currentCampaign?.status==='announced'){
+
+   paths[
+    `announcedCampaigns/${id}/clientEmail`
+   ]=address;
+
+   paths[
+    `announcedCampaigns/${id}/businessName`
+   ]=name;
+  }
+
+  await update(
+   ref(db),
+   paths
+  );
+
+  if(clientId===id){
+
+   status.textContent=
+    business.value.trim()===name
+    &&email.value.trim()===address
+     ?'Client details saved.'
+     :'Details changed. Save again to update.';
+
+   renderCurrentCampaign();
+  }
+
+  return true;
+
+ }
+ catch(error){
+
+  console.warn(error);
+
+  status.textContent=
+   'Client details could not be saved. Please try again.';
+
+  return false;
+
+ }
+ finally{
+
+  button.disabled=false;
+ }
 }
 
 $('saveBusinessBtn').addEventListener(
@@ -6557,7 +6681,7 @@ for(const id of [
   'input',
   ()=>{
    $('businessSaveStatus').textContent=
-    'Email not saved yet';
+    'Unsaved client details';
   }
  );
 }
@@ -6834,8 +6958,8 @@ function normalizeId(value){
    .toUpperCase()
    .replace(/\s+/g,'');
 
- if(/^(XX|FF)\d+$/.test(compact)){
-  return 'XX'+compact.slice(2);
+ if(/^XX\d+$/.test(compact)){
+  return compact;
  }
 
  if(/^\d+$/.test(compact)){
@@ -7555,11 +7679,10 @@ async function loadCampaign(requestedId){
   $('clientEmail').value=
    String(savedEmail);
 
-
-
   $('businessSaveStatus').textContent=
-   savedEmail
-    ?'Email saved.'
+   savedBusiness
+   &&savedEmail
+    ?'Client details saved.'
     :'';
 
   /* RESTORE OPTIONAL COST */
@@ -8693,7 +8816,9 @@ els.announceBtn.addEventListener(
 
 els.loginBtn.addEventListener(
  'click',
- ()=>loadCampaign(els.loginInput.value)
+ ()=>loadCampaign(
+  els.loginInput.value
+ )
 );
 
 els.loginInput.addEventListener(
@@ -8716,7 +8841,10 @@ els.newPlanBtn.addEventListener(
  ()=>{
 
   resetPlan();
-  toast('New plan ready');
+
+  toast(
+   'New campaign plan ready'
+  );
  }
 );
 
@@ -8754,9 +8882,7 @@ $('copySharePlan').addEventListener('click',async()=>{
   $('copySharePlan').textContent=copied?'Copied':'Copy';
  }
 });
-$('clientEmail').addEventListener('keydown',event=>{
- if(event.key==='Enter'){event.preventDefault();if(!$('saveBusinessBtn').disabled)$('saveBusinessBtn').click();}
-});
+$('clientEmail').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();$('saveBusinessBtn').click();}});
 
 /* INITIAL VALUES */
 
@@ -8775,7 +8901,7 @@ if(sharedPlanId){
  if(mapReady) loadCampaign(sharedPlanId);
  else map.once('load',()=>loadCampaign(sharedPlanId));
 }else{
- renderCurrentCampaign();
+
  if(sharedPlanValue) toast('The shared plan link has an invalid XX ID.');
 }
 
