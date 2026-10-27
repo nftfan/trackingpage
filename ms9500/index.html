@@ -27,6 +27,28 @@
     .btn-start-worker:active{transform:scale(.95);}
     .shift-salary{font-size:10px;font-weight:700;color:#86efac;line-height:1.25;max-width:105px;}
     .shift-salary[hidden]{display:none;}
+    .full-shift-badge{display:inline-block;color:#86efac;background:rgba(34,197,94,.12);border-radius:4px;padding:2px 5px;font-size:9px;font-weight:800;margin-left:4px;}
+    .shift-picker-pay{display:block;font-size:10px;color:#86efac;margin-top:3px;white-space:normal;}
+    .shift-picker-breakdown{display:block;font-size:9px;color:var(--muted);margin-top:3px;white-space:normal;}
+    .shift-pay-grid .salary-bonus span,.shift-pay-grid .salary-bonus strong{color:#60a5fa;}
+    .mistakes-section{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1);}
+    .mistakes-table-wrap{max-height:260px;overflow:auto;margin-top:7px;}
+    .mistakes-table{width:100%;border-collapse:collapse;font-size:10px;}
+    .mistakes-table th,.mistakes-table td{padding:7px 5px;text-align:left;border-bottom:1px solid #2b2b36;}
+    .mistakes-table th{color:#aab7cc;}
+    .salary-tabs{display:flex;gap:6px;margin-bottom:12px;}
+    .salary-tabs button{flex:1;padding:9px;border-radius:8px;border:1px solid #343442;background:#1b1b24;color:#b8bed2;cursor:pointer;font-weight:700;}
+    .salary-tabs button[aria-selected="true"]{background:#234b87;color:#fff;border-color:#4f8cff;}
+    #shiftPickerList[hidden],#salariesPanel[hidden]{display:none;}
+    .salaries-scroll{overflow-x:auto;}
+    .salaries-table{width:100%;border-collapse:collapse;font-size:11px;}
+    .salaries-table th,.salaries-table td{padding:10px 6px;text-align:right;border-bottom:1px solid #2b2b36;}
+    .salaries-table th{font-size:9px;color:#aab7cc;}
+    .salaries-table th:first-child,.salaries-table td:first-child{text-align:left;}
+    .salaries-table td:nth-child(4){color:#86efac;font-weight:800;}
+    .salaries-caption{font-size:10px;color:#9da4b8;margin-bottom:10px;line-height:1.5;}
+    .shift-pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;}
+    .shift-pay-grid .summary-meta-cell{min-width:0;padding:9px;background:rgba(255,255,255,.04);border-radius:8px;}
     .header-title{font-size:13px;font-weight:700;flex:1;}
     .user-pill{font-size:11px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px;flex-shrink:0;}
     .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600;font-size:11px;outline:none;}
@@ -641,10 +663,16 @@
         </span>
         <span class="camp-percent" id="connCount" style="color:#f97316;font-size:15px;">0</span>
       </div>
-      <div class="cpc-info">
-        <strong style="color:#fcd34d;">💡 Boost your rank!</strong>
-        A lower CPC (Cost Per Connection) indicates high efficiency and top-tier job quality. Making more connections lowers your CPC, significantly increasing your chances for <strong style="color:#fff;">more shifts and future promotions!</strong>
-      </div>
+      <div class="camp-header" style="margin-top:8px;color:#34d399;"><span>Total green dots</span><strong id="campaignGreenTotal">0</strong></div>
+      <div class="camp-header" style="color:#f87171;"><span>Total red dots</span><strong id="campaignRedTotal">0</strong></div>
+      <div class="camp-header" style="color:#60a5fa;"><span>Total blue dots</span><strong id="campaignBlueTotal">0</strong></div>
+      <div class="camp-header" style="border-top:1px solid rgba(255,255,255,.1);padding-top:6px;"><span>Total dots (green + red + blue)</span><strong id="campaignAllDotTotal">0</strong></div>
+      <section class="mistakes-section" aria-labelledby="mistakesTitle">
+        <div class="camp-header"><strong id="mistakesTitle">Mistakes</strong><span id="mistakesCount">0</span></div>
+        <div class="mistakes-table-wrap">
+          <table class="mistakes-table"><thead><tr><th scope="col">Promoter / shift</th><th scope="col">Green dot time</th><th scope="col">Mistake</th></tr></thead><tbody id="mistakesRows"><tr><td colspan="3">No mistakes logged.</td></tr></tbody></table>
+        </div>
+      </section>
     </div>
   </div>
 </div>
@@ -702,11 +730,16 @@
     <div class="sheet-head">
       <div>
         <div class="sheet-kicker">SHIFT HISTORY</div>
-        <div class="sheet-title">Choose a shift</div>
+        <div class="sheet-title">Shifts & salaries</div>
       </div>
       <button id="closeShiftPicker" class="sheet-close" type="button">&times;</button>
     </div>
-    <div id="shiftPickerList" class="shift-picker-list"></div>
+    <div class="salary-tabs" role="tablist" aria-label="Shift views">
+      <button id="shiftsTab" type="button" role="tab" aria-selected="true" aria-controls="shiftPickerList">Shifts</button>
+      <button id="salariesTab" type="button" role="tab" aria-selected="false" aria-controls="salariesPanel" tabindex="-1">Salaries</button>
+    </div>
+    <div id="shiftPickerList" class="shift-picker-list" role="tabpanel" aria-labelledby="shiftsTab"></div>
+    <div id="salariesPanel" role="tabpanel" aria-labelledby="salariesTab" hidden></div>
   </div>
 </div>
 
@@ -815,6 +848,13 @@
       <div class="summary-meta-cell"><span>Time worked</span><strong id="sdTimeWorked">00h 00m</strong></div>
     </div>
 
+    <div class="summary-section-label">Earnings <span id="sdFullShift" class="full-shift-badge" hidden>Full shift</span></div>
+    <div class="shift-pay-grid">
+      <div class="summary-meta-cell"><span>Actual earnings</span><strong id="sdEarnings">—</strong></div>
+      <div class="summary-meta-cell"><span>Offered shift salary</span><strong id="sdOfferedSalary">—</strong></div>
+      <div class="summary-meta-cell"><span>Dot salary</span><strong id="sdActualEarnings">—</strong></div>
+      <div class="summary-meta-cell salary-bonus"><span>Bonus</span><strong id="sdSalaryBonus">—</strong></div>
+    </div>
     <div class="summary-section-label">Dots</div>
     <div class="summary-dot-grid">
       <div class="summary-dot-card green"><i></i><span>Yes</span><strong id="sdGreen">0</strong></div>
@@ -2228,6 +2268,35 @@
     
   }
 
+  function computeMistakes(dots){
+    const byWorker=new Map();
+    for(const dot of dots){
+      const name=(dot.workerName||'').trim();
+      if(!name || name.toLowerCase()==='admin' || !['green','red','blue','orange'].includes(dot.color) || !Number.isFinite(Number(dot.timestamp)))continue;
+      const key=name.toLowerCase();
+      if(!byWorker.has(key))byWorker.set(key,[]);
+      byWorker.get(key).push(dot);
+    }
+    const mistakes=[];
+    for(const clicks of byWorker.values()){
+      clicks.sort((a,b)=>Number(a.timestamp)-Number(b.timestamp));
+      for(let i=0;i<clicks.length;i++){
+        const green=clicks[i],next=clicks[i+1];
+        if(green.color!=='green' || next?.color==='orange')continue;
+        mistakes.push({workerName:green.workerName,timestamp:Number(green.timestamp)});
+      }
+    }
+    return mistakes.sort((a,b)=>b.timestamp-a.timestamp);
+  }
+  function renderMistakes(dots){
+    const mistakes=computeMistakes(dots);
+    document.getElementById('mistakesCount').textContent=mistakes.length.toLocaleString();
+    document.getElementById('mistakesRows').innerHTML=mistakes.length ? mistakes.map(m=>{
+      const time=new Date(m.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const color='#f87171';
+      return `<tr><td>${escapeHtml(m.workerName)}</td><td>${escapeHtml(time)}</td><td style="color:${color}">Orange missing after green</td></tr>`;
+    }).join('') : '<tr><td colspan="3">No mistakes logged.</td></tr>';
+  }
   function updateCampaignProgress(totalTeamDots, totalTeamPosts) {
     lastCampaignRawDots = Number(totalTeamDots)||0;
     lastCampaignPosts = Number(totalTeamPosts)||0;
@@ -2245,6 +2314,14 @@
     const fr=document.getElementById('campDotsFraction');
     if(fr) fr.textContent = hasTarget ? `${effectiveDots.toLocaleString()} / ${target.toLocaleString()}` : `${effectiveDots.toLocaleString()} / —`;
     connCountEl.textContent=lastCampaignPosts;
+    const totals={green:0,red:0,blue:Math.max(0,Number(campaignBonusBlueTotal)||0)};
+    for(const dot of globalAllDots){
+      if(Object.prototype.hasOwnProperty.call(totals,dot.color))totals[dot.color]++;
+    }
+    document.getElementById('campaignGreenTotal').textContent=totals.green.toLocaleString();
+    document.getElementById('campaignRedTotal').textContent=totals.red.toLocaleString();
+    document.getElementById('campaignBlueTotal').textContent=totals.blue.toLocaleString();
+    document.getElementById('campaignAllDotTotal').textContent=(totals.green+totals.red+totals.blue).toLocaleString();
   }
 
   // ── Chat ──────────────────────────────────────────────────────────────────
@@ -2596,6 +2673,8 @@
   function attachMyPostsListener(id) {
     if (typeof myPostsUnsub==='function'){myPostsUnsub();myPostsUnsub=null;}
     let normalDots=[], orangeDots=[];
+    let normalReady=false,orangeReady=false;
+    renderMistakes([]);
     const combine=()=>{
       hideLoader();
       const allDots=[...normalDots,...orangeDots].sort((a,b)=>a.timestamp-b.timestamp);
@@ -2609,11 +2688,12 @@
       syncChallengeFromDots(allDots);
       updateCampaignProgress(teamDots,teamPosts);
       populateShiftSelect(allDots);
+      if(normalReady && orangeReady)renderMistakes(allDots);
     };
     const nRef=query(ref(db,`userPosts/${id}`),orderByChild('timestamp'));
     const oRef=query(ref(db,`userPostClicks/${id}`),orderByChild('timestamp'));
-    const nH=snap=>{normalDots=[];snap.forEach(ch=>{const v=ch.val();if(v&&typeof v.lat==='number')normalDots.push(v);});combine();};
-    const oH=snap=>{orangeDots=[];snap.forEach(ch=>{const v=ch.val();if(v&&typeof v.lat==='number')orangeDots.push(v);});combine();};
+    const nH=snap=>{normalReady=true;normalDots=[];snap.forEach(ch=>{const v=ch.val();if(v&&typeof v.lat==='number')normalDots.push(v);});combine();};
+    const oH=snap=>{orangeReady=true;orangeDots=[];snap.forEach(ch=>{const v=ch.val();if(v&&typeof v.lat==='number')orangeDots.push(v);});combine();};
     onValue(nRef,nH); onValue(oRef,oH);
     myPostsUnsub=()=>{off(nRef,'value',nH);off(oRef,'value',oH);};
   }
@@ -2638,7 +2718,7 @@
     sessionTimerEl.textContent='00:00:00'; sessionAvgEl.textContent='—'; sessionTotalEl.textContent='0'; 
     todayWorkerDotsEl.textContent='0';  
     todayWorkerConnsEl.textContent='0'; totalWorkerConnsEl.textContent='0'; 
-    globalAllDots=[]; historyIndex=-1;
+    globalAllDots=[]; historyIndex=-1; renderMistakes([]);
     localClicks=[]; globalAbsDCount=0; globalAbsPCount=0; renderLocalClicks();
     resetChallengeUi();
     updateCampaignProgress(0,0);
@@ -2657,7 +2737,7 @@
       if(currentUserId !== id)return;
       const v=snap.val()||{};
       shiftSalaryCents = Number.isSafeInteger(v.shiftSalaryCents) && v.shiftSalaryCents >= 0 ? v.shiftSalaryCents : null;
-      shiftSalaryState = 'ready'; renderShiftSalary();
+      shiftSalaryState = 'ready'; renderShiftSalary(); refreshShiftPayViews();
       assignedSegmentKeys = new Set(Object.entries(v.segmentKeys || {}).filter(([, enabled]) => enabled === true).map(([key]) => key));
       segmentSettingsReady = true; refreshAssignedSegments();
       if(segmentEditorCampaignId === id && saveAdminSegments.disabled && !segmentSaving)renderSegmentEditor();
@@ -2669,7 +2749,7 @@
     }, error => {
       if(currentUserId !== id)return;
       console.error('Campaign settings error:', error);
-      shiftSalaryCents=null; shiftSalaryState='error'; renderShiftSalary();
+      shiftSalaryCents=null; shiftSalaryState='error'; renderShiftSalary(); refreshShiftPayViews();
       assignedSegmentKeys = new Set(); segmentSettingsReady = false; refreshAssignedSegments();
       if(segmentEditorCampaignId === id){saveAdminSegments.disabled=true;adminSegmentsStatus.textContent='Campaign settings could not load. Re-enter the FF ID to retry.';}
       showToast('Campaign settings could not load.');
@@ -2896,6 +2976,32 @@
       return{workerName,dots:s,firstTs:s[0].timestamp,lastTs:s[s.length-1].timestamp};
     }).sort((a,b)=>a.firstTs-b.firstTs).reverse();
   }
+  const FULL_SHIFT_MS = 175 * 60 * 1000;
+  function shiftPaySummary(shift){
+    const durationMs = Math.max(0, Number(shift.lastTs) - Number(shift.firstTs)) || 0;
+    const fullShift = durationMs >= FULL_SHIFT_MS;
+    const safe = shift.workerName.toLowerCase().replace(/[^a-z0-9]/g,'');
+    const adminBlue = Math.max(0, Math.floor(Number(shiftRegistry[safe]?.adminBonusBlue) || 0));
+    const dotCount = shift.dots.filter(d => ['red','green','blue'].includes(d.color)).length + adminBlue;
+    // Work in thousandths of a euro: each eligible dot is exactly €0.036.
+    const actualMills = dotCount * 36;
+    const offeredCents = shiftSalaryState === 'ready' ? shiftSalaryCents : null;
+    const hasOffer = offeredCents !== null;
+    const earningsMills = fullShift && hasOffer ? offeredCents * 10 : actualMills;
+    return {durationMs, fullShift, dotCount, actualMills, offeredCents,
+      earningsMills, bonusMills: earningsMills - actualMills, hasOffer};
+  }
+  function shiftMoney(mills){
+    return new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR'}).format(Math.round(mills / 10) / 100);
+  }
+  function refreshShiftPayViews(){
+    renderShiftPickerList();
+    renderSalaries();
+    if(shiftDashBackdrop.classList.contains('show') && selectedShiftIndex >= 0){
+      const shift = shiftSelect._shifts?.[selectedShiftIndex];
+      if(shift)openShiftDashboard(shift);
+    }
+  }
   function shiftDisplayName(shift){
     const safe=shift.workerName.toLowerCase().replace(/[^a-z0-9]/g,'');
     return shiftRegistry[safe]?.firstName||shift.workerName;
@@ -2905,7 +3011,7 @@
     shiftSelect._shifts=shifts;
     if(selectedShiftIndex>=shifts.length)selectedShiftIndex=-1;
     shiftSelect.textContent=selectedShiftIndex>=0?String(selectedShiftIndex+1):'—';
-    renderShiftPickerList();
+    refreshShiftPayViews();
   }
   function renderShiftPickerList(){
     const shifts=shiftSelect._shifts||[];
@@ -2921,19 +3027,78 @@
 
     entries.forEach((entry,displayIndex)=>{
       const {sh,originalIndex,orange}=entry;
+      const pay=shiftPaySummary(sh);
+      const workTime=`${Math.floor(pay.durationMs/3600000)}h ${Math.floor(pay.durationMs%3600000/60000)}m`;
       const d=new Date(sh.firstTs);
       const date=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
       const time=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       const row=document.createElement('button');
       row.type='button';row.className='shift-picker-row'+(originalIndex===selectedShiftIndex?' selected':'');
-      row.innerHTML=`<span class="shift-picker-index">${displayIndex+1}</span><span class="shift-picker-main"><span class="shift-picker-name">${escapeHtml(shiftDisplayName(sh))}</span><span class="shift-picker-date">${date} · ${time}</span></span><span class="shift-picker-orange"><i></i>${orange.toLocaleString()}</span><span class="shift-picker-arrow">›</span>`;
+      row.innerHTML=`<span class="shift-picker-index">${displayIndex+1}</span><span class="shift-picker-main"><span class="shift-picker-name">${escapeHtml(shiftDisplayName(sh))}${pay.fullShift ? ' <span class="full-shift-badge">Full shift</span>' : ''}</span><span class="shift-picker-date">${date} · ${time} · ${workTime}</span><span class="shift-picker-pay">Earnings ${shiftMoney(pay.earningsMills)}</span><span class="shift-picker-breakdown">Actual ${shiftMoney(pay.actualMills)} · Bonus ${shiftMoney(pay.bonusMills)} · Offered ${pay.hasOffer ? shiftMoney(pay.offeredCents*10) : 'Not available'}</span></span><span class="shift-picker-orange"><i></i>${orange.toLocaleString()}</span><span class="shift-picker-arrow">›</span>`;
       row.addEventListener('click',()=>{selectedShiftIndex=originalIndex;shiftSelect.textContent=String(originalIndex+1);shiftPickerBackdrop.classList.remove('show');renderShiftPickerList();openShiftDashboard(sh);});
       shiftPickerList.appendChild(row);
     });
   }
-  function openShiftPicker(){renderShiftPickerList();shiftPickerBackdrop.classList.add('show');}
+  function computeWorkerSalaries(shifts){
+    const workers=new Map();
+    for(const shift of shifts){
+      const displayName=shiftDisplayName(shift);
+      // Match the worker grouping already used by the session totals (Tom1, Tom2 -> Tom).
+      const name=displayName.replace(/[0-9]/g,'').trim() || displayName;
+      const key=name.toLowerCase();
+      if(key==='admin')continue;
+      if(!workers.has(key))workers.set(key,{name,durationMs:0,flyers:0});
+      const worker=workers.get(key);
+      const duration=Number(shift.lastTs)-Number(shift.firstTs);
+      worker.durationMs+=Number.isFinite(duration) ? Math.max(0,duration) : 0;
+      worker.flyers+=shift.dots.filter(dot=>dot.color==='orange').length;
+    }
+    return [...workers.values()].map(worker=>{
+      const units=worker.durationMs/(3*60*60*1000);
+      return {...worker,units,salaryMills:shiftSalaryState==='ready' && shiftSalaryCents!==null ? units*shiftSalaryCents*10 : null};
+    }).sort((a,b)=>{
+      const aRate=a.durationMs>0 ? a.flyers/a.durationMs : -1;
+      const bRate=b.durationMs>0 ? b.flyers/b.durationMs : -1;
+      return bRate-aRate || a.name.localeCompare(b.name);
+    });
+  }
+  function flyersPerMinute(flyers,durationMs){
+    return durationMs>0 ? (flyers/(durationMs/60000)).toFixed(2) : '—';
+  }
+  function renderSalaries(){
+    const panel=document.getElementById('salariesPanel');
+    const workers=computeWorkerSalaries(shiftSelect._shifts||[]);
+    if(!workers.length){panel.innerHTML='<div class="shift-picker-empty">No worker shift data yet.</div>';return;}
+    const rate=shiftSalaryState==='ready' && shiftSalaryCents!==null ? shiftMoney(shiftSalaryCents*10) : shiftSalaryState==='loading' ? 'Loading…' : shiftSalaryState==='error' ? 'Unavailable' : 'Not set';
+    const totalShiftUnits=workers.reduce((sum,worker)=>sum+worker.units,0);
+    const totalSalary=workers.every(w=>w.salaryMills!==null) ? shiftMoney(workers.reduce((sum,w)=>sum+Math.round(w.salaryMills/10)*10,0)) : '—';
+    const totalTime=workers.reduce((sum,w)=>sum+w.durationMs,0);
+    const totalFlyers=workers.reduce((sum,w)=>sum+w.flyers,0);
+    panel.innerHTML=`<div class="salaries-caption">Current FF ID: ${escapeHtml(currentUserId||'')} · Salary per 3 hours: ${rate} · Total shifts: ${Number(totalShiftUnits.toFixed(3))} × 3h · Total salary: ${totalSalary} · Flyers delivered per min: ${flyersPerMinute(totalFlyers,totalTime)}</div><div class="salaries-scroll"><table class="salaries-table"><thead><tr><th scope="col">Worker / rank</th><th scope="col">Total time worked</th><th scope="col">3h units</th><th scope="col">Total salary</th><th scope="col">Flyers delivered</th><th scope="col">Flyers delivered / min ↓</th></tr></thead><tbody>${workers.map((w,index)=>`<tr><th scope="row">#${index+1} ${escapeHtml(w.name)}</th><td>${Math.floor(w.durationMs/3600000)}h ${String(Math.floor(w.durationMs%3600000/60000)).padStart(2,'0')}m</td><td>${w.units.toFixed(3)}</td><td>${w.salaryMills===null ? '—' : shiftMoney(w.salaryMills)}</td><td>${w.flyers.toLocaleString()}</td><td>${flyersPerMinute(w.flyers,w.durationMs)}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  function selectShiftTab(salaries){
+    document.getElementById('shiftPickerList').hidden=salaries;
+    document.getElementById('salariesPanel').hidden=!salaries;
+    for(const [id,selected] of [['shiftsTab',!salaries],['salariesTab',salaries]]){
+      const tab=document.getElementById(id);
+      tab.setAttribute('aria-selected',String(selected));
+      tab.tabIndex=selected ? 0 : -1;
+    }
+    if(salaries)renderSalaries();
+  }
+  document.getElementById('shiftsTab').addEventListener('click',()=>selectShiftTab(false));
+  document.getElementById('salariesTab').addEventListener('click',()=>selectShiftTab(true));
+  for(const id of ['shiftsTab','salariesTab'])document.getElementById(id).addEventListener('keydown',event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    event.preventDefault();
+    const salaries=event.key==='End' || (event.key!=='Home' && id==='shiftsTab');
+    selectShiftTab(salaries);
+    document.getElementById(salaries ? 'salariesTab' : 'shiftsTab').focus();
+  });
+  function openShiftPicker(){renderShiftPickerList();renderSalaries();shiftPickerBackdrop.classList.add('show');}
 
   function openShiftDashboard(shift){
+    const pay=shiftPaySummary(shift);
     const dots=shift.dots;
     const green=dots.filter(d=>d.color==='green').length;
     const red=dots.filter(d=>d.color==='red').length;
@@ -2946,6 +3111,11 @@
     const dateStr=new Date(shift.firstTs).toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
     const dn=shiftRegistry[safe]?.firstName||shift.workerName;
     document.getElementById('sdShiftName').textContent=dn;
+    document.getElementById('sdFullShift').hidden=!pay.fullShift;
+    document.getElementById('sdEarnings').textContent=pay.hasOffer ? shiftMoney(pay.offeredCents*10-pay.actualMills) : '—';
+    document.getElementById('sdOfferedSalary').textContent=pay.hasOffer ? shiftMoney(pay.offeredCents*10) : (shiftSalaryState==='loading' ? 'Loading…' : shiftSalaryState==='error' ? 'Unavailable' : 'Not set');
+    document.getElementById('sdActualEarnings').textContent=shiftMoney(pay.actualMills);
+    document.getElementById('sdSalaryBonus').textContent=shiftMoney(pay.bonusMills);
     document.getElementById('sdDate').textContent=dateStr;
     document.getElementById('sdTimeWorked').textContent=`${String(hrs).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`;
     document.getElementById('sdGreen').textContent=green;
@@ -2953,7 +3123,7 @@
     document.getElementById('sdBlue').textContent=blue;
     document.getElementById('sdOrange').textContent=orange;
     const bonusNote=document.getElementById('sdBlueBonusNote');
-    if(bonusNote)bonusNote.textContent='';
+    if(bonusNote)bonusNote.textContent=bonusBlue ? `Includes ${bonusBlue} admin blue dots` : '';
 
     const savedChallenge=shiftRegistry[safe]?.challenge||null;
     const orangeTs=dots.filter(d=>d.color==='orange'&&Number.isFinite(d.timestamp)).map(d=>d.timestamp).sort((a,b)=>a-b);
@@ -2978,7 +3148,7 @@
 
   shiftSelect.addEventListener('click',openShiftPicker);
   closeShiftPicker.addEventListener('click',()=>shiftPickerBackdrop.classList.remove('show'));
-  backToShiftPicker?.addEventListener('click',()=>{shiftDashBackdrop.classList.remove('show');openShiftPicker();});
+  backToShiftPicker?.addEventListener('click',()=>{shiftDashBackdrop.classList.remove('show');selectShiftTab(false);openShiftPicker();});
   shiftPickerBackdrop.addEventListener('click',e=>{if(e.target===shiftPickerBackdrop)shiftPickerBackdrop.classList.remove('show');});
   document.getElementById('closeShiftDash').addEventListener('click',()=>shiftDashBackdrop.classList.remove('show'));
   shiftDashBackdrop.addEventListener('click',e=>{if(e.target===shiftDashBackdrop)shiftDashBackdrop.classList.remove('show');});
