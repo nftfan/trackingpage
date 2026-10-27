@@ -25,6 +25,8 @@
     .logo{width:26px;height:26px;display:grid;place-items:center;background:radial-gradient(120% 120% at 20% 20%,#4f8cff,#7a5cff);border-radius:7px;flex-shrink:0;}
     .btn-start-worker{appearance:none;border:0;cursor:pointer;padding:5px 10px;border-radius:6px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;transition:transform 0.2s cubic-bezier(0.4,0,0.2,1);outline:none;}
     .btn-start-worker:active{transform:scale(.95);}
+    .shift-salary{font-size:10px;font-weight:700;color:#86efac;line-height:1.25;max-width:105px;}
+    .shift-salary[hidden]{display:none;}
     .header-title{font-size:13px;font-weight:700;flex:1;}
     .user-pill{font-size:11px;color:#cbd5ff;background:rgba(122,92,255,.12);border:1px solid rgba(122,92,255,.3);padding:2px 7px;border-radius:999px;display:none;align-items:center;gap:5px;flex-shrink:0;}
     .user-pill button{appearance:none;border:0;background:transparent;color:#aab7ff;cursor:pointer;font-weight:600;font-size:11px;outline:none;}
@@ -592,6 +594,7 @@
         <span id="dotNavPulse" style="position:absolute;inset:-3px;border-radius:9px;border:2px solid rgba(79,140,255,0);pointer-events:none;transition:border-color 0.3s;"></span>
       </button>
       <button id="btnStartWorker" class="btn-start-worker">Start</button>
+      <span id="shiftSalary" class="shift-salary" role="status" aria-live="polite" hidden></span>
       <div class="header-title"></div>
       <div id="userPill" class="user-pill">
         <span id="userPillText"></span>
@@ -754,6 +757,19 @@
       <div class="admin-note">This replaces the fixed campaign target and is saved for this campaign ID.</div>
     </div>
 
+
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <label for="adminSalaryInput">Shift salary (€)</label>
+        <strong id="adminCurrentSalary">Not set</strong>
+      </div>
+      <div class="admin-action-row">
+        <input id="adminSalaryInput" class="input admin-number-input" type="text" inputmode="decimal" placeholder="e.g. 45.00" autocomplete="off">
+        <button id="adminSaveSalary" class="btn-modal admin-action-btn" type="button">Save</button>
+      </div>
+      <div class="admin-note">Salary per shift for the FF ID shown above. Appears next to Start for everyone using this ID. Leave empty and save to clear.</div>
+      <div id="adminSalaryStatus" class="admin-note" role="status" aria-live="polite"></div>
+    </div>
 
     <button id="adminSegmentsBtn" class="btn-modal" type="button" style="width:100%;margin-top:10px">Manage segments</button>
     <button id="adminJobsBtn" class="btn-modal" type="button" style="width:100%;margin-top:10px">Manage jobs</button>
@@ -1031,6 +1047,30 @@
   let isAdmin = false;
   const ADMIN_PIN = '000888';
   let campaignTargetDots = null;
+  let shiftSalaryCents = null;
+  let shiftSalaryState = 'loading';
+  let salarySaving = false;
+  const shiftSalaryEl = document.getElementById('shiftSalary');
+  const adminSalaryInput = document.getElementById('adminSalaryInput');
+  const adminSaveSalary = document.getElementById('adminSaveSalary');
+  const adminCurrentSalary = document.getElementById('adminCurrentSalary');
+  const adminSalaryStatus = document.getElementById('adminSalaryStatus');
+
+  function renderShiftSalary(){
+    const amount = shiftSalaryCents === null ? null : `€${(shiftSalaryCents / 100).toFixed(2)}`;
+    const label = shiftSalaryState === 'loading' ? 'Loading…' : shiftSalaryState === 'error' ? 'Unavailable' : amount || 'Not set';
+    shiftSalaryEl.hidden = !currentUserId;
+    shiftSalaryEl.textContent = `Shift salary: ${label}`;
+    adminCurrentSalary.textContent = label;
+  }
+  function parseShiftSalary(value){
+    const raw = value.trim().replace(',', '.');
+    if(raw === '')return null;
+    if(!/^\d+(?:\.\d{1,2})?$/.test(raw))throw new Error('Enter a valid salary with up to 2 decimal places.');
+    const cents = Math.round(Number(raw) * 100);
+    if(!Number.isSafeInteger(cents) || cents > 100000000)throw new Error('Enter a salary between €0 and €1,000,000.');
+    return cents;
+  }
   let campaignBonusBlueTotal = 0;
   let campaignSettingsUnsub = null;
   let lastCampaignRawDots = 0, lastCampaignPosts = 0;
@@ -2589,7 +2629,7 @@
     clearCampaignHexagons();
     hideLoader(); loginBackdrop.classList.add('show'); userIdInput.value=''; loginError.textContent=''; setPostEnabled(false);
     if(typeof myPostsUnsub==='function')myPostsUnsub(); if(typeof chatUnsub==='function')chatUnsub();
-    currentUserId=null; resetSegmentAssignments(); currentWorkerName=null; isAdmin=false; document.body.classList.remove('admin-mode'); updateWorkerUi();
+    currentUserId=null; shiftSalaryCents=null; shiftSalaryState='loading'; renderShiftSalary(); adminBackdrop.classList.remove('show'); resetSegmentAssignments(); currentWorkerName=null; isAdmin=false; document.body.classList.remove('admin-mode'); updateWorkerUi();
     if(typeof campaignSettingsUnsub==='function'){campaignSettingsUnsub();campaignSettingsUnsub=null;}
     campaignTargetDots=null;campaignBonusBlueTotal=0;selectedShiftIndex=-1;
     if(map.getSource('dots'))map.getSource('dots').setData(fc());
@@ -2616,6 +2656,8 @@
     campaignSettingsUnsub=onValue(ref(db,`users/${id}/campaignSettings`),snap=>{
       if(currentUserId !== id)return;
       const v=snap.val()||{};
+      shiftSalaryCents = Number.isSafeInteger(v.shiftSalaryCents) && v.shiftSalaryCents >= 0 ? v.shiftSalaryCents : null;
+      shiftSalaryState = 'ready'; renderShiftSalary();
       assignedSegmentKeys = new Set(Object.entries(v.segmentKeys || {}).filter(([, enabled]) => enabled === true).map(([key]) => key));
       segmentSettingsReady = true; refreshAssignedSegments();
       if(segmentEditorCampaignId === id && saveAdminSegments.disabled && !segmentSaving)renderSegmentEditor();
@@ -2627,6 +2669,7 @@
     }, error => {
       if(currentUserId !== id)return;
       console.error('Campaign settings error:', error);
+      shiftSalaryCents=null; shiftSalaryState='error'; renderShiftSalary();
       assignedSegmentKeys = new Set(); segmentSettingsReady = false; refreshAssignedSegments();
       if(segmentEditorCampaignId === id){saveAdminSegments.disabled=true;adminSegmentsStatus.textContent='Campaign settings could not load. Re-enter the FF ID to retry.';}
       showToast('Campaign settings could not load.');
@@ -2635,7 +2678,7 @@
 
   function onUserReady(id){
     isAdmin=false;document.body.classList.remove('admin-mode');
-    currentUserId=id; resetSegmentAssignments(); localStorage.setItem(LS_KEY,id); userPillText.textContent=id; userPill.style.display='flex';
+    currentUserId=id; shiftSalaryCents=null; shiftSalaryState='loading'; renderShiftSalary(); resetSegmentAssignments(); localStorage.setItem(LS_KEY,id); userPillText.textContent=id; userPill.style.display='flex';
     loadCampaignHexagons(id).catch(error=>{console.error(error);showToast('Hexagons could not load.');});
     loadLocalClicks(id); attachMyPostsListener(id); attachChatListener(id); loadShiftRegistry(id); attachCampaignSettings(id); renderJobs();
     setPostEnabled(!!currentLatLng); goToCurrentLocation({focus:true});
@@ -2946,11 +2989,38 @@
     adminCampaignIdEl.textContent=currentUserId||'—';
     adminCurrentTargetEl.textContent=campaignTargetDots?campaignTargetDots.toLocaleString():'Not set';
     adminTargetInput.value='';
+    renderShiftSalary();
+    adminSalaryInput.value=shiftSalaryCents === null ? '' : (shiftSalaryCents / 100).toFixed(2);
+    adminSalaryStatus.textContent='';
     adminBackdrop.classList.add('show');
   }
   document.getElementById('adminJobsBtn').addEventListener('click',()=>{adminBackdrop.classList.remove('show');openJobsPanel();});
   closeAdminPanel.addEventListener('click',()=>adminBackdrop.classList.remove('show'));
   adminBackdrop.addEventListener('click',e=>{if(e.target===adminBackdrop)adminBackdrop.classList.remove('show');});
+
+  adminSaveSalary.addEventListener('click', async()=>{
+    if(!isAdmin || !currentUserId || salarySaving)return;
+    const id=currentUserId;
+    let cents;
+    try{cents=parseShiftSalary(adminSalaryInput.value);}
+    catch(error){adminSalaryStatus.textContent=error.message;return;}
+    salarySaving=true; adminSaveSalary.disabled=true; adminSalaryInput.disabled=true;
+    adminSalaryStatus.textContent='Saving…';
+    try{
+      await update(ref(db,`users/${id}/campaignSettings`), {
+        shiftSalaryCents:cents, salaryUpdatedAt:Date.now(), salaryUpdatedBy:'admin'
+      });
+      if(currentUserId===id && isAdmin){
+        adminSalaryStatus.textContent=cents===null ? `Salary cleared for ${id}.` : `Saved €${(cents/100).toFixed(2)} per shift for ${id}.`;
+      }
+    }catch(error){
+      console.error('Salary save failed:',error);
+      if(currentUserId===id)adminSalaryStatus.textContent='Could not save salary. Please try again.';
+    }finally{
+      salarySaving=false; adminSaveSalary.disabled=false; adminSalaryInput.disabled=false;
+    }
+  });
+  adminSalaryInput.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();adminSaveSalary.click();}});
 
   adminSaveTarget.addEventListener('click',async()=>{
     if(!isAdmin||!currentUserId)return;
