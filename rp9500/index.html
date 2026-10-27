@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0b0e" />
+  <title>LeuvenFlyers · Repeat City</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0b0b0e;--panel:#141419;--panel2:#191920;--line:#2b2b36;--text:#f4f4f7;--muted:#8b8b95;
+      --blue:#4f8cff;--purple:#7a5cff;--green:#22c55e;--red:#ef4444;--orange:#f97316;--yellow:#facc15;
+      --safe:env(safe-area-inset-bottom,0px)
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{overflow-x:hidden}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    [hidden]{display:none!important}
+    .app{width:min(100%,520px);min-height:100vh;margin:0 auto;background:var(--bg);padding-bottom:calc(16px + var(--safe))}
+    .topbar{height:52px;display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid rgba(255,255,255,.08);background:#0f0f13;position:sticky;top:0;z-index:50}
+    .logo{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--purple));font-weight:900;font-size:13px}
+    .brand{min-width:0;flex:1}.brand strong{display:block;font-size:12px}.brand span{display:block;color:var(--muted);font-size:8px;margin-top:1px;text-transform:uppercase;letter-spacing:.7px}
+    .pillbtn{border:1px solid rgba(255,255,255,.1);background:#191920;color:#dddfea;border-radius:7px;padding:7px 9px;font-size:9px;font-weight:800;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .mode-strip{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid rgba(255,255,255,.07);background:#111116}
+    .mode-cell{padding:7px 8px;border-right:1px solid rgba(255,255,255,.06);min-width:0}.mode-cell:last-child{border-right:0}.mode-cell span{font-size:7px;text-transform:uppercase;color:#686d82;font-weight:800;letter-spacing:.5px;display:block}.mode-cell strong{font:900 11px Menlo,monospace;color:#e7e8ee;display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .map-wrap{position:relative;height:330px;border-bottom:1px solid rgba(255,255,255,.08)}
+    #map{position:absolute;inset:0}.maplibregl-ctrl-group{background:#16161c!important;border:1px solid #30303b!important}.maplibregl-ctrl button{filter:invert(1) grayscale(1)}.maplibregl-ctrl-attrib{font-size:9px!important}
+    .map-chip{position:absolute;z-index:5;left:9px;bottom:9px;padding:6px 8px;border-radius:7px;background:rgba(10,10,14,.88);border:1px solid rgba(255,255,255,.11);font:800 9px Menlo,monospace;color:#d9dbea;backdrop-filter:blur(5px)}
+    .map-chip b{color:#c4b5fd}.loc-dot{width:18px;height:18px;background:#2563eb;border:3px solid white;border-radius:50%;box-shadow:0 0 0 5px rgba(37,99,235,.18)}
+    .route-pin{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#7c3aed;border:2px solid white;color:white;font:900 8px Menlo,monospace;box-shadow:0 0 0 5px rgba(124,58,237,.18)}
+    .summary{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid rgba(255,255,255,.08);background:#111116}
+    .stat{padding:10px 4px;text-align:center;border-right:1px solid rgba(255,255,255,.06)}.stat:last-child{border-right:0}.stat span{display:block;color:#6f7489;font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.4px}.stat strong{display:block;font:900 17px Menlo,monospace;margin-top:4px}.stat.done strong{color:#86efac}.stat.left strong{color:#c4b5fd}.stat.dist strong{color:#93c5fd}.stat.skip strong{color:#fca5a5}
+    .next-card{padding:9px 10px;background:#141419;border-bottom:1px solid rgba(255,255,255,.08)}
+    .next-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.next-head span{font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.7px;color:#74798e}.next-head strong{font:900 10px Menlo,monospace;color:#c4b5fd}
+    .next-main{display:flex;align-items:center;gap:9px;margin-top:7px}.next-marker{width:26px;height:26px;border-radius:8px;background:rgba(124,58,237,.16);border:1px solid rgba(167,139,250,.25);display:grid;place-items:center;color:#c4b5fd;font-weight:900}.next-copy{min-width:0;flex:1}.next-copy strong{font-size:12px}.next-copy small{display:block;color:#81869a;font-size:9px;margin-top:2px}.next-go{height:32px;border:0;border-radius:7px;background:#2b4f88;color:white;font-size:9px;font-weight:800;padding:0 10px}
+    .progress{height:5px;background:#20202a}.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#22c55e,#6ee7b7);transition:width .25s ease}
+    .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:7px 7px 6px;background:#0f0f13;border-bottom:1px solid rgba(255,255,255,.08)}
+    .action{aspect-ratio:1/1;border:1px solid rgba(255,255,255,.13);border-radius:9px;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.5px}.action b{font-size:18px}.action:active{transform:scale(.95)}.action:disabled{opacity:.35;filter:grayscale(.5)}
+    .yes{background:linear-gradient(135deg,#15803d,#22c55e)}.no{background:linear-gradient(135deg,#b91c1c,#ef4444)}.bonus{background:linear-gradient(135deg,#1d4ed8,#3b82f6)}.post{background:linear-gradient(135deg,#ea580c,#f97316)}
+    .toolbar{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid rgba(255,255,255,.08);background:#141419}.tool{border:0;border-right:1px solid rgba(255,255,255,.06);background:transparent;color:#a9adc0;min-height:51px;padding:5px 2px;font-size:8px;font-weight:700}.tool:last-child{border-right:0}.tool b{display:block;font-size:17px;color:#d8daea;margin-bottom:3px}
+    .notice{margin:9px;border:1px solid rgba(79,140,255,.18);background:rgba(79,140,255,.07);border-radius:9px;padding:10px 11px;color:#bfc7dc;font-size:10px;line-height:1.45}.notice strong{color:#fff}.notice.warn{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.08)}
+    .loader{position:fixed;inset:0;background:#0b0b0e;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}.spinner{width:34px;height:34px;border:3px solid rgba(255,255,255,.1);border-left-color:#7a5cff;border-radius:50%;animation:spin .85s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.loader span{font-size:10px;color:#8b8b95;font-weight:700}
+    .toast{position:fixed;left:50%;bottom:25px;transform:translate(-50%,10px);z-index:9998;background:#1d1d25;border:1px solid rgba(255,255,255,.11);padding:9px 13px;border-radius:9px;font-size:11px;font-weight:700;opacity:0;pointer-events:none;transition:.2s;max-width:min(90vw,430px);text-align:center}.toast.show{opacity:1;transform:translate(-50%,0)}
+    .backdrop{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.72);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+    .sheet{width:min(100%,520px);max-height:90vh;overflow:auto;background:#101015;border:1px solid rgba(255,255,255,.09);border-bottom:0;border-radius:16px 16px 0 0;padding:10px 10px calc(12px + var(--safe));box-shadow:none}.handle{width:36px;height:3px;background:#353542;border-radius:99px;margin:0 auto 10px}.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 2px 10px;border-bottom:1px solid rgba(255,255,255,.08)}.sheet-head span{font-size:8px;color:#74798d;font-weight:900;text-transform:uppercase;letter-spacing:.8px}.sheet-head h2{font-size:17px;margin-top:2px}.close{width:31px;height:31px;border:1px solid #30303a;background:#191920;color:#b8bbc8;border-radius:7px;font-size:20px}
+    .form{padding-top:10px}.field{margin-bottom:9px}.field label{display:block;color:#7c8194;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.55px;margin-bottom:5px}.input,.select,.textarea{width:100%;border:1px solid #30303a;background:#18181f;color:#f2f2f5;border-radius:8px;min-height:42px;padding:0 11px;outline:none;font-size:12px;font-weight:650}.textarea{padding:10px 11px;min-height:80px;resize:vertical}.input:focus,.select:focus,.textarea:focus{border-color:#4f8cff}.hint{color:#6f7488;font-size:8px;line-height:1.45;margin-top:4px}.primary,.secondary,.danger,.success{width:100%;height:42px;border-radius:8px;font-size:10px;font-weight:900;border:1px solid transparent}.primary{background:linear-gradient(135deg,#4f8cff,#6d5dfc);color:white}.secondary{background:#1d1d25;color:#d7d9e4;border-color:#33333f}.danger{background:rgba(239,68,68,.09);color:#fca5a5;border-color:rgba(239,68,68,.22)}.success{background:rgba(34,197,94,.13);color:#bbf7d0;border-color:rgba(34,197,94,.25)}.row{display:grid;grid-template-columns:1fr 1fr;gap:7px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}.sep{height:1px;background:rgba(255,255,255,.07);margin:12px 0}
+    .pack-list{display:flex;flex-direction:column;gap:6px;padding-top:9px}.pack{border:1px solid #2e2e39;border-radius:9px;background:#17171e;padding:9px;display:grid;grid-template-columns:1fr auto;gap:7px}.pack h3{font-size:11px}.pack-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px;color:#81869a;font-size:8px}.tag{padding:2px 5px;border-radius:5px;background:#23232d;color:#aeb2c4}.tag.green{background:rgba(34,197,94,.1);color:#86efac}.tag.purple{background:rgba(124,58,237,.13);color:#c4b5fd}.tag.red{background:rgba(239,68,68,.1);color:#fca5a5}.pack button{align-self:center;border:0;border-radius:6px;background:#315fa8;color:white;font-size:8px;font-weight:900;padding:8px 9px;white-space:nowrap}.pack button:disabled{background:#2a2a32;color:#6f7488}.pack-progress{grid-column:1/-1;height:4px;background:#24242e;border-radius:99px;overflow:hidden}.pack-progress i{display:block;height:100%;background:#22c55e}
+    .admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding-top:10px}.admin-card{border:1px solid #2d2d38;background:#17171e;border-radius:9px;padding:11px;text-align:left;color:#ececf2}.admin-card b{display:block;font-size:18px;margin-bottom:6px}.admin-card strong{font-size:10px}.admin-card small{display:block;color:#777c90;font-size:8px;margin-top:4px;line-height:1.35}
+    .result{margin-top:9px;border:1px solid rgba(255,255,255,.08);background:#141419;border-radius:8px;padding:9px;font:700 9px/1.55 Menlo,monospace;color:#aeb6ca;white-space:pre-wrap;max-height:180px;overflow:auto}
+    .login-sheet{align-items:center}.login-card{width:min(94vw,390px);background:#111116;border:1px solid #2d2d38;border-radius:14px;padding:16px}.login-card h1{font-size:20px}.login-card p{font-size:10px;color:#7f8498;line-height:1.45;margin:5px 0 14px}.login-card .primary{margin-top:8px}.login-card .error{min-height:16px;color:#fca5a5;font-size:9px;margin-top:6px}.login-brand{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,#4f8cff,#7a5cff);font-weight:900;margin-bottom:10px}
+    .empty{padding:20px 8px;text-align:center;color:#70758a;font-size:10px;line-height:1.5}
+    .switch{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#191920;padding:4px;border-radius:8px;margin-bottom:10px}.switch button{height:32px;border:0;border-radius:6px;background:transparent;color:#7f8497;font-size:9px;font-weight:900}.switch button.active{background:#2a2a35;color:#fff}
+    @media(max-width:370px){.map-wrap{height:290px}.stat strong{font-size:15px}.action b{font-size:16px}.topbar{padding:0 7px}.pillbtn{max-width:90px}.row3{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div id="loader" class="loader"><div class="spinner"></div><span>Loading Repeat City…</span></div>
+<div id="toast" class="toast"></div>
+
+<div class="app">
+  <header class="topbar">
+    <div class="logo">LF</div>
+    <div class="brand"><strong>LeuvenFlyers</strong><span>Repeat City Network</span></div>
+    <button id="campaignBtn" class="pillbtn" type="button">Campaign</button>
+    <button id="workerBtn" class="pillbtn" type="button">Worker</button>
+  </header>
+
+  <div class="mode-strip">
+    <div class="mode-cell"><span>Campaign</span><strong id="campaignLabel">—</strong></div>
+    <div class="mode-cell"><span>City</span><strong id="cityLabel">—</strong></div>
+    <div class="mode-cell"><span>Pack</span><strong id="packLabel">—</strong></div>
+  </div>
+
+  <section class="map-wrap">
+    <div id="map"></div>
+    <div class="map-chip">Next: <b id="nextDistanceChip">—</b></div>
+  </section>
+
+  <section class="summary">
+    <div class="stat done"><span>Delivered</span><strong id="doneCount">0</strong></div>
+    <div class="stat left"><span>Remaining</span><strong id="remainingCount">0</strong></div>
+    <div class="stat dist"><span>Next</span><strong id="distanceCount">—</strong></div>
+    <div class="stat skip"><span>Skipped</span><strong id="skipCount">0</strong></div>
+  </section>
+  <div class="progress"><i id="packProgress"></i></div>
+
+  <section class="next-card">
+    <div class="next-head"><span>Next verified historical delivery</span><strong id="routePosition">—</strong></div>
+    <div class="next-main">
+      <div class="next-marker">◎</div>
+      <div class="next-copy"><strong id="nextTitle">Choose a route pack</strong><small id="nextSubtitle">Claim a pack to start a repeat campaign.</small></div>
+      <button id="focusNextBtn" class="next-go" type="button">SHOW</button>
+    </div>
+  </section>
+
+  <section class="controls">
+    <button id="yesBtn" class="action yes" type="button" disabled><b>✓</b>Yes</button>
+    <button id="noBtn" class="action no" type="button" disabled><b>×</b>No</button>
+    <button id="bonusBtn" class="action bonus" type="button" disabled><b>+</b>Bonus</button>
+    <button id="postBtn" class="action post" type="button" disabled><b>✉</b>Post</button>
+  </section>
+
+  <section class="toolbar">
+    <button id="locateBtn" class="tool" type="button"><b>⌖</b>Locate</button>
+    <button id="packsBtn" class="tool" type="button"><b>▦</b>Packs</button>
+    <button id="routeBtn" class="tool" type="button"><b>↝</b>Route</button>
+    <button id="adminBtn" class="tool" type="button"><b>⚙</b>Admin</button>
+  </section>
+
+  <div id="appNotice" class="notice warn"><strong>No repeat route loaded.</strong> Enter a campaign and claim a pack. New cities should still be mapped first with your normal segment-based app.</div>
+</div>
+
+<!-- Campaign login -->
+<div id="campaignBackdrop" class="backdrop login-sheet">
+  <div class="login-card">
+    <div class="login-brand">LF</div>
+    <h1>Repeat City</h1>
+    <p>Enter the FF/XX campaign ID. Repeat routes are loaded from verified historical LeuvenFlyers delivery data.</p>
+    <div class="field"><label>Campaign ID</label><input id="campaignInput" class="input" autocomplete="off" placeholder="FF4822224 or XX4822224"></div>
+    <button id="joinCampaignBtn" class="primary" type="button">OPEN CAMPAIGN</button>
+    <div id="campaignError" class="error"></div>
+  </div>
+</div>
+
+<!-- Worker / Admin identity -->
+<div id="workerBackdrop" class="backdrop" hidden>
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="sheet-head"><div><span>Session</span><h2>Start worker</h2></div><button class="close" data-close="workerBackdrop">×</button></div>
+    <div class="form">
+      <div class="field"><label>Worker name</label><input id="workerInput" class="input" autocomplete="off" placeholder="e.g. Amber"></div>
+      <div id="adminPinField" class="field" hidden><label>Admin PIN</label><input id="adminPinInput" class="input" type="password" inputmode="numeric" maxlength="6" placeholder="6-digit PIN"></div>
+      <div id="workerError" class="hint" style="color:#fca5a5"></div>
+      <button id="startWorkerBtn" class="primary" type="button">START</button>
+    </div>
+  </div>
+</div>
+
+<!-- Packs -->
+<div id="packsBackdrop" class="backdrop" hidden>
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="sheet-head"><div><span>Repeat route</span><h2>Campaign packs</h2></div><button class="close" data-close="packsBackdrop">×</button></div>
+    <div id="packsList" class="pack-list"></div>
+    <div id="releaseWrap" style="padding-top:10px" hidden><button id="releasePackBtn" class="danger" type="button">RELEASE MY CURRENT PACK</button></div>
+  </div>
+</div>
+
+<!-- Admin home -->
+<div id="adminBackdrop" class="backdrop" hidden>
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="sheet-head"><div><span>Administration</span><h2>Repeat City control</h2></div><button class="close" data-close="adminBackdrop">×</button></div>
+    <div class="admin-grid">
+      <button id="openCityBuilder" class="admin-card" type="button"><b>🏙</b><strong>Build / refresh city</strong><small>Import historical orange delivery points and create reusable route packs.</small></button>
+      <button id="openCampaignBuilder" class="admin-card" type="button"><b>🧭</b><strong>Configure campaign</strong><small>Assign the least-used city packs to the current FF/XX campaign.</small></button>
+      <button id="openCityStats" class="admin-card" type="button"><b>📍</b><strong>City database</strong><small>See available cities, verified points, packs and reuse counts.</small></button>
+      <button id="openCampaignStats" class="admin-card" type="button"><b>📈</b><strong>Campaign status</strong><small>Review pack claims, completions, skips and remaining deliveries.</small></button>
+    </div>
+    <div class="sep"></div>
+    <button id="exitAdminBtn" class="danger" type="button">EXIT ADMIN MODE</button>
+  </div>
+</div>
+
+<!-- Build city -->
+<div id="cityBuilderBackdrop" class="backdrop" hidden>
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="sheet-head"><div><span>Admin · City database</span><h2>Build repeat city</h2></div><button class="close" data-close="cityBuilderBackdrop">×</button></div>
+    <div class="form">
+      <div class="row">
+        <div class="field"><label>City name</label><input id="cityNameInput" class="input" placeholder="Leuven"></div>
+        <div class="field"><label>City ID</label><input id="cityIdInput" class="input" placeholder="leuven"></div>
+      </div>
+      <div class="field"><label>Previous campaign IDs</label><textarea id="sourceCampaignsInput" class="textarea" placeholder="FF12345, FF23456, FF34567"></textarea><div class="hint">Use campaigns already distributed in this city. The importer reads their historical Orange/Post GPS points.</div></div>
+      <div class="row3">
+        <div class="field"><label>Target / shift</label><input id="packTargetInput" class="input" type="number" min="50" value="1000"></div>
+        <div class="field"><label>Buffer %</label><input id="bufferInput" class="input" type="number" min="0" max="25" value="5"></div>
+        <div class="field"><label>Dedupe meters</label><input id="dedupeInput" class="input" type="number" min="1" max="30" value="8"></div>
+      </div>
+      <button id="buildCityBtn" class="primary" type="button">IMPORT DATA & BUILD PACKS</button>
+      <div id="cityBuildResult" class="result">Ready.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Configure campaign -->
+<div id="campaignBuilderBackdrop" class="backdrop" hidden>
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="sheet-head"><div><span>Admin · Current campaign</span><h2>Generate repeat route</h2></div><button class="close" data-close="campaignBuilderBackdrop">×</button></div>
+    <div class="form">
+      <div class="field"><label>Campaign</label><input id="builderCampaignId" class="input" disabled></div>
+      <div class="field"><label>Repeat city</label><select id="citySelect" class="select"><option value="">Loading cities…</option></select></div>
+      <div class="row">
+        <div class="field"><label>Flyer target</label><input id="campaignTargetInput" class="input" type="number" min="1" value="10000"></div>
+        <div class="field"><label>Selection</label><select id="selectionMode" class="select"><option value="leastUsed">Least used packs</option><option value="oldestUsed">Oldest used packs</option><option value="random">Random packs</option></select></div>
+      </div>
+      <div class="notice"><strong>Rotation rule:</strong> repeat campaigns preferentially use city packs that have been used the fewest times, helping you rotate coverage instead of repeatedly hitting the same streets.</div>
+      <button id="configureCampaignBtn" class="primary" type="button">GENERATE CAMPAIGN PACKS</button>
+      <div id="campaignBuildResult" class="result">Ready.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div id="statsBackdrop" class="backdrop" hidden>
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="sheet-head"><div><span id="statsKicker">Database</span><h2 id="statsTitle">Stats</h2></div><button class="close" data-close="statsBackdrop">×</button></div>
+    <div id="statsBody"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, get, set, update, remove, push, onValue, off, runTransaction } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA6w6auszWRniQfZCjb4nXE_bq9Mzt9dOs",
+  authDomain: "betbtc-6d881.firebaseapp.com",
+  databaseURL: "https://betbtc-6d881-default-rtdb.firebaseio.com",
+  projectId: "betbtc-6d881",
+  storageBucket: "betbtc-6d881.firebasestorage.app",
+  messagingSenderId: "962176232122",
+  appId: "1:962176232122:web:a277d922543c3378033083",
+  measurementId: "G-V4XNB7K1E0"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// Existing LeuvenFlyers client-side admin PIN retained from the supplied app.
+const ADMIN_PIN = '000888';
+const MATCH_RADIUS_M = 40;
+const GREEN_WINDOW_MS = 2 * 60 * 1000;
+const LS_CAMPAIGN = 'lfRepeat:campaign';
+const LS_WORKER = 'lfRepeat:worker';
+
+const $ = id => document.getElementById(id);
+const loader=$('loader'), toast=$('toast');
+const campaignBackdrop=$('campaignBackdrop'), campaignInput=$('campaignInput'), joinCampaignBtn=$('joinCampaignBtn'), campaignError=$('campaignError');
+const workerBackdrop=$('workerBackdrop'), workerInput=$('workerInput'), adminPinField=$('adminPinField'), adminPinInput=$('adminPinInput'), startWorkerBtn=$('startWorkerBtn'), workerError=$('workerError');
+const campaignLabel=$('campaignLabel'), cityLabel=$('cityLabel'), packLabel=$('packLabel'), campaignBtn=$('campaignBtn'), workerBtn=$('workerBtn');
+const yesBtn=$('yesBtn'), noBtn=$('noBtn'), bonusBtn=$('bonusBtn'), postBtn=$('postBtn');
+const doneCount=$('doneCount'), remainingCount=$('remainingCount'), distanceCount=$('distanceCount'), skipCount=$('skipCount'), packProgress=$('packProgress');
+const nextTitle=$('nextTitle'), nextSubtitle=$('nextSubtitle'), routePosition=$('routePosition'), nextDistanceChip=$('nextDistanceChip'), focusNextBtn=$('focusNextBtn');
+const packsBackdrop=$('packsBackdrop'), packsList=$('packsList'), releaseWrap=$('releaseWrap'), releasePackBtn=$('releasePackBtn');
+const adminBackdrop=$('adminBackdrop'), cityBuilderBackdrop=$('cityBuilderBackdrop'), campaignBuilderBackdrop=$('campaignBuilderBackdrop'), statsBackdrop=$('statsBackdrop');
+const appNotice=$('appNotice');
+const cityNameInput=$('cityNameInput'), cityIdInput=$('cityIdInput'), sourceCampaignsInput=$('sourceCampaignsInput');
+const packTargetInput=$('packTargetInput'), bufferInput=$('bufferInput'), dedupeInput=$('dedupeInput');
+const builderCampaignId=$('builderCampaignId'), citySelect=$('citySelect'), campaignTargetInput=$('campaignTargetInput'), selectionMode=$('selectionMode');
+const adminPinInputEl=adminPinInput;
+
+let currentCampaign='';
+let workerName='';
+let isAdmin=false;
+let campaignData=null;
+let campaignUnsub=null;
+let currentPackId='';
+let currentSourcePackId='';
+let packPoints=[];
+let completions={};
+let skips={};
+let packPointUnsub=null, completionUnsub=null, skipUnsub=null;
+let currentLocation=null;
+let locationMarker=null, nextMarker=null;
+let lastGreenAt=0, lastGreenLocation=null;
+let lastRouteIndex=-1;
+let cityCache={};
+let citiesLoaded=false;
+
+function showToast(msg,ms=2200){toast.textContent=msg;toast.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>toast.classList.remove('show'),ms)}
+function hideLoader(){loader.style.display='none'}
+function normalizeCampaign(v){return String(v||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'')}
+function validCampaign(v){return /^[A-Z0-9]{3,14}$/.test(v)}
+function safeKey(v){return String(v||'').toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)}
+function roundCoord(v){return Math.round(Number(v)*1e5)/1e5}
+function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function formatInt(v){return Number(v||0).toLocaleString('en-BE')}
+function haversine(a,b){const R=6371000,toRad=x=>x*Math.PI/180;const dLat=toRad(b.lat-a.lat),dLng=toRad(b.lng-a.lng);const la1=toRad(a.lat),la2=toRad(b.lat);const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+function formatDistance(m){if(!Number.isFinite(m))return '—';return m<1000?`${Math.round(m)}m`:`${(m/1000).toFixed(1)}km`}
+function campaignAliases(raw){const v=normalizeCampaign(raw);const out=[v];if(v.startsWith('XX'))out.push('FF'+v.slice(2));if(v.startsWith('FF'))out.push('XX'+v.slice(2));return [...new Set(out.flatMap(x=>[x,x.toLowerCase()]))]}
+function nowIso(){return new Date().toLocaleString('en-BE')}
+
+function openSheet(id){$(id).hidden=false}
+function closeSheet(id){$(id).hidden=true}
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>closeSheet(b.dataset.close)));
+document.querySelectorAll('.backdrop').forEach(el=>el.addEventListener('click',e=>{if(e.target===el&&el!==campaignBackdrop)el.hidden=true}));
+
+const map = new maplibregl.Map({
+  container:'map',
+  style:{version:8,sources:{osm:{type:'raster',tileSize:256,tiles:['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png','https://b.tile.openstreetmap.org/{z}/{x}/{y}.png','https://c.tile.openstreetmap.org/{z}/{x}/{y}.png']}},layers:[{id:'osm',type:'raster',source:'osm',paint:{'raster-fade-duration':0}}]},
+  center:[4.7005,50.8798],zoom:13,maxZoom:20,attributionControl:true,fadeDuration:0
+});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+map.on('load',()=>{
+  map.addSource('route',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#7a5cff','line-width':2,'line-opacity':.42,'line-dasharray':[2,3]}});
+  map.addSource('targets',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'target-dots',type:'circle',source:'targets',paint:{
+    'circle-radius':['case',['==',['get','state'],'next'],7,4],
+    'circle-color':['match',['get','state'],'done','#22c55e','skip','#ef4444','next','#7c3aed','#9ca3af'],
+    'circle-opacity':['case',['==',['get','state'],'open'],.68,.95],
+    'circle-stroke-color':['case',['==',['get','state'],'next'],'#ffffff','#111827'],
+    'circle-stroke-width':['case',['==',['get','state'],'next'],2,1]
+  }});
+  renderPackMap();
+});
+
+function setLocationMarker(lat,lng){
+  if(!locationMarker){const el=document.createElement('div');el.className='loc-dot';locationMarker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lng,lat]).addTo(map)}
+  else locationMarker.setLngLat([lng,lat]);
+}
+function locate({focus=false}={}){return new Promise(resolve=>{
+  if(!navigator.geolocation){showToast('GPS is unavailable');resolve(null);return}
+  navigator.geolocation.getCurrentPosition(pos=>{currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy};setLocationMarker(currentLocation.lat,currentLocation.lng);if(focus)map.flyTo({center:[currentLocation.lng,currentLocation.lat],zoom:17,duration:700});updateRouteUi();resolve(currentLocation)},()=>{showToast('Location unavailable — enable GPS');resolve(null)},{enableHighAccuracy:true,timeout:20000,maximumAge:8000})
+})}
+if(navigator.geolocation)navigator.geolocation.watchPosition(pos=>{currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy};setLocationMarker(currentLocation.lat,currentLocation.lng);updateRouteUi() },()=>{},{enableHighAccuracy:true,maximumAge:10000,timeout:20000});
+
+function activePointIds(){return packPoints.filter(p=>!completions[p.id]&&!skips[p.id])}
+function getNextPoint(){
+  if(!packPoints.length)return null;
+  for(const p of packPoints)if(!completions[p.id]&&!skips[p.id])return p;
+  return null;
+}
+function candidateForCurrentLocation(maxLookahead=25){
+  if(!currentLocation)return null;
+  const candidates=[];
+  let seen=0;
+  for(const p of packPoints){
+    if(completions[p.id]||skips[p.id])continue;
+    const d=haversine(currentLocation,p);
+    candidates.push({p,d});seen++;if(seen>=maxLookahead)break;
+  }
+  candidates.sort((a,b)=>a.d-b.d);
+  return candidates[0]||null;
+}
+function renderPackMap(){
+  if(!map.loaded())return;
+  const next=getNextPoint();
+  const features=packPoints.map(p=>({type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{id:p.id,seq:p.seq,state:completions[p.id]?'done':skips[p.id]?'skip':next&&next.id===p.id?'next':'open'}}));
+  map.getSource('targets')?.setData({type:'FeatureCollection',features});
+  const routeCoords=packPoints.map(p=>[p.lng,p.lat]);
+  map.getSource('route')?.setData({type:'FeatureCollection',features:routeCoords.length>1?[{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords},properties:{}}]:[]});
+  if(next){
+    if(!nextMarker){const el=document.createElement('div');el.className='route-pin';el.textContent='NEXT';nextMarker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([next.lng,next.lat]).addTo(map)} else nextMarker.setLngLat([next.lng,next.lat]);
+  }else if(nextMarker){nextMarker.remove();nextMarker=null}
+}
+function fitPack(){if(!packPoints.length)return;const b=new maplibregl.LngLatBounds();packPoints.forEach(p=>b.extend([p.lng,p.lat]));map.fitBounds(b,{padding:38,maxZoom:16,duration:700})}
+function updateRouteUi(){
+  const pack=campaignData?.packs?.[currentPackId];
+  const target=Number(pack?.target||0);
+  const done=Object.keys(completions).length;
+  const skipped=Object.keys(skips).length;
+  doneCount.textContent=formatInt(done);remainingCount.textContent=formatInt(Math.max(0,target-done));skipCount.textContent=formatInt(skipped);
+  packProgress.style.width=`${target?Math.min(100,(done/target)*100):0}%`;
+  const next=getNextPoint();
+  if(next){
+    const idx=packPoints.findIndex(p=>p.id===next.id);
+    routePosition.textContent=`${idx+1}/${packPoints.length}`;
+    nextTitle.textContent=`Historical point #${idx+1}`;
+    let distance=null;if(currentLocation)distance=haversine(currentLocation,next);
+    distanceCount.textContent=formatDistance(distance);nextDistanceChip.textContent=formatDistance(distance);
+    nextSubtitle.textContent=distance==null?'Turn on GPS to see distance.':`${formatDistance(distance)} away · source ${next.sourceCampaign||'campaign'} · ${next.sourceWorker||'worker'}`;
+    if(idx!==lastRouteIndex){lastRouteIndex=idx;renderPackMap()}
+  }else if(currentPackId){routePosition.textContent='DONE';nextTitle.textContent=done>=target?'Pack target completed':'No unused historical points left';nextSubtitle.textContent=done>=target?'This route pack is finished.':'Use bonus/new deliveries or ask admin for another pack.';distanceCount.textContent='—';nextDistanceChip.textContent='—';renderPackMap()}
+  else{routePosition.textContent='—';nextTitle.textContent='Choose a route pack';nextSubtitle.textContent='Claim a pack to start a repeat campaign.';distanceCount.textContent='—';nextDistanceChip.textContent='—'}
+  const canWork=!!currentCampaign&&!!workerName&&!isAdmin&&!!currentPackId&&!!currentLocation;
+  [yesBtn,noBtn,bonusBtn,postBtn].forEach(b=>b.disabled=!canWork);
+  packLabel.textContent=currentPackId||'—';
+  if(currentPackId){appNotice.className='notice';appNotice.innerHTML=`<strong>Repeat route active.</strong> Follow the historical points in order. Green confirms the mailbox; Orange/Post completes the nearest target only when Green was clicked first.`}
+  else if(campaignData?.cityId){appNotice.className='notice warn';appNotice.innerHTML=`<strong>${escapeHtml(campaignData.cityName||campaignData.cityId)} repeat campaign ready.</strong> Open Packs and claim one route.`}
+  else{appNotice.className='notice warn';appNotice.innerHTML=`<strong>No repeat route loaded.</strong> An admin can configure this campaign from an existing city database. New cities should still use the normal segment-based app first.`}
+}
+function resetPack(){
+  if(typeof packPointUnsub==='function')packPointUnsub();if(typeof completionUnsub==='function')completionUnsub();if(typeof skipUnsub==='function')skipUnsub();
+  packPointUnsub=completionUnsub=skipUnsub=null;currentPackId='';currentSourcePackId='';packPoints=[];completions={};skips={};lastRouteIndex=-1;renderPackMap();updateRouteUi();
+}
+
+async function loadPack(packId,focus=true){
+  const pack=campaignData?.packs?.[packId];if(!pack)return;
+  resetPack();currentPackId=packId;currentSourcePackId=pack.sourcePackId;
+  packLabel.textContent=packId;
+  const cityId=campaignData.cityId;
+  const ptsRef=ref(db,`repeatCities/${cityId}/packs/${pack.sourcePackId}/points`);
+  const cRef=ref(db,`repeatCampaigns/${currentCampaign}/completions/${packId}`);
+  const sRef=ref(db,`repeatCampaigns/${currentCampaign}/skips/${packId}`);
+  const ptH=snap=>{packPoints=[];snap.forEach(ch=>{const v=ch.val()||{};if(Number.isFinite(Number(v.lat))&&Number.isFinite(Number(v.lng)))packPoints.push({id:ch.key,lat:Number(v.lat),lng:Number(v.lng),seq:Number(v.seq)||0,sourceCampaign:v.sourceCampaign||'',sourceWorker:v.sourceWorker||'',sourceTs:Number(v.sourceTs)||0})});packPoints.sort((a,b)=>a.seq-b.seq);renderPackMap();updateRouteUi();if(focus&&packPoints.length)fitPack()};
+  const cH=snap=>{completions=snap.val()||{};renderPackMap();updateRouteUi()};
+  const sH=snap=>{skips=snap.val()||{};renderPackMap();updateRouteUi()};
+  onValue(ptsRef,ptH);onValue(cRef,cH);onValue(sRef,sH);
+  packPointUnsub=()=>off(ptsRef,'value',ptH);completionUnsub=()=>off(cRef,'value',cH);skipUnsub=()=>off(sRef,'value',sH);
+  await locate({focus:false});
+}
+
+function renderPacks(){
+  packsList.innerHTML='';
+  const packs=Object.entries(campaignData?.packs||{}).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+  if(!packs.length){packsList.innerHTML='<div class="empty">This campaign has no repeat packs yet.<br>Admin → Configure campaign.</div>';releaseWrap.hidden=true;return}
+  for(const [id,p] of packs){
+    const claim=p.claim||null;const mine=claim&&claim.workerSafe===safeKey(workerName);const completed=Number(p.completedCount||0)>=Number(p.target||0)||p.status==='completed';
+    const pct=p.target?Math.min(100,Number(p.completedCount||0)/Number(p.target)*100):0;
+    const el=document.createElement('div');el.className='pack';
+    el.innerHTML=`<div><h3>${escapeHtml(id)} ${mine?'<span class="tag purple">MY PACK</span>':''}</h3><div class="pack-meta"><span class="tag">Target ${formatInt(p.target)}</span><span class="tag green">${formatInt(p.completedCount||0)} done</span><span class="tag">${formatInt(p.pointCount||0)} route points</span>${claim?`<span class="tag ${mine?'purple':'red'}">${escapeHtml(claim.workerName||'Claimed')}</span>`:'<span class="tag">Available</span>'}</div></div><button type="button">${completed?'DONE':mine?'OPEN':claim?'TAKEN':'CLAIM'}</button><div class="pack-progress"><i style="width:${pct}%"></i></div>`;
+    const btn=el.querySelector('button');btn.disabled=completed||(!mine&&!!claim)||(isAdmin&&!mine);
+    btn.addEventListener('click',async()=>{
+      if(!workerName||isAdmin){showToast('Start a worker session first');return}
+      if(mine){closeSheet('packsBackdrop');await loadPack(id,true);return}
+      const claimRef=ref(db,`repeatCampaigns/${currentCampaign}/packs/${id}/claim`);
+      const result=await runTransaction(claimRef,current=>current||{workerName,workerSafe:safeKey(workerName),claimedAt:Date.now()},{applyLocally:false});
+      if(!result.committed||result.snapshot.val()?.workerSafe!==safeKey(workerName)){showToast('Pack was claimed by another worker');return}
+      showToast(`${id} claimed`);closeSheet('packsBackdrop');await loadPack(id,true);
+    });
+    packsList.appendChild(el);
+  }
+  releaseWrap.hidden=!currentPackId||isAdmin;
+}
+
+async function releaseCurrentPack(){
+  if(!currentPackId||!workerName)return;
+  const pack=campaignData?.packs?.[currentPackId];if(!pack?.claim||pack.claim.workerSafe!==safeKey(workerName)){showToast('This pack is not claimed by you');return}
+  const claimRef=ref(db,`repeatCampaigns/${currentCampaign}/packs/${currentPackId}/claim`);
+  const result=await runTransaction(claimRef,current=>current?.workerSafe===safeKey(workerName)?null:current,{applyLocally:false});
+  if(result.committed){showToast('Pack released');resetPack();renderPacks();closeSheet('packsBackdrop')}
+}
+releasePackBtn.addEventListener('click',releaseCurrentPack);
+
+function attachCampaign(id){
+  if(typeof campaignUnsub==='function')campaignUnsub();resetPack();
+  const cRef=ref(db,`repeatCampaigns/${id}`);
+  const h=snap=>{campaignData=snap.val()||null;cityLabel.textContent=campaignData?.cityName||campaignData?.cityId||'—';renderPacks();updateRouteUi();if(workerName&&!isAdmin&&campaignData?.packs){const mine=Object.entries(campaignData.packs).find(([,p])=>p.claim?.workerSafe===safeKey(workerName)&&p.status!=='completed');if(mine&&!currentPackId)loadPack(mine[0],false)}};
+  onValue(cRef,h);campaignUnsub=()=>off(cRef,'value',h);
+}
+async function setCampaign(id){
+  currentCampaign=normalizeCampaign(id);localStorage.setItem(LS_CAMPAIGN,currentCampaign);campaignLabel.textContent=currentCampaign;campaignBtn.textContent=currentCampaign;campaignInput.value=currentCampaign;builderCampaignId.value=currentCampaign;campaignData=null;cityLabel.textContent='—';resetPack();attachCampaign(currentCampaign);hideLoader();campaignBackdrop.style.display='none';await locate({focus:true});updateRouteUi();
+}
+
+joinCampaignBtn.addEventListener('click',async()=>{campaignError.textContent='';const id=normalizeCampaign(campaignInput.value);if(!validCampaign(id)){campaignError.textContent='Enter a valid FF/XX campaign ID.';return}joinCampaignBtn.disabled=true;try{await setCampaign(id);if(!workerName)openSheet('workerBackdrop')}finally{joinCampaignBtn.disabled=false}});
+campaignInput.addEventListener('keydown',e=>{if(e.key==='Enter')joinCampaignBtn.click()});
+campaignBtn.addEventListener('click',()=>{campaignBackdrop.style.display='flex';campaignInput.value=currentCampaign;campaignInput.focus()});
+
+workerInput.addEventListener('input',()=>{const a=workerInput.value.trim().toLowerCase()==='admin';adminPinField.hidden=!a;if(!a)adminPinInput.value=''});
+startWorkerBtn.addEventListener('click',async()=>{
+  workerError.textContent='';const name=workerInput.value.trim().replace(/\s+/g,' ');
+  if(name.toLowerCase()==='admin'){
+    if(adminPinInput.value!==ADMIN_PIN){workerError.textContent='Incorrect admin PIN.';return}
+    workerName='admin';isAdmin=true;workerBtn.textContent='Admin';localStorage.removeItem(LS_WORKER);closeSheet('workerBackdrop');openSheet('adminBackdrop');updateRouteUi();return;
+  }
+  if(!/^[A-Za-z0-9][A-Za-z0-9 _-]{1,23}$/.test(name)){workerError.textContent='Use 2–24 letters/numbers.';return}
+  workerName=name;isAdmin=false;workerBtn.textContent=name;localStorage.setItem(LS_WORKER,name);closeSheet('workerBackdrop');renderPacks();updateRouteUi();
+  const mine=Object.entries(campaignData?.packs||{}).find(([,p])=>p.claim?.workerSafe===safeKey(workerName)&&p.status!=='completed');if(mine)await loadPack(mine[0],false);else openSheet('packsBackdrop');
+});
+workerBtn.addEventListener('click',()=>{workerInput.value=isAdmin?'admin':workerName;adminPinInput.value='';adminPinField.hidden=!isAdmin;openSheet('workerBackdrop')});
+
+async function logNormalDot(color){
+  if(!currentCampaign||!workerName||isAdmin)return;if(!currentLocation&&!await locate({focus:false}))return;
+  const payload={lat:roundCoord(currentLocation.lat),lng:roundCoord(currentLocation.lng),color,timestamp:Date.now(),workerName};
+  const key=push(ref(db,`userPosts/${currentCampaign}`)).key;await update(ref(db),{[`userPosts/${currentCampaign}/${key}`]:payload,[`users/${currentCampaign}/lastPostAt`]:payload.timestamp});
+  return payload;
+}
+async function logOrange(){
+  const payload={lat:roundCoord(currentLocation.lat),lng:roundCoord(currentLocation.lng),color:'orange',timestamp:Date.now(),workerName};
+  const key=push(ref(db,`userPostClicks/${currentCampaign}`)).key;await update(ref(db),{[`userPostClicks/${currentCampaign}/${key}`]:payload,[`users/${currentCampaign}/lastPostClickAt`]:payload.timestamp});
+  return payload;
+}
+async function markSkipNearest(){
+  const c=candidateForCurrentLocation();if(!c||c.d>MATCH_RADIUS_M){showToast(`Red saved. No route point within ${MATCH_RADIUS_M}m.`);return}
+  const data={workerName,workerSafe:safeKey(workerName),timestamp:Date.now(),distanceM:Math.round(c.d)};
+  const result=await runTransaction(ref(db,`repeatCampaigns/${currentCampaign}/skips/${currentPackId}/${c.p.id}`),cur=>cur?undefined:data,{applyLocally:false});
+  if(result.committed){await runTransaction(ref(db,`repeatCities/${campaignData.cityId}/packs/${currentSourcePackId}/points/${c.p.id}/failureCount`),v=>(Number(v)||0)+1);showToast(`Target skipped · ${Math.round(c.d)}m`)}
+}
+async function completeNearest(){
+  const c=candidateForCurrentLocation();if(!c||c.d>MATCH_RADIUS_M){showToast(`Post saved, but no historical target is within ${MATCH_RADIUS_M}m.`);return false}
+  if(!lastGreenAt||Date.now()-lastGreenAt>GREEN_WINDOW_MS){showToast('Post saved, but route point NOT completed: Green must come before Orange.');return false}
+  if(lastGreenLocation&&haversine(lastGreenLocation,currentLocation)>MATCH_RADIUS_M){showToast('Post saved, but Green was at a different location.');return false}
+  const payload={workerName,workerSafe:safeKey(workerName),timestamp:Date.now(),lat:roundCoord(currentLocation.lat),lng:roundCoord(currentLocation.lng),distanceM:Math.round(c.d)};
+  const compRef=ref(db,`repeatCampaigns/${currentCampaign}/completions/${currentPackId}/${c.p.id}`);
+  const result=await runTransaction(compRef,cur=>cur?undefined:payload,{applyLocally:false});
+  if(!result.committed){showToast('This point was already completed.');return false}
+  const countResult=await runTransaction(ref(db,`repeatCampaigns/${currentCampaign}/packs/${currentPackId}/completedCount`),v=>(Number(v)||0)+1);
+  await update(ref(db,`repeatCities/${campaignData.cityId}/packs/${currentSourcePackId}/points/${c.p.id}`),{lastDeliveredAt:Date.now()});
+  await runTransaction(ref(db,`repeatCities/${campaignData.cityId}/packs/${currentSourcePackId}/points/${c.p.id}/successCount`),v=>(Number(v)||0)+1);
+  const target=Number(campaignData?.packs?.[currentPackId]?.target||0);const fresh=Number(countResult.snapshot.val()||0);
+  if(target&&fresh>=target)await update(ref(db,`repeatCampaigns/${currentCampaign}/packs/${currentPackId}`),{status:'completed',completedAt:Date.now()});
+  lastGreenAt=0;lastGreenLocation=null;showToast(`Verified repeat delivery · ${Math.round(c.d)}m from target`);return true;
+}
+
+yesBtn.addEventListener('click',async()=>{try{await logNormalDot('green');lastGreenAt=Date.now();lastGreenLocation=currentLocation?{...currentLocation}:null;showToast('Green confirmed — now click Post')}catch(e){console.error(e);showToast('Could not save Green')}});
+noBtn.addEventListener('click',async()=>{try{await logNormalDot('red');await markSkipNearest()}catch(e){console.error(e);showToast('Could not save Red')}});
+bonusBtn.addEventListener('click',async()=>{try{await logNormalDot('blue');showToast('Bonus delivery logged')}catch(e){console.error(e);showToast('Could not save Bonus')}});
+postBtn.addEventListener('click',async()=>{try{if(!currentLocation&&!await locate({focus:false}))return;await logOrange();await completeNearest()}catch(e){console.error(e);showToast('Could not save Post')}});
+
+$('locateBtn').addEventListener('click',()=>locate({focus:true}));
+$('packsBtn').addEventListener('click',()=>{renderPacks();openSheet('packsBackdrop')});
+$('routeBtn').addEventListener('click',()=>{if(packPoints.length)fitPack();else showToast('Claim a pack first')});
+focusNextBtn.addEventListener('click',()=>{const p=getNextPoint();if(p)map.flyTo({center:[p.lng,p.lat],zoom:18,duration:600});else showToast('No next point')});
+$('adminBtn').addEventListener('click',()=>{if(isAdmin)openSheet('adminBackdrop');else{workerInput.value='admin';workerInput.dispatchEvent(new Event('input'));openSheet('workerBackdrop')}});
+$('exitAdminBtn').addEventListener('click',()=>{isAdmin=false;workerName='';workerBtn.textContent='Worker';closeSheet('adminBackdrop');workerInput.value='';adminPinInput.value='';openSheet('workerBackdrop');updateRouteUi()});
+
+function hashPoint(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
+function dedupePoints(points,radius){
+  const kept=[];const buckets=new Map();const cell=Math.max(.00002,radius/111320);
+  const key=(lat,lng)=>`${Math.floor(lat/cell)}:${Math.floor(lng/cell)}`;
+  for(const p of points){
+    const gy=Math.floor(p.lat/cell),gx=Math.floor(p.lng/cell);let dup=false;
+    for(let dy=-1;dy<=1&&!dup;dy++)for(let dx=-1;dx<=1&&!dup;dx++){const arr=buckets.get(`${gy+dy}:${gx+dx}`)||[];if(arr.some(k=>haversine(p,k)<=radius))dup=true}
+    if(dup)continue;kept.push(p);const k=key(p.lat,p.lng);if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(p);
+  }
+  return kept;
+}
+async function fetchHistoricalCampaign(raw){
+  for(const alias of campaignAliases(raw)){
+    const snap=await get(ref(db,`userPostClicks/${alias}`));
+    if(!snap.exists())continue;
+    const pts=[];snap.forEach(ch=>{const v=ch.val()||{};const lat=Number(v.lat),lng=Number(v.lng);if(Number.isFinite(lat)&&Number.isFinite(lng))pts.push({lat,lng,sourceCampaign:alias.toUpperCase(),sourceWorker:String(v.workerName||'Unknown'),sourceTs:Number(v.timestamp)||0,sourceKey:ch.key})});
+    pts.sort((a,b)=>a.sourceTs-b.sourceTs);return {resolvedId:alias.toUpperCase(),points:pts};
+  }
+  return {resolvedId:normalizeCampaign(raw),points:[]};
+}
+function buildPacks(points,packTarget,bufferPct){
+  const capacity=Math.max(packTarget,Math.ceil(packTarget*(1+bufferPct/100)));
+  const groups=new Map();
+  for(const p of points){const k=`${p.sourceCampaign}|${p.sourceWorker}`;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(p)}
+  const provisional=[];
+  for(const arr of groups.values()){
+    arr.sort((a,b)=>a.sourceTs-b.sourceTs);
+    for(let i=0;i<arr.length;i+=capacity)provisional.push(arr.slice(i,i+capacity));
+  }
+  // Keep original worker route order. Very small tails are attached to the previous pack when capacity allows.
+  const packs=[];
+  for(const chunk of provisional){
+    const prev=packs[packs.length-1];
+    if(chunk.length<Math.max(25,Math.floor(packTarget*.25))&&prev&&prev.length+chunk.length<=capacity){prev.push(...chunk)}
+    else packs.push([...chunk]);
+  }
+  return packs;
+}
+async function writeUpdatesChunked(updates,chunkSize=350){
+  const entries=Object.entries(updates);for(let i=0;i<entries.length;i+=chunkSize){await update(ref(db),Object.fromEntries(entries.slice(i,i+chunkSize)))}
+}
+
+$('openCityBuilder').addEventListener('click',()=>{closeSheet('adminBackdrop');openSheet('cityBuilderBackdrop')});
+$('openCampaignBuilder').addEventListener('click',async()=>{closeSheet('adminBackdrop');builderCampaignId.value=currentCampaign;await loadCities();openSheet('campaignBuilderBackdrop')});
+$('openCityStats').addEventListener('click',async()=>{closeSheet('adminBackdrop');await showCityStats()});
+$('openCampaignStats').addEventListener('click',async()=>{closeSheet('adminBackdrop');await showCampaignStats()});
+
+cityNameInput.addEventListener('input',()=>{if(!cityIdInput.dataset.touched)cityIdInput.value=safeKey(cityNameInput.value)});cityIdInput.addEventListener('input',()=>cityIdInput.dataset.touched='1');
+$('buildCityBtn').addEventListener('click',async()=>{
+  if(!isAdmin)return;const btn=$('buildCityBtn');const out=$('cityBuildResult');
+  const cityName=cityNameInput.value.trim();const cityId=safeKey(cityIdInput.value||cityName);const sourceIds=sourceCampaignsInput.value.split(/[\s,;]+/).map(normalizeCampaign).filter(Boolean);
+  const packTarget=Math.round(Number(packTargetInput.value)||1000);const buffer=Math.max(0,Math.min(25,Number(bufferInput.value)||0));const dedupe=Math.max(1,Math.min(30,Number(dedupeInput.value)||8));
+  if(!cityName||!cityId||!sourceIds.length){showToast('City name, city ID and source campaigns are required');return}
+  btn.disabled=true;out.textContent=`${nowIso()}\nReading ${sourceIds.length} historical campaign(s)…`;
+  try{
+    let all=[];const readLog=[];
+    for(const id of sourceIds){const r=await fetchHistoricalCampaign(id);all.push(...r.points);readLog.push(`${id} → ${r.resolvedId}: ${formatInt(r.points.length)} posts`);out.textContent=`${readLog.join('\n')}\n\nTotal raw: ${formatInt(all.length)}\nDeduplicating…`}
+    if(!all.length)throw new Error('No Orange/Post GPS data found for the supplied campaign IDs.');
+    all.sort((a,b)=>a.sourceCampaign.localeCompare(b.sourceCampaign)||(a.sourceWorker||'').localeCompare(b.sourceWorker||'')||a.sourceTs-b.sourceTs);
+    const unique=dedupePoints(all,dedupe);const packs=buildPacks(unique,packTarget,buffer);if(!packs.length)throw new Error('Not enough usable historical points to create packs.');
+    out.textContent=`${readLog.join('\n')}\n\nRaw: ${formatInt(all.length)}\nUnique: ${formatInt(unique.length)}\nPacks: ${packs.length}\nReplacing city pack database…`;
+    const oldPacksSnap=await get(ref(db,`repeatCities/${cityId}/packs`));const oldPackMeta={};oldPacksSnap.forEach(ch=>{oldPackMeta[ch.key]=ch.val()?.meta||{}});
+    await remove(ref(db,`repeatCities/${cityId}/packs`));
+    const createdAt=Date.now();const base={};let totalStored=0;
+    packs.forEach((arr,pi)=>{
+      const packId=`P${String(pi+1).padStart(3,'0')}`;const oldMeta=oldPackMeta[packId]||{};base[`repeatCities/${cityId}/packs/${packId}/meta`]={order:pi+1,count:arr.length,target:Math.min(packTarget,arr.length),useCount:Number(oldMeta.useCount)||0,lastUsedAt:Number(oldMeta.lastUsedAt)||0,createdAt:Number(oldMeta.createdAt)||createdAt,rebuiltAt:createdAt};
+      arr.forEach((p,seq)=>{const pid=`d_${hashPoint(`${p.sourceCampaign}|${p.sourceKey}|${p.lat}|${p.lng}`)}`;base[`repeatCities/${cityId}/packs/${packId}/points/${pid}`]={lat:roundCoord(p.lat),lng:roundCoord(p.lng),seq:seq+1,sourceCampaign:p.sourceCampaign,sourceWorker:p.sourceWorker,sourceTs:p.sourceTs,successCount:1,failureCount:0};totalStored++})
+    });
+    await writeUpdatesChunked(base);
+    await set(ref(db,`repeatCities/${cityId}/meta`),{cityId,cityName,sourceCampaigns:sourceIds,rawHistoricalPoints:all.length,totalHistoricalPoints:unique.length,totalStoredPoints:totalStored,totalPacks:packs.length,packTarget,bufferPct:buffer,dedupeMeters:dedupe,createdAt,updatedAt:Date.now(),version:1});
+    cityCache={};citiesLoaded=false;
+    out.textContent=`DONE\nCity: ${cityName} (${cityId})\nRaw posts: ${formatInt(all.length)}\nUnique verified locations: ${formatInt(unique.length)}\nRoute packs: ${packs.length}\nTarget per full pack: ${formatInt(packTarget)}\nBuffer: ${buffer}%\nDedupe: ${dedupe}m`;
+    showToast(`${cityName}: ${formatInt(unique.length)} historical locations ready`);
+  }catch(e){console.error(e);out.textContent=`ERROR\n${e.message||e}`;showToast('City build failed')}
+  finally{btn.disabled=false}
+});
+
+async function loadCities(force=false){
+  if(citiesLoaded&&!force)return cityCache;const snap=await get(ref(db,'repeatCities'));cityCache={};snap.forEach(ch=>{const v=ch.val()||{};if(v.meta)cityCache[ch.key]={...v.meta,packs:v.packs||{}}});citiesLoaded=true;
+  citySelect.innerHTML='<option value="">Choose city…</option>'+Object.entries(cityCache).sort((a,b)=>(a[1].cityName||a[0]).localeCompare(b[1].cityName||b[0])).map(([id,c])=>`<option value="${escapeHtml(id)}">${escapeHtml(c.cityName||id)} · ${formatInt(c.totalHistoricalPoints||0)} points · ${formatInt(c.totalPacks||0)} packs</option>`).join('');return cityCache;
+}
+function choosePacks(city,target,mode){
+  let arr=Object.entries(city.packs||{}).map(([id,p])=>({id,meta:p.meta||{}})).filter(x=>Number(x.meta.count||0)>0);
+  if(mode==='random')arr.sort(()=>Math.random()-.5);
+  else if(mode==='oldestUsed')arr.sort((a,b)=>(Number(a.meta.lastUsedAt)||0)-(Number(b.meta.lastUsedAt)||0)||(Number(a.meta.useCount)||0)-(Number(b.meta.useCount)||0));
+  else arr.sort((a,b)=>(Number(a.meta.useCount)||0)-(Number(b.meta.useCount)||0)||(Number(a.meta.lastUsedAt)||0)-(Number(b.meta.lastUsedAt)||0)||(Number(a.meta.order)||0)-(Number(b.meta.order)||0));
+  const chosen=[];let capacity=0;const per=Number(city.packTarget)||1000;
+  for(const x of arr){chosen.push(x);capacity+=Math.min(per,Number(x.meta.count)||0);if(capacity>=target)break}
+  return {chosen,capacity};
+}
+$('configureCampaignBtn').addEventListener('click',async()=>{
+  if(!isAdmin||!currentCampaign)return;const btn=$('configureCampaignBtn'),out=$('campaignBuildResult');const cityId=citySelect.value;const target=Math.round(Number(campaignTargetInput.value)||0);const mode=selectionMode.value;
+  if(!cityId||target<1){showToast('Choose a city and target');return}btn.disabled=true;out.textContent='Preparing campaign…';
+  try{
+    const cities=await loadCities(true);const city=cities[cityId];if(!city)throw new Error('City database not found.');const per=Number(city.packTarget)||1000;const pick=choosePacks(city,target,mode);const chosen=pick.chosen;if(pick.capacity<target)throw new Error(`City route capacity is ${formatInt(pick.capacity)} deliveries, below the requested ${formatInt(target)}.`);
+    await remove(ref(db,`repeatCampaigns/${currentCampaign}`));
+    const updates={};let remaining=target;
+    chosen.forEach((x,i)=>{const packTarget=Math.min(per,remaining,Number(x.meta.count)||per);remaining-=packTarget;const pid=`R${String(i+1).padStart(2,'0')}`;updates[`repeatCampaigns/${currentCampaign}/packs/${pid}`]={order:i+1,sourcePackId:x.id,target:packTarget,pointCount:Number(x.meta.count)||0,completedCount:0,status:'available',createdAt:Date.now()}});
+    updates[`repeatCampaigns/${currentCampaign}/cityId`]=cityId;updates[`repeatCampaigns/${currentCampaign}/cityName`]=city.cityName||cityId;updates[`repeatCampaigns/${currentCampaign}/target`]=target;updates[`repeatCampaigns/${currentCampaign}/packTarget`]=per;updates[`repeatCampaigns/${currentCampaign}/selectionMode`]=mode;updates[`repeatCampaigns/${currentCampaign}/createdAt`]=Date.now();updates[`repeatCampaigns/${currentCampaign}/createdBy`]='admin';
+    await update(ref(db),updates);
+    for(const x of chosen){await runTransaction(ref(db,`repeatCities/${cityId}/packs/${x.id}/meta/useCount`),v=>(Number(v)||0)+1);await update(ref(db,`repeatCities/${cityId}/packs/${x.id}/meta`),{lastUsedAt:Date.now()})}
+    out.textContent=`DONE\nCampaign: ${currentCampaign}\nCity: ${city.cityName||cityId}\nFlyers: ${formatInt(target)}\nAssigned packs: ${chosen.length}\nSource packs: ${chosen.map(x=>x.id).join(', ')}\nSelection: ${mode}`;showToast(`${chosen.length} repeat packs generated`);closeSheet('campaignBuilderBackdrop');
+  }catch(e){console.error(e);out.textContent=`ERROR\n${e.message||e}`;showToast('Campaign setup failed')}
+  finally{btn.disabled=false}
+});
+
+async function showCityStats(){
+  $('statsKicker').textContent='Repeat City database';$('statsTitle').textContent='Cities';$('statsBody').innerHTML='<div class="empty">Loading…</div>';openSheet('statsBackdrop');
+  try{const cities=await loadCities(true);const rows=Object.entries(cities).sort((a,b)=>(a[1].cityName||a[0]).localeCompare(b[1].cityName||b[0]));$('statsBody').innerHTML=rows.length?`<div class="pack-list">${rows.map(([id,c])=>{const totalUses=Object.values(c.packs||{}).reduce((s,p)=>s+Number(p.meta?.useCount||0),0);return `<div class="pack"><div><h3>${escapeHtml(c.cityName||id)}</h3><div class="pack-meta"><span class="tag green">${formatInt(c.totalHistoricalPoints)} verified</span><span class="tag">${formatInt(c.totalPacks)} packs</span><span class="tag purple">${formatInt(totalUses)} pack uses</span><span class="tag">${formatInt(c.packTarget)} target</span></div></div><div style="font:800 8px Menlo;color:#777c90">${escapeHtml(id)}</div></div>`}).join('')}</div>`:'<div class="empty">No repeat cities built yet.</div>'}catch(e){$('statsBody').innerHTML=`<div class="empty">${escapeHtml(e.message||e)}</div>`}
+}
+async function showCampaignStats(){
+  $('statsKicker').textContent='Current repeat campaign';$('statsTitle').textContent=currentCampaign||'Campaign';$('statsBody').innerHTML='<div class="empty">Loading…</div>';openSheet('statsBackdrop');
+  try{const snap=await get(ref(db,`repeatCampaigns/${currentCampaign}`));const c=snap.val();if(!c){$('statsBody').innerHTML='<div class="empty">No repeat route configured for this campaign.</div>';return}const packs=Object.entries(c.packs||{}).sort((a,b)=>(a[1].order||0)-(b[1].order||0));const totalDone=packs.reduce((s,[,p])=>s+Number(p.completedCount||0),0);const skipsSnap=await get(ref(db,`repeatCampaigns/${currentCampaign}/skips`));let skipTotal=0;skipsSnap.forEach(p=>p.forEach(()=>skipTotal++));$('statsBody').innerHTML=`<div class="notice"><strong>${escapeHtml(c.cityName||c.cityId)}</strong><br>${formatInt(totalDone)} / ${formatInt(c.target)} verified repeat deliveries · ${formatInt(skipTotal)} skipped historical points</div><div class="pack-list">${packs.map(([id,p])=>`<div class="pack"><div><h3>${escapeHtml(id)}</h3><div class="pack-meta"><span class="tag green">${formatInt(p.completedCount||0)} / ${formatInt(p.target)}</span><span class="tag">Source ${escapeHtml(p.sourcePackId)}</span>${p.claim?`<span class="tag purple">${escapeHtml(p.claim.workerName)}</span>`:'<span class="tag">Unclaimed</span>'}<span class="tag ${p.status==='completed'?'green':''}">${escapeHtml(p.status||'available')}</span></div></div><div style="font:900 10px Menlo;color:#86efac">${p.target?Math.round(Number(p.completedCount||0)/Number(p.target)*100):0}%</div></div>`).join('')}</div>`}catch(e){$('statsBody').innerHTML=`<div class="empty">${escapeHtml(e.message||e)}</div>`}
+}
+
+// Restore session.
+(async function init(){
+  const storedCampaign=normalizeCampaign(localStorage.getItem(LS_CAMPAIGN));const storedWorker=String(localStorage.getItem(LS_WORKER)||'').trim();
+  if(storedWorker){workerName=storedWorker;workerBtn.textContent=storedWorker}
+  if(validCampaign(storedCampaign)){campaignBackdrop.style.display='none';await setCampaign(storedCampaign)}else{hideLoader();campaignBackdrop.style.display='flex'}
+})();
+</script>
+</body>
+</html>
