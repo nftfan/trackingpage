@@ -642,7 +642,7 @@
       <section class="mistakes-section" aria-labelledby="mistakesTitle">
         <div class="camp-header"><strong id="mistakesTitle">Mistakes</strong><span id="mistakesCount">0</span></div>
         <div class="mistakes-table-wrap">
-          <table class="mistakes-table"><thead><tr><th scope="col">Promoter / shift</th><th scope="col">Green dot time</th><th scope="col">Mistake</th></tr></thead><tbody id="mistakesRows"><tr><td colspan="3">No mistakes logged.</td></tr></tbody></table>
+          <table class="mistakes-table"><thead><tr><th scope="col">Promoter / shift</th><th scope="col">Time</th><th scope="col">Mistake</th></tr></thead><tbody id="mistakesRows"><tr><td colspan="3">No mistakes logged.</td></tr></tbody></table>
         </div>
       </section>
       </div>
@@ -681,6 +681,7 @@
       <input id="adminPinInput" class="input" type="password" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" autocomplete="off">
     </div>
     <div id="workerError" class="error"></div>
+    <button id="endWorkerShift" class="btn-modal" type="button" style="margin-top:12px;background:#b91c1c" hidden>End shift</button>
   </div>
 </div>
 
@@ -2204,23 +2205,50 @@
     
   }
 
-  function computeMistakes(dots){
+  function workerShiftRecord(name){return shiftRegistry[(name||'').toLowerCase().replace(/[^a-z0-9]/g,'')]||{};}
+  function workerShiftEnded(){return !!Number(workerShiftRecord(currentWorkerName).endedAt);}
+  function computeMistakes(dots,now=Date.now()){
     const byWorker=new Map();
     for(const dot of dots){
       const name=(dot.workerName||'').trim();
       if(!name || name.toLowerCase()==='admin' || !['green','red','blue','orange'].includes(dot.color) || !Number.isFinite(Number(dot.timestamp)))continue;
       const key=name.toLowerCase();
-      if(!byWorker.has(key))byWorker.set(key,[]);
-      byWorker.get(key).push(dot);
+      if(!byWorker.has(key))byWorker.set(key,{name,clicks:[]});
+      byWorker.get(key).clicks.push(dot);
+    }
+    // Include a started shift even before its first click.
+    for(const record of Object.values(shiftRegistry)){
+      const name=String(record.firstName||'').trim();
+      if(name && name.toLowerCase()!=='admin' && Number(record.startedAt)>0 && !byWorker.has(name.toLowerCase()))byWorker.set(name.toLowerCase(),{name,clicks:[]});
     }
     const mistakes=[];
-    for(const clicks of byWorker.values()){
+    for(const {name,clicks} of byWorker.values()){
       clicks.sort((a,b)=>Number(a.timestamp)-Number(b.timestamp));
-      for(let i=0;i<clicks.length;i++){
-        const green=clicks[i],next=clicks[i+1];
-        if(green.color!=='green' || next?.color==='orange')continue;
-        mistakes.push({workerName:green.workerName,timestamp:Number(green.timestamp)});
+      const record=workerShiftRecord(name),endedAt=Number(record.endedAt)||0,startedAt=Number(record.startedAt)||0;
+      const add=(type,timestamp,message)=>mistakes.push({workerName:name,type,timestamp,message});
+      // Blue is a bonus action, not a new mailbox or a delivery confirmation.
+      const sequence=clicks.filter(c=>c.color!=='blue');
+      for(let i=0;i<sequence.length;i++){
+        const click=sequence[i],previous=sequence[i-1],next=sequence[i+1];
+        if(click.color==='green'){
+          if(next?.color==='green')add('green-green',Number(click.timestamp),'Green → Green: previous delivery not confirmed');
+          else if(next?.color==='red')add('green-red',Number(click.timestamp),'Green → Red: previous delivery not confirmed');
+          else if(!next && endedAt>=Number(click.timestamp))add('unfinished',endedAt,'Unfinished delivery at shift end');
+        }else if(click.color==='orange' && previous?.color!=='green'){
+          if(previous?.color==='orange')add('orange-orange',Number(click.timestamp),'Orange → Orange: extra delivery confirmation');
+          else add('orange-without-green',Number(click.timestamp),'Orange without Green: mailbox not marked');
+        }
       }
+      const inactiveMs=5*60*1000;
+      let last=startedAt>0 ? startedAt : null;
+      for(const click of clicks){
+        const time=Number(click.timestamp);
+        if(last!==null && time-last>=inactiveMs)add('inactivity',last+inactiveMs,'5 minutes inactive');
+        last=time;
+      }
+      // Legacy shifts without an explicit start do not accrue trailing idle time.
+      const until=endedAt || (startedAt>0 ? now : 0);
+      if(last!==null && until-last>=inactiveMs)add('inactivity',last+inactiveMs,'5 minutes inactive');
     }
     return mistakes.sort((a,b)=>b.timestamp-a.timestamp);
   }
@@ -2231,13 +2259,13 @@
     document.getElementById('mistakesRows').innerHTML=mistakes.length ? mistakes.map(m=>{
       const time=new Date(m.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const color='#f87171';
-      return `<tr><td>${escapeHtml(m.workerName)}</td><td>${escapeHtml(time)}</td><td style="color:${color}">Orange missing after green</td></tr>`;
+      return `<tr><td>${escapeHtml(m.workerName)}</td><td>${escapeHtml(time)}</td><td style="color:${color}">${escapeHtml(m.message)}</td></tr>`;
     }).join('') : '<tr><td colspan="3">No mistakes logged.</td></tr>';
   }
   function currentShiftMistakes(dots){
     if(!currentWorkerName || isAdmin)return [];
     const worker=currentWorkerName.trim().toLowerCase();
-    return computeMistakes(dots.filter(dot=>(dot.workerName||'').trim().toLowerCase()===worker));
+    return computeMistakes(dots).filter(m=>m.workerName.toLowerCase()===worker);
   }
   function renderCurrentShiftMistakes(dots=globalAllDots){
     const status=document.getElementById('shiftMistakesStatus');
@@ -2255,7 +2283,7 @@
     status.textContent=`${currentWorkerName} · ${mistakes.length} mistake${mistakes.length===1 ? '' : 's'}`;
     rows.innerHTML=mistakes.length ? mistakes.map(m=>{
       const time=new Date(m.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'});
-      return `<tr><td>${escapeHtml(time)}</td><td style="color:#f87171">Orange missing after green</td></tr>`;
+      return `<tr><td>${escapeHtml(time)}</td><td style="color:#f87171">${escapeHtml(m.message)}</td></tr>`;
     }).join('') : '<tr><td colspan="2">No mistakes logged for this shift.</td></tr>';
   }
   const shiftMistakesBtn=document.getElementById('shiftMistakesBtn');
@@ -2476,6 +2504,8 @@
       if(adminCurrentTargetEl)adminCurrentTargetEl.textContent=campaignTargetDots?campaignTargetDots.toLocaleString():'Not set';
       if(adminTargetInput&&campaignTargetDots)adminTargetInput.placeholder=campaignTargetDots.toString();
       updateCampaignProgress(lastCampaignRawDots,lastCampaignPosts);
+      renderMistakes(globalAllDots);
+      setPostEnabled(!!currentLatLng);
     }, error => {
       if(currentUserId !== id)return;
       console.error('Campaign settings error:', error);
@@ -2488,6 +2518,7 @@
 
   function onUserReady(id){
     id=normalizeUserId(id);
+    shiftRegistry={};
     changeUserBtn.textContent='Change FF ID';
     isAdmin=false;document.body.classList.remove('admin-mode');
     currentUserId=id; shiftSalaryCents=null; shiftSalaryState='loading'; renderShiftSalary(); resetSegmentAssignments(); localStorage.setItem(LS_KEY,id); userPillText.textContent=id; userPill.style.display='flex';
@@ -2529,6 +2560,7 @@
   }
   function openWorkerModal(){
     workerError.textContent='';
+    document.getElementById('endWorkerShift').hidden=!currentWorkerName||isAdmin||workerShiftEnded();
     workerNameInput.value=isAdmin?'':(currentWorkerName||'');
     adminPinInput.value='';
     showAdminPinIfNeeded();
@@ -2569,7 +2601,13 @@
       return;
     }
     if(!/^[A-Za-z0-9]{2,20}$/.test(name)){workerError.textContent='Use 2–20 letters/numbers';return;}
+    if(Number(workerShiftRecord(name).endedAt)){workerError.textContent='This shift has ended. Use a new shift number, e.g. Tom2.';return;}
     try{
+      const safe=name.toLowerCase().replace(/[^a-z0-9]/g,'');
+      const record=workerShiftRecord(name);
+      const startedAt=Number(record.startedAt)||Date.now();
+      await update(ref(db,`users/${currentUserId}/workers/${safe}`),{firstName:name,startedAt});
+      shiftRegistry[safe]={...record,firstName:name,startedAt};
       isAdmin=false;
       document.body.classList.remove('admin-mode');
       currentWorkerName=name;
@@ -2584,6 +2622,21 @@
       attachMyPostsListener(currentUserId);
     }catch(e){workerError.textContent='Failed to save worker';}
   });
+
+  document.getElementById('endWorkerShift').addEventListener('click',async()=>{
+    if(!currentUserId||!currentWorkerName||isAdmin||workerShiftEnded())return;
+    const button=document.getElementById('endWorkerShift');button.disabled=true;
+    const safe=currentWorkerName.toLowerCase().replace(/[^a-z0-9]/g,'');
+    try{
+      const endedAt=Date.now();
+      await update(ref(db,`users/${currentUserId}/workers/${safe}`),{endedAt});
+      shiftRegistry[safe]={...shiftRegistry[safe],endedAt};
+      setPostEnabled(false);renderMistakes(globalAllDots);closeWorkerModal();
+      showToast('Shift ended');
+    }catch(error){workerError.textContent='Could not end shift. Please retry.';}
+    finally{button.disabled=false;}
+  });
+  setInterval(()=>{if(currentUserId)renderMistakes(globalAllDots);},1000);
 
   // ── Chat modal ────────────────────────────────────────────────────────────
   chatBtn.addEventListener('click',()=>{if(!currentUserId)return;chatBackdrop.classList.add('show');chatBadge.classList.remove('show');chatBadge.textContent='0';lastReadChatTs=Date.now();setTimeout(()=>chatInput.focus(),50);});
@@ -2696,6 +2749,7 @@
   function loadShiftRegistry(userId){
     const wRef=ref(db,`users/${userId}/workers`);
     onValue(wRef,snap=>{
+      if(currentUserId!==userId)return;
       shiftRegistry={};campaignBonusBlueTotal=0;
       snap.forEach(child=>{
         const v=child.val()||{};
@@ -2704,6 +2758,8 @@
       });
       if(globalAllDots.length){populateShiftSelect(globalAllDots);syncChallengeFromDots(globalAllDots);updateSessionDisplay(globalAllDots);}
       updateCampaignProgress(lastCampaignRawDots,lastCampaignPosts);
+      renderMistakes(globalAllDots);
+      setPostEnabled(!!currentLatLng);
     });
   }
   function computeShifts(allDots){
@@ -3006,7 +3062,9 @@
     try{
       await update(ref(db,`users/${currentUserId}/campaignSettings`),{targetDots:target,updatedAt:Date.now(),updatedBy:'admin'});
       campaignTargetDots=target;adminCurrentTargetEl.textContent=target.toLocaleString();adminTargetInput.value='';
-      updateCampaignProgress(lastCampaignRawDots,lastCampaignPosts);showToast(`Campaign target set to ${target.toLocaleString()}`);
+      updateCampaignProgress(lastCampaignRawDots,lastCampaignPosts);
+      renderMistakes(globalAllDots);
+      setPostEnabled(!!currentLatLng);showToast(`Campaign target set to ${target.toLocaleString()}`);
     }catch(e){showToast('Could not save campaign target');}
     finally{adminSaveTarget.disabled=false;}
   });
@@ -3017,7 +3075,7 @@
   });
 
   // ── Geolocation ───────────────────────────────────────────────────────────
-  function setPostEnabled(on){const ok=on&&!!currentUserId&&!!currentWorkerName&&!isAdmin;btnJa.disabled=btnNee.disabled=btnBonus.disabled=btnPost.disabled=!ok;}
+  function setPostEnabled(on){const ok=on&&!!currentUserId&&!!currentWorkerName&&!isAdmin&&!workerShiftEnded();btnJa.disabled=btnNee.disabled=btnBonus.disabled=btnPost.disabled=!ok;}
 
   async function goToCurrentLocation({focus=true}={}){
     if(!('geolocation' in navigator))return;
