@@ -1894,8 +1894,20 @@ body{font-size:12px;background:var(--wash)}
 }
 </style><style id="compact-estimate-figures">.left-panel #buildingCount,.left-panel #flyerCount{font-size:18px;font-weight:700;line-height:1.2}.left-panel .estimate-grid .metric>span{font-size:10px;font-weight:700}</style><style id="area-selection-feedback">
 .area-selection-loading{position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:rgba(245,246,242,.7);border-radius:16px;cursor:progress}.area-selection-card{display:flex;align-items:center;gap:13px;padding:20px 24px;max-width:90%;background:#fff;border:1px solid #dce3d7;border-radius:16px;box-shadow:0 8px 30px #253c3020;color:#355f46;font-size:13px}.area-selection-spinner{width:26px;height:26px;flex:none;border:3px solid #dce8d6;border-top-color:#355f46;border-radius:50%;animation:area-selection-spin .8s linear infinite}@keyframes area-selection-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.area-selection-spinner{animation:none;border-color:#355f46 #dce8d6 #dce8d6}}
+</style><style>
+#campaignLockBtn{margin-top:9px;min-height:42px;border-radius:14px}
+#campaignLockBtn[data-locked="true"]{background:#fff1e3;border-color:#dfb781;color:#87551c}
+#campaignLockStatus{margin:7px 0 0}
+body[data-campaign-locked="true"] .left-panel .tool-section{opacity:.55}
+#campaignPinDialog{width:min(360px,calc(100% - 32px));padding:24px;border:1px solid var(--line);border-radius:16px;color:var(--ink)}
+#campaignPinDialog::backdrop{background:#172a3d80}
+#campaignPinDialog h2{font-size:18px;margin:0 0 16px}
+#campaignPinDialog label{display:block;margin-bottom:8px;font-size:13px}
+#campaignPinInput{height:44px;font-size:20px;letter-spacing:5px}
+#campaignPinError{min-height:20px;color:#a02d38;font-size:12px}
+.campaign-pin-actions{display:flex;gap:8px}
 </style></head>
-<body>
+<body><dialog id="campaignPinDialog" aria-labelledby="campaignPinTitle"><form id="campaignPinForm"><h2 id="campaignPinTitle">Lock campaign</h2><label for="campaignPinInput">Enter PIN</label><input class="field" id="campaignPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]{6}" required aria-describedby="campaignPinError"/><p id="campaignPinError" role="alert"></p><div class="campaign-pin-actions"><button class="action" id="campaignPinCancel" type="button">Cancel</button><button class="action primary" id="campaignPinSubmit" type="submit">Confirm</button></div></form></dialog>
 <div class="loader" id="loader">
 <div class="loader-box">
 <div class="loader-mark">LF</div>
@@ -1929,7 +1941,7 @@ body{font-size:12px;background:var(--wash)}
 </header>
 <aside aria-label="Campaign costs and ROI" class="finance-panel"><div class="campaign-summary" id="campaignSummary">
 <div class="empty">Plan a campaign or open an existing XX ID.</div>
-</div><div class="printing-cost-field"><label for="otherCostInput">Printing and other costs (€)</label><input class="field" id="otherCostInput" inputmode="decimal" min="0" placeholder="0.00" step="0.01" type="number" value="0"/></div><section class="finance-section" id="roiCalculator"><h2>ROI calculator</h2><div class="finance-row"><span>Campaign cost</span><strong id="roiSpent">€0.00</strong></div><label for="roiCustomers">New customers</label><input class="field" id="roiCustomers" inputmode="numeric" min="0" placeholder="0" step="1" type="number"/><label for="roiCustomerRevenue">Revenue per customer (€)</label><input class="field" id="roiCustomerRevenue" inputmode="decimal" min="0" placeholder="0.00" step="0.01" type="number"/><div aria-live="polite" class="roi-result"><span id="roiResultLabel">Profit / loss</span><strong id="roiResult">—</strong></div><span id="roiSaveState" role="status"></span></section></aside><aside aria-label="Planning and estimates" class="left-panel">
+</div><div class="printing-cost-field"><label for="otherCostInput">Printing and other costs (€)</label><input class="field" id="otherCostInput" inputmode="decimal" min="0" placeholder="0.00" step="0.01" type="number" value="0"/></div><section class="finance-section" id="roiCalculator"><h2>ROI calculator</h2><div class="finance-row"><span>Campaign cost</span><strong id="roiSpent">€0.00</strong></div><label for="roiCustomers">New customers</label><input class="field" id="roiCustomers" inputmode="numeric" min="0" placeholder="0" step="1" type="number"/><label for="roiCustomerRevenue">Revenue per customer (€)</label><input class="field" id="roiCustomerRevenue" inputmode="decimal" min="0" placeholder="0.00" step="0.01" type="number"/><div aria-live="polite" class="roi-result"><span id="roiResultLabel">Profit / loss</span><strong id="roiResult">—</strong></div><span id="roiSaveState" role="status"></span></section><section class="finance-section" id="recentCampaigns" aria-labelledby="recentCampaignsTitle"><h2 id="recentCampaignsTitle">Recent campaigns</h2><select class="field" id="recentCampaignSelect" aria-label="Recent campaign FF ID" aria-describedby="recentCampaignStatus" disabled><option value="">Loading recent campaigns…</option></select><p class="helper" id="recentCampaignStatus" role="status" aria-live="polite">Loading recent campaigns…</p><button class="action" id="recentCampaignRetry" type="button" hidden>Try again</button></section></aside><aside aria-label="Planning and estimates" class="left-panel">
 <div class="tool-scroll">
 <!-- AREA -->
 <section class="tool-section">
@@ -1956,7 +1968,7 @@ body{font-size:12px;background:var(--wash)}
 </section>
 <!-- PICKUP -->
 <!-- CLIENT / COST / QUOTE -->
-<a class="print-flyers-button" href="https://www.leuvenflyers.com/printguide" target="_blank" rel="noopener noreferrer"><span class="material-icons-outlined" aria-hidden="true">print</span><span>Print Flyers</span><span class="material-icons-outlined print-arrow" aria-hidden="true">arrow_forward</span></a><section class="right-delivery-summary" id="campaignDeliverySummary"></section><div aria-live="polite" class="qr-sidebar-card" role="status"><span aria-hidden="true" class="material-icons-outlined">qr_code_2</span><div><span>QR scans</span><strong id="qrScanCount">0</strong></div></div><section class="finance-section campaign-dates"><h2>Campaign dates</h2><div><span>First delivery dot</span><strong id="campaignFirst">—</strong></div><div><span>Last delivery dot</span><strong id="campaignLast">—</strong></div><div><span>Time passed</span><strong id="campaignDays">—</strong></div></section><button class="help-button" id="sharePlanBtn" type="button">Share plan</button></div>
+<a class="print-flyers-button" href="https://www.leuvenflyers.com/printguide" target="_blank" rel="noopener noreferrer"><span class="material-icons-outlined" aria-hidden="true">print</span><span>Print Flyers</span><span class="material-icons-outlined print-arrow" aria-hidden="true">arrow_forward</span></a><section class="right-delivery-summary" id="campaignDeliverySummary"></section><div aria-live="polite" class="qr-sidebar-card" role="status"><span aria-hidden="true" class="material-icons-outlined">qr_code_2</span><div><span>QR scans</span><strong id="qrScanCount">0</strong></div></div><section class="finance-section campaign-dates"><h2>Campaign dates</h2><div><span>First delivery dot</span><strong id="campaignFirst">—</strong></div><div><span>Last delivery dot</span><strong id="campaignLast">—</strong></div><div><span>Time passed</span><strong id="campaignDays">—</strong></div></section><button class="help-button" id="sharePlanBtn" type="button">Share plan</button><button class="action" id="campaignLockBtn" type="button" disabled><span class="material-icons-outlined" aria-hidden="true">lock_open</span><span id="campaignLockLabel">Lock campaign</span></button><p class="helper" id="campaignLockStatus" role="status" aria-live="polite">Open a campaign to lock it.</p></div>
 </aside>
 <section aria-label="Campaign map and photo proof" class="map-workspace">
 <div class="map-stage"><main aria-label="Campaign planning map" id="map"></main><div id="areaSelectionLoading" class="area-selection-loading" hidden role="status" aria-live="polite"><div class="area-selection-card"><span class="area-selection-spinner" aria-hidden="true"></span><strong id="areaSelectionStatus"></strong></div></div></div>
@@ -1996,6 +2008,10 @@ import {
 
 import {
  getDatabase,
+ query,
+ orderByKey,
+ startAt,
+ endAt,
  ref,
  get,
  set,
@@ -2155,6 +2171,10 @@ let areaSuggestTimer=null;
 let insightId=null, qrUnsubscribe=null, roiUnsubscribe=null;
 let roiSavedData={};
 let clientId='';
+let campaignLocked=false, campaignLockPending=false, campaignLockSaving=false;
+let campaignLockUnsubscribe=null, campaignLockError=false;
+let pinCampaignId='', pinTargetLocked=false;
+
 let clientPromise=null;
 
 let hexagons=[];
@@ -2667,6 +2687,7 @@ function watchAnnouncedCampaign(id){
 ----------------------------------------------------- */
 
 const sourceRecords=new Map();
+const recentSummarySignatures=new Map();
 const proofRecords=new Map();
 const proofErrors=new Set();
 const proofPending=new Set();
@@ -3478,6 +3499,12 @@ async function queueDotStatusSync(){
 
  const paths={};
  const pending=[];
+ const recentSummary=summarizeRecentCampaign(id,allDotRecords(),recentCampaignWindow());
+ const recentSignature=JSON.stringify(recentSummary);
+ if(recentSummarySignatures.get(id)!==recentSignature){
+  paths[`recentCampaignSummaries/${id}`]=recentSummary;
+ }
+
 
  shifts.forEach((shift,index)=>{
 
@@ -3571,6 +3598,8 @@ async function queueDotStatusSync(){
   );
 
   if(generation===dotWatchGeneration){
+
+   recentSummarySignatures.set(id,recentSignature);
 
    pending.forEach(
     ([key,value])=>
@@ -4833,6 +4862,7 @@ async function ensureClient(){
     current===null?{planner:{meta}}:undefined,{applyLocally:false});
    if(!claim.committed) continue;
    clientId=candidate;
+   watchCampaignLock(candidate);
    renderCampaignTitle();
    watchAnnouncedCampaign(clientId);
    renderCurrentCampaign();
@@ -4846,6 +4876,7 @@ async function ensureClient(){
 }
 
 async function handleCountryChange(){
+ if(campaignPlanningBlocked())return;
  if(estimatingSelection||selectionWrites){toast('Please wait for selection saving or estimation to finish.');els.countrySelect.value=selectedCountry;return;}
 
  selectedCountry=
@@ -4919,6 +4950,7 @@ async function selectArea(
   fit=true
  }={}
 ){
+ if(save&&campaignPlanningBlocked())return;
  if(areaSavePending||estimatingSelection||selectionWrites){toast('Please wait for selection saving or estimation to finish.');return;}
 
  if(!area?.geometry){
@@ -5064,6 +5096,7 @@ async function selectArea(
 }
 
 async function removeSelectedArea(areaId){
+ if(campaignPlanningBlocked())return;
  if(estimatingSelection||selectionWrites){toast('Please wait for selection saving or estimation to finish.');return;}
 
  const area=selectedAreas.find(
@@ -5908,6 +5941,7 @@ function renderSelectionControls(){
 }
 
 async function toggleHexSelection(index){
+ if(campaignPlanningBlocked())return;
  const hex=hexagons[index];
  if(!hex||hex.status==='booked'||hex.selectionSaving||estimatingSelection||areaSavePending) return;
  const previous=hex.status;
@@ -5937,6 +5971,7 @@ async function toggleHexSelection(index){
 }
 
 async function openHexPopup(index,lngLat){
+ if(campaignPlanningBlocked())return;
  const hex=hexagons[index];
  if(!hex||estimatingSelection||areaSavePending) return;
  closeZonePopup();
@@ -6012,6 +6047,7 @@ async function openHexPopup(index,lngLat){
 }
 
 async function estimateBuildings(index){
+ if(campaignPlanningBlocked())return;
  const hex=hexagons[index];
  if(!hex||hex.status!=='selected') throw new Error('Select this hexagon first.');
  if(hex.estimateReady&&hex.estimateSource==='ohsome'&&Number.isInteger(hex.estimatedBuildings)) return true;
@@ -6238,6 +6274,7 @@ async function syncShiftsFromBuildingCount(id){
 ----------------------------------------------------- */
 
 async function bookHexagon(index){
+ if(campaignPlanningBlocked())return;
 
  const hex=hexagons[index];
 
@@ -6450,6 +6487,7 @@ async function bookHexagon(index){
 }
 
 async function removeHexagon(index){
+ if(campaignPlanningBlocked())return;
 
  const hex=hexagons[index];
 
@@ -6533,6 +6571,7 @@ async function removeHexagon(index){
 ----------------------------------------------------- */
 
 async function saveBusinessName(){
+ if(campaignPlanningBlocked())return;
 
  const business=
   $('quoteBusinessName');
@@ -6754,6 +6793,7 @@ els.otherCostInput.addEventListener(
 ----------------------------------------------------- */
 
 async function savePickup(){
+ if(campaignPlanningBlocked())return;
 
  const address=
   els.pickupInput.value.trim();
@@ -6841,6 +6881,7 @@ async function savePickup(){
 ----------------------------------------------------- */
 
 async function addExtraFlyers(){
+ if(campaignPlanningBlocked())return;
 
  const amount=
   Math.floor(
@@ -6972,6 +7013,7 @@ function normalizeId(value){
 }
 
 function resetPlan(){
+ if(campaignLockSaving){toast('Please wait for the campaign lock to finish saving.');return;}
  if(estimatingSelection||selectionWrites){toast('Please wait for selection saving or estimation to finish.');return;}
 
  if(areaSavePending){
@@ -7018,6 +7060,7 @@ function resetPlan(){
 
  pendingSelections={};
  clientId='';
+ watchCampaignLock('');
  clientPromise=null;
 
  $('quoteBusinessName').value='';
@@ -7089,6 +7132,7 @@ function objectValues(value){
 }
 
 async function loadCampaign(requestedId){
+ if(campaignLockSaving){toast('Please wait for the campaign lock to finish saving.');return;}
  if(estimatingSelection||selectionWrites){toast('Please wait for selection saving or estimation to finish.');return;}
 
  if(areaSavePending){
@@ -7295,6 +7339,7 @@ async function loadCampaign(requestedId){
   }
 
   clientId=id;
+  watchCampaignLock(id);
 
   legacyCampaignSummary={
 
@@ -7928,6 +7973,7 @@ function quoteAmounts(
 ----------------------------------------------------- */
 
 async function announceCampaign(){
+ if(campaignPlanningBlocked())return;
  if(estimatingSelection||selectionWrites||hexagons.some(hex=>hex.status==='selected')){toast('Please finish estimating your selected hexagons first.');return;}
 
  if(!bookedZones.length){
@@ -8850,6 +8896,88 @@ els.newPlanBtn.addEventListener(
  }
 );
 
+
+/* Campaign lock: persistent shared UI lock. PIN validation is client-side. */
+function campaignPlanningBlocked(notify=true){
+ const blocked=!!clientId&&(campaignLocked||campaignLockPending||campaignLockSaving||campaignLockError);
+ if(blocked&&notify)toast(campaignLockError?'Campaign lock status could not be loaded. Reopen the campaign to retry.':campaignLockPending?'Checking campaign lock…':'Campaign locked. Unlock it to change areas or hexagons.');
+ return blocked;
+}
+function renderCampaignLock(){
+ const blocked=campaignPlanningBlocked(false);
+ document.body.dataset.campaignLocked=String(blocked);
+ document.querySelectorAll('.left-panel .tool-section, #legacyControls').forEach(section=>{section.inert=blocked;});
+ const button=$('campaignLockBtn');
+ button.disabled=!clientId||campaignLockPending||campaignLockSaving||campaignLockError;
+ button.dataset.locked=String(campaignLocked);
+ button.querySelector('.material-icons-outlined').textContent=campaignLocked?'lock':'lock_open';
+ $('campaignLockLabel').textContent=campaignLockSaving?'Saving…':campaignLockPending?'Checking lock…':campaignLocked?'Unlock campaign':'Lock campaign';
+ $('campaignLockStatus').textContent=!clientId?'Open a campaign to lock it.':campaignLockError?'Lock status unavailable. Reopen the campaign to retry.':campaignLockPending?'Checking campaign lock…':campaignLocked?'Locked · only the right sidebar can be edited.':'Campaign unlocked.';
+ if(blocked){clearTimeout(areaSuggestTimer);dismissAreaResults();closeZonePopup();}
+}
+function watchCampaignLock(id){
+ campaignLockUnsubscribe?.();campaignLockUnsubscribe=null;
+ campaignLocked=false;campaignLockError=false;campaignLockPending=!!id;
+ $('campaignPinDialog').close();pinCampaignId='';
+ renderCampaignLock();
+ if(!id)return;
+ campaignLockUnsubscribe=onValue(ref(db,`campaigns/${id}/planner/accessControl`),snapshot=>{
+  if(clientId!==id)return;
+  campaignLocked=snapshot.val()?.locked===true;
+  campaignLockPending=false;campaignLockError=false;renderCampaignLock();
+ },error=>{
+  if(clientId!==id)return;
+  console.warn('Campaign lock could not be loaded',error);
+  campaignLockPending=false;campaignLockError=true;renderCampaignLock();
+ });
+}
+$('campaignLockBtn').addEventListener('click',()=>{
+ if(!clientId||campaignLockPending||campaignLockSaving||campaignLockError)return;
+ if(areaSavePending||selectionWrites||estimatingSelection||bookingInProgress||clientPromise||els.loginBtn.disabled){
+  toast('Please wait for current changes to finish saving.');return;
+ }
+ pinCampaignId=clientId;pinTargetLocked=!campaignLocked;
+ $('campaignPinTitle').textContent=pinTargetLocked?'Lock campaign':'Unlock campaign';
+ $('campaignPinInput').value='';$('campaignPinError').textContent='';
+ $('campaignPinDialog').showModal();$('campaignPinInput').focus();
+});
+$('campaignPinCancel').addEventListener('click',()=>{if(!campaignLockSaving)$('campaignPinDialog').close();});
+$('campaignPinDialog').addEventListener('cancel',event=>{if(campaignLockSaving)event.preventDefault();});
+$('campaignPinForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(campaignLockSaving)return;
+ if($('campaignPinInput').value!=='000888'){
+  $('campaignPinError').textContent='Incorrect PIN. Please try again.';
+  $('campaignPinInput').value='';$('campaignPinInput').focus();return;
+ }
+ const id=pinCampaignId,target=pinTargetLocked;
+ if(!id||clientId!==id||campaignLockPending||campaignLockError){$('campaignPinDialog').close();return;}
+ if(areaSavePending||selectionWrites||estimatingSelection||bookingInProgress){
+  $('campaignPinError').textContent='Wait for current changes to finish saving.';return;
+ }
+ campaignLockSaving=true;renderCampaignLock();
+ $('campaignPinSubmit').disabled=true;$('campaignPinCancel').disabled=true;
+ try{
+  const result=await runTransaction(ref(db,`campaigns/${id}/planner/accessControl`),current=>{
+   if(Boolean(current?.locked)===target)return;
+   return {...(current||{}),locked:target,updatedAt:serverTimestamp()};
+  },{applyLocally:false});
+  if(clientId===id){
+   campaignLocked=result.snapshot.val()?.locked===true;
+   $('campaignPinDialog').close();
+   toast(campaignLocked?'Campaign locked. Only the right sidebar remains editable.':'Campaign unlocked.');
+  }
+ }catch(error){
+  console.warn('Could not save campaign lock',error);
+  $('campaignPinError').textContent='Could not save the lock. Please try again.';
+ }finally{
+  campaignLockSaving=false;$('campaignPinInput').value='';
+  $('campaignPinSubmit').disabled=false;$('campaignPinCancel').disabled=false;
+  renderCampaignLock();
+ }
+});
+renderCampaignLock();
+
 /* SHARE SAVED PLAN */
 const sharePlanDialog=$('sharePlanDialog');
 $('sharePlanBtn').addEventListener('click',()=>{
@@ -8986,6 +9114,196 @@ const workspaceResizeObserver=new ResizeObserver(()=>{
  mapResizeFrame=requestAnimationFrame(()=>{if(map&&mapReady)map.resize();});
 });
 workspaceResizeObserver.observe($('map'));
+
+// Recent campaigns: read existing dot data without writing campaign records.
+// Aliases and duplicate identities match the main map's allDotRecords().
+// Firebase push IDs start with an indexed, chronological 8-character timestamp.
+// Query this range on the server so older dots are never downloaded.
+function recentCampaignKeyBoundary(time, upper=false){
+ const alphabet='-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+ let prefix='';
+ for(let i=0;i<8;i++){prefix=alphabet[time%64]+prefix;time=Math.floor(time/64);}
+ return prefix+(upper?'zzzzzzzzzzzz':'------------');
+}
+function recentCampaignWindow(now=new Date()){
+ const cutoff=new Date(now);
+ const day=cutoff.getDate();
+ cutoff.setDate(1);cutoff.setMonth(cutoff.getMonth()-2);
+ const lastDay=new Date(cutoff.getFullYear(),cutoff.getMonth()+1,0).getDate();
+ cutoff.setDate(Math.min(day,lastDay));
+ cutoff.setHours(0,0,0,0);
+ return {from:cutoff.getTime(),to:now.getTime()};
+}
+function summarizeRecentCampaign(id, records, window){
+ const unique=new Map();
+ for(const record of records){
+  if(!record.hasLocation||!['red','green','blue'].includes(record.color))continue;
+  if(record.timestamp<window.from||record.timestamp>window.to)continue;
+  const parts=record.key.split('/');
+  const identity=[record.kind,parts[0],parts.at(-1),record.lat,record.lng].join('|');
+  if(!unique.has(identity)||record.timestamp>unique.get(identity).timestamp)unique.set(identity,record);
+ }
+ let latest=0;
+ const days={};
+ for(const record of unique.values()){
+  const day=new Date(record.timestamp);day.setHours(0,0,0,0);
+  days[day.getTime()]=(days[day.getTime()]||0)+1;
+  if(record.timestamp>0&&record.timestamp<=Date.now())latest=Math.max(latest,record.timestamp);
+ }
+ return {id,count:unique.size,latest,days};
+}
+async function rebuildRecentCampaignIndex(){
+ const select=$('recentCampaignSelect'),status=$('recentCampaignStatus'),retry=$('recentCampaignRetry');
+ select.disabled=true;retry.hidden=true;
+ select.replaceChildren(new Option('Loading recent campaigns…',''));
+ status.textContent='Loading recent campaigns…';
+ try{
+  const roots=['userPosts','userPostClicks'];
+  const window=recentCampaignWindow();
+  const firstKey=recentCampaignKeyBoundary(window.from);
+  const lastKey=recentCampaignKeyBoundary(window.to,true);
+  // Only campaign names are listed; dot reads below are limited to two months.
+  // Shallow indexes avoid downloading unrelated photo and pickup collections.
+  const indexes=await Promise.all(roots.map(async root=>{
+   const response=await fetch(`https://betbtc-6d881-default-rtdb.firebaseio.com/${root}.json?shallow=true`,{cache:'no-store'});
+   if(!response.ok)throw new Error('Campaign index unavailable');
+   return {root,data:await response.json()};
+  }));
+  const campaigns=new Map();
+  for(const {root,data} of indexes){
+   for(const alias of Object.keys(data||{})){
+    if(!/^(XX|FF)\d+$/i.test(alias))continue;
+    const id='XX'+alias.slice(2);
+    if(!campaigns.has(id))campaigns.set(id,[]);
+    campaigns.get(id).push({root,alias});
+   }
+  }
+  const entries=[...campaigns.entries()],summaries={};
+  let cursor=0,completed=0;
+  // Limit reads to four campaigns at a time, including all historical aliases.
+  async function worker(){
+   while(cursor<entries.length){
+    const [id,sources]=entries[cursor++];
+    const groups=await Promise.all(sources.map(async({root,alias})=>{
+     const snapshot=await get(query(
+      ref(dotsDb,`${root}/${alias}`),orderByKey(),startAt(firstKey),endAt(lastKey)
+     ));
+     return readRecords(snapshot,alias,'delivery',root);
+    }));
+    const summary=summarizeRecentCampaign(id,groups.flat(),window);
+    summaries[id]=summary;
+    completed++;
+    status.textContent=`Checking campaigns… ${completed} / ${entries.length}`;
+   }
+  }
+  const results=await Promise.allSettled(Array.from({length:Math.min(4,entries.length)},worker));
+  if(results.some(result=>result.status==='rejected'))throw new Error('Campaign dots unavailable');
+  summaries._meta={ready:true,version:1,builtAt:Date.now()};
+  await update(ref(db,'recentCampaignSummaries'),summaries);
+  await loadRecentCampaigns();
+  status.textContent='Recent campaigns updated.';
+ }catch(error){
+  console.warn('Recent campaigns could not be loaded',error);
+  select.replaceChildren(new Option('Recent campaigns unavailable',''));
+  status.textContent='Could not load recent campaigns. Please try again.';
+  retry.hidden=false;
+ }
+}
+// Once initialized, visitors read ONE compact summary collection.
+function renderRecentCampaignSummaries(data){
+ const select=$('recentCampaignSelect'),status=$('recentCampaignStatus');
+ const window=recentCampaignWindow();
+ const recent=Object.entries(data||{}).map(([id,value])=>{
+  let count=0;
+  for(const [day,total] of Object.entries(value.days||{})){
+   if(Number(day)>=window.from&&Number(day)<=window.to)count+=Number(total)||0;
+  }
+  return {id,count,latest:Number(value.latest)||0};
+ }).filter(row=>/^XX\d+$/.test(row.id)&&row.count>4000&&row.latest>=window.from&&row.latest<=window.to)
+ .sort((a,b)=>b.latest-a.latest||a.id.localeCompare(b.id)).slice(0,5);
+ select.replaceChildren(new Option(recent.length?'Select an FF ID':'No recent campaigns available',''));
+ for(const row of recent)select.add(new Option(row.id.replace(/^XX/,'FF'),row.id));
+ select.disabled=!recent.length;
+ status.textContent=recent.length?'Latest campaigns from the last two months.':'';
+}
+let recentIndexInitialization=null;
+function initializeRecentCampaignIndex(){
+ if(recentIndexInitialization)return recentIndexInitialization;
+ recentIndexInitialization=prepareRecentCampaignIndex().finally(()=>{recentIndexInitialization=null;});
+ return recentIndexInitialization;
+}
+async function prepareRecentCampaignIndex(){
+ const select=$('recentCampaignSelect'),status=$('recentCampaignStatus');
+ select.disabled=true;
+ select.replaceChildren(new Option('Preparing recent campaigns…',''));
+ status.textContent='Preparing the saved list for the first time. This may take a moment.';
+ const owner=globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`;
+ const lockRef=ref(db,'recentCampaignIndexBuildLock');
+ const leaseMs=15*60*1000;
+ const claim=await runTransaction(lockRef,current=>{
+  if(current&&Number(current.expiresAt)>Date.now())return;
+  return {owner,expiresAt:Date.now()+leaseMs};
+ },{applyLocally:false});
+ if(claim.committed){
+  try{
+   // Another tab may have finished between our initial read and lock acquisition.
+   const current=await get(ref(db,'recentCampaignSummaries'));
+   if(current.val()?._meta?.ready){renderRecentCampaignSummaries(current.val());return;}
+   await rebuildRecentCampaignIndex();
+  }finally{
+   await runTransaction(lockRef,current=>current?.owner===owner?null:undefined,{applyLocally:false});
+  }
+ }else{
+  // Other visitors wait for the same build, rather than launching duplicate scans.
+  await new Promise((resolve,reject)=>{
+   let stop=()=>{};
+   const timer=setTimeout(()=>{stop();reject(new Error('Recent campaign preparation is still running'));},60000);
+   stop=onValue(ref(db,'recentCampaignSummaries'),snapshot=>{
+    if(!snapshot.val()?._meta?.ready)return;
+    clearTimeout(timer);stop();renderRecentCampaignSummaries(snapshot.val());resolve();
+   },error=>{clearTimeout(timer);stop();reject(error);});
+  });
+ }
+}
+async function loadRecentCampaigns(){
+ const retry=$('recentCampaignRetry'),status=$('recentCampaignStatus');
+ retry.hidden=true;
+ try{
+  const snapshot=await get(ref(db,'recentCampaignSummaries'));
+  const data=snapshot.val();
+  if(!data?._meta?.ready){
+   await initializeRecentCampaignIndex();
+   return;
+  }
+  renderRecentCampaignSummaries(data);
+ }catch(error){
+  console.warn('Recent campaign summaries unavailable',error);
+  $('recentCampaignSelect').replaceChildren(new Option('Recent campaigns unavailable',''));
+  $('recentCampaignSelect').disabled=true;
+  status.textContent='Could not load recent campaigns.';
+  retry.hidden=false;
+ }
+}
+// Optional manual refresh; initial setup is automatic and shared across visitors.
+if(new URLSearchParams(location.search).get('recentCampaignAdmin')==='1'){
+ const button=document.createElement('button');
+ button.type='button';button.className='action';button.textContent='Build / refresh recent campaign index';
+ button.addEventListener('click',async()=>{
+  button.disabled=true;
+  try{await rebuildRecentCampaignIndex();}finally{button.disabled=false;}
+ });
+ $('recentCampaigns').append(button);
+}
+$('recentCampaignRetry').addEventListener('click',loadRecentCampaigns);
+$('recentCampaignSelect').addEventListener('change',async event=>{
+ const select=event.currentTarget,id=select.value;
+ if(!id)return;
+ if(els.loginBtn.disabled||!mapReady){toast('Please wait for the map or campaign to finish loading.');select.value='';return;}
+ select.disabled=true;
+ try{await loadCampaign(id);}finally{select.disabled=false;select.value='';}
+});
+loadRecentCampaigns();
+
 </script>
 <div hidden="True" id="legacyControls"><section aria-label="Client details and costs" class="tool-section quote-controls">
 <div class="section-head">
