@@ -455,6 +455,7 @@
   </style>
 </head>
 <body>
+<div id="liveDotsStatus" role="status" hidden style="position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:10000;max-width:90%;padding:6px 10px;background:#172033;color:#fde68a;border-radius:6px;font:12px sans-serif;pointer-events:none"></div>
 <div id="loaderOverlay" class="loader-overlay">
   <div class="spinner"></div>
   <div class="loader-text">Loading data...</div>
@@ -748,8 +749,8 @@
 
     <button id="adminSegmentsBtn" class="btn-modal" type="button" style="width:100%;margin-top:10px">Manage segments</button>
     <div class="admin-section">
-      <button id="adminUploadDotsBtn" class="btn-modal" type="button" style="width:100%">Upload all dots to R2</button>
-      <div class="admin-note">Back up all dots, then load saved dots from R2. Only new dots load from Firebase. Firebase copies are kept.</div>
+      <button id="adminUploadDotsBtn" class="btn-modal" type="button" style="width:100%">Back up previous days to R2</button>
+      <div class="admin-note">Today stays live in Firebase. Back up all earlier days to R2 (Belgium time). Firebase copies are kept.</div>
       <div id="adminUploadDotsStatus" class="admin-note" role="status" aria-live="polite" style="overflow-wrap:anywhere"></div>
     </div>
     <button id="adminExitBtn" class="admin-exit-btn" type="button">Exit admin mode</button>
@@ -819,7 +820,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, push, query, orderByChild, orderByKey, startAfter, runTransaction, limitToLast, onValue, set, update, get, off, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, push, query, orderByChild, orderByKey, startAt, endAt, startAfter, runTransaction, limitToLast, onValue, onChildAdded, onChildChanged, onChildRemoved, set, update, get, off, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyA6w6auszWRniQfZCjb4nXE_bq9Mzt9dOs",
@@ -2259,9 +2260,10 @@
     return mistakes.sort((a,b)=>b.timestamp-a.timestamp);
   }
   function renderMistakes(dots){
-    renderCurrentShiftMistakes(dots);
     const mistakes=computeMistakes(dots);
+    renderCurrentShiftMistakes(dots,mistakes);
     document.getElementById('mistakesCount').textContent=mistakes.length.toLocaleString();
+    if(document.getElementById('shiftPickerBackdrop').hidden)return;
     document.getElementById('mistakesRows').innerHTML=mistakes.length ? mistakes.map(m=>{
       const time=new Date(m.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const color='#f87171';
@@ -2273,10 +2275,10 @@
     const worker=currentWorkerName.trim().toLowerCase();
     return computeMistakes(dots).filter(m=>m.workerName.toLowerCase()===worker);
   }
-  function renderCurrentShiftMistakes(dots=globalAllDots){
+  function renderCurrentShiftMistakes(dots=globalAllDots,allMistakes=null){
     const status=document.getElementById('shiftMistakesStatus');
     const rows=document.getElementById('shiftMistakesRows');
-    const mistakes=currentUserId ? currentShiftMistakes(dots) : [];
+    const mistakes=currentUserId ? (allMistakes ? allMistakes.filter(m=>m.workerName.toLowerCase()===(currentWorkerName||'').trim().toLowerCase()) : currentShiftMistakes(dots)) : [];
     const badge=document.getElementById('shiftMistakesBadge');
     badge.textContent=String(mistakes.length);
     badge.classList.toggle('show',mistakes.length>0);
@@ -2287,6 +2289,7 @@
       return;
     }
     status.textContent=`${currentWorkerName} · ${mistakes.length} mistake${mistakes.length===1 ? '' : 's'}`;
+    if(!document.getElementById('shiftMistakesBackdrop').classList.contains('show'))return;
     rows.innerHTML=mistakes.length ? mistakes.map(m=>{
       const time=new Date(m.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'});
       return `<tr><td>${escapeHtml(time)}</td><td style="color:#f87171">${escapeHtml(m.message)}</td></tr>`;
@@ -2439,13 +2442,26 @@
     return last ? query(ref(db, `${source}/${id}`), orderByKey(), startAfter(last))
       : query(ref(db, `${source}/${id}`), orderByKey());
   }
-  async function readDotsArchive(id, manifest) {
+  const workerArchiveCache=new Map();
+  async function readDotsArchive(id,manifest){
+    if(!manifest)return [];
+    const key=id+'|'+manifest.fileName+'|'+manifest.sha256;
+    if(!workerArchiveCache.has(key)){
+      const task=fetchDotsArchive(id,manifest);workerArchiveCache.set(key,task);
+      task.catch(()=>workerArchiveCache.delete(key));
+      if(workerArchiveCache.size>6)workerArchiveCache.delete(workerArchiveCache.keys().next().value);
+    }
+    return workerArchiveCache.get(key);
+  }
+  async function fetchDotsArchive(id, manifest) {
     if (!manifest) return [];
     if (manifest.version !== 1 || !manifest.fileName?.startsWith(`${id}Dots/`))
       throw new Error('Invalid R2 backup index');
-    const response = await fetch(`${PROOF_PROXY_URL}/campaign-dots/file?key=${encodeURIComponent(manifest.fileName)}`);
+    const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);
+    let response,raw;
+    try {response=await fetch(`${PROOF_PROXY_URL}/campaign-dots/file?key=${encodeURIComponent(manifest.fileName)}`,{signal:controller.signal});raw=await response.text();}
+    finally {clearTimeout(timeout);}
     if (!response.ok) throw new Error(`R2 backup could not load (${response.status})`);
-    const raw = await response.text();
     const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw)))].map(n=>n.toString(16).padStart(2,'0')).join('');
     if (hash !== manifest.sha256) throw new Error('R2 backup verification failed');
     const doc = JSON.parse(raw);
@@ -2478,88 +2494,131 @@
     }
     return [...rows.values()];
   }
+const DOT_DAY_ZONE='Europe/Brussels';
+function dotDayWindow(now=Date.now()){
+ const fmt=new Intl.DateTimeFormat('en-GB',{timeZone:DOT_DAY_ZONE,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+ const parts=time=>Object.fromEntries(fmt.formatToParts(new Date(time)).filter(p=>p.type!=='literal').map(p=>[p.type,Number(p.value)]));
+ const local=parts(now);
+ const midnight=utcDate=>{
+  let guess=utcDate;
+  for(let i=0;i<3;i++){
+   const p=parts(guess);const rendered=Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute,p.second);
+   guess+=utcDate-rendered;
+  }
+  return guess;
+ };
+ const date=Date.UTC(local.year,local.month-1,local.day);
+ return {from:midnight(date),to:midnight(date+86400000),label:`${local.year}-${String(local.month).padStart(2,'0')}-${String(local.day).padStart(2,'0')}`};
+}
+function dotDayKey(time,upper=false){
+ const alphabet='-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';let prefix='';
+ for(let i=0;i<8;i++){prefix=alphabet[time%64]+prefix;time=Math.floor(time/64);}
+ return prefix+(upper?'zzzzzzzzzzzz':'------------');
+}
+function dailyRecordTime(row){
+ const value=row.value||{};
+ const raw=value.timestamp??value.createdAt??value.clientTimestamp??value.time??value.date;
+ const number=Number(raw);
+ if(raw!==null&&raw!==undefined&&Number.isFinite(number)&&number>0)return number;
+ const parsed=typeof raw==='string'?Date.parse(raw):NaN;
+ if(Number.isFinite(parsed))return parsed;
+ const alphabet='-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';let time=0;
+ for(const ch of String(row.key).slice(0,8)){const n=alphabet.indexOf(ch);if(n<0)return 0;time=time*64+n;}
+ return time;
+}
+function todayDotsQuery(database,id,root,day=dotDayWindow()){
+ return query(ref(database,`${root}/${id}`),orderByKey(),startAt(dotDayKey(day.from)),endAt(dotDayKey(day.to-1,true)));
+}
+// Today's live stream never waits for the historical R2 download.
+function subscribeDotSource(database,id,root,loadArchive,unused,onData,onError){
+ let stopped=false,epoch=0,cleanup=[],manifest=null,indexReady=false,day=dotDayWindow();
+ const clear=()=>{cleanup.forEach(stop=>stop());cleanup=[];};
+ const start=()=>{
+  clear();const turn=++epoch;const currentDay=day;
+  const active=()=>!stopped&&turn===epoch;
+  const archived=new Map(),live=new Map();let archiveReady=!manifest,liveReady=false,paintTimer=null,retryTimer=null;
+  const historyCovered=Number(manifest?.coversBefore)>=currentDay.from;
+  const report=error=>{if(active())onError(error);};
+  const emit=()=>{
+   paintTimer=null;if(!active()||!liveReady)return;
+   const rows=new Map([...archived,...live]);
+   onData({exists:()=>rows.size>0,forEach:callback=>{
+    for(const [key,value] of rows)if(callback({key,val:()=>value})===true)return true;
+    return false;
+   }},{complete:archiveReady,historyCovered,day:currentDay.label});
+  };
+  const schedule=()=>{if(active()&&paintTimer===null)paintTimer=setTimeout(emit,100);};
+  cleanup.push(()=>{clearTimeout(paintTimer);clearTimeout(retryTimer);});
+  const target=todayDotsQuery(database,id,root,currentDay);
+  const changed=snap=>{
+   if(!active())return;const value=snap.val();const ts=dailyRecordTime({key:snap.key,value});
+   if(ts>=currentDay.from&&ts<currentDay.to)live.set(snap.key,value);else live.delete(snap.key);
+   schedule();
+  };
+  cleanup.push(onChildAdded(target,changed,report));
+  cleanup.push(onChildChanged(target,changed,report));
+  cleanup.push(onChildRemoved(target,snap=>{if(active()){live.delete(snap.key);schedule();}},report));
+  cleanup.push(onValue(target,()=>{if(active()){liveReady=true;schedule();}},report));
+  if(manifest){
+   const load=async()=>{
+    try{
+     const rows=await loadArchive(id,manifest);if(!active())return;
+     for(const row of rows)if(row.source===root&&dailyRecordTime(row)<currentDay.from)archived.set(row.key,row.value);
+     archiveReady=true;schedule();
+    }catch(error){
+     if(!active())return;
+     report(new Error('Today is live. R2 history unavailable; retrying. '+error.message));
+     retryTimer=setTimeout(load,5000);
+    }
+   };load();
+  }
+ };
+ const indexStop=onValue(ref(database,`campaignR2Backups/${id}`),snapshot=>{
+  const next=snapshot.val();if(indexReady&&JSON.stringify(next)===JSON.stringify(manifest))return;
+  manifest=next;indexReady=true;start();
+ },error=>{if(!stopped)onError(error);});
+ const rollover=setInterval(()=>{
+  const next=dotDayWindow();if(next.from!==day.from){day=next;if(indexReady)start();}
+ },1000);
+ return ()=>{stopped=true;epoch++;clearInterval(rollover);indexStop();clear();};
+}
+
   function attachMyPostsListener(id) {
     if (typeof myPostsUnsub==='function') myPostsUnsub();
-    let normalDots=[], orangeDots=[], normalReady=false, orangeReady=false;
-    let stopped=false, generation=0, cleanups=[];
-    renderMistakes([]);
-    const combine=()=>{
-      if (!normalReady || !orangeReady) return;
-      hideLoader();
-      const allDots=[...normalDots,...orangeDots].sort((a,b)=>a.timestamp-b.timestamp);
-      globalAllDots=allDots;
-      syncLiveHistory();
-      if(historyIndex===-1&&globalAllDots.length>0)historyIndex=globalAllDots.length-1;
-      let teamDots=0, teamPosts=0;
-      allDots.forEach(d=>{if(d.color!=='orange')teamDots++;else teamPosts++;});
-      rebuildMapLayer(allDots);
-      updateSessionDisplay(allDots);
-      syncChallengeFromDots(allDots);
-      updateCampaignProgress(teamDots,teamPosts);
-      populateShiftSelect(allDots);
-      if(normalReady && orangeReady)renderMistakes(allDots);
-    };
-    const stopLive = () => { cleanups.forEach(fn=>fn()); cleanups=[]; };
-    const indexUnsub = onValue(ref(db, `campaignR2Backups/${id}`), async snapshot => {
-      const turn=++generation;
-      stopLive(); normalReady=false; orangeReady=false;
-      const manifest=snapshot.val();
-      try {
-        const archived=await readDotsArchive(id,manifest);
-        if(stopped || turn!==generation)return;
-        const base=new Map(archived.map(row=>[`${row.source}/${row.key}`,row]));
-        const live={userPosts:new Map(),userPostClicks:new Map()};
-        const delayed={userPosts:new Map(),userPostClicks:new Map()};
-        const refresh=()=>{
-          const rows=new Map(base);
-          for(const source of DOT_SOURCES){
-            for(const [key,value] of live[source]) rows.set(`${source}/${key}`,{source,key,value});
-            for(const [key,value] of delayed[source]) rows.set(`${source}/${key}`,{source,key,value});
-          }
-          const values=source=>[...rows.values()].filter(row=>row.source===source && typeof row.value?.lat==='number').map(row=>row.value);
-          normalDots=values('userPosts');orangeDots=values('userPostClicks');combine();
-        };
-        const fail=error=>{if(!stopped && turn===generation){console.error(error);showToast('Dots could not load. Please reload to retry.');}};
-        DOT_SOURCES.forEach(source=>{
-          cleanups.push(onValue(liveDotsQuery(id,source,manifest),snap=>{
-            if(stopped || turn!==generation)return;
-            live[source].clear();snap.forEach(child=>live[source].set(child.key,child.val()));
-            if(source==='userPosts')normalReady=true;else orangeReady=true;
-            refresh();
-          },fail));
-        });
-        if(manifest){
-          let checking=false;
-          const watching=new Set();
-          const checkDelayed=async()=>{
-            if(checking || stopped || turn!==generation)return; checking=true;
-            try {
-              for(const source of DOT_SOURCES){
-                const last=manifest.lastKeys?.[source];if(!last)continue;
-                const keys=await dotKeys(id,source);
-                if(stopped || turn!==generation)return;
-                for(const key of keys){
-                  const identity=`${source}/${key}`;
-                  if(key>last || base.has(identity) || watching.has(identity))continue;
-                  watching.add(identity);
-                  cleanups.push(onValue(ref(db,`${source}/${id}/${key}`),snap=>{
-                    if(stopped || turn!==generation)return;
-                    if(snap.exists())delayed[source].set(key,snap.val());else delayed[source].delete(key);
-                    refresh();
-                  },fail));
-                }
-              }
-            } catch(error){fail(error);} finally{checking=false;}
-          };
-          checkDelayed();
-          const timer=setInterval(checkDelayed,60000);cleanups.push(()=>clearInterval(timer));
-        }
-      } catch(error){
-        if(stopped || turn!==generation)return;
-        console.error(error);hideLoader();showToast('R2 backup unavailable. Reload to retry; Firebase backup copies are not downloaded.');
+    let stopped=false,paintTimer=null;
+    const sources=new Map(),ready=new Map(),covered=new Map();
+    const render=()=>{
+      paintTimer=null;if(stopped)return;
+      const allDots=[...sources.values()].flat().filter(d=>Number.isFinite(Number(d?.lat))&&Number.isFinite(Number(d?.lng)))
+        .map(d=>({...d,lat:Number(d.lat),lng:Number(d.lng)})).sort((a,b)=>a.timestamp-b.timestamp);
+      globalAllDots=allDots;hideLoader();
+      const complete=DOT_SOURCES.every(source=>ready.get(source));
+      const status=document.getElementById('liveDotsStatus');
+      status.hidden=complete&&DOT_SOURCES.every(source=>covered.get(source));status.textContent=complete?'Today: Firebase · earlier days: R2. Back up previous days to complete history.':'Today is live · loading R2 history…';
+      const run=(label,fn)=>{try{fn();}catch(error){console.error(label,error);}};
+      run('Live history',()=>syncLiveHistory());
+      if(historyIndex===-1&&allDots.length)historyIndex=allDots.length-1;
+      run('Dot map',()=>rebuildMapLayer(allDots));
+      run('Worker counters',()=>updateSessionDisplay(allDots));
+      // Do not write challenge/shift results using incomplete archived history.
+      if(complete){
+        run('Challenge',()=>syncChallengeFromDots(allDots));
+        let deliveries=0,posts=0;for(const d of allDots){if(d.color==='orange')posts++;else deliveries++;}
+        updateCampaignProgress(deliveries,posts);
+        run('Shifts',()=>populateShiftSelect(allDots));
+        run('Mistakes',()=>renderMistakes(allDots));
       }
-    },error=>{console.error(error);hideLoader();showToast('Backup index unavailable. Reload to retry.');});
-    myPostsUnsub=()=>{stopped=true;generation++;indexUnsub();stopLive();};
+    };
+    const unsubs=DOT_SOURCES.map(source=>subscribeDotSource(db,id,source,readDotsArchive,dotKeys,(snapshot,meta)=>{
+      if(stopped)return;
+      const values=[];snapshot.forEach(child=>{if(child.val())values.push(child.val());});
+      sources.set(source,values);ready.set(source,meta.complete);covered.set(source,meta.historyCovered);
+      if(paintTimer===null)paintTimer=setTimeout(render,100);
+    },error=>{
+      if(stopped)return;console.error(error);hideLoader();
+      const status=document.getElementById('liveDotsStatus');status.hidden=false;status.textContent=error.message;
+    }));
+    myPostsUnsub=()=>{stopped=true;clearTimeout(paintTimer);unsubs.forEach(stop=>stop());};
   }
 
   // ── User ──────────────────────────────────────────────────────────────────
@@ -2744,7 +2803,8 @@
     }catch(error){workerError.textContent='Could not end shift. Please retry.';}
     finally{button.disabled=false;}
   });
-  setInterval(()=>{if(currentUserId)renderMistakes(globalAllDots);},1000);
+  setInterval(()=>{if(currentUserId)renderMistakes(globalAllDots);},10000);
+  document.getElementById('campaignStatsToggle').addEventListener('click',()=>setTimeout(()=>renderMistakes(globalAllDots),0));
 
   // ── Chat modal ────────────────────────────────────────────────────────────
   chatBtn.addEventListener('click',()=>{if(!currentUserId)return;chatBackdrop.classList.add('show');chatBadge.classList.remove('show');chatBadge.textContent='0';lastReadChatTs=Date.now();setTimeout(()=>chatInput.focus(),50);});
@@ -3138,6 +3198,7 @@
     adminUploadDotsStatus.textContent = `Reading all dots for ${id}…`;
     try {
       const prior = (await get(ref(db, `campaignR2Backups/${id}`))).val();
+      const backupDay=dotDayWindow();
       let records;
       if (prior) records = await loadCampaignRecords(id, prior);
       else {
@@ -3145,10 +3206,11 @@
         records=[];
         snapshots.forEach((snapshot,i)=>snapshot.forEach(child=>records.push({source:DOT_SOURCES[i],key:child.key,value:child.val()})));
       }
-      if (!records.length) { adminUploadDotsStatus.textContent = `No dots found for ${id}.`; return; }
+      records=records.filter(row=>dailyRecordTime(row)<backupDay.from);
+      if (!records.length) { adminUploadDotsStatus.textContent = `No previous-day dots to back up for ${id}. Today stays in Firebase.`; return; }
       if (!isAdmin || currentUserId !== id) throw new Error('Campaign or admin session changed. Please try again.');
       const document = {schema: 'leuvenflyers.campaign-dots', version: 1, campaignId: id,
-        exportedAt: new Date().toISOString(), recordCount: records.length, records};
+        exportedAt: new Date().toISOString(), timeZone:DOT_DAY_ZONE, coversBefore:backupDay.from, recordCount: records.length, records};
       const file = new Blob([JSON.stringify(document)], {type: 'application/json'});
       if (file.size > 50 * 1024 * 1024) throw new Error('Export exceeds the 50 MB upload limit.');
       const form = new FormData();
@@ -3173,7 +3235,7 @@
       }
       const raw = await file.text();
       const sha256=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw)))].map(n=>n.toString(16).padStart(2,'0')).join('');
-      const manifest={version:1,fileName:result.fileName,recordCount:records.length,lastKeys,sha256,updatedAt:Date.now()};
+      const manifest={version:1,fileName:result.fileName,recordCount:records.length,lastKeys,sha256,coversBefore:backupDay.from,timeZone:DOT_DAY_ZONE,updatedAt:Date.now()};
       adminUploadDotsStatus.textContent='Verifying R2 and switching reads…';
       await readDotsArchive(id,manifest);
       if(!isAdmin || currentUserId!==id)throw new Error('Backup saved but not activated: admin session changed. Retry.');
@@ -3189,7 +3251,7 @@
       link.textContent = result.fileName;
       link.target = '_blank'; link.rel = 'noopener'; link.style.color = '#93c5fd';
       adminUploadDotsStatus.append(link);
-      showToast(`All ${records.length.toLocaleString()} dots uploaded`);
+      showToast(`${records.length.toLocaleString()} previous-day dots backed up`);
     } catch (error) {
       adminUploadDotsStatus.textContent = error.name === 'AbortError'
         ? 'Upload timed out. Check R2 before retrying; the file may have arrived.'
@@ -3295,8 +3357,8 @@
     try{
       const newKey=push(ref(db,`userPosts/${currentUserId}`)).key;
       const upd={[`userPosts/${currentUserId}/${newKey}`]:{lat,lng,color,timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostAt`]:now};
-      update(ref(db),upd).catch(e=>{});
-    }catch(e){}
+      await update(ref(db),upd);
+    }catch(e){console.error('Dot save failed',e);showToast('Dot could not be saved. Please try again.');}
   }
 
   async function recordPostClick(){
@@ -3312,8 +3374,8 @@
     try{
       const newKey=push(ref(db,`userPostClicks/${currentUserId}`)).key;
       const upd={[`userPostClicks/${currentUserId}/${newKey}`]:{lat,lng,color:'orange',timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostClickAt`]:now};
-      update(ref(db),upd).catch(e=>{});
-    }catch(e){}
+      await update(ref(db),upd);
+    }catch(e){console.error('Post save failed',e);showToast('Post could not be saved. Please try again.');}
   }
 
   btnLocate.addEventListener('click',()=>goToCurrentLocation({focus:true}));
