@@ -683,8 +683,8 @@
       <button id="workerSaveBtn" class="btn-modal">Start</button>
     </div>
     <div id="adminPinWrap" class="admin-pin-wrap">
-      <label for="adminPinInput">Admin PIN</label>
-      <input id="adminPinInput" class="input" type="password" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" autocomplete="off">
+      <label for="adminPinInput">Admin password</label>
+      <input id="adminPinInput" class="input" type="password" maxlength="128" placeholder="Admin password" autocomplete="off">
     </div>
     <div id="workerError" class="error"></div>
     <button id="endWorkerShift" class="btn-modal" type="button" style="margin-top:12px;background:#b91c1c" hidden>End shift</button>
@@ -757,11 +757,11 @@
         <span>Cloudflare R2 backup</span>
         <strong>Manual · all dot colors</strong>
       </div>
-      <div class="admin-note" style="margin-bottom:10px">Back up every orange, blue, green and red dot for this campaign, including historic dots and active workers. Copies are verified from R2. Firebase dots are never deleted here.</div>
+      <div class="admin-note" style="margin-bottom:10px">Back up all four dot colors, including historic data. After verification, Admin Mode can securely cut the saved dots over to R2 and remove only matching Firebase records.</div>
       <button id="adminBackupNow" class="btn-modal admin-backup-btn" type="button" style="width:100%">Back up ALL dots to R2</button>
       <div id="adminBackupStatus" class="admin-backup-status" role="status" aria-live="polite">No manual backup started in this session.</div>
-      <button id="adminCleanupLocked" type="button" class="btn-modal admin-cleanup-locked" disabled aria-describedby="adminBackupSafety">Delete verified Firebase dots — not enabled yet</button>
-      <div id="adminBackupSafety" class="admin-note">Deletion stays locked until a server-authenticated cutover is configured and all client/history readers are verified. The admin PIN alone cannot safely authorize deletion.</div>
+      <button id="adminDeleteVerified" type="button" class="btn-modal admin-backup-btn" style="width:100%;margin-top:10px" disabled aria-describedby="adminBackupSafety">Delete verified Firebase dots</button>
+      <div id="adminBackupSafety" class="admin-note">Requires Admin login, an R2-verified snapshot and the Cloudflare secure-cutover configuration. Only unchanged backed-up dot keys are deleted. Other Firebase records are preserved. Update all campaign readers to v2 first.</div>
     </div>
 
     <button id="adminSegmentsBtn" class="btn-modal" type="button" style="width:100%;margin-top:10px">Manage segments</button>
@@ -1029,6 +1029,7 @@
   const adminExitBtn = document.getElementById('adminExitBtn');
   const adminBackupNow = document.getElementById('adminBackupNow');
   const adminBackupStatus = document.getElementById('adminBackupStatus');
+  const adminDeleteVerified = document.getElementById('adminDeleteVerified');
   let adminBackupBusy = false;
   const shiftPickerBackdrop = document.getElementById('shiftPickerBackdrop');
   const shiftPickerList = document.getElementById('shiftPickerList');
@@ -1041,7 +1042,9 @@
   let myPostsUnsub = null, chatUnsub = null, shiftRegistryUnsub = null, lastReadChatTs = 0;
   let shiftRegistry = {};
   let isAdmin = false;
-  const ADMIN_PIN = '000888';
+  // Admin password is NOT stored in this HTML. It is verified by the Cloudflare Worker.
+  let adminSessionToken=null;
+  const ADMIN_AUTH_URL='https://upload-proxy.gotshotu.workers.dev/admin/login';
   let campaignTargetDots = null;
   let shiftSalaryCents = null;
   let shiftSalaryState = 'loading';
@@ -2448,8 +2451,8 @@
   });
 
   // Manual all-color campaign snapshots (v2). No timer or end-shift event uploads.
-  // Firebase removal is explicitly disabled pending server-authorized cutover.
-  // Never use the client-side admin PIN as authorization for destructive writes.
+  // Deletion only through the authenticated Cloudflare server cutover.
+  // Never authorize destructive writes using a client-side admin PIN.
   const DOT_ARCHIVE_ENDPOINT = 'https://upload-proxy.gotshotu.workers.dev/dot-archives';
   const archiveWorkerKey = name => String(name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   const dotEntryKey = entry => `${entry.source}/${entry.key}`;
@@ -2487,7 +2490,7 @@
   async function ensureArchiveService() {
     if(archiveServiceCheckedAt && Date.now()-archiveServiceCheckedAt<300000)return;
     const status=JSON.parse(await withNetworkTimeout(DOT_ARCHIVE_ENDPOINT.replace(/\/dot-archives$/,''),{cache:'no-store'}));
-    if(Number(status.dotArchivesVersion)<2)throw new Error('Update the Cloudflare upload-proxy Worker to v2 first. The existing v1 proxy cannot accept all-dot snapshots.');
+    if(Number(status.dotArchivesVersion)<3)throw new Error('Deploy the secure Cloudflare upload-proxy v3 Worker before backing up or deleting dots.');
     archiveServiceCheckedAt=Date.now();
   }
   let archiveCacheDb;
@@ -2596,14 +2599,14 @@
     return counts;
   }
   function formatColorCounts(c){return `Orange ${c.orange.toLocaleString()} · Blue ${c.blue.toLocaleString()} · Green ${c.green.toLocaleString()} · Red ${c.red.toLocaleString()}`;}
-  function splitAllDotSnapshots(id,entries,snapshotAt) {
+  function splitAllDotSnapshots(id,entries,snapshotAt,startSequence=1) {
     const chunks=[];
     const encoder=new TextEncoder();
     const sorted=[...entries].sort((a,b)=>dotEntryKey(a).localeCompare(dotEntryKey(b)));
     for(let offset=0;offset<sorted.length;){
       let size=Math.min(2500,sorted.length-offset), doc, json, byteLength;
       for(;;){
-        const workerKey=`snapshot${String(chunks.length+1).padStart(5,'0')}`;
+        const workerKey=`snapshot${String(startSequence+chunks.length).padStart(5,'0')}`;
         doc={schema:'leuvenflyers.dot-archive',version:2,campaignId:id,workerKey,workerName:'ALL DOT COLORS',startedAt:0,endedAt:snapshotAt,records:sorted.slice(offset,offset+size)};
         json=JSON.stringify(doc);
         byteLength=encoder.encode(json).byteLength;
@@ -2621,14 +2624,32 @@
     await ensureArchiveService();
     report('Reading both Firebase dot collections for '+id+'…');
     const allEntries=await readLiveArchiveEntries(id);
-    const entries=allEntries.filter(entry=>DOT_BACKUP_COLORS.includes(String(entry.value?.color||'').toLowerCase()));
-    const other=allEntries.length-entries.length;
+    const manifestIndex=(await get(ref(db,`dotArchives/${id}`))).val()||{};
+    // An archived snapshot is already authoritative. Do not re-backup its
+    // original keys; keep its original R2 file immutable for client history.
+    const priorArchived=Object.entries(manifestIndex).filter(([key,meta])=>/^snapshot[0-9]{5}$/.test(key)&&meta?.version===2&&meta.storageState==='archived');
+    const archivedByKey=new Map();
+    for(const [key,meta] of priorArchived){
+      const doc=await loadDotArchive(meta,id,key,true);
+      for(const entry of doc.records)archivedByKey.set(dotEntryKey(entry),entry.value);
+    }
+    const liveColored=allEntries.filter(entry=>DOT_BACKUP_COLORS.includes(String(entry.value?.color||'').toLowerCase()));
+    const entries=liveColored.filter(entry=>{
+      const key=dotEntryKey(entry);
+      if(!archivedByKey.has(key))return true;
+      // A corrected/modified dot is different from the prior archived copy.
+      // Preserve it live; never silently upload an ambiguous duplicate key.
+      if(JSON.stringify(entry.value)!==JSON.stringify(archivedByKey.get(key)))throw new Error('Dot '+key+' was changed after archival. Review it before a new snapshot.');
+      return false;
+    });
+    const other=allEntries.length-liveColored.length;
     if(!entries.length) {
-      report(other?`No orange, blue, green or red dots found. ${other} non-dot records were not uploaded.`:'No colored dots found in Firebase for this campaign.');
+      report('No new orange, blue, green or red Firebase dots to back up. Earlier R2 history remains available.');
       return {empty:true};
     }
     const counts=colorCounts(entries), snapshotAt=entries.reduce((latest,entry)=>Math.max(latest,Number(entry.value?.timestamp)||0),1);
-    const chunks=splitAllDotSnapshots(id,entries,snapshotAt);
+    const startSequence=priorArchived.length?Math.max(...priorArchived.map(([key])=>Number(key.substring(8))))+1:1;
+    const chunks=splitAllDotSnapshots(id,entries,snapshotAt,startSequence);
     report(`Found ${entries.length.toLocaleString()} dots. ${formatColorCounts(counts)}\nPreparing ${chunks.length} verified R2 file(s)…`);
     const manifestChanges={};
     let copied=0,already=0,verified=0;
@@ -2646,7 +2667,7 @@
       }else{
         const form=new FormData();
         form.append('file',new File([json],`all-dots-${id}-${workerKey}.json`,{type:'application/json'}));
-        const result=JSON.parse(await withNetworkTimeout(DOT_ARCHIVE_ENDPOINT,{method:'POST',body:form}));
+        const result=JSON.parse(await withNetworkTimeout(DOT_ARCHIVE_ENDPOINT,{method:'POST',headers:{Authorization:`Bearer ${adminSessionToken||''}`},body:form}));
         if(!result.success || result.sha256!==sha256 || result.recordCount!==doc.records.length)throw new Error(`R2 upload response failed verification for file ${i+1}`);
         await loadDotArchive(meta,id,workerKey,true);
         copied++;
@@ -2655,6 +2676,13 @@
       manifestChanges[`dotArchives/${id}/${workerKey}`]=meta;
     }
     if(verified!==entries.length)throw new Error('Backup dot counts do not match Firebase source counts.');
+    // Stale copy-only manifests can be removed after the complete new backup.
+    // No archived (authoritative) manifest may ever be removed here.
+    for(const [key,meta] of Object.entries(manifestIndex)){
+      if(/^snapshot[0-9]{5}$/.test(key)&&meta?.storageState==='copy'&&!Object.hasOwn(manifestChanges,`dotArchives/${id}/${key}`)){
+        manifestChanges[`dotArchives/${id}/${key}`]=null;
+      }
+    }
     // Publish snapshot records only once EVERY R2 object has passed remote read-back.
     // Never remove or modify userPosts or userPostClicks here.
     await update(ref(db),manifestChanges);
@@ -2685,7 +2713,7 @@
       }
       await ensureArchiveService();
       const form=new FormData();form.append('file',new File([text],`dots-${id}-${workerKey}-${sha256}.json`,{type:'application/json'}));
-      const uploaded=JSON.parse(await withNetworkTimeout(DOT_ARCHIVE_ENDPOINT,{method:'POST',body:form}));
+      const uploaded=JSON.parse(await withNetworkTimeout(DOT_ARCHIVE_ENDPOINT,{method:'POST',headers:{Authorization:`Bearer ${adminSessionToken||''}`},body:form}));
       if(!uploaded.success || uploaded.sha256!==sha256) throw new Error('Upload Worker needs the archive update');
       const meta={version:1,campaignId:id,workerKey,sha256,recordCount:records.length,endedAt:doc.endedAt,verifiedAt:Date.now(),storageState:'copy'};
       await loadDotArchive(meta,id,workerKey,true);
@@ -2786,7 +2814,7 @@
     if(typeof myPostsUnsub==='function')myPostsUnsub(); if(typeof chatUnsub==='function')chatUnsub();
     if(shiftRegistryUnsub){shiftRegistryUnsub();shiftRegistryUnsub=null;}
     clearTimeout(archiveRetryTimer);
-    currentUserId=null; shiftSalaryCents=null; shiftSalaryState='loading'; renderShiftSalary(); adminBackdrop.classList.remove('show'); resetSegmentAssignments(); currentWorkerName=null; isAdmin=false; document.body.classList.remove('admin-mode'); updateWorkerUi();
+    currentUserId=null; shiftSalaryCents=null; shiftSalaryState='loading'; renderShiftSalary(); adminBackdrop.classList.remove('show'); resetSegmentAssignments(); currentWorkerName=null; isAdmin=false;adminSessionToken=null; document.body.classList.remove('admin-mode'); updateWorkerUi();
     if(typeof campaignSettingsUnsub==='function'){campaignSettingsUnsub();campaignSettingsUnsub=null;}
     campaignTargetDots=null;campaignBonusBlueTotal=0;selectedShiftIndex=-1;
     clearShiftView();
@@ -2904,8 +2932,16 @@
     workerError.textContent='';
     const name=(workerNameInput.value||'').trim().replace(/\s+/g,' ');
     if(name.toLowerCase()==='admin'){
-      if(adminPinInput.value!==ADMIN_PIN){workerError.textContent='Incorrect admin PIN';adminPinInput.focus();return;}
       try{
+        workerSaveBtn.disabled=true;
+        const response=await fetch(ADMIN_AUTH_URL,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({password:adminPinInput.value}),cache:'no-store'
+        });
+        const result=await response.json();
+        if(!response.ok||!result.token)throw new Error(result.error||'Admin login rejected. Check the Cloudflare Worker secrets.');
+        adminSessionToken=result.token;
+        adminPinInput.value='';
         isAdmin=true;
         currentWorkerName='admin';
         lastChallengePersistSig='';
@@ -2918,7 +2954,8 @@
         renderCoach({icon:'◆',title:'Admin mode',detail:'Campaign target control is available.',side:'ADMIN',tone:'diamond',progress:0});
         showToast('Admin mode enabled');
         openAdminPanel();
-      }catch(e){workerError.textContent='Failed to start admin mode';}
+      }catch(e){adminSessionToken=null;workerError.textContent=e.message||'Failed to start admin mode';}
+      finally{workerSaveBtn.disabled=false;}
       return;
     }
     if(!/^[A-Za-z0-9]{2,20}$/.test(name)){workerError.textContent='Use 2–20 letters/numbers';return;}
@@ -2930,7 +2967,7 @@
       const archiveVersion=record.archiveVersion===1 || !record.startedAt ? 1 : 0;
       await update(ref(db,`users/${currentUserId}/workers/${safe}`),{firstName:name,startedAt,archiveVersion});
       shiftRegistry[safe]={...record,firstName:name,startedAt,archiveVersion};
-      isAdmin=false;
+      isAdmin=false;adminSessionToken=null;
       document.body.classList.remove('admin-mode');
       currentWorkerName=name;
       lastChallengePersistSig='';
@@ -3353,7 +3390,8 @@
     renderShiftSalary();
     adminSalaryInput.value=shiftSalaryCents === null ? '' : (shiftSalaryCents / 100).toFixed(2);
     adminSalaryStatus.textContent='';
-    adminBackupNow.disabled=adminBackupBusy || !currentUserId;
+    adminBackupNow.disabled=adminBackupBusy || !currentUserId || !adminSessionToken;
+    adminDeleteVerified.disabled=adminBackupBusy || !currentUserId || !adminSessionToken; // Backend verifies eligible snapshots on click.
     if(!currentUserId && !adminBackupBusy){adminBackupStatus.className='admin-backup-status';adminBackupStatus.textContent='Select a campaign FF ID first.';}
     adminBackdrop.classList.add('show');
   }
@@ -3366,7 +3404,7 @@
     try {
       const result=await backupAllDotColors(id,status);
       if(result.empty){adminBackupStatus.className='admin-backup-status';return;}
-      status(`Backup VERIFIED: ${result.verified.toLocaleString()} dots in ${result.files} R2 file(s).\n${formatColorCounts(result.counts)}\n${result.copied} uploaded · ${result.already} reverified.\nFirebase deletion: 0 dots (not enabled).${result.other?`\n${result.other} records without one of the four colors were excluded.`:''}`);
+      status(`Backup VERIFIED: ${result.verified.toLocaleString()} dots in ${result.files} R2 file(s).\n${formatColorCounts(result.counts)}\n${result.copied} uploaded · ${result.already} reverified.\nFirebase deletion: pending until you click the secure Delete button.${result.other?`\n${result.other} records without one of the four colors were excluded.`:''}`);
       adminBackupStatus.className='admin-backup-status success';
       showToast(`R2 backup verified: ${result.verified.toLocaleString()} dots. Firebase unchanged.`);
     }catch(error){
@@ -3374,6 +3412,47 @@
       status(`Backup not completed: ${error.message||'unknown error'}\nAll Firebase dots were retained. Retry after resolving the error.`);
       showToast('R2 backup failed; Firebase dots are safe.');
     }finally{adminBackupBusy=false;adminBackupNow.disabled=false;}
+  });
+
+
+  // Admin-only verified R2 cutover: backend validates the session, the Firebase
+  // manifest, the R2 checksum, and each current value before conditional deletion.
+  adminDeleteVerified.addEventListener('click',async()=>{
+    if(!isAdmin||!adminSessionToken||adminBackupBusy||!currentUserId)return;
+    const id=currentUserId;
+    adminBackupBusy=true;adminBackupNow.disabled=true;adminDeleteVerified.disabled=true;
+    adminBackupStatus.className='admin-backup-status';
+    try {
+      await ensureArchiveService();
+      // Always re-read the index, never trust in-memory backup success.
+      const index=(await get(ref(db,`dotArchives/${id}`))).val()||{};
+      const chunks=Object.entries(index).filter(([key,m])=>/^snapshot[0-9]{5}$/.test(key) && m?.version===2 && ['copy','archived'].includes(m.storageState));
+      if(!chunks.length)throw new Error('No verified R2 snapshots. Click Back up ALL dots first.');
+      const count=chunks.reduce((sum,[,meta])=>sum+(Number(meta.recordCount)||0),0);
+      if(!window.confirm(`Delete up to ${count.toLocaleString()} backed-up Firebase dots for ${id}?\n\nAll archives will be independently verified by Cloudflare before any deletion. New or modified dots remain in Firebase.\n\nOnly continue if every client and worker report has been updated to read R2.`)){
+        adminBackupStatus.textContent='Deletion cancelled. All Firebase dots remain unchanged.';
+        return;
+      }
+      let deleted=0,kept=0,finished=0;
+      for(const [workerKey,meta] of chunks){
+        if(!isAdmin||currentUserId!==id)throw new Error('Admin login or campaign changed.');
+        adminBackupStatus.textContent=`Secure deletion: archive ${++finished}/${chunks.length} (${workerKey})…\n${deleted.toLocaleString()} Firebase dots deleted so far`;
+        const response=await fetch(DOT_ARCHIVE_ENDPOINT.replace(/\/dot-archives$/,'')+'/admin/cutover',{
+          method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminSessionToken}`},
+          body:JSON.stringify({campaignId:id,workerKey,sha256:meta.sha256}),cache:'no-store'
+        });
+        let result={};try{result=await response.json();}catch(_){}
+        if(!response.ok||!result.success)throw new Error(result.error||`Cutover failed (${response.status}). No unverified dots were deleted.`);
+        deleted+=result.deleted||0;kept+=result.retained||0;
+      }
+      adminBackupStatus.className='admin-backup-status success';
+      adminBackupStatus.textContent=`Cloudflare R2 cutover completed.\n${deleted.toLocaleString()} verified Firebase dots deleted.\n${kept.toLocaleString()} new or nonmatching dots retained.\nArchived dots continue loading from R2.`;
+      showToast(`Cutover completed: ${deleted.toLocaleString()} verified Firebase dots removed.`);
+    }catch(error){
+      adminBackupStatus.className='admin-backup-status error';
+      adminBackupStatus.textContent=`Cutover stopped: ${error.message}\nAny already archived dots remain safely stored in R2; retry this button after fixing the error.`;
+      showToast('Secure cutover incomplete. Check Admin status.');
+    }finally{adminBackupBusy=false;adminBackupNow.disabled=false;adminDeleteVerified.disabled=false;}
   });
 
   closeAdminPanel.addEventListener('click',()=>adminBackdrop.classList.remove('show'));
@@ -3420,7 +3499,7 @@
 
 
   adminExitBtn.addEventListener('click',()=>{
-    isAdmin=false;document.body.classList.remove('admin-mode');currentWorkerName=null;updateWorkerUi();setPostEnabled(false);adminBackdrop.classList.remove('show');resetChallengeUi();openWorkerModal();
+    isAdmin=false;adminSessionToken=null;document.body.classList.remove('admin-mode');currentWorkerName=null;updateWorkerUi();setPostEnabled(false);adminBackdrop.classList.remove('show');resetChallengeUi();openWorkerModal();
   });
 
   // ── Geolocation ───────────────────────────────────────────────────────────
