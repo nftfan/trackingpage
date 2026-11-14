@@ -384,6 +384,12 @@
     .admin-campaign-chip span{font-size:8px;font-weight:800;color:#70758a;text-transform:uppercase;letter-spacing:.5px;}
     .admin-campaign-chip strong{font:900 11px Menlo,monospace;color:#c4b5fd;}
     .admin-section{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.065);}
+    .admin-backup-btn{background:#2563eb!important;font-weight:900;min-height:38px;}
+    .admin-backup-btn:disabled{opacity:.55;cursor:not-allowed;}
+    .admin-backup-status{white-space:pre-line;margin-top:8px;padding:9px;border-radius:7px;background:rgba(59,130,246,.07);color:#dbeafe;border:1px solid rgba(59,130,246,.16);font:700 10px/1.55 Inter,sans-serif;}
+    .admin-backup-status.error{color:#fecaca;border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.07);}
+    .admin-backup-status.success{color:#bbf7d0;border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.07);}
+    .admin-cleanup-locked{width:100%;margin-top:10px;opacity:.55;background:#34313b!important;color:#e5e7eb!important;cursor:not-allowed!important;}
     .admin-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
     .admin-section-head span{font-size:11px;font-weight:850;color:#e8e8ee;}
     .admin-section-head strong{font:800 9px Menlo,monospace;color:#8d93aa;}
@@ -746,6 +752,18 @@
       <div id="adminSalaryStatus" class="admin-note" role="status" aria-live="polite"></div>
     </div>
 
+    <div class="admin-section" id="adminBackupSection">
+      <div class="admin-section-head">
+        <span>Cloudflare R2 backup</span>
+        <strong>Manual · completed shifts</strong>
+      </div>
+      <div class="admin-note" style="margin-bottom:10px">Make a verified, read-back copy of completed shifts. Active shifts are excluded. Firebase records stay in place until the client app and secure server-side cleanup are ready.</div>
+      <button id="adminBackupNow" class="btn-modal admin-backup-btn" type="button" style="width:100%">Back up completed shifts to R2</button>
+      <div id="adminBackupStatus" class="admin-backup-status" role="status" aria-live="polite">No manual backup started in this session.</div>
+      <button id="adminCleanupLocked" type="button" class="btn-modal admin-cleanup-locked" disabled aria-describedby="adminBackupSafety">Delete verified Firebase dots — not enabled yet</button>
+      <div id="adminBackupSafety" class="admin-note">Deletion stays locked until a server-authenticated cutover is configured and all client/history readers are verified. The admin PIN alone cannot safely authorize deletion.</div>
+    </div>
+
     <button id="adminSegmentsBtn" class="btn-modal" type="button" style="width:100%;margin-top:10px">Manage segments</button>
     <button id="adminExitBtn" class="admin-exit-btn" type="button">Exit admin mode</button>
   </div>
@@ -1009,6 +1027,9 @@
   const adminTargetInput = document.getElementById('adminTargetInput');
   const adminSaveTarget = document.getElementById('adminSaveTarget');
   const adminExitBtn = document.getElementById('adminExitBtn');
+  const adminBackupNow = document.getElementById('adminBackupNow');
+  const adminBackupStatus = document.getElementById('adminBackupStatus');
+  let adminBackupBusy = false;
   const shiftPickerBackdrop = document.getElementById('shiftPickerBackdrop');
   const shiftPickerList = document.getElementById('shiftPickerList');
   const backToShiftPicker = document.getElementById('backToShiftPicker');
@@ -2426,8 +2447,9 @@
     }
   });
 
-  // Completed-shift archives v1. Live data stays in Firebase during rollout.
-  // Do not delete live records until EVERY reader supports this archive format.
+  // Manual completed-shift backups v1. No timer or end-shift event uploads.
+  // Firebase removal is explicitly disabled pending server-authorized cutover.
+  // Never use the client-side admin PIN as authorization for destructive writes.
   const DOT_ARCHIVE_ENDPOINT = 'https://upload-proxy.gotshotu.workers.dev/dot-archives';
   const archiveWorkerKey = name => String(name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   const dotEntryKey = entry => `${entry.source}/${entry.key}`;
@@ -2541,22 +2563,48 @@
     try {await Promise.race([Promise.all(tasks),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Dots are still syncing. Reconnect and end the shift again.')),15000);})]);}
     finally {clearTimeout(timer);}
   }
-  function scheduleDotArchives(delay=1500) {
-    clearTimeout(archiveRetryTimer);
-    archiveRetryTimer=setTimeout(()=>{archiveRetryTimer=null;runDotArchives();},delay);
+  // Archived shifts are backed up ONLY when the admin presses the button.
+  function scheduleDotArchives() { /* deliberately manual-only */ }
+
+  async function readLiveArchiveEntries(id) {
+    // Read a fresh, point-in-time-ish snapshot for manual backup. The two
+    // collections are independent; this is a copy operation, not a cutover.
+    const [posts,clicks]=await Promise.all([
+      get(ref(db,`userPosts/${id}`)),get(ref(db,`userPostClicks/${id}`))
+    ]);
+    const entries=[];
+    for(const [snapshot,source] of [[posts,'userPosts'],[clicks,'userPostClicks']]) {
+      snapshot.forEach(child=>{
+        const value=child.val();
+        if(value && Number.isFinite(value.lat) && Number.isFinite(value.lng))
+          entries.push({source,key:child.key,value});
+      });
+    }
+    return entries;
   }
-  async function archiveCompletedShift(id,workerKey,record) {
+
+  async function archiveCompletedShift(id,workerKey,record,liveEntries) {
     const jobKey=`${id}/${workerKey}`;
-    if(archiveBusy.has(jobKey) || !dotFeed?.ready || dotFeed.id!==id) return;
-    if([...pendingDotWrites.values()].some(item=>item.campaignId===id)) return;
+    if(archiveBusy.has(jobKey)) throw new Error('Backup already running for this shift');
+    if(!dotFeed?.ready || dotFeed.id!==id) throw new Error('Campaign history is not ready');
+    if([...pendingDotWrites.values()].some(item=>item.campaignId===id)) throw new Error('Local dots are still syncing');
+    if(!Number(record.endedAt)) throw new Error('Shift is still active');
     archiveBusy.add(jobKey);
     try {
-      const records=dotFeed.entries.filter(entry=>archiveWorkerKey(entry.value.workerName)===workerKey);
+      const records=liveEntries.filter(entry=>archiveWorkerKey(entry.value.workerName)===workerKey);
       // A zero-dot ended shift is valid; do not confuse unavailable listeners with zero dots.
       const doc={schema:'leuvenflyers.dot-archive',version:1,campaignId:id,workerKey,workerName:record.firstName||workerKey,startedAt:Number(record.startedAt)||0,endedAt:Number(record.endedAt),records};
       if(!validDotArchive(doc,id,workerKey)) throw new Error('Shift contains invalid dot records');
       const text=JSON.stringify(doc), sha256=await archiveDigest(text);
-      if(record.archiveHash===sha256) return;
+      const existing=(await get(ref(db,`dotArchives/${id}/${workerKey}`))).val();
+      if(existing?.storageState==='archived') {
+        // Never turn an authoritative archive back into a non-authoritative copy.
+        throw new Error('This shift has already been cut over; do not overwrite its archive');
+      }
+      if(existing?.sha256===sha256 && existing?.storageState==='copy') {
+        await loadDotArchive(existing,id,workerKey,true);
+        return {status:'already',records:records.length};
+      }
       await ensureArchiveService();
       const form=new FormData();form.append('file',new File([text],`dots-${id}-${workerKey}-${sha256}.json`,{type:'application/json'}));
       const uploaded=JSON.parse(await withNetworkTimeout(DOT_ARCHIVE_ENDPOINT,{method:'POST',body:form}));
@@ -2572,23 +2620,14 @@
       });
       if(currentUserId===id && shiftRegistry[workerKey]) shiftRegistry[workerKey]={...shiftRegistry[workerKey],archiveHash:sha256,archiveCompletedAt:Date.now()};
       archiveRetryAfter.delete(jobKey);
+      return {status:'saved',records:records.length};
     } catch(error) {
-      console.warn('Shift archive pending; Firebase dots retained',error);
-      archiveRetryAfter.set(jobKey,Date.now()+60000);
-      if(currentUserId===id) showToast('Shift saved. Cloud archive will retry; dots remain safe in Firebase.');
+      // Failed backup MUST leave Firebase data untouched and report the error.
+      console.warn('Manual R2 backup failed; Firebase dots retained',error);
+      throw error;
     } finally {archiveBusy.delete(jobKey);}
   }
-  async function runDotArchives() {
-    const id=currentUserId;
-    if(!id || !dotFeed?.ready || dotFeed.id!==id) return;
-    for(const [workerKey,record] of Object.entries(shiftRegistry)) {
-      if(currentUserId!==id) return;
-      if(record.archiveVersion!==1 || !record.archiveRequestedAt || !Number(record.endedAt) || record.archiveCompletedAt) continue;
-      if((archiveRetryAfter.get(`${id}/${workerKey}`)||0)>Date.now()) continue;
-      await archiveCompletedShift(id,workerKey,record);
-    }
-    if(currentUserId===id && Object.values(shiftRegistry).some(record=>record.archiveVersion===1 && record.archiveRequestedAt && !record.archiveCompletedAt)) scheduleDotArchives(60000);
-  }
+  // Former background uploader removed. Admin explicitly chooses when to copy.
   window.addEventListener('online',()=>{if(currentUserId){retryPendingDots(currentUserId);scheduleDotArchives();dotFeed?.refreshArchives?.();}});
   window.addEventListener('beforeunload',event=>{if(pendingDotWrites.size){event.preventDefault();event.returnValue='';}});
 
@@ -2597,12 +2636,14 @@
     if(typeof myPostsUnsub==='function'){myPostsUnsub();myPostsUnsub=null;}
     let normal=[],orange=[],archived=[],manifests={},normalReady=false,orangeReady=false,archivesReady=false;
     let stopped=false,archiveGeneration=0,archiveTimer=null,renderTimer=null;
-    const feed={id,ready:false,entries:[],refreshArchives:()=>refreshArchives()};dotFeed=feed;
+    const feed={id,ready:false,entries:[],liveEntries:[],refreshArchives:()=>refreshArchives()};dotFeed=feed;
     renderMistakes([]);
     function combine() {
       if(stopped || currentUserId!==id) return;
-      feed.entries=mergeDotEntries(archived,[...normal,...orange]);
+      feed.liveEntries=[...normal,...orange];
+      feed.entries=mergeDotEntries(archived,feed.liveEntries);
       feed.ready=normalReady && orangeReady && archivesReady;
+      if(isAdmin && currentUserId===id && !adminBackupBusy) adminBackupNow.disabled=!feed.ready;
       // Debounce expensive map rebuilds while several live events arrive together.
       clearTimeout(renderTimer);
       renderTimer=setTimeout(()=>{
@@ -2659,6 +2700,7 @@
   function validateUserId(id){return /^[A-Z0-9]{3,10}$/.test(id);}
 
   function showLogin(){
+    if(adminBackupBusy){showToast('Finish the manual backup before switching campaigns.');return;}
     changeUserBtn.textContent='Enter FF ID';
     stopHistory(true);
     clearCampaignHexagons();
@@ -2831,15 +2873,14 @@
     const button=document.getElementById('endWorkerShift');button.disabled=true;
     endingWorkerShift=true;setPostEnabled(false);
     try{
-      // Acknowledge every queued dot before ending and archiving the shift.
+      // Acknowledge every queued dot before ending the shift.
       await waitForPendingDots(id);
       if(currentUserId!==id || currentWorkerName!==name)throw new Error('Campaign changed. End the shift again.');
       const endedAt=Date.now(),record=workerShiftRecord(name);
-      const changes={endedAt,...(record.archiveVersion===1?{archiveRequestedAt:endedAt}:{})};
+      const changes={endedAt};
       await update(ref(db,`users/${id}/workers/${safe}`),changes);
       shiftRegistry[safe]={...record,...changes};
-      renderMistakes(globalAllDots);closeWorkerModal();showToast('Shift ended');
-      scheduleDotArchives();
+      renderMistakes(globalAllDots);closeWorkerModal();showToast('Shift ended. Admin may back it up later.');
     }catch(error){workerError.textContent=error.message||'Could not end shift. Please retry.';}
     finally{endingWorkerShift=false;button.disabled=false;setPostEnabled(!!currentLatLng);}
   });
@@ -3234,8 +3275,54 @@
     renderShiftSalary();
     adminSalaryInput.value=shiftSalaryCents === null ? '' : (shiftSalaryCents / 100).toFixed(2);
     adminSalaryStatus.textContent='';
+    adminBackupNow.disabled=adminBackupBusy || !dotFeed?.ready || !currentUserId;
+    if(!dotFeed?.ready && !adminBackupBusy){adminBackupStatus.className='admin-backup-status';adminBackupStatus.textContent='Waiting for Firebase live dots and archive index to load. Reopen this panel after loading finishes.';}
     adminBackdrop.classList.add('show');
   }
+  adminBackupNow.addEventListener('click',async()=>{
+    if(!isAdmin || adminBackupBusy || !currentUserId)return;
+    const id=currentUserId;
+    adminBackupNow.disabled=true;adminBackupBusy=true;
+    adminBackupStatus.className='admin-backup-status';
+    const status=text=>{adminBackupStatus.textContent=text;};
+    let copied=0,already=0,failed=0,records=0;
+    const errors=[];
+    try {
+      if(!dotFeed?.ready || dotFeed.id!==id)throw new Error('Wait for all live data and the archive index to load before backing up.');
+      if([...pendingDotWrites.values()].some(item=>item.campaignId===id))await waitForPendingDots(id);
+      await ensureArchiveService();
+      status('Reading the latest Firebase dots…');
+      const liveEntries=await readLiveArchiveEntries(id);
+      const completed=Object.entries(shiftRegistry).filter(([key,record])=>
+        /^[a-z0-9]{2,20}$/.test(key) && record && Number(record.endedAt)>0
+      );
+      const activeNames=new Set(Object.entries(shiftRegistry).filter(([,record])=>!Number(record?.endedAt)).map(([key])=>key));
+      if(!completed.length){status('No completed shifts found. No files uploaded and no Firebase records deleted.');return;}
+      for(let i=0;i<completed.length;i++) {
+        if(currentUserId!==id || !isAdmin)throw new Error('Campaign or admin mode changed; backup stopped.');
+        const [workerKey,record]=completed[i];
+        status(`Backing up ${i+1} of ${completed.length}: ${record.firstName||workerKey}…\n${copied} new · ${already} verified existing · ${failed} failed`);
+        try {
+          const result=await archiveCompletedShift(id,workerKey,record,liveEntries);
+          if(result.status==='saved')copied++;else already++;
+          records+=result.records;
+        } catch(error) {
+          failed++;errors.push(`${record.firstName||workerKey}: ${error.message||'unknown error'}`);
+        }
+      }
+      const knownNames=new Set([...completed.map(([key])=>key),...activeNames]);
+      const unknown=liveEntries.filter(entry=>!knownNames.has(archiveWorkerKey(entry.value.workerName))).length;
+      const verdict=`${copied} new R2 backups · ${already} already verified · ${failed} failed\n${records.toLocaleString()} copied or verified dots from completed shifts.\nFirebase deletion: 0 dots (not enabled).`;
+      status(verdict+(unknown?`\nWarning: ${unknown} live dots belong to unregistered shift names and were not backed up.`:'')+(errors.length?`\nErrors: ${errors.slice(0,3).join(' | ')}`:''));
+      adminBackupStatus.className=`admin-backup-status ${failed||unknown?'error':'success'}`;
+      showToast(failed?`${failed} backup(s) failed. Firebase dots retained.`:'R2 backups verified. Firebase dots retained.');
+    }catch(error){
+      adminBackupStatus.className='admin-backup-status error';
+      status(`Backup stopped: ${error.message||'unknown error'}\nFirebase dots were NOT deleted.`);
+      showToast('Backup not completed. Firebase dots are safe.');
+    }finally{adminBackupBusy=false;adminBackupNow.disabled=false;}
+  });
+
   closeAdminPanel.addEventListener('click',()=>adminBackdrop.classList.remove('show'));
   adminBackdrop.addEventListener('click',e=>{if(e.target===adminBackdrop)adminBackdrop.classList.remove('show');});
 
