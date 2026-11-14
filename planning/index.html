@@ -2996,6 +2996,44 @@ function firebasePushKeyTime(key){
  return time;
 }
 
+// The posting app uses workerName as its worker/shift label (Tom, Tom2, etc.).
+// XX/FF and case variants are aliases of the same campaign.
+function routeIdentity(value,posterId){
+ const firstId=(...values)=>{
+  for(const value of values){
+   if(typeof value==='string' && value.trim()) return value.trim();
+   if(typeof value==='number' && Number.isFinite(value)) return String(value);
+  }
+  return '';
+ };
+ const name=typeof value.workerName==='string'
+  ?value.workerName.trim().toLowerCase():'';
+ const campaign=String(posterId||'').trim().toUpperCase().replace(/^(XX|FF)(?=\d+$)/,'');
+ const usableName=name && name!=='unknown' && name!=='admin'?name:'';
+ return {
+  routeCampaignId:campaign,
+  routeWorkerId:usableName || firstId(value.workerId,value.promoterId,value.worker?.id,value.promoter?.id),
+  routeShiftId:usableName || firstId(value.shiftId,value.shiftCode,value.shiftKey,value.shift?.id,value.shift?.key)
+ };
+}
+
+function deliveryRouteFeatures(records){
+ const routes=new Map();
+ for(const dot of records){
+  // Unattributed legacy dots stay visible and counted, but cannot safely be joined.
+  if(dot.kind!=='delivery' || !dot.hasLocation || !dot.routeWorkerId || !dot.routeShiftId) continue;
+  const key=JSON.stringify([dot.routeCampaignId,dot.routeWorkerId,dot.routeShiftId]);
+  if(!routes.has(key)) routes.set(key,[]);
+  routes.get(key).push(dot);
+ }
+ return [...routes.values()].filter(dots=>dots.length>1).map(dots=>{
+  dots.sort((a,b)=>a.timestamp-b.timestamp
+   ||String(a.postKey||a.key||'').localeCompare(String(b.postKey||b.key||'')));
+  // Deliberately no distance cutoff: retain the full route within each worker/shift.
+  return feature('LineString',dots.map(dot=>[dot.lng,dot.lat]));
+ });
+}
+
 function readRecords(snapshot,posterId,kind,source){
 
  const records=[];
@@ -3048,6 +3086,7 @@ function readRecords(snapshot,posterId,kind,source){
    ||firebasePushKeyTime(child.key);
 
   records.push({
+   ...routeIdentity(value,posterId),
    key:`${source}/${posterId}/${child.key}`,
    postKey:child.key,
    posterId,
@@ -3249,21 +3288,7 @@ function renderDeliveryDots(){
  const selectedKeys=new Set(dotStats.get(selectedShiftKey)?.dotKeys||[]);
 
  map.getSource('campaign-route')?.setData(
-  fc(
-   records.length>1
-    ?[
-     feature(
-      'LineString',
-      records.map(
-       dot=>[
-        dot.lng,
-        dot.lat
-       ]
-      )
-     )
-    ]
-    :[]
-  )
+  fc(deliveryRouteFeatures(records))
  );
 
  for(const kind of ['delivery','pickup']){
