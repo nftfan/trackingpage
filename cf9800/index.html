@@ -384,12 +384,6 @@
     .admin-campaign-chip span{font-size:8px;font-weight:800;color:#70758a;text-transform:uppercase;letter-spacing:.5px;}
     .admin-campaign-chip strong{font:900 11px Menlo,monospace;color:#c4b5fd;}
     .admin-section{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.065);}
-    .admin-backup-btn{background:#2563eb!important;font-weight:900;min-height:38px;}
-    .admin-backup-btn:disabled{opacity:.55;cursor:not-allowed;}
-    .admin-backup-status{white-space:pre-line;margin-top:8px;padding:9px;border-radius:7px;background:rgba(59,130,246,.07);color:#dbeafe;border:1px solid rgba(59,130,246,.16);font:700 10px/1.55 Inter,sans-serif;}
-    .admin-backup-status.error{color:#fecaca;border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.07);}
-    .admin-backup-status.success{color:#bbf7d0;border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.07);}
-    .admin-cleanup-locked{width:100%;margin-top:10px;opacity:.55;background:#34313b!important;color:#e5e7eb!important;cursor:not-allowed!important;}
     .admin-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
     .admin-section-head span{font-size:11px;font-weight:850;color:#e8e8ee;}
     .admin-section-head strong{font:800 9px Menlo,monospace;color:#8d93aa;}
@@ -683,8 +677,8 @@
       <button id="workerSaveBtn" class="btn-modal">Start</button>
     </div>
     <div id="adminPinWrap" class="admin-pin-wrap">
-      <label for="adminPinInput">Admin password</label>
-      <input id="adminPinInput" class="input" type="password" maxlength="128" placeholder="Admin password" autocomplete="off">
+      <label for="adminPinInput">Admin PIN</label>
+      <input id="adminPinInput" class="input" type="password" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" autocomplete="off">
     </div>
     <div id="workerError" class="error"></div>
     <button id="endWorkerShift" class="btn-modal" type="button" style="margin-top:12px;background:#b91c1c" hidden>End shift</button>
@@ -752,19 +746,12 @@
       <div id="adminSalaryStatus" class="admin-note" role="status" aria-live="polite"></div>
     </div>
 
-    <div class="admin-section" id="adminBackupSection">
-      <div class="admin-section-head">
-        <span>Cloudflare R2 backup</span>
-        <strong>Manual · all dot colors</strong>
-      </div>
-      <div class="admin-note" style="margin-bottom:10px">Back up all four dot colors, including historic data. After verification, Admin Mode can securely cut the saved dots over to R2 and remove only matching Firebase records.</div>
-      <button id="adminBackupNow" class="btn-modal admin-backup-btn" type="button" style="width:100%">Back up ALL dots to R2</button>
-      <div id="adminBackupStatus" class="admin-backup-status" role="status" aria-live="polite">No manual backup started in this session.</div>
-      <button id="adminDeleteVerified" type="button" class="btn-modal admin-backup-btn" style="width:100%;margin-top:10px" disabled aria-describedby="adminBackupSafety">Delete verified Firebase dots</button>
-      <div id="adminBackupSafety" class="admin-note">Requires Admin login, an R2-verified snapshot and the Cloudflare secure-cutover configuration. Only unchanged backed-up dot keys are deleted. Other Firebase records are preserved. Update all campaign readers to v2 first.</div>
-    </div>
-
     <button id="adminSegmentsBtn" class="btn-modal" type="button" style="width:100%;margin-top:10px">Manage segments</button>
+    <div class="admin-section">
+      <button id="adminUploadDotsBtn" class="btn-modal" type="button" style="width:100%">Upload all dots to R2</button>
+      <div class="admin-note">Back up all dots, then load saved dots from R2. Only new dots load from Firebase. Firebase copies are kept.</div>
+      <div id="adminUploadDotsStatus" class="admin-note" role="status" aria-live="polite" style="overflow-wrap:anywhere"></div>
+    </div>
     <button id="adminExitBtn" class="admin-exit-btn" type="button">Exit admin mode</button>
   </div>
 </div>
@@ -832,7 +819,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, push, query, orderByChild, limitToLast, onValue, set, update, get, off, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, push, query, orderByChild, orderByKey, startAfter, runTransaction, limitToLast, onValue, set, update, get, off, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyA6w6auszWRniQfZCjb4nXE_bq9Mzt9dOs",
@@ -1027,10 +1014,6 @@
   const adminTargetInput = document.getElementById('adminTargetInput');
   const adminSaveTarget = document.getElementById('adminSaveTarget');
   const adminExitBtn = document.getElementById('adminExitBtn');
-  const adminBackupNow = document.getElementById('adminBackupNow');
-  const adminBackupStatus = document.getElementById('adminBackupStatus');
-  const adminDeleteVerified = document.getElementById('adminDeleteVerified');
-  let adminBackupBusy = false;
   const shiftPickerBackdrop = document.getElementById('shiftPickerBackdrop');
   const shiftPickerList = document.getElementById('shiftPickerList');
   const backToShiftPicker = document.getElementById('backToShiftPicker');
@@ -1039,12 +1022,11 @@
   let localClicks = [], globalAbsDCount = 0, globalAbsPCount = 0;
   let globalAllDots = [], historyIndex = -1;
   let currentLatLng = null, currentUserId = null, currentWorkerName = null;
-  let myPostsUnsub = null, chatUnsub = null, shiftRegistryUnsub = null, lastReadChatTs = 0;
+  let myPostsUnsub = null, chatUnsub = null, lastReadChatTs = 0;
   let shiftRegistry = {};
   let isAdmin = false;
-  // Admin password is NOT stored in this HTML. It is verified by the Cloudflare Worker.
-  let adminSessionToken=null;
-  const ADMIN_AUTH_URL='https://upload-proxy.gotshotu.workers.dev/admin/login';
+  let dotsAdminPin = "";
+  const ADMIN_PIN = '000888';
   let campaignTargetDots = null;
   let shiftSalaryCents = null;
   let shiftSalaryState = 'loading';
@@ -2450,354 +2432,134 @@
     }
   });
 
-  // Manual all-color campaign snapshots (v2). No timer or end-shift event uploads.
-  // Deletion only through the authenticated Cloudflare server cutover.
-  // Never authorize destructive writes using a client-side admin PIN.
-  const DOT_ARCHIVE_ENDPOINT = 'https://upload-proxy.gotshotu.workers.dev/dot-archives';
-  const archiveWorkerKey = name => String(name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  const dotEntryKey = entry => `${entry.source}/${entry.key}`;
-  function mergeDotEntries(archived, live) {
-    const merged = new Map();
-    for (const entry of [...archived, ...live]) merged.set(dotEntryKey(entry), entry);
-    return [...merged.values()].sort((a,b) => Number(a.value.timestamp)-Number(b.value.timestamp) || dotEntryKey(a).localeCompare(dotEntryKey(b)));
+  // ── Posts listener ────────────────────────────────────────────────────────
+  const DOT_SOURCES = ['userPosts', 'userPostClicks'];
+  function liveDotsQuery(id, source, manifest) {
+    const last = manifest?.lastKeys?.[source];
+    return last ? query(ref(db, `${source}/${id}`), orderByKey(), startAfter(last))
+      : query(ref(db, `${source}/${id}`), orderByKey());
   }
-  function validDotArchive(doc, campaignId, workerKey) {
-    if (!doc || doc.schema !== 'leuvenflyers.dot-archive' || ![1,2].includes(doc.version) || doc.campaignId !== campaignId || doc.workerKey !== workerKey || !Array.isArray(doc.records) || doc.records.length > 20000) return false;
-    const keys = new Set();
-    return doc.records.every(entry => {
-      const value = entry?.value, identity = entry && dotEntryKey(entry);
-      if (!['userPosts','userPostClicks'].includes(entry?.source) || !/^[A-Za-z0-9_-]{1,120}$/.test(entry?.key || '') || keys.has(identity)) return false;
-      keys.add(identity);
-      if (!value || typeof value !== 'object' || Array.isArray(value) || !['green','red','blue','orange'].includes(String(value.color||'').toLowerCase())) return false;
-      // v2 preserves historical dot fields exactly, including dots with no workerName.
-      if(doc.version===2) return true;
-      return Number.isFinite(value.lat) && Math.abs(value.lat)<=90 && Number.isFinite(value.lng) && Math.abs(value.lng)<=180 && Number.isFinite(value.timestamp) && value.timestamp>0 && archiveWorkerKey(value.workerName)===workerKey;
-    });
+  async function readDotsArchive(id, manifest) {
+    if (!manifest) return [];
+    if (manifest.version !== 1 || !manifest.fileName?.startsWith(`${id}Dots/`))
+      throw new Error('Invalid R2 backup index');
+    const response = await fetch(`${PROOF_PROXY_URL}/campaign-dots/file?key=${encodeURIComponent(manifest.fileName)}`);
+    if (!response.ok) throw new Error(`R2 backup could not load (${response.status})`);
+    const raw = await response.text();
+    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw)))].map(n=>n.toString(16).padStart(2,'0')).join('');
+    if (hash !== manifest.sha256) throw new Error('R2 backup verification failed');
+    const doc = JSON.parse(raw);
+    if (doc.schema !== 'leuvenflyers.campaign-dots' || doc.campaignId !== id ||
+        !Array.isArray(doc.records) || doc.records.length !== manifest.recordCount)
+      throw new Error('R2 backup does not match this campaign');
+    return doc.records;
   }
-  async function archiveDigest(text) {
-    return [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))].map(n=>n.toString(16).padStart(2,'0')).join('');
+  // A shallow inventory reads keys ONLY, never backed-up dot values. This also
+  // catches delayed/offline writes with push keys older than the backup boundary.
+  async function dotKeys(id, source) {
+    const response = await fetch(`${firebaseConfig.databaseURL.replace(/\/$/,'')}/${source}/${id}.json?shallow=true`, {cache:'no-store'});
+    if (!response.ok) throw new Error('Could not check for delayed dots');
+    return Object.keys(await response.json() || {});
   }
-  async function withNetworkTimeout(url, options={}) {
-    const controller = new AbortController(), timer = setTimeout(()=>controller.abort(),30000);
-    try {
-      const response = await fetch(url,{...options,signal:controller.signal});
-      if(!response.ok) throw new Error(`Archive request failed (${response.status})`);
-      // Read the body inside the timeout, not after clearing it.
-      return await response.text();
-    } finally { clearTimeout(timer); }
-  }
-  let archiveServiceCheckedAt=0;
-  async function ensureArchiveService() {
-    if(archiveServiceCheckedAt && Date.now()-archiveServiceCheckedAt<300000)return;
-    const status=JSON.parse(await withNetworkTimeout(DOT_ARCHIVE_ENDPOINT.replace(/\/dot-archives$/,''),{cache:'no-store'}));
-    if(Number(status.dotArchivesVersion)<3)throw new Error('Deploy the secure Cloudflare upload-proxy v3 Worker before backing up or deleting dots.');
-    archiveServiceCheckedAt=Date.now();
-  }
-  let archiveCacheDb;
-  function openArchiveCache() {
-    if(!archiveCacheDb) archiveCacheDb = new Promise((resolve,reject)=>{
-      const request=indexedDB.open('leuvenflyers-dot-archives-v1',1);
-      request.onupgradeneeded=()=>request.result.createObjectStore('files');
-      request.onsuccess=()=>resolve(request.result);
-      request.onerror=()=>reject(request.error);
-    }).catch(error=>{archiveCacheDb=null;throw error;});
-    return archiveCacheDb;
-  }
-  async function cachedArchive(hash, text) {
-    const database=await openArchiveCache();
-    return new Promise((resolve,reject)=>{
-      const tx=database.transaction('files',text===undefined?'readonly':'readwrite');
-      const req=text===undefined?tx.objectStore('files').get(hash):tx.objectStore('files').put(text,hash);
-      tx.oncomplete=()=>resolve(req.result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
-    });
-  }
-  const archiveMemory=new Map(), archiveFetches=new Map();
-  async function loadDotArchive(meta, campaignId, workerKey, verifyRemote=false) {
-    if(![1,2].includes(meta?.version) || !/^[a-f0-9]{64}$/.test(meta.sha256||'') || meta.campaignId!==campaignId || meta.workerKey!==workerKey) throw new Error('Invalid archive record');
-    const hash=meta.sha256;
-    const validate=async text=>{
-      if(typeof text!=='string' || await archiveDigest(text)!==hash) throw new Error('Archive checksum mismatch');
-      const doc=JSON.parse(text);
-      if(!validDotArchive(doc,campaignId,workerKey) || doc.records.length!==meta.recordCount) throw new Error('Archive contents mismatch');
-      return doc;
-    };
-    if(!verifyRemote && archiveMemory.has(hash)) return validate(archiveMemory.get(hash));
-    if(!verifyRemote) {
-      try { const text=await cachedArchive(hash); if(text){const doc=await validate(text);archiveMemory.set(hash,text);return doc;} } catch(error) { /* Re-fetch a missing/corrupt/unavailable cache. */ }
-    }
-    const requestKey=`${hash}:${verifyRemote}`;
-    if(!archiveFetches.has(requestKey)) archiveFetches.set(requestKey,(async()=>{
-      // Construct the URL from our known Worker, never from an arbitrary manifest URL.
-      const text=await withNetworkTimeout(`${DOT_ARCHIVE_ENDPOINT}/${hash}`,{cache:verifyRemote?'no-store':'default'});
-      const doc=await validate(text);
-      archiveMemory.set(hash,text);
-      cachedArchive(hash,text).catch(()=>{});
-      return doc;
-    })().finally(()=>archiveFetches.delete(requestKey)));
-    return archiveFetches.get(requestKey);
-  }
-  let dotFeed=null, archiveRetryTimer=null, endingWorkerShift=false;
-  const archiveBusy=new Set(), archiveRetryAfter=new Map();
-  const pendingDotWrites=new Map(), dotWritesInFlight=new Map();
-  const PENDING_DOTS_KEY='dotPoster:pendingWrites:v1';
-  try {
-    const saved=JSON.parse(localStorage.getItem(PENDING_DOTS_KEY)||'[]');
-    for(const item of saved) if(item && /^[A-Z0-9]{3,10}$/.test(item.campaignId||'') && /^[A-Za-z0-9_-]+$/.test(item.key||'') && item.paths && Object.keys(item.paths).every(path=>path.startsWith(`userPosts/${item.campaignId}/`) || path.startsWith(`userPostClicks/${item.campaignId}/`) || path===`users/${item.campaignId}/lastPostAt` || path===`users/${item.campaignId}/lastPostClickAt`)) pendingDotWrites.set(item.key,item);
-  } catch(error) { console.warn('Pending dots could not be restored',error); }
-  function persistPendingDots() {
-    try {localStorage.setItem(PENDING_DOTS_KEY,JSON.stringify([...pendingDotWrites.values()]));}
-    catch(error){showToast('Browser storage is full. Keep this page open until dots sync.');}
-  }
-  function sendPendingDot(item) {
-    if(dotWritesInFlight.has(item.key)) return dotWritesInFlight.get(item.key);
-    const promise=update(ref(db),item.paths).then(()=>{
-      pendingDotWrites.delete(item.key);persistPendingDots();
-    }).finally(()=>dotWritesInFlight.delete(item.key));
-    dotWritesInFlight.set(item.key,promise);
-    return promise;
-  }
-  function saveDotReliably(campaignId,key,paths) {
-    const item={campaignId,key,paths};pendingDotWrites.set(key,item);persistPendingDots();
-    sendPendingDot(item).catch(()=>showToast('Dot waiting to sync. Keep this page open or reconnect.'));
-  }
-  function retryPendingDots(id) {
-    for(const item of pendingDotWrites.values()) if(item.campaignId===id) sendPendingDot(item).catch(()=>{});
-  }
-  async function waitForPendingDots(id) {
-    const tasks=[...pendingDotWrites.values()].filter(item=>item.campaignId===id).map(sendPendingDot);
-    let timer;
-    try {await Promise.race([Promise.all(tasks),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Dots are still syncing. Reconnect and end the shift again.')),15000);})]);}
-    finally {clearTimeout(timer);}
-  }
-  // Archived shifts are backed up ONLY when the admin presses the button.
-  function scheduleDotArchives() { /* deliberately manual-only */ }
-
-  async function readLiveArchiveEntries(id) {
-    // Read a fresh, point-in-time-ish snapshot for manual backup. The two
-    // collections are independent; this is a copy operation, not a cutover.
-    const [posts,clicks]=await Promise.all([
-      get(ref(db,`userPosts/${id}`)),get(ref(db,`userPostClicks/${id}`))
-    ]);
-    const entries=[];
-    for(const [snapshot,source] of [[posts,'userPosts'],[clicks,'userPostClicks']]) {
-      snapshot.forEach(child=>{
-        const value=child.val();
-        if(value && typeof value==='object' && !Array.isArray(value))
-          entries.push({source,key:child.key,value});
-      });
-    }
-    return entries;
-  }
-
-  // Manual full-campaign snapshots: no worker registry or endedAt dependency.
-  // Both Firebase dot collections, all four colors, original keys and values.
-  const DOT_BACKUP_COLORS = ['orange','blue','green','red'];
-  const DOT_BACKUP_CHUNK_MAX_BYTES = 2500000; // comfortably under proxy's 4 MiB file cap
-  function colorCounts(entries) {
-    const counts={orange:0,blue:0,green:0,red:0};
-    for(const entry of entries){const color=String(entry.value?.color||'').toLowerCase();if(color in counts)counts[color]++;}
-    return counts;
-  }
-  function formatColorCounts(c){return `Orange ${c.orange.toLocaleString()} · Blue ${c.blue.toLocaleString()} · Green ${c.green.toLocaleString()} · Red ${c.red.toLocaleString()}`;}
-  function splitAllDotSnapshots(id,entries,snapshotAt,startSequence=1) {
-    const chunks=[];
-    const encoder=new TextEncoder();
-    const sorted=[...entries].sort((a,b)=>dotEntryKey(a).localeCompare(dotEntryKey(b)));
-    for(let offset=0;offset<sorted.length;){
-      let size=Math.min(2500,sorted.length-offset), doc, json, byteLength;
-      for(;;){
-        const workerKey=`snapshot${String(startSequence+chunks.length).padStart(5,'0')}`;
-        doc={schema:'leuvenflyers.dot-archive',version:2,campaignId:id,workerKey,workerName:'ALL DOT COLORS',startedAt:0,endedAt:snapshotAt,records:sorted.slice(offset,offset+size)};
-        json=JSON.stringify(doc);
-        byteLength=encoder.encode(json).byteLength;
-        if(byteLength<=DOT_BACKUP_CHUNK_MAX_BYTES)break;
-        if(size===1)throw new Error(`Dot ${dotEntryKey(sorted[offset])} is too large for the R2 upload limit`);
-        size=Math.max(1,Math.floor(size/2));
-      }
-      chunks.push({doc,json,workerKey:doc.workerKey});
-      offset+=size;
-    }
-    return chunks;
-  }
-  async function backupAllDotColors(id,report) {
-    if([...pendingDotWrites.values()].some(item=>item.campaignId===id))await waitForPendingDots(id);
-    await ensureArchiveService();
-    report('Reading both Firebase dot collections for '+id+'…');
-    const allEntries=await readLiveArchiveEntries(id);
-    const manifestIndex=(await get(ref(db,`dotArchives/${id}`))).val()||{};
-    // An archived snapshot is already authoritative. Do not re-backup its
-    // original keys; keep its original R2 file immutable for client history.
-    const priorArchived=Object.entries(manifestIndex).filter(([key,meta])=>/^snapshot[0-9]{5}$/.test(key)&&meta?.version===2&&meta.storageState==='archived');
-    const archivedByKey=new Map();
-    for(const [key,meta] of priorArchived){
-      const doc=await loadDotArchive(meta,id,key,true);
-      for(const entry of doc.records)archivedByKey.set(dotEntryKey(entry),entry.value);
-    }
-    const liveColored=allEntries.filter(entry=>DOT_BACKUP_COLORS.includes(String(entry.value?.color||'').toLowerCase()));
-    const entries=liveColored.filter(entry=>{
-      const key=dotEntryKey(entry);
-      if(!archivedByKey.has(key))return true;
-      // A corrected/modified dot is different from the prior archived copy.
-      // Preserve it live; never silently upload an ambiguous duplicate key.
-      if(JSON.stringify(entry.value)!==JSON.stringify(archivedByKey.get(key)))throw new Error('Dot '+key+' was changed after archival. Review it before a new snapshot.');
-      return false;
-    });
-    const other=allEntries.length-liveColored.length;
-    if(!entries.length) {
-      report('No new orange, blue, green or red Firebase dots to back up. Earlier R2 history remains available.');
-      return {empty:true};
-    }
-    const counts=colorCounts(entries), snapshotAt=entries.reduce((latest,entry)=>Math.max(latest,Number(entry.value?.timestamp)||0),1);
-    const startSequence=priorArchived.length?Math.max(...priorArchived.map(([key])=>Number(key.substring(8))))+1:1;
-    const chunks=splitAllDotSnapshots(id,entries,snapshotAt,startSequence);
-    report(`Found ${entries.length.toLocaleString()} dots. ${formatColorCounts(counts)}\nPreparing ${chunks.length} verified R2 file(s)…`);
-    const manifestChanges={};
-    let copied=0,already=0,verified=0;
-    for(let i=0;i<chunks.length;i++){
-      if(currentUserId!==id || !isAdmin)throw new Error('Campaign or Admin Mode changed; backup cancelled.');
-      const {doc,json,workerKey}=chunks[i];
-      const sha256=await archiveDigest(json);
-      const meta={version:2,campaignId:id,workerKey,sha256,recordCount:doc.records.length,endedAt:snapshotAt,verifiedAt:Date.now(),storageState:'copy',snapshotType:'all-colors',colorCounts:colorCounts(doc.records)};
-      const existing=(await get(ref(db,`dotArchives/${id}/${workerKey}`))).val();
-      if(existing?.storageState==='archived')throw new Error(`Archive ${workerKey} has already been cut over. No overwrite performed.`);
-      report(`Backing up file ${i+1}/${chunks.length} (${doc.records.length.toLocaleString()} dots)…\n${formatColorCounts(counts)}\n${verified.toLocaleString()} verified so far`);
-      if(existing?.sha256===sha256 && existing?.storageState==='copy' && existing.version===2){
-        await loadDotArchive(existing,id,workerKey,true);
-        already++;
-      }else{
-        const form=new FormData();
-        form.append('file',new File([json],`all-dots-${id}-${workerKey}.json`,{type:'application/json'}));
-        const result=JSON.parse(await withNetworkTimeout(DOT_ARCHIVE_ENDPOINT,{method:'POST',headers:{Authorization:`Bearer ${adminSessionToken||''}`},body:form}));
-        if(!result.success || result.sha256!==sha256 || result.recordCount!==doc.records.length)throw new Error(`R2 upload response failed verification for file ${i+1}`);
-        await loadDotArchive(meta,id,workerKey,true);
-        copied++;
-      }
-      verified+=doc.records.length;
-      manifestChanges[`dotArchives/${id}/${workerKey}`]=meta;
-    }
-    if(verified!==entries.length)throw new Error('Backup dot counts do not match Firebase source counts.');
-    // Stale copy-only manifests can be removed after the complete new backup.
-    // No archived (authoritative) manifest may ever be removed here.
-    for(const [key,meta] of Object.entries(manifestIndex)){
-      if(/^snapshot[0-9]{5}$/.test(key)&&meta?.storageState==='copy'&&!Object.hasOwn(manifestChanges,`dotArchives/${id}/${key}`)){
-        manifestChanges[`dotArchives/${id}/${key}`]=null;
+  async function loadCampaignRecords(id, manifest) {
+    const archived = await readDotsArchive(id, manifest);
+    const rows = new Map(archived.map(row => [`${row.source}/${row.key}`, row]));
+    // Inventory lets repeated backups include every new key, including late writes,
+    // without downloading the Firebase copies of any already archived record.
+    for (const source of DOT_SOURCES) {
+      const keys = await dotKeys(id, source);
+      const missing = keys.filter(key => !rows.has(`${source}/${key}`));
+      for (let offset=0; offset<missing.length; offset+=32) {
+        await Promise.all(missing.slice(offset, offset+32).map(async key => {
+          const snap = await get(ref(db, `${source}/${id}/${key}`));
+          if(snap.exists())rows.set(`${source}/${key}`, {source,key,value:snap.val()});
+        }));
       }
     }
-    // Publish snapshot records only once EVERY R2 object has passed remote read-back.
-    // Never remove or modify userPosts or userPostClicks here.
-    await update(ref(db),manifestChanges);
-    return {empty:false,copied,already,verified,files:chunks.length,counts,other};
+    return [...rows.values()];
   }
-
-  async function archiveCompletedShift(id,workerKey,record,liveEntries) {
-    const jobKey=`${id}/${workerKey}`;
-    if(archiveBusy.has(jobKey)) throw new Error('Backup already running for this shift');
-    if(!dotFeed?.ready || dotFeed.id!==id) throw new Error('Campaign history is not ready');
-    if([...pendingDotWrites.values()].some(item=>item.campaignId===id)) throw new Error('Local dots are still syncing');
-    if(!Number(record.endedAt)) throw new Error('Shift is still active');
-    archiveBusy.add(jobKey);
-    try {
-      const records=liveEntries.filter(entry=>archiveWorkerKey(entry.value.workerName)===workerKey);
-      // A zero-dot ended shift is valid; do not confuse unavailable listeners with zero dots.
-      const doc={schema:'leuvenflyers.dot-archive',version:1,campaignId:id,workerKey,workerName:record.firstName||workerKey,startedAt:Number(record.startedAt)||0,endedAt:Number(record.endedAt),records};
-      if(!validDotArchive(doc,id,workerKey)) throw new Error('Shift contains invalid dot records');
-      const text=JSON.stringify(doc), sha256=await archiveDigest(text);
-      const existing=(await get(ref(db,`dotArchives/${id}/${workerKey}`))).val();
-      if(existing?.storageState==='archived') {
-        // Never turn an authoritative archive back into a non-authoritative copy.
-        throw new Error('This shift has already been cut over; do not overwrite its archive');
-      }
-      if(existing?.sha256===sha256 && existing?.storageState==='copy') {
-        await loadDotArchive(existing,id,workerKey,true);
-        return {status:'already',records:records.length};
-      }
-      await ensureArchiveService();
-      const form=new FormData();form.append('file',new File([text],`dots-${id}-${workerKey}-${sha256}.json`,{type:'application/json'}));
-      const uploaded=JSON.parse(await withNetworkTimeout(DOT_ARCHIVE_ENDPOINT,{method:'POST',headers:{Authorization:`Bearer ${adminSessionToken||''}`},body:form}));
-      if(!uploaded.success || uploaded.sha256!==sha256) throw new Error('Upload Worker needs the archive update');
-      const meta={version:1,campaignId:id,workerKey,sha256,recordCount:records.length,endedAt:doc.endedAt,verifiedAt:Date.now(),storageState:'copy'};
-      await loadDotArchive(meta,id,workerKey,true);
-      // Publish only after reading and verifying the actual R2 file.
-      // No delete/remove operation on userPosts or userPostClicks is allowed in stage 1.
-      await update(ref(db),{
-        [`dotArchives/${id}/${workerKey}`]:meta,
-        [`users/${id}/workers/${workerKey}/archiveHash`]:sha256,
-        [`users/${id}/workers/${workerKey}/archiveCompletedAt`]:Date.now()
-      });
-      if(currentUserId===id && shiftRegistry[workerKey]) shiftRegistry[workerKey]={...shiftRegistry[workerKey],archiveHash:sha256,archiveCompletedAt:Date.now()};
-      archiveRetryAfter.delete(jobKey);
-      return {status:'saved',records:records.length};
-    } catch(error) {
-      // Failed backup MUST leave Firebase data untouched and report the error.
-      console.warn('Manual R2 backup failed; Firebase dots retained',error);
-      throw error;
-    } finally {archiveBusy.delete(jobKey);}
-  }
-  // Former background uploader removed. Admin explicitly chooses when to copy.
-  window.addEventListener('online',()=>{if(currentUserId){retryPendingDots(currentUserId);scheduleDotArchives();dotFeed?.refreshArchives?.();}});
-  window.addEventListener('beforeunload',event=>{if(pendingDotWrites.size){event.preventDefault();event.returnValue='';}});
-
-  // Merge immutable R2 history and Firebase's live dots by original source/key.
   function attachMyPostsListener(id) {
-    if(typeof myPostsUnsub==='function'){myPostsUnsub();myPostsUnsub=null;}
-    let normal=[],orange=[],archived=[],manifests={},normalReady=false,orangeReady=false,archivesReady=false;
-    let stopped=false,archiveGeneration=0,archiveTimer=null,renderTimer=null;
-    const feed={id,ready:false,entries:[],liveEntries:[],refreshArchives:()=>refreshArchives()};dotFeed=feed;
+    if (typeof myPostsUnsub==='function') myPostsUnsub();
+    let normalDots=[], orangeDots=[], normalReady=false, orangeReady=false;
+    let stopped=false, generation=0, cleanups=[];
     renderMistakes([]);
-    function combine() {
-      if(stopped || currentUserId!==id) return;
-      feed.liveEntries=[...normal,...orange];
-      feed.entries=mergeDotEntries(archived,feed.liveEntries);
-      feed.ready=normalReady && orangeReady && archivesReady;
-      if(isAdmin && currentUserId===id && !adminBackupBusy) adminBackupNow.disabled=false;
-      // Debounce expensive map rebuilds while several live events arrive together.
-      clearTimeout(renderTimer);
-      renderTimer=setTimeout(()=>{
-        if(stopped || currentUserId!==id) return;
-        hideLoader();
-        const allDots=feed.entries.map(entry=>({...entry.value}));
-        globalAllDots=allDots;syncLiveHistory();
-        if(historyIndex===-1&&allDots.length>0)historyIndex=allDots.length-1;
-        let teamDots=0,teamPosts=0;
-        allDots.forEach(d=>{if(d.color!=='orange')teamDots++;else teamPosts++;});
-        rebuildMapLayer(allDots);updateSessionDisplay(allDots);syncChallengeFromDots(allDots);
-        updateCampaignProgress(teamDots,teamPosts);populateShiftSelect(allDots);
-        if(feed.ready){renderMistakes(allDots);scheduleDotArchives();}
-      },50);
-    }
-    async function refreshArchives() {
-      const generation=++archiveGeneration;
-      clearTimeout(archiveTimer);
-      // Copies are not authoritative: live deletions/edits must not resurrect
-      // stale archive rows while the original client app is still in use.
-      const results=await Promise.allSettled(Object.entries(manifests).filter(([,meta])=>meta?.storageState==='archived').map(async([workerKey,meta])=>(await loadDotArchive(meta,id,workerKey)).records));
-      if(stopped || currentUserId!==id || generation!==archiveGeneration) return;
-      const failed=results.some(result=>result.status==='rejected');
-      archived=results.filter(result=>result.status==='fulfilled').flatMap(result=>result.value);
-      archivesReady=!failed;
-      if(failed){showToast('Some saved history could not load. Retrying; live dots remain available.');archiveTimer=setTimeout(refreshArchives,60000);}
-      combine();
-    }
-    function readEntries(snap,source) {
-      const entries=[];
-      snap.forEach(child=>{const value=child.val();if(value && Number.isFinite(value.lat) && Number.isFinite(value.lng))entries.push({source,key:child.key,value});});
-      return entries;
-    }
-    const nRef=query(ref(db,`userPosts/${id}`),orderByChild('timestamp'));
-    const oRef=query(ref(db,`userPostClicks/${id}`),orderByChild('timestamp'));
-    const stops=[
-      onValue(nRef,snap=>{normalReady=true;normal=readEntries(snap,'userPosts');combine();},error=>{normalReady=false;feed.ready=false;console.warn(error);showToast('Delivery dots could not load. Re-enter the FF ID to retry.');}),
-      onValue(oRef,snap=>{orangeReady=true;orange=readEntries(snap,'userPostClicks');combine();},error=>{orangeReady=false;feed.ready=false;console.warn(error);showToast('Activity dots could not load. Re-enter the FF ID to retry.');}),
-      onValue(ref(db,`dotArchives/${id}`),snap=>{manifests=snap.val()||{};refreshArchives();},error=>{
-        // Stage 1 remains usable if rules have not yet enabled the new index path.
-        console.warn('Archive index unavailable',error);archivesReady=false;feed.ready=false;
-        showToast('Cloud archive index is unavailable. Live dots still work.');combine();
-      })
-    ];
-    myPostsUnsub=()=>{
-      stopped=true;++archiveGeneration;stops.forEach(stop=>stop());clearTimeout(archiveTimer);clearTimeout(renderTimer);
-      if(dotFeed===feed)dotFeed=null;
+    const combine=()=>{
+      if (!normalReady || !orangeReady) return;
+      hideLoader();
+      const allDots=[...normalDots,...orangeDots].sort((a,b)=>a.timestamp-b.timestamp);
+      globalAllDots=allDots;
+      syncLiveHistory();
+      if(historyIndex===-1&&globalAllDots.length>0)historyIndex=globalAllDots.length-1;
+      let teamDots=0, teamPosts=0;
+      allDots.forEach(d=>{if(d.color!=='orange')teamDots++;else teamPosts++;});
+      rebuildMapLayer(allDots);
+      updateSessionDisplay(allDots);
+      syncChallengeFromDots(allDots);
+      updateCampaignProgress(teamDots,teamPosts);
+      populateShiftSelect(allDots);
+      if(normalReady && orangeReady)renderMistakes(allDots);
     };
+    const stopLive = () => { cleanups.forEach(fn=>fn()); cleanups=[]; };
+    const indexUnsub = onValue(ref(db, `campaignR2Backups/${id}`), async snapshot => {
+      const turn=++generation;
+      stopLive(); normalReady=false; orangeReady=false;
+      const manifest=snapshot.val();
+      try {
+        const archived=await readDotsArchive(id,manifest);
+        if(stopped || turn!==generation)return;
+        const base=new Map(archived.map(row=>[`${row.source}/${row.key}`,row]));
+        const live={userPosts:new Map(),userPostClicks:new Map()};
+        const delayed={userPosts:new Map(),userPostClicks:new Map()};
+        const refresh=()=>{
+          const rows=new Map(base);
+          for(const source of DOT_SOURCES){
+            for(const [key,value] of live[source]) rows.set(`${source}/${key}`,{source,key,value});
+            for(const [key,value] of delayed[source]) rows.set(`${source}/${key}`,{source,key,value});
+          }
+          const values=source=>[...rows.values()].filter(row=>row.source===source && typeof row.value?.lat==='number').map(row=>row.value);
+          normalDots=values('userPosts');orangeDots=values('userPostClicks');combine();
+        };
+        const fail=error=>{if(!stopped && turn===generation){console.error(error);showToast('Dots could not load. Please reload to retry.');}};
+        DOT_SOURCES.forEach(source=>{
+          cleanups.push(onValue(liveDotsQuery(id,source,manifest),snap=>{
+            if(stopped || turn!==generation)return;
+            live[source].clear();snap.forEach(child=>live[source].set(child.key,child.val()));
+            if(source==='userPosts')normalReady=true;else orangeReady=true;
+            refresh();
+          },fail));
+        });
+        if(manifest){
+          let checking=false;
+          const watching=new Set();
+          const checkDelayed=async()=>{
+            if(checking || stopped || turn!==generation)return; checking=true;
+            try {
+              for(const source of DOT_SOURCES){
+                const last=manifest.lastKeys?.[source];if(!last)continue;
+                const keys=await dotKeys(id,source);
+                if(stopped || turn!==generation)return;
+                for(const key of keys){
+                  const identity=`${source}/${key}`;
+                  if(key>last || base.has(identity) || watching.has(identity))continue;
+                  watching.add(identity);
+                  cleanups.push(onValue(ref(db,`${source}/${id}/${key}`),snap=>{
+                    if(stopped || turn!==generation)return;
+                    if(snap.exists())delayed[source].set(key,snap.val());else delayed[source].delete(key);
+                    refresh();
+                  },fail));
+                }
+              }
+            } catch(error){fail(error);} finally{checking=false;}
+          };
+          checkDelayed();
+          const timer=setInterval(checkDelayed,60000);cleanups.push(()=>clearInterval(timer));
+        }
+      } catch(error){
+        if(stopped || turn!==generation)return;
+        console.error(error);hideLoader();showToast('R2 backup unavailable. Reload to retry; Firebase backup copies are not downloaded.');
+      }
+    },error=>{console.error(error);hideLoader();showToast('Backup index unavailable. Reload to retry.');});
+    myPostsUnsub=()=>{stopped=true;generation++;indexUnsub();stopLive();};
   }
 
   // ── User ──────────────────────────────────────────────────────────────────
@@ -2806,15 +2568,12 @@
   function validateUserId(id){return /^[A-Z0-9]{3,10}$/.test(id);}
 
   function showLogin(){
-    if(adminBackupBusy){showToast('Finish the manual backup before switching campaigns.');return;}
     changeUserBtn.textContent='Enter FF ID';
     stopHistory(true);
     clearCampaignHexagons();
     hideLoader(); loginBackdrop.classList.add('show'); userIdInput.value=''; loginError.textContent=''; setPostEnabled(false);
     if(typeof myPostsUnsub==='function')myPostsUnsub(); if(typeof chatUnsub==='function')chatUnsub();
-    if(shiftRegistryUnsub){shiftRegistryUnsub();shiftRegistryUnsub=null;}
-    clearTimeout(archiveRetryTimer);
-    currentUserId=null; shiftSalaryCents=null; shiftSalaryState='loading'; renderShiftSalary(); adminBackdrop.classList.remove('show'); resetSegmentAssignments(); currentWorkerName=null; isAdmin=false;adminSessionToken=null; document.body.classList.remove('admin-mode'); updateWorkerUi();
+    currentUserId=null; shiftSalaryCents=null; shiftSalaryState='loading'; renderShiftSalary(); adminBackdrop.classList.remove('show'); resetSegmentAssignments(); currentWorkerName=null; isAdmin=false; document.body.classList.remove('admin-mode'); updateWorkerUi();
     if(typeof campaignSettingsUnsub==='function'){campaignSettingsUnsub();campaignSettingsUnsub=null;}
     campaignTargetDots=null;campaignBonusBlueTotal=0;selectedShiftIndex=-1;
     clearShiftView();
@@ -2871,7 +2630,6 @@
     isAdmin=false;document.body.classList.remove('admin-mode');
     currentUserId=id; shiftSalaryCents=null; shiftSalaryState='loading'; renderShiftSalary(); resetSegmentAssignments(); localStorage.setItem(LS_KEY,id); userPillText.textContent=id; userPill.style.display='flex';
     loadCampaignHexagons(id).catch(error=>{console.error(error);showToast('Hexagons could not load.');});
-    retryPendingDots(id);
     loadLocalClicks(id); attachMyPostsListener(id); attachChatListener(id); loadShiftRegistry(id); attachCampaignSettings(id);
     setPostEnabled(!!currentLatLng); goToCurrentLocation({focus:true});
   }
@@ -2932,17 +2690,10 @@
     workerError.textContent='';
     const name=(workerNameInput.value||'').trim().replace(/\s+/g,' ');
     if(name.toLowerCase()==='admin'){
+      if(adminPinInput.value!==ADMIN_PIN){workerError.textContent='Incorrect admin PIN';adminPinInput.focus();return;}
       try{
-        workerSaveBtn.disabled=true;
-        const response=await fetch(ADMIN_AUTH_URL,{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({password:adminPinInput.value}),cache:'no-store'
-        });
-        const result=await response.json();
-        if(!response.ok||!result.token)throw new Error(result.error||'Admin login rejected. Check the Cloudflare Worker secrets.');
-        adminSessionToken=result.token;
-        adminPinInput.value='';
         isAdmin=true;
+        dotsAdminPin=adminPinInput.value;
         currentWorkerName='admin';
         lastChallengePersistSig='';
         await saveWorkerName('admin');
@@ -2954,8 +2705,7 @@
         renderCoach({icon:'◆',title:'Admin mode',detail:'Campaign target control is available.',side:'ADMIN',tone:'diamond',progress:0});
         showToast('Admin mode enabled');
         openAdminPanel();
-      }catch(e){adminSessionToken=null;workerError.textContent=e.message||'Failed to start admin mode';}
-      finally{workerSaveBtn.disabled=false;}
+      }catch(e){workerError.textContent='Failed to start admin mode';}
       return;
     }
     if(!/^[A-Za-z0-9]{2,20}$/.test(name)){workerError.textContent='Use 2–20 letters/numbers';return;}
@@ -2964,10 +2714,9 @@
       const safe=name.toLowerCase().replace(/[^a-z0-9]/g,'');
       const record=workerShiftRecord(name);
       const startedAt=Number(record.startedAt)||Date.now();
-      const archiveVersion=record.archiveVersion===1 || !record.startedAt ? 1 : 0;
-      await update(ref(db,`users/${currentUserId}/workers/${safe}`),{firstName:name,startedAt,archiveVersion});
-      shiftRegistry[safe]={...record,firstName:name,startedAt,archiveVersion};
-      isAdmin=false;adminSessionToken=null;
+      await update(ref(db,`users/${currentUserId}/workers/${safe}`),{firstName:name,startedAt});
+      shiftRegistry[safe]={...record,firstName:name,startedAt};
+      isAdmin=false;
       document.body.classList.remove('admin-mode');
       currentWorkerName=name;
       lastChallengePersistSig='';
@@ -2977,27 +2726,23 @@
       closeWorkerModal();
       showToast(`Worker ${name} started`);
       resetChallengeUi();
-      // Campaign listeners already contain every worker; reuse them on Start.
-      syncChallengeFromDots(globalAllDots);updateSessionDisplay(globalAllDots);renderMistakes(globalAllDots);
+      if(myPostsUnsub)myPostsUnsub();
+      attachMyPostsListener(currentUserId);
     }catch(e){workerError.textContent='Failed to save worker';}
   });
 
   document.getElementById('endWorkerShift').addEventListener('click',async()=>{
-    if(!currentUserId||!currentWorkerName||isAdmin||workerShiftEnded()||endingWorkerShift)return;
-    const id=currentUserId,name=currentWorkerName,safe=archiveWorkerKey(name);
+    if(!currentUserId||!currentWorkerName||isAdmin||workerShiftEnded())return;
     const button=document.getElementById('endWorkerShift');button.disabled=true;
-    endingWorkerShift=true;setPostEnabled(false);
+    const safe=currentWorkerName.toLowerCase().replace(/[^a-z0-9]/g,'');
     try{
-      // Acknowledge every queued dot before ending the shift.
-      await waitForPendingDots(id);
-      if(currentUserId!==id || currentWorkerName!==name)throw new Error('Campaign changed. End the shift again.');
-      const endedAt=Date.now(),record=workerShiftRecord(name);
-      const changes={endedAt};
-      await update(ref(db,`users/${id}/workers/${safe}`),changes);
-      shiftRegistry[safe]={...record,...changes};
-      renderMistakes(globalAllDots);closeWorkerModal();showToast('Shift ended. Admin may back it up later.');
-    }catch(error){workerError.textContent=error.message||'Could not end shift. Please retry.';}
-    finally{endingWorkerShift=false;button.disabled=false;setPostEnabled(!!currentLatLng);}
+      const endedAt=Date.now();
+      await update(ref(db,`users/${currentUserId}/workers/${safe}`),{endedAt});
+      shiftRegistry[safe]={...shiftRegistry[safe],endedAt};
+      setPostEnabled(false);renderMistakes(globalAllDots);closeWorkerModal();
+      showToast('Shift ended');
+    }catch(error){workerError.textContent='Could not end shift. Please retry.';}
+    finally{button.disabled=false;}
   });
   setInterval(()=>{if(currentUserId)renderMistakes(globalAllDots);},1000);
 
@@ -3110,9 +2855,8 @@
   const shiftDashBackdrop=document.getElementById('shiftDashBackdrop');
 
   function loadShiftRegistry(userId){
-    if(shiftRegistryUnsub)shiftRegistryUnsub();
     const wRef=ref(db,`users/${userId}/workers`);
-    shiftRegistryUnsub=onValue(wRef,snap=>{
+    onValue(wRef,snap=>{
       if(currentUserId!==userId)return;
       shiftRegistry={};campaignBonusBlueTotal=0;
       snap.forEach(child=>{
@@ -3124,7 +2868,6 @@
       updateCampaignProgress(lastCampaignRawDots,lastCampaignPosts);
       renderMistakes(globalAllDots);
       setPostEnabled(!!currentLatLng);
-      scheduleDotArchives();
     });
   }
   function computeShifts(allDots){
@@ -3381,6 +3124,79 @@
   document.getElementById('closeShiftDash').addEventListener('click',()=>shiftDashBackdrop.classList.remove('show'));
   shiftDashBackdrop.addEventListener('click',e=>{if(e.target===shiftDashBackdrop)shiftDashBackdrop.classList.remove('show');});
 
+  // Full campaign snapshot: read both complete source branches, never the map filter.
+  const adminUploadDotsBtn = document.getElementById('adminUploadDotsBtn');
+  const adminUploadDotsStatus = document.getElementById('adminUploadDotsStatus');
+  let dotsUploadBusy = false;
+  adminUploadDotsBtn.addEventListener('click', async () => {
+    if (!isAdmin || !currentUserId || !dotsAdminPin || dotsUploadBusy) return;
+    const id = currentUserId;
+    if (!/^FF[A-Z0-9]+$/.test(id)) { showToast('Enter an FF campaign ID first'); return; }
+    dotsUploadBusy = true;
+    adminUploadDotsBtn.disabled = true;
+    adminUploadDotsStatus.replaceChildren();
+    adminUploadDotsStatus.textContent = `Reading all dots for ${id}…`;
+    try {
+      const prior = (await get(ref(db, `campaignR2Backups/${id}`))).val();
+      let records;
+      if (prior) records = await loadCampaignRecords(id, prior);
+      else {
+        const snapshots = await Promise.all(DOT_SOURCES.map(source=>get(ref(db,`${source}/${id}`))));
+        records=[];
+        snapshots.forEach((snapshot,i)=>snapshot.forEach(child=>records.push({source:DOT_SOURCES[i],key:child.key,value:child.val()})));
+      }
+      if (!records.length) { adminUploadDotsStatus.textContent = `No dots found for ${id}.`; return; }
+      if (!isAdmin || currentUserId !== id) throw new Error('Campaign or admin session changed. Please try again.');
+      const document = {schema: 'leuvenflyers.campaign-dots', version: 1, campaignId: id,
+        exportedAt: new Date().toISOString(), recordCount: records.length, records};
+      const file = new Blob([JSON.stringify(document)], {type: 'application/json'});
+      if (file.size > 50 * 1024 * 1024) throw new Error('Export exceeds the 50 MB upload limit.');
+      const form = new FormData();
+      form.append('file', file, `${id}.json`);
+      form.append('adminPin', dotsAdminPin);
+      adminUploadDotsStatus.textContent = `Uploading ${records.length.toLocaleString()} dots to ${id}Dots…`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120000);
+      let response;
+      try { response = await fetch(`${PROOF_PROXY_URL}/campaign-dots`, {method: 'POST', body: form, signal: controller.signal}); }
+      finally { clearTimeout(timeout); }
+      let result;
+      try { result = await response.json(); } catch { throw new Error('Upload proxy needs the campaign-dots update.'); }
+      if (!response.ok || !result.success) throw new Error(result.error || 'Upload failed. Update the Cloudflare proxy first.');
+      if (!result.fileName?.startsWith(`${id}Dots/`) || result.recordCount !== records.length)
+        throw new Error('The proxy did not confirm the expected folder and dot count.');
+      // Activate only after reading back and verifying the complete R2 JSON.
+      const lastKeys = {};
+      for (const source of DOT_SOURCES) {
+        const keys=records.filter(row=>row.source===source).map(row=>row.key).sort();
+        if(keys.length)lastKeys[source]=keys[keys.length-1];
+      }
+      const raw = await file.text();
+      const sha256=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw)))].map(n=>n.toString(16).padStart(2,'0')).join('');
+      const manifest={version:1,fileName:result.fileName,recordCount:records.length,lastKeys,sha256,updatedAt:Date.now()};
+      adminUploadDotsStatus.textContent='Verifying R2 and switching reads…';
+      await readDotsArchive(id,manifest);
+      if(!isAdmin || currentUserId!==id)throw new Error('Backup saved but not activated: admin session changed. Retry.');
+      // Transaction prevents a simultaneous backup from replacing a newer index.
+      const switched = await runTransaction(ref(db,`campaignR2Backups/${id}`), current => {
+        if ((current?.fileName || null) !== (prior?.fileName || null)) return;
+        return manifest;
+      }, {applyLocally:false});
+      if(!switched.committed)throw new Error('Backup saved, but another admin updated the index. Retry to include that backup.');
+      adminUploadDotsStatus.textContent = `Uploaded ${records.length.toLocaleString()} dots: `;
+      const link = window.document.createElement('a');
+      link.href = PROOF_R2_PUBLIC + result.fileName;
+      link.textContent = result.fileName;
+      link.target = '_blank'; link.rel = 'noopener'; link.style.color = '#93c5fd';
+      adminUploadDotsStatus.append(link);
+      showToast(`All ${records.length.toLocaleString()} dots uploaded`);
+    } catch (error) {
+      adminUploadDotsStatus.textContent = error.name === 'AbortError'
+        ? 'Upload timed out. Check R2 before retrying; the file may have arrived.'
+        : `Upload failed: ${error.message}`;
+    } finally { dotsUploadBusy = false; adminUploadDotsBtn.disabled = false; }
+  });
+
   // ── Admin campaign controls ───────────────────────────────────────────────
   function openAdminPanel(){
     if(!isAdmin){showToast('Admin login required');return;}
@@ -3390,71 +3206,8 @@
     renderShiftSalary();
     adminSalaryInput.value=shiftSalaryCents === null ? '' : (shiftSalaryCents / 100).toFixed(2);
     adminSalaryStatus.textContent='';
-    adminBackupNow.disabled=adminBackupBusy || !currentUserId || !adminSessionToken;
-    adminDeleteVerified.disabled=adminBackupBusy || !currentUserId || !adminSessionToken; // Backend verifies eligible snapshots on click.
-    if(!currentUserId && !adminBackupBusy){adminBackupStatus.className='admin-backup-status';adminBackupStatus.textContent='Select a campaign FF ID first.';}
     adminBackdrop.classList.add('show');
   }
-  adminBackupNow.addEventListener('click',async()=>{
-    if(!isAdmin || adminBackupBusy || !currentUserId)return;
-    const id=currentUserId;
-    adminBackupNow.disabled=true;adminBackupBusy=true;
-    adminBackupStatus.className='admin-backup-status';
-    const status=text=>{adminBackupStatus.textContent=text;};
-    try {
-      const result=await backupAllDotColors(id,status);
-      if(result.empty){adminBackupStatus.className='admin-backup-status';return;}
-      status(`Backup VERIFIED: ${result.verified.toLocaleString()} dots in ${result.files} R2 file(s).\n${formatColorCounts(result.counts)}\n${result.copied} uploaded · ${result.already} reverified.\nFirebase deletion: pending until you click the secure Delete button.${result.other?`\n${result.other} records without one of the four colors were excluded.`:''}`);
-      adminBackupStatus.className='admin-backup-status success';
-      showToast(`R2 backup verified: ${result.verified.toLocaleString()} dots. Firebase unchanged.`);
-    }catch(error){
-      adminBackupStatus.className='admin-backup-status error';
-      status(`Backup not completed: ${error.message||'unknown error'}\nAll Firebase dots were retained. Retry after resolving the error.`);
-      showToast('R2 backup failed; Firebase dots are safe.');
-    }finally{adminBackupBusy=false;adminBackupNow.disabled=false;}
-  });
-
-
-  // Admin-only verified R2 cutover: backend validates the session, the Firebase
-  // manifest, the R2 checksum, and each current value before conditional deletion.
-  adminDeleteVerified.addEventListener('click',async()=>{
-    if(!isAdmin||!adminSessionToken||adminBackupBusy||!currentUserId)return;
-    const id=currentUserId;
-    adminBackupBusy=true;adminBackupNow.disabled=true;adminDeleteVerified.disabled=true;
-    adminBackupStatus.className='admin-backup-status';
-    try {
-      await ensureArchiveService();
-      // Always re-read the index, never trust in-memory backup success.
-      const index=(await get(ref(db,`dotArchives/${id}`))).val()||{};
-      const chunks=Object.entries(index).filter(([key,m])=>/^snapshot[0-9]{5}$/.test(key) && m?.version===2 && ['copy','archived'].includes(m.storageState));
-      if(!chunks.length)throw new Error('No verified R2 snapshots. Click Back up ALL dots first.');
-      const count=chunks.reduce((sum,[,meta])=>sum+(Number(meta.recordCount)||0),0);
-      if(!window.confirm(`Delete up to ${count.toLocaleString()} backed-up Firebase dots for ${id}?\n\nAll archives will be independently verified by Cloudflare before any deletion. New or modified dots remain in Firebase.\n\nOnly continue if every client and worker report has been updated to read R2.`)){
-        adminBackupStatus.textContent='Deletion cancelled. All Firebase dots remain unchanged.';
-        return;
-      }
-      let deleted=0,kept=0,finished=0;
-      for(const [workerKey,meta] of chunks){
-        if(!isAdmin||currentUserId!==id)throw new Error('Admin login or campaign changed.');
-        adminBackupStatus.textContent=`Secure deletion: archive ${++finished}/${chunks.length} (${workerKey})…\n${deleted.toLocaleString()} Firebase dots deleted so far`;
-        const response=await fetch(DOT_ARCHIVE_ENDPOINT.replace(/\/dot-archives$/,'')+'/admin/cutover',{
-          method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminSessionToken}`},
-          body:JSON.stringify({campaignId:id,workerKey,sha256:meta.sha256}),cache:'no-store'
-        });
-        let result={};try{result=await response.json();}catch(_){}
-        if(!response.ok||!result.success)throw new Error(result.error||`Cutover failed (${response.status}). No unverified dots were deleted.`);
-        deleted+=result.deleted||0;kept+=result.retained||0;
-      }
-      adminBackupStatus.className='admin-backup-status success';
-      adminBackupStatus.textContent=`Cloudflare R2 cutover completed.\n${deleted.toLocaleString()} verified Firebase dots deleted.\n${kept.toLocaleString()} new or nonmatching dots retained.\nArchived dots continue loading from R2.`;
-      showToast(`Cutover completed: ${deleted.toLocaleString()} verified Firebase dots removed.`);
-    }catch(error){
-      adminBackupStatus.className='admin-backup-status error';
-      adminBackupStatus.textContent=`Cutover stopped: ${error.message}\nAny already archived dots remain safely stored in R2; retry this button after fixing the error.`;
-      showToast('Secure cutover incomplete. Check Admin status.');
-    }finally{adminBackupBusy=false;adminBackupNow.disabled=false;adminDeleteVerified.disabled=false;}
-  });
-
   closeAdminPanel.addEventListener('click',()=>adminBackdrop.classList.remove('show'));
   adminBackdrop.addEventListener('click',e=>{if(e.target===adminBackdrop)adminBackdrop.classList.remove('show');});
 
@@ -3499,11 +3252,11 @@
 
 
   adminExitBtn.addEventListener('click',()=>{
-    isAdmin=false;adminSessionToken=null;document.body.classList.remove('admin-mode');currentWorkerName=null;updateWorkerUi();setPostEnabled(false);adminBackdrop.classList.remove('show');resetChallengeUi();openWorkerModal();
+    isAdmin=false;document.body.classList.remove('admin-mode');currentWorkerName=null;updateWorkerUi();setPostEnabled(false);adminBackdrop.classList.remove('show');resetChallengeUi();openWorkerModal();
   });
 
   // ── Geolocation ───────────────────────────────────────────────────────────
-  function setPostEnabled(on){const ok=on&&!!currentUserId&&!!currentWorkerName&&!isAdmin&&!workerShiftEnded()&&!endingWorkerShift;btnJa.disabled=btnNee.disabled=btnBonus.disabled=btnPost.disabled=!ok;}
+  function setPostEnabled(on){const ok=on&&!!currentUserId&&!!currentWorkerName&&!isAdmin&&!workerShiftEnded();btnJa.disabled=btnNee.disabled=btnBonus.disabled=btnPost.disabled=!ok;}
 
   async function goToCurrentLocation({focus=true}={}){
     if(!('geolocation' in navigator))return;
@@ -3530,11 +3283,9 @@
 
   // ── Post actions ──────────────────────────────────────────────────────────
   async function postDot(color){
-    if(endingWorkerShift||workerShiftEnded())return;
     if(isAdmin){showToast('Posting buttons are disabled in admin mode');return;}
     if(!currentUserId||!currentWorkerName)return openWorkerModal();
     if(!currentLatLng){await goToCurrentLocation({focus:true});if(!currentLatLng)return;}
-    if(endingWorkerShift||workerShiftEnded())return;
     if(color==='green')countRight.textContent=parseInt(countRight.textContent||0)+1;
     if(color==='red')countLeft.textContent=parseInt(countLeft.textContent||0)+1;
     if(color==='blue')countBonus.textContent=parseInt(countBonus.textContent||0)+1;
@@ -3544,16 +3295,14 @@
     try{
       const newKey=push(ref(db,`userPosts/${currentUserId}`)).key;
       const upd={[`userPosts/${currentUserId}/${newKey}`]:{lat,lng,color,timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostAt`]:now};
-      saveDotReliably(currentUserId,newKey,upd);
+      update(ref(db),upd).catch(e=>{});
     }catch(e){}
   }
 
   async function recordPostClick(){
-    if(endingWorkerShift||workerShiftEnded())return;
     if(isAdmin){showToast('Posting buttons are disabled in admin mode');return;}
     if(!currentUserId||!currentWorkerName)return openWorkerModal();
     if(!currentLatLng){await goToCurrentLocation({focus:true});if(!currentLatLng)return;}
-    if(endingWorkerShift||workerShiftEnded())return;
     const now=Date.now();
     countPost.textContent=parseInt(countPost.textContent||0)+1;
     addLocalClick('orange');
@@ -3563,7 +3312,7 @@
     try{
       const newKey=push(ref(db,`userPostClicks/${currentUserId}`)).key;
       const upd={[`userPostClicks/${currentUserId}/${newKey}`]:{lat,lng,color:'orange',timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostClickAt`]:now};
-      saveDotReliably(currentUserId,newKey,upd);
+      update(ref(db),upd).catch(e=>{});
     }catch(e){}
   }
 
