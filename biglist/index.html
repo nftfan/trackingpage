@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>New Email Finder | List Comparison Tool</title>
+  <style>
+    :root {
+      --bg: #f5f7fb; --surface: #ffffff; --text: #142238; --muted: #62738c;
+      --border: #dce5f0; --blue: #2459df; --bluehover: #1848c0; --bluepale: #eaf0ff;
+      --green: #13825c; --shadow: 0 10px 28px rgba(35, 61, 104, .06);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; }
+    .wrapper { max-width: 1220px; margin: 0 auto; padding: 34px 24px 48px; }
+    .heading { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 26px; }
+    h1 { margin: 0; font-size: clamp(28px, 4vw, 38px); line-height: 1.15; letter-spacing: -.035em; }
+    .description { margin: 9px 0 0; color: var(--muted); max-width: 680px; }
+    .private { display: inline-flex; align-items: center; gap: 8px; background: #e9f7ef; color: #116440; padding: 9px 13px; border-radius: 30px; white-space: nowrap; font-size: 13px; font-weight: 700; }
+    .private:before { content: "●"; font-size: 9px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); min-width: 0; }
+    .panel-header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 5px; }
+    .panel h2 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
+    .subtext { color: var(--muted); margin: 0 0 13px; font-size: 13px; }
+    .smallbadge { border-radius: 20px; background: #eef2f9; color: #5b6980; padding: 3px 10px; font-size: 12px; }
+    textarea { width: 100%; resize: vertical; min-height: 285px; border: 1px solid var(--border); border-radius: 10px; padding: 13px 14px; background: #fbfcff; color: var(--text); outline: none; font: 13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; }
+    textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(36,89,223,.10); }
+    textarea::placeholder { color: #929daf; }
+    #output { min-height: 210px; background: #f8fbff; }
+    .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    button, .upload { font: inherit; font-weight: 700; cursor: pointer; border-radius: 9px; padding: 10px 15px; border: 1px solid var(--border); background: white; color: #334560; display: inline-flex; align-items: center; gap: 7px; justify-content: center; }
+    button:hover, .upload:hover { background: #f1f5fe; }
+    button:focus-visible, .upload:focus-visible { outline: 3px solid #a5c2ff; outline-offset: 2px; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .upload input { display:none; }
+    .primary { background: var(--blue); border-color: var(--blue); color:white; padding: 14px 24px; font-size: 16px; }
+    .primary:hover { background: var(--bluehover); color:white; }
+    .add { background: #14845c; border-color: #14845c; color: #fff; padding: 12px 18px; }
+    .add:hover:not(:disabled) { background: #106d4c; color: #fff; }
+    .saved-line { font-size: 12px; color: var(--muted); margin-top: 10px; }
+    .saved-line.good { color: #0c7954; font-weight: 650; }
+    .results-actions { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; align-items: center; }
+    .results-actions .hint { max-width: 450px; }
+    @media(max-width:790px) { .results-actions .add { width: 100%; } }
+    .action-strip { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 20px 0; }
+    .hint { color: var(--muted); font-size: 13px; }
+    .status { margin-top: 12px; color: var(--muted); font-size: 13px; min-height: 20px; }
+    .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 13px; margin-bottom: 19px; }
+    .stat { background:white; border: 1px solid var(--border); border-radius: 13px; padding: 15px 17px; }
+    .stat .label { color:var(--muted); font-size: 12px; }
+    .stat .number { display:block; font-size: clamp(20px,3vw,29px); font-weight: 800; margin-top: 2px; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+    .stat.highlight { background: #eef9f4; border-color:#c6ebd7; }
+    .stat.highlight .number { color: var(--green); }
+    .results { background: white; border: 1px solid var(--border); border-radius: 16px; padding:20px; box-shadow: var(--shadow); }
+    .results-top {display:flex;justify-content:space-between;align-items:start;gap:14px;flex-wrap:wrap;margin-bottom:13px;}
+    .results-top h2 { font-size: 19px; margin:0 0 3px; }
+    .results-top p { margin:0;color:var(--muted);font-size:13px; }
+    .results-buttons { margin:0; }
+    .footer-note { color:var(--muted);font-size:12px;margin-top:17px; }
+    @media(max-width:790px) { .wrapper{padding:23px 14px 32px;} .heading { flex-direction:column; gap:12px; } .grid{grid-template-columns:1fr;} .stats{grid-template-columns:repeat(2,1fr);} .panel{padding:16px;} .action-strip{align-items:stretch;} .primary{width:100%;} }
+  </style>
+</head>
+<body>
+<main class="wrapper">
+  <div class="heading">
+    <div>
+      <h1>New Email Finder</h1>
+      <p class="description">Compare any new email list against your existing biglist. Get only the addresses that have <strong>never appeared in the biglist</strong>, then add them to your locally saved biglist.</p>
+    </div>
+    <span class="private">Private · Works offline</span>
+  </div>
+
+  <section class="grid" aria-label="Email lists">
+    <div class="panel">
+      <div class="panel-header"><h2>1. Existing biglist</h2><span class="smallbadge" id="old-count">No file loaded</span></div>
+      <p class="subtext">Paste your master list here or load a .txt / .csv file. Saved browser data is restored when you reopen this app.</p>
+      <textarea id="existing" spellcheck="false" placeholder="Paste existing biglist here...&#10;&#10;info@example.com&#10;sales@company.be&#10;hello@brand.com" aria-label="Existing email biglist"></textarea>
+      <div class="row">
+        <label class="upload" for="old-file">📂 Load biglist file<input id="old-file" type="file" accept=".txt,.csv,text/plain,text/csv" /></label>
+        <button id="save-biglist" type="button">💾 Save biglist offline</button>
+        <button id="export-biglist" type="button">⬇ Download updated biglist</button>
+        <button id="clear-old" type="button">Clear box</button>
+      </div>
+      <div id="saved-line" class="saved-line" aria-live="polite">Browser storage: checking...</div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h2>2. New candidate list</h2><span class="smallbadge" id="new-count">No file loaded</span></div>
+      <p class="subtext">Paste or load emails you want to check against the biglist.</p>
+      <textarea id="candidate" spellcheck="false" placeholder="Paste candidate emails here...&#10;&#10;hello@brand.com&#10;fresh@newcompany.be&#10;another@newcompany.be" aria-label="Candidate email list"></textarea>
+      <div class="row">
+        <label class="upload" for="new-file">📂 Load candidate file<input id="new-file" type="file" accept=".txt,.csv,text/plain,text/csv" /></label>
+        <button id="clear-new" type="button">Clear box</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="action-strip">
+    <button id="compare" type="button" class="primary">Get New Emails →</button>
+    <div class="hint">Matches are case-insensitive · Whitespace ignored · Duplicate results removed</div>
+  </div>
+
+  <div class="stats" aria-live="polite">
+    <div class="stat"><span class="label">Biglist unique emails</span><strong class="number" id="stat-old">—</strong></div>
+    <div class="stat"><span class="label">Candidate unique emails</span><strong class="number" id="stat-candidate">—</strong></div>
+    <div class="stat"><span class="label">Already in biglist</span><strong class="number" id="stat-found">—</strong></div>
+    <div class="stat highlight"><span class="label">New unique emails</span><strong class="number" id="stat-new">—</strong></div>
+  </div>
+
+  <section class="results">
+    <div class="results-top">
+      <div><h2>New emails only</h2><p>These addresses were not found in the existing biglist.</p></div>
+      <div class="row results-buttons">
+        <button id="copy" type="button" disabled>Copy all</button>
+        <button id="download" type="button" disabled>Download .txt</button>
+        <button id="download-csv" type="button" disabled>Download .csv</button>
+      </div>
+    </div>
+    <textarea id="output" aria-label="New emails output" spellcheck="false" readonly placeholder="After you click Get New Emails, your results will appear here..."></textarea>
+    <div class="results-actions">
+      <button id="add-to-biglist" type="button" class="add" disabled>＋ Add New Emails to Biglist & Save Offline</button>
+      <span class="hint">Adds only new, unique addresses. The original entries stay unchanged. Download the updated biglist to back up your actual .txt file.</span>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite">Paste both lists or load files to begin.</div>
+  </section>
+
+  <p class="footer-note">Everything works offline on this device. A saved biglist stays in this browser using IndexedDB (not a server), but clearing browser data can erase it. Always download your updated biglist as a backup; browsers cannot silently overwrite your original .txt file. Invalid-looking email fragments are ignored.</p>
+</main>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const oldBox = $('existing');
+  const newBox = $('candidate');
+  const output = $('output');
+  const btnCopy = $('copy');
+  const btnTxt = $('download');
+  const btnCsv = $('download-csv');
+  const btnAdd = $('add-to-biglist');
+  const savedLine = $('saved-line');
+  const stat = (id, value) => { $(id).textContent = value.toLocaleString('en-US'); };
+  const status = (msg) => { $('status').textContent = msg; };
+
+  // The input may contain lines, commas, semicolons, "Name <email>", or a CSV.
+  // Percent-encoded spaces commonly occur in text scraped from HTML or URLs.
+  const emailPattern = /[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+/gi;
+  function extractEmails(input) {
+    const result = new Set();
+    const cleaned = input
+      .replace(/%20/gi, ' ')
+      .replace(/&(?:lt|gt|quot|amp|nbsp);/gi, ' ');
+    emailPattern.lastIndex = 0;
+    for (const match of cleaned.matchAll(emailPattern)) {
+      // Match case insensitively and deduplicate. Strip trailing punctuation
+      // that can be captured as part of a sentence in copied text.
+      const value = match[0].toLowerCase().replace(/[.]+$/, '');
+      if (value.length <= 254 && !value.includes('..') && !value.startsWith('.')) {
+        result.add(value);
+      }
+    }
+    return result;
+  }
+
+  // IndexedDB supports lists far bigger than localStorage's typical 5 MB cap.
+  // Everything stays on this computer. No remote resources are required.
+  const DATABASE_NAME = 'NewEmailFinderOfflineBiglistV1';
+  const OBJECT_STORE = 'lists';
+  const DB_KEY = 'masterBiglist';
+  let hasStorage = false;
+  let dbPromise;
+  function database() {
+    if (!dbPromise) {
+      dbPromise = new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) { reject(new Error('IndexedDB unavailable')); return; }
+        let request;
+        try { request = indexedDB.open(DATABASE_NAME, 1); }
+        catch (e) { reject(e); return; }
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains(OBJECT_STORE)) {
+            request.result.createObjectStore(OBJECT_STORE);
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('Could not open local database'));
+        request.onblocked = () => reject(new Error('Database is currently in use elsewhere'));
+      });
+    }
+    return dbPromise;
+  }
+  async function saveLocalBiglist(text) {
+    const db = await database();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(OBJECT_STORE, 'readwrite');
+      tx.objectStore(OBJECT_STORE).put({ text, savedAt: Date.now() }, DB_KEY);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error || new Error('Could not save offline'));
+      tx.onabort = () => reject(tx.error || new Error('Saving was interrupted'));
+    });
+    hasStorage = true;
+    savedLine.textContent = '✓ Biglist saved locally in this browser. Download a backup after updates.';
+    savedLine.classList.add('good');
+  }
+  async function restoreLocalBiglist() {
+    try {
+      const db = await database();
+      hasStorage = true;
+      const saved = await new Promise((resolve, reject) => {
+        const tx = db.transaction(OBJECT_STORE, 'readonly');
+        const req = tx.objectStore(OBJECT_STORE).get(DB_KEY);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('Could not read offline storage'));
+      });
+      if (saved && saved.text) {
+        // Do not overwrite a list already pasted during initialization.
+        if (!oldBox.value) {
+          oldBox.value = saved.text;
+          $('old-count').textContent = 'Restored saved biglist';
+          stat('stat-old', extractEmails(saved.text).size);
+          status('Your previously saved biglist was restored offline. Paste a new candidate list to compare.');
+        }
+        savedLine.textContent = '✓ Offline biglist is saved in this browser.';
+        savedLine.classList.add('good');
+      } else {
+        savedLine.textContent = 'No saved biglist yet. Load or paste one, then Save biglist offline.';
+      }
+    } catch (err) {
+      hasStorage = false;
+      savedLine.textContent = 'Browser storage unavailable here. Download the updated biglist to keep changes.';
+      savedLine.classList.remove('good');
+    }
+  }
+
+  let latest = [];
+  function compare() {
+    if (!oldBox.value.trim()) {
+      status('Add your existing biglist in the first box before comparing.');
+      oldBox.focus(); return;
+    }
+    if (!newBox.value.trim()) {
+      status('Add candidate emails in the second box before comparing.');
+      newBox.focus(); return;
+    }
+    $('compare').disabled = true;
+    status('Comparing email lists locally...');
+    // Defer to a frame so the progress message can paint for large inputs.
+    requestAnimationFrame(() => setTimeout(() => {
+      try {
+        const existing = extractEmails(oldBox.value);
+        const candidates = extractEmails(newBox.value);
+        const newEmails = [];
+        let found = 0;
+        for (const email of candidates) {
+          if (existing.has(email)) found++;
+          else newEmails.push(email);
+        }
+        latest = newEmails;
+        output.value = newEmails.join('\n');
+        stat('stat-old', existing.size);
+        stat('stat-candidate', candidates.size);
+        stat('stat-found', found);
+        stat('stat-new', newEmails.length);
+        btnCopy.disabled = btnTxt.disabled = btnCsv.disabled = btnAdd.disabled = newEmails.length === 0;
+        if (!existing.size) {
+          status('No valid-looking email addresses found in the biglist. Check that the first box has email addresses.');
+        } else if (!candidates.size) {
+          status('No valid-looking email addresses found in the candidate list.');
+        } else {
+          status(`${newEmails.length.toLocaleString('en-US')} new unique email${newEmails.length === 1 ? '' : 's'} found. ${found.toLocaleString('en-US')} candidate email${found === 1 ? ' was' : 's were'} already in the biglist.`);
+        }
+      } catch (err) {
+        status('Unable to compare these lists: ' + (err && err.message || 'Unknown error'));
+      } finally {
+        $('compare').disabled = false;
+      }
+    }, 20));
+  }
+  $('compare').addEventListener('click', compare);
+
+  function clearResults() {
+    output.value = ''; latest = [];
+    btnCopy.disabled = btnTxt.disabled = btnCsv.disabled = btnAdd.disabled = true;
+    ['stat-old','stat-candidate','stat-found','stat-new'].forEach(id => $(id).textContent = '—');
+    status('Lists changed. Click Get New Emails to refresh the results.');
+  }
+  oldBox.addEventListener('input', () => { clearResults(); savedLine.textContent = 'Biglist changed; click Save biglist offline or Add New Emails to save your updates.'; savedLine.classList.remove('good'); });
+  newBox.addEventListener('input', clearResults);
+  $('clear-old').addEventListener('click', () => { oldBox.value = ''; $('old-count').textContent = 'No file loaded'; $('old-file').value = ''; clearResults(); savedLine.textContent = 'Box cleared (saved offline copy was not deleted).'; savedLine.classList.remove('good'); });
+  $('clear-new').addEventListener('click', () => { newBox.value = ''; $('new-count').textContent = 'No file loaded'; $('new-file').value = ''; clearResults(); });
+
+  async function readFile(fileInputId, textArea, badgeId) {
+    const file = $(fileInputId).files[0];
+    if (!file) return;
+    try {
+      status(`Reading ${file.name}...`);
+      textArea.value = await file.text();
+      $(badgeId).textContent = file.name;
+      clearResults();
+      status(`Loaded ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB). Saving local copy...`);
+      if (textArea === oldBox) {
+        try {
+          await saveLocalBiglist(oldBox.value);
+          status(`Loaded ${file.name} and saved a local offline copy.`);
+        } catch (error) {
+          status(`Loaded ${file.name}, but browser storage is unavailable. Download a backup after updates.`);
+        }
+      } else {
+        status(`Loaded ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB).`);
+      }
+    } catch (err) { status('Could not read file: ' + err.message); }
+  }
+  $('old-file').addEventListener('change', () => readFile('old-file', oldBox, 'old-count'));
+  $('new-file').addEventListener('change', () => readFile('new-file', newBox, 'new-count'));
+
+  $('save-biglist').addEventListener('click', async () => {
+    if (!oldBox.value.trim()) { status('Paste or load a biglist first.'); return; }
+    $('save-biglist').disabled = true;
+    try {
+      await saveLocalBiglist(oldBox.value);
+      stat('stat-old', extractEmails(oldBox.value).size);
+      status(`Biglist saved offline (${extractEmails(oldBox.value).size.toLocaleString('en-US')} unique email-like addresses).`);
+    } catch (err) {
+      savedLine.textContent = 'Offline save failed. Download the updated biglist instead.';
+      savedLine.classList.remove('good');
+      status('Offline save failed: ' + err.message + '. Download a backup instead.');
+    } finally { $('save-biglist').disabled = false; }
+  });
+
+  $('add-to-biglist').addEventListener('click', async () => {
+    if (!latest.length) { status('Compare the two lists first to find new emails.'); return; }
+    // Avoid a duplicate append if the current list changed without a comparison.
+    const current = extractEmails(oldBox.value);
+    const additions = latest.filter(email => !current.has(email));
+    if (!additions.length) { clearResults(); status('These addresses are already in the biglist.'); return; }
+    btnAdd.disabled = true;
+    const separator = oldBox.value && !/[\r\n]$/.test(oldBox.value) ? '\n' : '';
+    oldBox.value += separator + additions.join('\n') + '\n';
+    $('old-count').textContent = 'Updated biglist';
+    clearResults();
+    stat('stat-old', current.size + additions.length);
+    $('stat-new').textContent = '0';
+    newBox.value = ''; // Prevent accidental duplicate processing in the next batch.
+    $('new-count').textContent = 'Ready for next list';
+    status(`Added ${additions.length.toLocaleString('en-US')} new emails to the biglist. Saving offline...`);
+    try {
+      await saveLocalBiglist(oldBox.value);
+      status(`✓ Added ${additions.length.toLocaleString('en-US')} emails and saved offline. Biglist now contains ${(current.size + additions.length).toLocaleString('en-US')} unique addresses. Download your updated biglist for a file backup.`);
+    } catch (err) {
+      savedLine.textContent = 'Offline save unavailable. Changes are in this page only until you download them.';
+      savedLine.classList.remove('good');
+      status(`Added ${additions.length.toLocaleString('en-US')} emails to the biglist box, but offline browser saving failed. Click Download updated biglist to keep them.`);
+    }
+  });
+
+  $('export-biglist').addEventListener('click', () => {
+    if (!oldBox.value.trim()) { status('Nothing to download: load or paste a biglist first.'); return; }
+    download('biglist_updated.txt', oldBox.value, 'text/plain;charset=utf-8');
+    status('Downloaded biglist_updated.txt. Keep this file as your master backup.');
+  });
+
+
+  $('copy').addEventListener('click', async () => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(output.value);
+      } else {
+        output.focus(); output.select();
+        if (!document.execCommand('copy')) throw new Error('Copy not supported');
+        output.setSelectionRange(0, 0);
+      }
+      status(`Copied ${latest.length.toLocaleString('en-US')} new emails.`);
+    } catch (_) {
+      output.focus(); output.select();
+      status('Clipboard access was blocked. The results are selected; press Ctrl+C to copy.');
+    }
+  });
+  function download(filename, content, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  $('download').addEventListener('click', () => download('new_emails_only.txt', latest.join('\r\n') + '\r\n', 'text/plain;charset=utf-8'));
+  $('download-csv').addEventListener('click', () => download('new_emails_only.csv', 'email\r\n' + latest.join('\r\n') + '\r\n', 'text/csv;charset=utf-8'));
+  restoreLocalBiglist();
+})();
+</script>
+</body>
+</html>
