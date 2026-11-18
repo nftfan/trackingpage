@@ -73,10 +73,9 @@
 
 
 
-    /* 3-hour / 1,000-post challenge: compact mobile map chips */
-    .challenge-chip{position:absolute;bottom:8px;z-index:1001;display:flex;align-items:center;gap:5px;height:25px;padding:0 8px;border-radius:8px;background:rgba(11,11,14,.84);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);box-shadow:none;font-family:Menlo,Monaco,Consolas,monospace;font-size:10px;font-weight:800;color:#f8fafc;pointer-events:none;}
-    .challenge-chip.left{left:8px;}
-    .challenge-chip.right{right:8px;}
+    /* Shift progress below the action icons */
+    .shift-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:4px 6px;}
+    .challenge-chip{position:relative;min-width:0;display:flex;align-items:center;gap:5px;height:25px;padding:0 8px;border-radius:8px;background:rgba(11,11,14,.84);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);box-shadow:none;font-family:Menlo,Monaco,Consolas,monospace;font-size:10px;font-weight:800;color:#f8fafc;pointer-events:none;}
     .challenge-chip .challenge-icon{font-size:12px;line-height:1;}
     .challenge-chip .challenge-value{letter-spacing:.2px;}
     .challenge-chip.inactive{opacity:.62;color:#a1a1aa;}
@@ -448,7 +447,7 @@
   .location-area path{fill:none;stroke:var(--edge);stroke-width:1.6;vector-effect:non-scaling-stroke;transition:stroke .35s}
   @media(prefers-reduced-motion:reduce){.location-area *{transition:none!important}}
   
-    .challenge-chip{--accent:#86f2ce;--meter:0%;bottom:9px;gap:8px;height:auto;overflow:hidden;padding:6px 10px 8px;border:1px solid #456561;border-radius:10px;background:linear-gradient(125deg,#17312e,#102426);color:#f3fffb;font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;}
+    .challenge-chip{--accent:#86f2ce;--meter:0%;gap:8px;height:auto;overflow:hidden;padding:6px 10px 8px;border:1px solid #456561;border-radius:10px;background:linear-gradient(125deg,#17312e,#102426);color:#f3fffb;font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;}
     .challenge-chip.right{--accent:#bfb8ff;--meter:100%;background:linear-gradient(125deg,#282741,#191c32);border-color:#565377;color:#faf8ff}
     .challenge-chip svg{width:20px;height:20px;color:var(--accent);flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
     .challenge-chip .metric{display:grid;gap:2px}
@@ -475,14 +474,7 @@
     <div id="map" role="application" aria-label="Map showing posted dots"></div>
     <div id="shiftViewStatus" class="shift-view-status" role="status" aria-live="polite"><span id="shiftViewStatusText"></span><button id="showAllDotsBtn" type="button">Show all</button></div>
 
-    <div id="challengeDotsChip" class="challenge-chip left inactive" aria-label="Orange posts remaining">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
-      <span class="metric"><small>Flyers left</small><span id="challengeDotsRemaining" class="challenge-value">1,000</span></span>
-    </div>
-    <div id="challengeTimeChip" class="challenge-chip right inactive" aria-label="Challenge time remaining">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12l4 2"/><path class="clock-hand" d="M12 12V6"/></svg>
-      <span class="metric"><small>Time left</small><span id="challengeTimeRemaining" class="challenge-value">03:00:00</span></span>
-    </div>
+
 
   </div>
 
@@ -569,6 +561,16 @@
     </button>
     <!-- Hidden file input: on mobile the OS chooser offers Camera OR Gallery -->
     <input type="file" id="proofFileInput" accept="image/*" style="display:none">
+  </div>
+  <div class="shift-metrics" role="group" aria-label="Shift progress">
+    <div id="challengeDotsChip" class="challenge-chip left inactive" aria-label="Orange posts remaining">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+      <span class="metric"><small>Flyers left</small><span id="challengeDotsRemaining" class="challenge-value">1,000</span></span>
+    </div>
+    <div id="challengeTimeChip" class="challenge-chip right inactive" aria-label="Challenge time remaining">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12l4 2"/><path class="clock-hand" d="M12 12V6"/></svg>
+      <span class="metric"><small>Time left</small><span id="challengeTimeRemaining" class="challenge-value">03:00:00</span></span>
+    </div>
   </div>
   <div class="dropdown-row" aria-label="Map selections">
     <label class="dropdown-field"><span>Select segment</span><select id="segSelect"><option value="">None</option></select></label>
@@ -3095,8 +3097,9 @@
     isAdmin=false;document.body.classList.remove('admin-mode');currentWorkerName=null;updateWorkerUi();setPostEnabled(false);adminBackdrop.classList.remove('show');resetChallengeUi();openWorkerModal();
   });
 
-  // Two screen-aligned squares share a divider at the location marker's anchor.
-  const halfWidthMetres=15.24;
+  // Equal left and right panels share a divider at the location marker anchor.
+  const halfWidthMetres=22.86;
+  const heightMetres=15.24;
   const svgNS='http://www.w3.org/2000/svg';
   const locationArea=document.createElementNS(svgNS,'svg');
   locationArea.setAttribute('class','location-area');
@@ -3130,7 +3133,7 @@
       halves.setAttribute('visibility','hidden');
       return;
     }
-    halves.setAttribute('transform',`translate(${center.x} ${center.y}) scale(${halfWidthMetres/metresPerPixel})`);
+    halves.setAttribute('transform',`translate(${center.x} ${center.y}) scale(${halfWidthMetres/metresPerPixel} ${heightMetres/metresPerPixel})`);
     halves.setAttribute('visibility','visible');
   }
   map.on('move',projectLocationArea);
