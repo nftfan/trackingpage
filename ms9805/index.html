@@ -453,11 +453,7 @@
     .icon-bar .danger-icon:hover{color:#fca5a5;background:rgba(239,68,68,.12);}
     #shiftMistakesTitle{font-size:16px;}
   #buildingGuide{background:#191c24;color:#f4f5fa;padding:7px 12px;font:13px/1.45 system-ui}
-#buildingGuide .guide-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 #buildingGuide label{font-weight:700;display:flex;align-items:center;gap:7px}
-#buildingGuide button,#buildingGuide select{min-height:34px;background:#313746;border:1px solid #677182;color:white;border-radius:6px;padding:4px 9px;font:inherit}
-#buildingGuide [hidden]{display:none!important}
-#buildingGuide [data-guide="arrow"]{display:inline-block;font-size:19px;color:#97cbff}
 #buildingGuide [data-guide="status"]:not(:empty){padding:4px 0;color:#dde4ee}
 </style>
 </head>
@@ -487,13 +483,9 @@
     </div>
   </div>
 
-  <section id="buildingGuide" aria-label="Building guide">
-    <div class="guide-row"><label><input type="checkbox" data-guide="toggle"> Nearby buildings · 50 m</label>
-    <button type="button" data-guide="review" hidden>Review passed</button></div>
+  <section id="buildingGuide" aria-label="Building pins">
+    <label><input type="checkbox" data-guide="toggle"> Building pins · 50 m</label>
     <div data-guide="status" role="status"></div>
-    <div class="guide-row" data-guide="selection" hidden><span data-guide="arrow" aria-label="Direction on map">↑</span>
-    <strong data-guide="label"></strong><span data-guide="distance"></span><button type="button" data-guide="finish">Mark checked</button>
-    <button type="button" data-guide="close" aria-label="Clear building selection">×</button></div>
   </section>
   <div class="map-credits"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a></div>
 
@@ -3090,46 +3082,45 @@
     isAdmin=false;document.body.classList.remove('admin-mode');currentWorkerName=null;updateWorkerUi();setPostEnabled(false);adminBackdrop.classList.remove('show');resetChallengeUi();openWorkerModal();
   });
 
-  // Nearby building guide. Coverage is recorded explicitly per building.
-  const guide = document.getElementById('buildingGuide');
-  const field = name => guide.querySelector('[data-guide="'+name+'"]');
-  let scope='', active=false, footprints=[], records={}, target='', origin=null, request=null;
-  let retryAt=0, lookupMessage='', storageMessage='', accuracy=Infinity, lastFix=0;
+  // Building pins follow the worker's live position.
+  const guide=document.getElementById('buildingGuide');
+  const togglePins=guide.querySelector('input');
+  const pinStatus=guide.querySelector('[role="status"]');
+  let buildings=[], origin=null, request=null, retryAt=0, lookupMessage='';
+  let accuracy=Infinity,lastFix=0;
   const pointNow=()=>currentLatLng && [currentLatLng[1],currentLatLng[0]];
   function metres(a,b){
     const east=(a[0]-b[0])*111320*Math.cos(b[1]*Math.PI/180);
     return Math.hypot(east,(a[1]-b[1])*111320);
   }
-  function inside(p,ring){
-    let hit=false;
-    for(let i=0,j=ring.length-1;i<ring.length;j=i++){
-      const a=ring[i],b=ring[j];
-      if((a[1]>p[1])!==(b[1]>p[1]) && p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0]) hit=!hit;
-    }
-    return hit;
-  }
-  function footprintDistance(p,f){
-    let best=Infinity;
-    const scale=111320*Math.cos(p[1]*Math.PI/180);
-    for(const polygon of f.geometry.type==='Polygon'?[f.geometry.coordinates]:f.geometry.coordinates){
-      if(inside(p,polygon[0])&&!polygon.slice(1).some(h=>inside(p,h)))return 0;
-      for(const ring of polygon)for(let i=1;i<ring.length;i++){
-        const a=ring[i-1],b=ring[i],x=(a[0]-p[0])*scale,y=(a[1]-p[1])*111320;
-        const dx=(b[0]-a[0])*scale,dy=(b[1]-a[1])*111320;
-        const t=Math.max(0,Math.min(1,-(x*dx+y*dy)/(dx*dx+dy*dy||1)));
-        best=Math.min(best,Math.hypot(x+t*dx,y+t*dy));
+
+  // Place the pin inside the footprint, including buildings with courtyards.
+  function buildingPoint(geometry){
+    const polygons=geometry.type==='Polygon'?[geometry.coordinates]:geometry.coordinates;
+    let widest=0,point=null;
+    for(const polygon of polygons){
+      const ys=polygon[0].map(v=>v[1]);
+      const south=ys.reduce((a,b)=>Math.min(a,b),Infinity),north=ys.reduce((a,b)=>Math.max(a,b),-Infinity);
+      for(const fraction of [0.5,0.25,0.75]){
+        const y=south+(north-south)*fraction;
+        const xs=[];
+        for(const ring of polygon)for(let i=1;i<ring.length;i++){
+          const a=ring[i-1],b=ring[i];
+          if((a[1]>y)!==(b[1]>y))xs.push(a[0]+(b[0]-a[0])*(y-a[1])/(b[1]-a[1]));
+        }
+        xs.sort((a,b)=>a-b);
+        for(let i=1;i<xs.length;i+=2){
+          const width=xs[i]-xs[i-1];
+          if(width>widest){widest=width;point=[(xs[i]+xs[i-1])/2,y];}
+        }
       }
     }
-    return best;
-  }
-  function saveGuide(){
-    try{localStorage.setItem(scope,JSON.stringify(records));storageMessage='';}
-    catch{storageMessage='Device storage unavailable. Changes last for this session.';}
+    return point;
   }
   async function fetchFootprints(p){
     const controller=new AbortController();request=controller;
     const timer=setTimeout(()=>controller.abort(),25000);
-    lookupMessage='Loading building outlines…';
+    lookupMessage='Loading building pins…';
     try{
       const d=220/111320,e=d/Math.cos(p[1]*Math.PI/180);
       const bbox=[p[1]-d,p[0]-e,p[1]+d,p[0]+e].map(v=>v.toFixed(5)).join(',');
@@ -3140,12 +3131,13 @@
       if(raw.remark || !Array.isArray(raw.elements))throw Error();
       const shapes=window.osmtogeojson(raw).features;
       if(request!==controller)return;
-      footprints=shapes.filter(f=>['Polygon','MultiPolygon'].includes(f.geometry?.type)&&f.properties.building && f.properties.building!=='no').map(f=>{
-        const ring=(f.geometry.type==='Polygon'?f.geometry.coordinates:f.geometry.coordinates[0])[0];
-        const centre=ring.slice(1).reduce((sum,v)=>[sum[0]+v[0]/(ring.length-1),sum[1]+v[1]/(ring.length-1)],[0,0]);
-        const label=[f.properties['addr:street'],f.properties['addr:housenumber']].filter(Boolean).join(' ')||f.properties.name||'Building';
-        return {...f,properties:{id:String(f.id||f.properties.id),centre,label,singleHome:["house","detached","semidetached_house","terrace_house"].includes(f.properties.building)}};
-      });
+      const pins=new Map();
+      for(const f of shapes){
+        if(!['Polygon','MultiPolygon'].includes(f.geometry?.type)||!f.properties.building||f.properties.building==='no')continue;
+        const point=buildingPoint(f.geometry);
+        if(point)pins.set(f.id||f.properties.id,feat('Point',point,{}));
+      }
+      buildings=Array.from(pins.values());
       origin=p;lookupMessage='';
     }catch{
       if(request===controller){retryAt=Date.now()+30000;lookupMessage='Building lookup unavailable. Retrying in 30 seconds.';}
@@ -3165,95 +3157,49 @@
     ring.push(ring[0]);
     return feat('Polygon',[ring],{});
   }
-  function refreshGuide(){
 
-    const valid=!!(currentUserId&&currentWorkerName&&!isAdmin&&!workerShiftEnded());
-    const key=valid?'lf-buildings-v1:'+JSON.stringify([currentUserId,currentWorkerName]):'';
-    if(key!==scope){
-      request?.abort();request=null;scope=key;target='';origin=null;footprints=[];retryAt=0;lookupMessage='';storageMessage='';
-      try{records=JSON.parse(localStorage.getItem(key)||'{}')||{};
-        if(key&&!localStorage.getItem(key)){
-          const prefix=key.slice(0,-1)+',';
-          for(let i=0;i<localStorage.length;i++){
-            const old=localStorage.key(i);
-            if(!old?.startsWith(prefix))continue;
-            for(const [id,r] of Object.entries(JSON.parse(localStorage.getItem(old)||'{}')))
-              if(!records[id]?.checked&&r?.feature?.geometry)records[id]=r;
-          }
-          if(Object.keys(records).length)saveGuide();
-        };}catch{records={};}
-    }
-    const source=map.getSource('near-buildings');
+  let lastRender='';
+  function refreshGuide(){
     const p=pointNow();
-    const ready=active&&valid&&p&&Date.now()-lastFix<60000&&accuracy<=45;
-    const radiusSource=map.getSource('guide-radius');
-    if(radiusSource){
-      const positionKey=ready?p.join(','):'';
-      if(radiusSource._positionKey!==positionKey){
-        radiusSource.setData(fc(ready?[radiusPolygon(p)]:[]));
-        radiusSource._positionKey=positionKey;
-      }
-    }
-    if(!active||!valid){request?.abort();request=null;}
+    const ready=togglePins.checked&&p&&Date.now()-lastFix<60000&&accuracy<=45;
+    if(!ready&&request){request.abort();request=null;lookupMessage='';}
     if(ready&&!request&&Date.now()>=retryAt&&(!origin||metres(p,origin)>115))fetchFootprints(p);
-    let changed=false;
-    if(ready)for(const f of footprints){
-      if(!records[f.properties.id]&&footprintDistance(p,f)<=guideRadius){
-        records[f.properties.id]={feature:f,checked:false};changed=true;
-      }
+    const pins=ready?buildings.filter(f=>metres(f.geometry.coordinates,p)<=guideRadius):[];
+    const pinSource=map.getSource('building-pins');
+    const key=JSON.stringify([ready?p:null,pins.map(f=>f.geometry.coordinates)]);
+    if(pinSource&&lastRender!==key){
+      map.getSource('guide-radius').setData(fc(ready?[radiusPolygon(p)]:[]));
+      pinSource.setData(fc(pins));
+      lastRender=key;
     }
-    if(changed)saveGuide();
-    const items=Object.values(records);
-    const nearby=ready?items.filter(r=>footprintDistance(p,r.feature)<=guideRadius):[];
-    const visible=nearby.slice();
-    if(ready&&records[target]&&!visible.includes(records[target]))visible.push(records[target]);
-    const features=visible.map(r=>({...r.feature,properties:{id:r.feature.properties.id,checked:r.checked,selected:r.feature.properties.id===target}}));
-    const signature=JSON.stringify(features.map(f=>f.properties));
-    if(source&&source._guideSignature!==scope+signature){source.setData(fc(features));source._guideSignature=scope+signature;}
-    const review=ready?items.filter(r=>!r.checked&&footprintDistance(p,r.feature)>guideRadius):[];
-    field('review').hidden=!ready||!review.length;
-    field('review').textContent='Review passed ('+review.length+')';
-    field('review').onclick=()=>selectBuilding(review.sort((a,b)=>metres(p,a.feature.properties.centre)-metres(p,b.feature.properties.centre))[0].feature.properties.id,true);
-    const selected=ready&&records[target];
-    field('selection').hidden=!selected;
-    field('finish').disabled=!ready;
-    if(selected){
-      const c=selected.feature.properties.centre;
-      field('label').textContent=selected.feature.properties.label;
-      field('finish').textContent=selected.checked?'Reopen':'Mark checked';
-      field('distance').textContent=ready?Math.round(footprintDistance(p,selected.feature))+' m':'';
-      field('arrow').hidden=!ready;
-      if(ready)field('arrow').style.transform='rotate('+(Math.atan2((c[0]-p[0])*Math.cos(p[1]*Math.PI/180),c[1]-p[1])*180/Math.PI-map.getBearing())+'deg)';
-    }
-    field('status').textContent=!active?'':!valid?'Start a worker shift to use the guide.':!ready?'Waiting for a fresh GPS fix within 45 m accuracy.':(storageMessage||lookupMessage|| (nearby.length?nearby.filter(r=>!r.checked).length+' unchecked · Tap an outline to review':'No mapped buildings within 50 m.'));
+    pinStatus.textContent=!togglePins.checked?'':!ready?'Waiting for accurate GPS…':lookupMessage;
   }
-  function selectBuilding(id,focus){
-    if(!records[id])return;
-    target=id;refreshGuide();
-    if(focus)map.easeTo({center:records[id].feature.properties.centre,zoom:18});
-  }
-  field('toggle').onchange=e=>{
-    active=e.target.checked;refreshGuide();
-    if(active)goToCurrentLocation({focus:false}).then(p=>{if(p&&active)map.easeTo({center:[p[1],p[0]],zoom:18});});
+  togglePins.onchange=()=>{
+    refreshGuide();
+    if(togglePins.checked)goToCurrentLocation({focus:false}).then(p=>{
+      if(p&&togglePins.checked)map.easeTo({center:[p[1],p[0]],zoom:18});
+    });
   };
-  field('finish').onclick=()=>{
-    if(field('finish').disabled||!records[target])return;
-    records[target].checked=!records[target].checked;saveGuide();refreshGuide();
-  };
-  field('close').onclick=()=>{target='';refreshGuide();};
   map.on('load',()=>{
     map.addSource('guide-radius',{type:'geojson',data:fc()});
     map.addLayer({id:'guide-radius-fill',source:'guide-radius',type:'fill',paint:{'fill-color':'#2086c7','fill-opacity':0.06}},'segments-line');
     map.addLayer({id:'guide-radius-edge',source:'guide-radius',type:'line',paint:{'line-color':'#1679bd','line-width':2,'line-dasharray':[3,2]}},'segments-line');
-    map.addSource('near-buildings',{type:'geojson',data:fc()});
-    const color=['case',['get','selected'],'#1664bd',['get','checked'],'#787f88','#db263a'];
-    map.addLayer({id:'building-hit',source:'near-buildings',type:'fill',paint:{'fill-color':color,'fill-opacity':0.14}},'segments-line');
-    map.addLayer({id:'building-edge',source:'near-buildings',type:'line',paint:{'line-color':color,'line-width':2.5}},'segments-line');
-    map.on('click','building-hit',e=>{if(active&&e.features?.length)selectBuilding(e.features[0].properties.id,false);});
+    const canvas=document.createElement('canvas');
+    canvas.width=24;canvas.height=32;
+    const ctx=canvas.getContext('2d');
+    ctx.beginPath();ctx.moveTo(12,30);ctx.bezierCurveTo(9,24,2,17,2,12);
+    ctx.arc(12,12,10,Math.PI,2*Math.PI);
+    ctx.bezierCurveTo(22,17,15,24,12,30);ctx.closePath();
+    ctx.fillStyle='#d72b42';ctx.fill();ctx.strokeStyle='white';ctx.lineWidth=2;ctx.stroke();
+    ctx.beginPath();ctx.arc(12,11,3,0,2*Math.PI);ctx.fillStyle='white';ctx.fill();
+    map.addImage('small-building-pin',ctx.getImageData(0,0,24,32),{pixelRatio:2});
+    map.addSource('building-pins',{type:'geojson',data:fc()});
+    map.addLayer({id:'building-pin-symbols',type:'symbol',source:'building-pins',layout:{
+      'icon-image':'small-building-pin','icon-anchor':'bottom','icon-allow-overlap':true,'icon-ignore-placement':true
+    }},'segments-line');
     refreshGuide();
   });
-  map.on('rotateend',refreshGuide);
-  setInterval(()=>{if(active)refreshGuide();},3000);
+  setInterval(()=>{if(togglePins.checked)refreshGuide();},3000);
 
   // ── Geolocation ───────────────────────────────────────────────────────────
   function setPostEnabled(on){const ok=on&&!!currentUserId&&!!currentWorkerName&&!isAdmin&&!workerShiftEnded();btnJa.disabled=btnNee.disabled=btnBonus.disabled=btnPost.disabled=!ok;}
@@ -3312,15 +3258,7 @@
     try{
       const newKey=push(ref(db,`userPostClicks/${currentUserId}`)).key;
       const upd={[`userPostClicks/${currentUserId}/${newKey}`]:{lat,lng,color:'orange',timestamp:now,workerName:currentWorkerName},[`users/${currentUserId}/lastPostClickAt`]:now};
-      const guideScope=scope;
-      const candidates=active&&accuracy<=8&&Date.now()-lastFix<15000
-        ?Object.values(records).filter(r=>footprintDistance([lng,lat],r.feature)<=Math.max(accuracy,5)):[];
-      const match=candidates.length===1&&candidates[0].feature.properties.singleHome?candidates[0]:null;
-      update(ref(db),upd).then(()=>{
-        if(match&&scope===guideScope&&records[match.feature.properties.id]===match){
-          match.checked=true;saveGuide();refreshGuide();
-        }
-      }).catch(()=>{});
+      update(ref(db),upd).catch(()=>{});
     }catch(e){}
   }
 
