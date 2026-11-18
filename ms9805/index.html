@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>LeuvenFlyers · Worker Building Guide</title>
+  <title>LeuvenFlyers · Worker Location Circle</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="theme-color" content="#0f0f12" />
@@ -452,20 +452,19 @@
     .icon-bar .danger-icon,.icon-bar .danger-icon .icon-caption{color:#f87171;}
     .icon-bar .danger-icon:hover{color:#fca5a5;background:rgba(239,68,68,.12);}
     #shiftMistakesTitle{font-size:16px;}
-  #buildingGuide{background:#191c24;color:#f4f5fa;padding:7px 12px;font:13px/1.45 system-ui}
-#buildingGuide label{font-weight:700;display:flex;align-items:center;gap:7px}
-#buildingGuide [data-guide="status"]:not(:empty){padding:4px 0;color:#dde4ee}
-    .radius-border{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none}
-    .radius-border path{fill:none;stroke:#1679bd;stroke-width:2;stroke-linecap:round;stroke-dasharray:2 2;animation:radius-turn 2s linear infinite}
-    .radius-border[data-event] path{stroke:var(--ring-color);stroke-width:3}
-    .radius-border[data-event="start"]{--ring-color:#25ad86}
-    .radius-border[data-event="star"]{--ring-color:#e3ab24}
-    .radius-border[data-event="diamond"]{--ring-color:#37ccea}
-    .radius-border[data-event="mistake"]{--ring-color:#e89198}
-    .radius-border[data-event]:not([data-event="mistake"]) path{animation:radius-turn 2s linear infinite,radius-glow .95s ease-in-out 2}
-    @keyframes radius-turn{to{stroke-dashoffset:-4}}
-    @keyframes radius-glow{0%,100%{stroke-opacity:1}50%{stroke-opacity:.45}}
-    @media(prefers-reduced-motion:reduce){.radius-border path,.radius-border[data-event] path{animation:none!important}}
+  .location-ring{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;--ink:#2563a6;--light:#8fe7ff;--wash:#52c4ed}
+  .location-ring[data-event="start"]{--ink:#087f65;--light:#8df7ce;--wash:#31d09e}
+  .location-ring[data-event="star"]{--ink:#975a06;--light:#ffdd81;--wash:#f5bd49}
+  .location-ring[data-event="diamond"]{--ink:#5940ae;--light:#c9baff;--wash:#9584fb}
+  .location-ring[data-event="mistake"]{--ink:#bb6876;--light:#ffd4d9;--wash:#eea5af}
+  .location-ring path{stroke-linejoin:round;stroke-linecap:round;transition:stroke .35s,fill .35s}
+  .location-ring .ring-base{stroke:var(--ink);stroke-width:2.5;fill:var(--wash);fill-opacity:.18}
+  .location-ring .ring-arc{fill:none;stroke:var(--light);stroke-width:2;stroke-dasharray:12 38;animation:ring-orbit 7s linear infinite}
+  .location-ring[data-event] .ring-base{animation:ring-breathe 1.1s ease-in-out 2}
+  .location-ring[data-event="mistake"] .ring-base{animation:none;fill-opacity:.27}
+  @keyframes ring-orbit{to{stroke-dashoffset:-100}}
+  @keyframes ring-breathe{50%{fill-opacity:.44;stroke-width:3.5}}
+  @media(prefers-reduced-motion:reduce){.location-ring path{animation:none!important;transition:none}}
   </style>
 </head>
 <body>
@@ -494,10 +493,6 @@
     </div>
   </div>
 
-  <section id="buildingGuide" aria-label="Building pins">
-    <label><input type="checkbox" data-guide="toggle"> Building pins · 50 m</label>
-    <div data-guide="status" role="status"></div>
-  </section>
   <div class="map-credits"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a></div>
 
   <div id="minuteTimerTrack" class="minute-timer-track" aria-label="Current minute time remaining">
@@ -830,7 +825,6 @@
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
-<script defer src="https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5/osmtogeojson.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
   import { getDatabase, ref, push, query, orderByChild, limitToLast, onValue, set, update, get, off, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
@@ -1640,6 +1634,7 @@
     } else {
       locationMarker.setLngLat([latlng[1], latlng[0]]);
     }
+    positionRing(latlng);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -3106,154 +3101,51 @@
     isAdmin=false;document.body.classList.remove('admin-mode');currentWorkerName=null;updateWorkerUi();setPostEnabled(false);adminBackdrop.classList.remove('show');resetChallengeUi();openWorkerModal();
   });
 
-  // Building pins follow the worker's live position.
-  const guide=document.getElementById('buildingGuide');
-  const togglePins=guide.querySelector('input');
-  const pinStatus=guide.querySelector('[role="status"]');
-  let buildings=[], origin=null, request=null, retryAt=0, lookupMessage='';
-  let accuracy=Infinity,lastFix=0;
-  const pointNow=()=>currentLatLng && [currentLatLng[1],currentLatLng[0]];
-  function metres(a,b){
-    const east=(a[0]-b[0])*111320*Math.cos(b[1]*Math.PI/180);
-    return Math.hypot(east,(a[1]-b[1])*111320);
-  }
-
-  // Place the pin inside the footprint, including buildings with courtyards.
-  function buildingPoint(geometry){
-    const polygons=geometry.type==='Polygon'?[geometry.coordinates]:geometry.coordinates;
-    let widest=0,point=null;
-    for(const polygon of polygons){
-      const ys=polygon[0].map(v=>v[1]);
-      const south=ys.reduce((a,b)=>Math.min(a,b),Infinity),north=ys.reduce((a,b)=>Math.max(a,b),-Infinity);
-      for(const fraction of [0.5,0.25,0.75]){
-        const y=south+(north-south)*fraction;
-        const xs=[];
-        for(const ring of polygon)for(let i=1;i<ring.length;i++){
-          const a=ring[i-1],b=ring[i];
-          if((a[1]>y)!==(b[1]>y))xs.push(a[0]+(b[0]-a[0])*(y-a[1])/(b[1]-a[1]));
-        }
-        xs.sort((a,b)=>a-b);
-        for(let i=1;i<xs.length;i+=2){
-          const width=xs[i]-xs[i-1];
-          if(width>widest){widest=width;point=[(xs[i]+xs[i-1])/2,y];}
-        }
-      }
-    }
-    return point;
-  }
-  async function fetchFootprints(p){
-    const controller=new AbortController();request=controller;
-    const timer=setTimeout(()=>controller.abort(),25000);
-    lookupMessage='Loading building pins…';
-    try{
-      const d=220/111320,e=d/Math.cos(p[1]*Math.PI/180);
-      const bbox=[p[1]-d,p[0]-e,p[1]+d,p[0]+e].map(v=>v.toFixed(5)).join(',');
-      const query='[out:json][timeout:18];(way["building"]('+bbox+');relation["building"]["type"="multipolygon"]('+bbox+'););out geom;';
-      const result=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query),{signal:controller.signal});
-      if(!result.ok)throw Error();
-      const raw=await result.json();
-      if(raw.remark || !Array.isArray(raw.elements))throw Error();
-      const shapes=window.osmtogeojson(raw).features;
-      if(request!==controller)return;
-      const pins=new Map();
-      for(const f of shapes){
-        if(!['Polygon','MultiPolygon'].includes(f.geometry?.type)||!f.properties.building||f.properties.building==='no')continue;
-        const point=buildingPoint(f.geometry);
-        if(point)pins.set(f.id||f.properties.id,feat('Point',point,{}));
-      }
-      buildings=Array.from(pins.values());
-      origin=p;lookupMessage='';
-    }catch{
-      if(request===controller){retryAt=Date.now()+30000;lookupMessage='Building lookup unavailable. Retrying in 30 seconds.';}
-    }finally{
-      clearTimeout(timer);
-      if(request===controller){request=null;refreshGuide();}
-    }
-  }
-  const guideRadius=50;
-  function radiusPolygon(p){
-    const ring=[];
-    for(let i=0;i<72;i++){
-      const angle=i*Math.PI/36;
-      ring.push([p[0]+guideRadius*Math.cos(angle)/(111320*Math.cos(p[1]*Math.PI/180)),
-        p[1]+guideRadius*Math.sin(angle)/111320]);
-    }
-    ring.push(ring[0]);
-    return feat('Polygon',[ring],{});
-  }
-
-  const svgNS='http://www.w3.org/2000/svg';
-  const radiusBorder=document.createElementNS(svgNS,'svg');
-  radiusBorder.setAttribute('class','radius-border');
-  radiusBorder.setAttribute('aria-hidden','true');
-  const borderPath=document.createElementNS(svgNS,'path');
-  borderPath.setAttribute('pathLength','100');
-  radiusBorder.append(borderPath);
-  map.getCanvas().after(radiusBorder);
-  let borderRing=null,ringTimer=0;
-  function signalRing(kind){
-    if(!togglePins.checked)return;
-    if(radiusBorder.dataset.event==='mistake'&&kind!=='mistake')return;
-    clearTimeout(ringTimer);
-    radiusBorder.dataset.event=kind;
-    ringTimer=setTimeout(()=>{delete radiusBorder.dataset.event;},kind==='mistake'?5000:1950);
-  }
-  function projectBorder(){
-    if(!borderRing){borderPath.removeAttribute('d');return;}
-    const path=borderRing.slice(0,-1).map((coordinate,index)=>{
-      const point=map.project(coordinate);
-      return (index?'L':'M')+point.x.toFixed(2)+' '+point.y.toFixed(2);
-    });
-    borderPath.setAttribute('d',path.join(' ')+' Z');
-  }
-  map.on('move',projectBorder);
-  map.on('resize',projectBorder);
-  let lastRender='';
-  function refreshGuide(){
-    const p=pointNow();
-    const ready=togglePins.checked&&p&&Date.now()-lastFix<60000&&accuracy<=45;
-    if(!ready&&request){request.abort();request=null;lookupMessage='';}
-    if(ready&&!request&&Date.now()>=retryAt&&(!origin||metres(p,origin)>115))fetchFootprints(p);
-    const pins=ready?buildings.filter(f=>metres(f.geometry.coordinates,p)<=guideRadius):[];
-    const pinSource=map.getSource('building-pins');
-    const key=JSON.stringify([ready?p:null,pins.map(f=>f.geometry.coordinates)]);
-    if(pinSource&&lastRender!==key){
-      const disk=ready?radiusPolygon(p):null;
-      const starting=!borderRing&&disk;
-      borderRing=disk?.geometry.coordinates[0]||null;
-      projectBorder();
-      if(starting)signalRing('start');
-      map.getSource('guide-radius').setData(fc(disk?[disk]:[]));
-      pinSource.setData(fc(pins));
-      lastRender=key;
-    }
-    pinStatus.textContent=!togglePins.checked?'':!ready?'Waiting for accurate GPS…':lookupMessage;
-  }
-  togglePins.onchange=()=>{
-    refreshGuide();
-    if(togglePins.checked)goToCurrentLocation({focus:false}).then(p=>{
-      if(p&&togglePins.checked)map.easeTo({center:[p[1],p[0]],zoom:18});
-    });
-  };
-  map.on('load',()=>{
-    map.addSource('guide-radius',{type:'geojson',data:fc()});
-    map.addLayer({id:'guide-radius-fill',source:'guide-radius',type:'fill',paint:{'fill-color':'#2086c7','fill-opacity':0.06}},'segments-line');
-    const canvas=document.createElement('canvas');
-    canvas.width=24;canvas.height=32;
-    const ctx=canvas.getContext('2d');
-    ctx.beginPath();ctx.moveTo(12,30);ctx.bezierCurveTo(9,24,2,17,2,12);
-    ctx.arc(12,12,10,Math.PI,2*Math.PI);
-    ctx.bezierCurveTo(22,17,15,24,12,30);ctx.closePath();
-    ctx.fillStyle='#d72b42';ctx.fill();ctx.strokeStyle='white';ctx.lineWidth=2;ctx.stroke();
-    ctx.beginPath();ctx.arc(12,11,3,0,2*Math.PI);ctx.fillStyle='white';ctx.fill();
-    map.addImage('small-building-pin',ctx.getImageData(0,0,24,32),{pixelRatio:2});
-    map.addSource('building-pins',{type:'geojson',data:fc()});
-    map.addLayer({id:'building-pin-symbols',type:'symbol',source:'building-pins',layout:{
-      'icon-image':'small-building-pin','icon-anchor':'bottom','icon-allow-overlap':true,'icon-ignore-placement':true
-    }},'segments-line');
-    refreshGuide();
+  // A ground-distance ring centred on the location marker's bottom anchor.
+  const ringRadiusMetres=3.048;
+  const ringSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  ringSvg.setAttribute('class','location-ring');
+  ringSvg.setAttribute('aria-hidden','true');
+  const ringPaths=['ring-base','ring-arc'].map(name=>{
+    const path=document.createElementNS(ringSvg.namespaceURI,'path');
+    path.setAttribute('class',name);
+    path.setAttribute('pathLength','100');
+    ringSvg.append(path);
+    return path;
   });
-  setInterval(()=>{if(togglePins.checked)refreshGuide();},3000);
+  map.getCanvas().after(ringSvg);
+  let ringPoints=[],ringTimer=0;
+  const ringPriority={start:1,star:2,diamond:3,mistake:4};
+  function signalRing(kind){
+    if(ringPriority[ringSvg.dataset.event]>ringPriority[kind])return;
+    clearTimeout(ringTimer);
+    delete ringSvg.dataset.event;
+    ringSvg.getBoundingClientRect();
+    ringSvg.dataset.event=kind;
+    ringTimer=setTimeout(()=>{delete ringSvg.dataset.event;},kind==='mistake'?5000:2300);
+  }
+  function projectRing(){
+    if(!ringPoints.length)return;
+    const d=ringPoints.map((coord,i)=>{
+      const p=map.project(coord);
+      return (i?'L':'M')+p.x.toFixed(2)+' '+p.y.toFixed(2);
+    }).join(' ')+' Z';
+    for(const path of ringPaths)path.setAttribute('d',d);
+  }
+  function positionRing(latlng){
+    const first=!ringPoints.length;
+    const [lat,lng]=latlng;
+    const degrees=ringRadiusMetres/6371008.8*180/Math.PI;
+    const longitudeDegrees=degrees/Math.cos(lat*Math.PI/180);
+    ringPoints=Array.from({length:64},(_,i)=>{
+      const angle=2*Math.PI*i/64;
+      return [lng+longitudeDegrees*Math.cos(angle),lat+degrees*Math.sin(angle)];
+    });
+    projectRing();
+    if(first)signalRing('start');
+  }
+  map.on('move',projectRing);
+  map.on('resize',projectRing);
 
   // ── Geolocation ───────────────────────────────────────────────────────────
   function setPostEnabled(on){const ok=on&&!!currentUserId&&!!currentWorkerName&&!isAdmin&&!workerShiftEnded();btnJa.disabled=btnNee.disabled=btnBonus.disabled=btnPost.disabled=!ok;}
@@ -3263,9 +3155,9 @@
     return new Promise(resolve=>{
       navigator.geolocation.getCurrentPosition(
         pos=>{
-          accuracy=pos.coords.accuracy;lastFix=pos.timestamp;currentLatLng=[pos.coords.latitude,pos.coords.longitude];refreshGuide();
+          currentLatLng=[pos.coords.latitude,pos.coords.longitude];
           ensureLocMarker(currentLatLng);
-          if(focus)map.flyTo({center:[currentLatLng[1],currentLatLng[0]],zoom:Math.max(map.getZoom(),15),duration:800});
+          if(focus)map.flyTo({center:[currentLatLng[1],currentLatLng[0]],zoom:Math.max(map.getZoom(),18),duration:800});
           setPostEnabled(true);updateSegLiveDot(currentLatLng);resolve(currentLatLng);
         },
         ()=>{showToast('Location unavailable');setPostEnabled(false);resolve(null);},
@@ -3276,7 +3168,7 @@
 
   if('geolocation' in navigator){
     navigator.geolocation.watchPosition(pos=>{
-      accuracy=pos.coords.accuracy;lastFix=pos.timestamp;currentLatLng=[pos.coords.latitude,pos.coords.longitude];refreshGuide();
+      currentLatLng=[pos.coords.latitude,pos.coords.longitude];
       ensureLocMarker(currentLatLng);setPostEnabled(true);updateSegLiveDot(currentLatLng);
     },()=>{},{enableHighAccuracy:true,maximumAge:15000,timeout:25000});
   }
