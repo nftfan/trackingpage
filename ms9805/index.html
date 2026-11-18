@@ -455,7 +455,18 @@
   #buildingGuide{background:#191c24;color:#f4f5fa;padding:7px 12px;font:13px/1.45 system-ui}
 #buildingGuide label{font-weight:700;display:flex;align-items:center;gap:7px}
 #buildingGuide [data-guide="status"]:not(:empty){padding:4px 0;color:#dde4ee}
-</style>
+    .radius-border{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none}
+    .radius-border path{fill:none;stroke:#1679bd;stroke-width:2;stroke-linecap:round;stroke-dasharray:2 2;animation:radius-turn 2s linear infinite}
+    .radius-border[data-event] path{stroke:var(--ring-color);stroke-width:3}
+    .radius-border[data-event="start"]{--ring-color:#25ad86}
+    .radius-border[data-event="star"]{--ring-color:#e3ab24}
+    .radius-border[data-event="diamond"]{--ring-color:#37ccea}
+    .radius-border[data-event="mistake"]{--ring-color:#e89198}
+    .radius-border[data-event]:not([data-event="mistake"]) path{animation:radius-turn 2s linear infinite,radius-glow .95s ease-in-out 2}
+    @keyframes radius-turn{to{stroke-dashoffset:-4}}
+    @keyframes radius-glow{0%,100%{stroke-opacity:1}50%{stroke-opacity:.45}}
+    @media(prefers-reduced-motion:reduce){.radius-border path,.radius-border[data-event] path{animation:none!important}}
+  </style>
 </head>
 <body>
 <div id="loaderOverlay" class="loader-overlay">
@@ -2130,11 +2141,13 @@
       const roundProgress = ((after - 1) % 10) + 1;
       if (roundProgress === STAR_POSTS_PER_MINUTE) {
         triggerRewardAnimation('star','+1');
+        signalRing('star');
         addLocalRewardEvent('star', minute, roundIndex);
         showCoachNotification({icon:'⭐',title:`Star ${roundIndex + 1} unlocked!`,detail:`Round ${roundIndex + 1}: 5/10 filled. Reach 10 to upgrade it to a diamond.`,side:'STAR',tone:'star',duration:2200});
       }
       if (roundProgress === DIAMOND_POSTS_PER_MINUTE) {
         triggerRewardAnimation('diamond','UPGRADE');
+        signalRing('diamond');
         addLocalRewardEvent('diamond', minute, roundIndex);
         showCoachNotification({icon:'💎',title:`Diamond ${roundIndex + 1}!`,detail:`Round ${roundIndex + 1} complete — its star is upgraded to a diamond.`,side:'DIAMOND',tone:'diamond',duration:2500});
       }
@@ -2275,10 +2288,19 @@
     const worker=currentWorkerName.trim().toLowerCase();
     return computeMistakes(dots).filter(m=>m.workerName.toLowerCase()===worker);
   }
+  let ringMistakesReady=false,ringMistakesSeen=null,ringWorkerKey='';
+  function updateRingMistakes(mistakes){
+    if(!ringMistakesReady||!currentUserId||!currentWorkerName||isAdmin)return;
+    const key=JSON.stringify([currentUserId,currentWorkerName]);
+    const ids=new Set(mistakes.map(m=>m.type+'|'+m.timestamp));
+    if(ringWorkerKey===key&&ringMistakesSeen&&[...ids].some(id=>!ringMistakesSeen.has(id)))signalRing('mistake');
+    ringWorkerKey=key;ringMistakesSeen=ids;
+  }
   function renderCurrentShiftMistakes(dots=globalAllDots){
     const status=document.getElementById('shiftMistakesStatus');
     const rows=document.getElementById('shiftMistakesRows');
     const mistakes=currentUserId ? currentShiftMistakes(dots) : [];
+    updateRingMistakes(mistakes);
     const badge=document.getElementById('shiftMistakesBadge');
     badge.textContent=String(mistakes.length);
     badge.classList.toggle('show',mistakes.length>0);
@@ -2439,6 +2461,7 @@
     if (typeof myPostsUnsub==='function'){myPostsUnsub();myPostsUnsub=null;}
     let normalDots=[], orangeDots=[];
     let normalReady=false,orangeReady=false;
+    ringMistakesReady=false;ringMistakesSeen=null;
     renderMistakes([]);
     const combine=()=>{
       hideLoader();
@@ -2453,7 +2476,7 @@
       syncChallengeFromDots(allDots);
       updateCampaignProgress(teamDots,teamPosts);
       populateShiftSelect(allDots);
-      if(normalReady && orangeReady)renderMistakes(allDots);
+      if(normalReady && orangeReady){ringMistakesReady=true;renderMistakes(allDots);}
     };
     const nRef=query(ref(db,`userPosts/${id}`),orderByChild('timestamp'));
     const oRef=query(ref(db,`userPostClicks/${id}`),orderByChild('timestamp'));
@@ -2624,6 +2647,7 @@
       updateWorkerUi();
       setPostEnabled(!!currentLatLng);
       closeWorkerModal();
+      if(!Number(record.startedAt))signalRing('start');
       showToast(`Worker ${name} started`);
       resetChallengeUi();
       if(myPostsUnsub)myPostsUnsub();
@@ -3158,6 +3182,32 @@
     return feat('Polygon',[ring],{});
   }
 
+  const svgNS='http://www.w3.org/2000/svg';
+  const radiusBorder=document.createElementNS(svgNS,'svg');
+  radiusBorder.setAttribute('class','radius-border');
+  radiusBorder.setAttribute('aria-hidden','true');
+  const borderPath=document.createElementNS(svgNS,'path');
+  borderPath.setAttribute('pathLength','100');
+  radiusBorder.append(borderPath);
+  map.getCanvas().after(radiusBorder);
+  let borderRing=null,ringTimer=0;
+  function signalRing(kind){
+    if(!togglePins.checked)return;
+    if(radiusBorder.dataset.event==='mistake'&&kind!=='mistake')return;
+    clearTimeout(ringTimer);
+    radiusBorder.dataset.event=kind;
+    ringTimer=setTimeout(()=>{delete radiusBorder.dataset.event;},kind==='mistake'?5000:1950);
+  }
+  function projectBorder(){
+    if(!borderRing){borderPath.removeAttribute('d');return;}
+    const path=borderRing.slice(0,-1).map((coordinate,index)=>{
+      const point=map.project(coordinate);
+      return (index?'L':'M')+point.x.toFixed(2)+' '+point.y.toFixed(2);
+    });
+    borderPath.setAttribute('d',path.join(' ')+' Z');
+  }
+  map.on('move',projectBorder);
+  map.on('resize',projectBorder);
   let lastRender='';
   function refreshGuide(){
     const p=pointNow();
@@ -3168,7 +3218,12 @@
     const pinSource=map.getSource('building-pins');
     const key=JSON.stringify([ready?p:null,pins.map(f=>f.geometry.coordinates)]);
     if(pinSource&&lastRender!==key){
-      map.getSource('guide-radius').setData(fc(ready?[radiusPolygon(p)]:[]));
+      const disk=ready?radiusPolygon(p):null;
+      const starting=!borderRing&&disk;
+      borderRing=disk?.geometry.coordinates[0]||null;
+      projectBorder();
+      if(starting)signalRing('start');
+      map.getSource('guide-radius').setData(fc(disk?[disk]:[]));
       pinSource.setData(fc(pins));
       lastRender=key;
     }
@@ -3183,7 +3238,6 @@
   map.on('load',()=>{
     map.addSource('guide-radius',{type:'geojson',data:fc()});
     map.addLayer({id:'guide-radius-fill',source:'guide-radius',type:'fill',paint:{'fill-color':'#2086c7','fill-opacity':0.06}},'segments-line');
-    map.addLayer({id:'guide-radius-edge',source:'guide-radius',type:'line',paint:{'line-color':'#1679bd','line-width':2,'line-dasharray':[3,2]}},'segments-line');
     const canvas=document.createElement('canvas');
     canvas.width=24;canvas.height=32;
     const ctx=canvas.getContext('2d');
