@@ -456,7 +456,7 @@
 #buildingGuide .guide-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 #buildingGuide label{font-weight:700;display:flex;align-items:center;gap:7px}
 #buildingGuide button,#buildingGuide select{min-height:34px;background:#313746;border:1px solid #677182;color:white;border-radius:6px;padding:4px 9px;font:inherit}
-#buildingGuide [hidden],#buildingGuide:not(:has(input:checked)) [data-guide="zone"]{display:none!important}
+#buildingGuide [hidden]{display:none!important}
 #buildingGuide [data-guide="arrow"]{display:inline-block;font-size:19px;color:#97cbff}
 #buildingGuide [data-guide="status"]:not(:empty){padding:4px 0;color:#dde4ee}
 </style>
@@ -488,8 +488,8 @@
   </div>
 
   <section id="buildingGuide" aria-label="Building guide">
-    <div class="guide-row"><label><input type="checkbox" data-guide="toggle"> Nearby buildings</label>
-    <select data-guide="zone" aria-label="Building guide hexagon"></select><button type="button" data-guide="review" hidden>Review passed</button></div>
+    <div class="guide-row"><label><input type="checkbox" data-guide="toggle"> Nearby buildings · 50 m</label>
+    <button type="button" data-guide="review" hidden>Review passed</button></div>
     <div data-guide="status" role="status"></div>
     <div class="guide-row" data-guide="selection" hidden><span data-guide="arrow" aria-label="Direction on map">↑</span>
     <strong data-guide="label"></strong><span data-guide="distance"></span><button type="button" data-guide="finish">Mark checked</button>
@@ -3154,36 +3154,67 @@
       if(request===controller){request=null;refreshGuide();}
     }
   }
+  const guideRadius=50;
+  function radiusPolygon(p){
+    const ring=[];
+    for(let i=0;i<72;i++){
+      const angle=i*Math.PI/36;
+      ring.push([p[0]+guideRadius*Math.cos(angle)/(111320*Math.cos(p[1]*Math.PI/180)),
+        p[1]+guideRadius*Math.sin(angle)/111320]);
+    }
+    ring.push(ring[0]);
+    return feat('Polygon',[ring],{});
+  }
   function refreshGuide(){
-    const zone=campaignHexagons.find(z=>String(z.id)===hexSelect.value);
+
     const valid=!!(currentUserId&&currentWorkerName&&!isAdmin&&!workerShiftEnded());
-    const key=valid?'lf-buildings-v1:'+JSON.stringify([currentUserId,currentWorkerName,zone?.id||'']):'';
+    const key=valid?'lf-buildings-v1:'+JSON.stringify([currentUserId,currentWorkerName]):'';
     if(key!==scope){
       request?.abort();request=null;scope=key;target='';origin=null;footprints=[];retryAt=0;lookupMessage='';storageMessage='';
-      try{records=JSON.parse(localStorage.getItem(key)||'{}')||{};}catch{records={};}
+      try{records=JSON.parse(localStorage.getItem(key)||'{}')||{};
+        if(key&&!localStorage.getItem(key)){
+          const prefix=key.slice(0,-1)+',';
+          for(let i=0;i<localStorage.length;i++){
+            const old=localStorage.key(i);
+            if(!old?.startsWith(prefix))continue;
+            for(const [id,r] of Object.entries(JSON.parse(localStorage.getItem(old)||'{}')))
+              if(!records[id]?.checked&&r?.feature?.geometry)records[id]=r;
+          }
+          if(Object.keys(records).length)saveGuide();
+        };}catch{records={};}
     }
     const source=map.getSource('near-buildings');
     const p=pointNow();
-    const ready=active&&valid&&zone&&p&&Date.now()-lastFix<60000&&accuracy<=45;
-    if(!active||!valid||!zone){request?.abort();request=null;}
+    const ready=active&&valid&&p&&Date.now()-lastFix<60000&&accuracy<=45;
+    const radiusSource=map.getSource('guide-radius');
+    if(radiusSource){
+      const positionKey=ready?p.join(','):'';
+      if(radiusSource._positionKey!==positionKey){
+        radiusSource.setData(fc(ready?[radiusPolygon(p)]:[]));
+        radiusSource._positionKey=positionKey;
+      }
+    }
+    if(!active||!valid){request?.abort();request=null;}
     if(ready&&!request&&Date.now()>=retryAt&&(!origin||metres(p,origin)>115))fetchFootprints(p);
     let changed=false;
     if(ready)for(const f of footprints){
-      if(!records[f.properties.id]&&inside(f.properties.centre,zone.points)&&footprintDistance(p,f)<=40){
+      if(!records[f.properties.id]&&footprintDistance(p,f)<=guideRadius){
         records[f.properties.id]={feature:f,checked:false};changed=true;
       }
     }
     if(changed)saveGuide();
     const items=Object.values(records);
-    const visible=active&&valid&&zone?items:[];
+    const nearby=ready?items.filter(r=>footprintDistance(p,r.feature)<=guideRadius):[];
+    const visible=nearby.slice();
+    if(ready&&records[target]&&!visible.includes(records[target]))visible.push(records[target]);
     const features=visible.map(r=>({...r.feature,properties:{id:r.feature.properties.id,checked:r.checked,selected:r.feature.properties.id===target}}));
     const signature=JSON.stringify(features.map(f=>f.properties));
     if(source&&source._guideSignature!==scope+signature){source.setData(fc(features));source._guideSignature=scope+signature;}
-    const review=p?visible.filter(r=>!r.checked&&footprintDistance(p,r.feature)>40):[];
+    const review=ready?items.filter(r=>!r.checked&&footprintDistance(p,r.feature)>guideRadius):[];
     field('review').hidden=!ready||!review.length;
     field('review').textContent='Review passed ('+review.length+')';
     field('review').onclick=()=>selectBuilding(review.sort((a,b)=>metres(p,a.feature.properties.centre)-metres(p,b.feature.properties.centre))[0].feature.properties.id,true);
-    const selected=visible.length&&records[target];
+    const selected=ready&&records[target];
     field('selection').hidden=!selected;
     field('finish').disabled=!ready;
     if(selected){
@@ -3194,7 +3225,7 @@
       field('arrow').hidden=!ready;
       if(ready)field('arrow').style.transform='rotate('+(Math.atan2((c[0]-p[0])*Math.cos(p[1]*Math.PI/180),c[1]-p[1])*180/Math.PI-map.getBearing())+'deg)';
     }
-    field('status').textContent=!active?'':!valid?'Start a worker shift to use the guide.':!zone?'Choose a campaign hexagon to see nearby buildings.':!ready?'Waiting for a fresh GPS fix within 45 m accuracy.':(storageMessage||lookupMessage|| (visible.length?visible.filter(r=>!r.checked).length+' unchecked · Tap an outline to review':'No mapped buildings within 40 m in this hexagon.'));
+    field('status').textContent=!active?'':!valid?'Start a worker shift to use the guide.':!ready?'Waiting for a fresh GPS fix within 45 m accuracy.':(storageMessage||lookupMessage|| (nearby.length?nearby.filter(r=>!r.checked).length+' unchecked · Tap an outline to review':'No mapped buildings within 50 m.'));
   }
   function selectBuilding(id,focus){
     if(!records[id])return;
@@ -3210,15 +3241,10 @@
     records[target].checked=!records[target].checked;saveGuide();refreshGuide();
   };
   field('close').onclick=()=>{target='';refreshGuide();};
-  field('zone').onchange=e=>{hexSelect.value=e.target.value;hexSelect.dispatchEvent(new Event('change'));refreshGuide();};
-  function syncGuideZone(){
-    field('zone').replaceChildren(...Array.from(hexSelect.options,o=>new Option(o.value?o.text:'Choose hexagon',o.value)));
-    field('zone').value=hexSelect.value;field('zone').disabled=hexSelect.disabled;
-  }
-  new MutationObserver(syncGuideZone).observe(hexSelect,{childList:true,attributes:true});
-  hexSelect.addEventListener('change',()=>{syncGuideZone();refreshGuide();});
-  syncGuideZone();
   map.on('load',()=>{
+    map.addSource('guide-radius',{type:'geojson',data:fc()});
+    map.addLayer({id:'guide-radius-fill',source:'guide-radius',type:'fill',paint:{'fill-color':'#2086c7','fill-opacity':0.06}},'segments-line');
+    map.addLayer({id:'guide-radius-edge',source:'guide-radius',type:'line',paint:{'line-color':'#1679bd','line-width':2,'line-dasharray':[3,2]}},'segments-line');
     map.addSource('near-buildings',{type:'geojson',data:fc()});
     const color=['case',['get','selected'],'#1664bd',['get','checked'],'#787f88','#db263a'];
     map.addLayer({id:'building-hit',source:'near-buildings',type:'fill',paint:{'fill-color':color,'fill-opacity':0.14}},'segments-line');
