@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>LeuvenFlyers · Worker Location Circle</title>
+  <title>LeuvenFlyers · Worker Location Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="theme-color" content="#0f0f12" />
@@ -440,13 +440,13 @@
     .icon-bar .danger-icon,.icon-bar .danger-icon .icon-caption{color:#f87171;}
     .icon-bar .danger-icon:hover{color:#fca5a5;background:rgba(239,68,68,.12);}
     #shiftMistakesTitle{font-size:16px;}
-  .location-ring{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;--ink:#2563a6;--light:#8fe7ff;--wash:#52c4ed}
-  .location-ring[data-event="mistake"]{--ink:#bb6876;--light:#ffd4d9;--wash:#eea5af}
-  .location-ring path{stroke-linejoin:round;stroke-linecap:round;transition:stroke .35s,fill .35s}
-  .location-ring .ring-base{stroke:var(--ink);stroke-width:2.5;fill:var(--wash);fill-opacity:.18}
-  .location-ring .ring-arc{fill:none;stroke:var(--light);stroke-width:2;stroke-dasharray:12 38}
-  .location-ring[data-event="mistake"] .ring-base{animation:none;fill-opacity:.27}
-  @media(prefers-reduced-motion:reduce){.location-ring path{animation:none!important;transition:none}}
+  .location-area{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;--left:#149ccc;--right:#9270da;--edge:#364e78}
+  .location-area[data-event="mistake"]{--left:#eb9eaa;--right:#dd8597;--edge:#b76070}
+  .location-area rect{stroke:none;fill-opacity:.28;transition:fill .35s}
+  .location-area .left-half{fill:var(--left)}
+  .location-area .right-half{fill:var(--right)}
+  .location-area path{fill:none;stroke:var(--edge);stroke-width:1.6;vector-effect:non-scaling-stroke;transition:stroke .35s}
+  @media(prefers-reduced-motion:reduce){.location-area *{transition:none!important}}
   
     .challenge-chip{--accent:#86f2ce;--meter:0%;bottom:9px;gap:8px;height:auto;overflow:hidden;padding:6px 10px 8px;border:1px solid #456561;border-radius:10px;background:linear-gradient(125deg,#17312e,#102426);color:#f3fffb;font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;}
     .challenge-chip.right{--accent:#bfb8ff;--meter:100%;background:linear-gradient(125deg,#282741,#191c32);border-color:#565377;color:#faf8ff}
@@ -1624,7 +1624,7 @@
     } else {
       locationMarker.setLngLat([latlng[1], latlng[0]]);
     }
-    positionRing(latlng);
+    projectLocationArea();
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -2283,7 +2283,7 @@
     if(!ringMistakesReady||!currentUserId||!currentWorkerName||isAdmin)return;
     const key=JSON.stringify([currentUserId,currentWorkerName]);
     const ids=new Set(mistakes.map(m=>m.type+'|'+m.timestamp));
-    if(ringWorkerKey===key&&ringMistakesSeen&&[...ids].some(id=>!ringMistakesSeen.has(id)))showRingMistake();
+    if(ringWorkerKey===key&&ringMistakesSeen&&[...ids].some(id=>!ringMistakesSeen.has(id)))showAreaMistake();
     ringWorkerKey=key;ringMistakesSeen=ids;
   }
   function renderCurrentShiftMistakes(dots=globalAllDots){
@@ -3095,45 +3095,46 @@
     isAdmin=false;document.body.classList.remove('admin-mode');currentWorkerName=null;updateWorkerUi();setPostEnabled(false);adminBackdrop.classList.remove('show');resetChallengeUi();openWorkerModal();
   });
 
-  // A ground-distance ring centred on the location marker's bottom anchor.
-  const ringRadiusMetres=15.24;
-  const ringSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  ringSvg.setAttribute('class','location-ring');
-  ringSvg.setAttribute('aria-hidden','true');
-  const ringPaths=['ring-base','ring-arc'].map(name=>{
-    const path=document.createElementNS(ringSvg.namespaceURI,'path');
-    path.setAttribute('class',name);
-    path.setAttribute('pathLength','100');
-    ringSvg.append(path);
-    return path;
-  });
-  map.getCanvas().after(ringSvg);
-  let ringPoints=[],ringTimer=0;
-  function showRingMistake(){
-    clearTimeout(ringTimer);
-    ringSvg.dataset.event='mistake';
-    ringTimer=setTimeout(()=>{delete ringSvg.dataset.event;},5000);
+  // Two screen-aligned squares share a divider at the location marker's anchor.
+  const halfWidthMetres=15.24;
+  const svgNS='http://www.w3.org/2000/svg';
+  const locationArea=document.createElementNS(svgNS,'svg');
+  locationArea.setAttribute('class','location-area');
+  locationArea.setAttribute('aria-hidden','true');
+  const halves=document.createElementNS(svgNS,'g');
+  halves.setAttribute('visibility','hidden');
+  for(const [side,x] of [['left',-1],['right',0]]){
+    const part=document.createElementNS(svgNS,'rect');
+    for(const [key,value] of Object.entries({class:side+'-half',x,y:-0.5,width:1,height:1}))
+      part.setAttribute(key,String(value));
+    halves.append(part);
   }
-  function projectRing(){
-    if(!ringPoints.length)return;
-    const d=ringPoints.map((coord,i)=>{
-      const p=map.project(coord);
-      return (i?'L':'M')+p.x.toFixed(2)+' '+p.y.toFixed(2);
-    }).join(' ')+' Z';
-    for(const path of ringPaths)path.setAttribute('d',d);
+  const edges=document.createElementNS(svgNS,'path');
+  edges.setAttribute('d','M-1 -.5 H1 V.5 H-1 Z M0 -.5 V.5');
+  halves.append(edges);
+  locationArea.append(halves);
+  map.getCanvas().after(locationArea);
+  let mistakeTimer=0;
+  function showAreaMistake(){
+    clearTimeout(mistakeTimer);
+    locationArea.dataset.event='mistake';
+    mistakeTimer=setTimeout(()=>{delete locationArea.dataset.event;},5000);
   }
-  function positionRing(latlng){
-    const [lat,lng]=latlng;
-    const degrees=ringRadiusMetres/6371008.8*180/Math.PI;
-    const longitudeDegrees=degrees/Math.cos(lat*Math.PI/180);
-    ringPoints=Array.from({length:64},(_,i)=>{
-      const angle=2*Math.PI*i/64;
-      return [lng+longitudeDegrees*Math.cos(angle),lat+degrees*Math.sin(angle)];
-    });
-    projectRing();
+  function projectLocationArea(){
+    if(!locationMarker)return;
+    const anchor=locationMarker.getLngLat();
+    const center=map.project(anchor);
+    const adjacent=map.unproject([center.x+1,center.y]);
+    const metresPerPixel=anchor.distanceTo(adjacent);
+    if(!Number.isFinite(metresPerPixel)||metresPerPixel<=0){
+      halves.setAttribute('visibility','hidden');
+      return;
+    }
+    halves.setAttribute('transform',`translate(${center.x} ${center.y}) scale(${halfWidthMetres/metresPerPixel})`);
+    halves.setAttribute('visibility','visible');
   }
-  map.on('move',projectRing);
-  map.on('resize',projectRing);
+  map.on('move',projectLocationArea);
+  map.on('resize',projectLocationArea);
 
   // ── Geolocation ───────────────────────────────────────────────────────────
   function setPostEnabled(on){const ok=on&&!!currentUserId&&!!currentWorkerName&&!isAdmin&&!workerShiftEnded();btnJa.disabled=btnNee.disabled=btnBonus.disabled=btnPost.disabled=!ok;}
