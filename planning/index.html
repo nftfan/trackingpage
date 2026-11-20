@@ -1902,10 +1902,10 @@ body[data-campaign-locked="true"] .left-panel .tool-section{opacity:.55}
 #campaignPinError{min-height:20px;color:#a02d38;font-size:12px}
 .campaign-pin-actions{display:flex;gap:8px}
 </style><style>
-.quote-request{margin-top:18px;padding:18px;border:1px solid #dce3d7;border-radius:16px;background:white}
-.quote-request .action{margin-top:12px}
-#quoteStatus{font-size:12px;line-height:1.5;color:#375840}
-#quoteStatus:empty{display:none}
+.campaign-email{margin-top:18px;padding:18px;border:1px solid #dce3d7;border-radius:16px;background:white}
+.campaign-email .action{margin-top:12px}
+#campaignEmailStatus{font-size:12px;line-height:1.5;color:#375840}
+#campaignEmailStatus:empty{display:none}
 </style>
 <style id="expanded-header-layout">
 /* Wider right-hand sidebar and proportional map sizing. */
@@ -1991,14 +1991,14 @@ body[data-campaign-locked="true"] .left-panel .tool-section{opacity:.55}
 </div>
 <div class="client-badge" hidden="" id="clientBadge"></div>
 </header>
-<aside aria-label="Campaign estimate and quote request" class="finance-panel"><div class="campaign-summary" id="campaignSummary">
+<aside aria-label="Campaign estimate and contact email" class="finance-panel"><div class="campaign-summary" id="campaignSummary">
 <div class="empty">Plan a campaign or open an existing XX ID.</div>
-</div><form id="quoteRequestForm" class="quote-request">
-  <h2>Request a quote</h2>
-  <label for="quoteEmail">Email address</label>
-  <input class="field" id="quoteEmail" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required>
-  <button class="action" id="requestQuoteBtn" type="submit" disabled>Save email</button>
-  <p id="quoteStatus" role="status" aria-live="polite"></p>
+</div><form id="campaignEmailForm" class="campaign-email">
+  <h2>Campaign contact</h2>
+  <label for="campaignEmailInput">Email address</label>
+  <input class="field" id="campaignEmailInput" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required>
+  <button class="action" id="saveEmailBtn" type="submit" disabled>Save email</button>
+  <p id="campaignEmailStatus" role="status" aria-live="polite"></p>
 </form></aside><aside aria-label="Planning and estimates" class="left-panel">
 <div class="tool-scroll">
 <!-- AREA -->
@@ -2068,6 +2068,7 @@ import {
  getDatabase,
  query,
  orderByKey,
+ limitToLast,
  startAt,
  endAt,
  ref,
@@ -2227,7 +2228,7 @@ let areaSearchToken=0;
 let areaSuggestTimer=null;
 
 let insightId=null, qrUnsubscribe=null;
-let pendingQuote=null;
+let pendingEmailSave=null;
 let clientId='';
 let campaignLocked=false, campaignLockPending=false, campaignLockSaving=false;
 let campaignLockUnsubscribe=null, campaignLockError=false;
@@ -7745,8 +7746,20 @@ async function loadCampaign(requestedId){
   $('quoteBusinessName').value=
    String(savedBusiness);
 
-  $('clientEmail').value=
-   String(savedEmail);
+  syncInsightCampaign();
+  $('clientEmail').value=String(savedEmail);
+  $('campaignEmailInput').value=String(savedEmail);
+  if(!savedEmail){
+   // Earlier planner versions stored addresses in a per-plan request history.
+   const token=campaignLoadToken;
+   get(query(ref(db,`quoteRequests/${id}`),orderByKey(),limitToLast(1))).then(snapshot=>{
+    if(clientId!==id || token!==campaignLoadToken || $('campaignEmailInput').value || $('clientEmail').value || pendingEmailSave)return;
+    snapshot.forEach(child=>{
+     const address=child.val()?.email;
+     if(typeof address==='string')$('campaignEmailInput').value=address;
+    });
+   }).catch(error=>console.warn('Previous campaign email could not be loaded',error));
+  }
 
   $('businessSaveStatus').textContent=
    savedBusiness
@@ -8925,9 +8938,9 @@ function campaignPlanningBlocked(notify=true){
  return blocked;
 }
 function updateEmailControls(){
- const disabled=!clientId || Boolean(pendingQuote) || campaignPlanningBlocked(false);
- $('quoteEmail').disabled=disabled;
- $('requestQuoteBtn').disabled=disabled;
+ const disabled=!clientId || Boolean(pendingEmailSave) || campaignPlanningBlocked(false);
+ $('campaignEmailInput').disabled=disabled;
+ $('saveEmailBtn').disabled=disabled;
 }
 function renderCampaignLock(){
  updateEmailControls();
@@ -9090,42 +9103,48 @@ function syncInsightCampaign(){
  qrUnsubscribe?.();
  qrUnsubscribe=null;
  insightId=clientId;
- pendingQuote=null;
- $('quoteEmail').value='';
+ pendingEmailSave=null;
+ $('campaignEmailInput').value='';
  updateEmailControls();
- $('quoteStatus').textContent=clientId
+ $('campaignEmailStatus').textContent=clientId
   ?'Plan '+clientId
-  :'Create or open an XX plan to request a quote.';
+  :'Create or open an XX plan to save an email address.';
  renderQrCount(clientId?'…':0);
  if(!clientId)return;
  const id=clientId;
  qrUnsubscribe=onValue(ref(db,'qr_scans'),snap=>{if(clientId!==id)return;let count=0;snap.forEach(child=>{if(child.val()?.promoCode===id)count++;});renderQrCount(count);},()=>{if(clientId===id)renderQrCount('—');});
 }
 
-$('quoteRequestForm').addEventListener('submit',async event=>{
+$('campaignEmailForm').addEventListener('submit',async event=>{
  event.preventDefault();
  const id=clientId;
- if(!id || pendingQuote || insightId!==id || campaignPlanningBlocked(false))return;
- const email=$('quoteEmail');
+ if(!id || pendingEmailSave || insightId!==id || campaignPlanningBlocked(false))return;
+ const email=$('campaignEmailInput');
  email.value=email.value.trim();
  if(!email.reportValidity())return;
  const address=email.value;
- const request=push(ref(db,`quoteRequests/${id}`));
- pendingQuote=request;
+ const saveToken=Symbol();
+ pendingEmailSave=saveToken;
  updateEmailControls();
- const status=$('quoteStatus');
- status.textContent='Saving your request…';
+ const status=$('campaignEmailStatus');
+ status.textContent='Saving email…';
  try{
-  await set(request,{email:address,requestedAt:serverTimestamp()});
-  if(pendingQuote===request){
-   email.value='';
-   status.textContent=`Email saved for ${id}. You will receive your quote at ${address}.`;
+  const paths={
+   [`campaigns/${id}/planner/meta/clientEmail`]:address,
+   [`campaigns/${id}/clientEmail`]:address
+  };
+  if(currentCampaign?.status==='announced')paths[`announcedCampaigns/${id}/clientEmail`]=address;
+  await update(ref(db),paths);
+  if(clientId===id && pendingEmailSave===saveToken){
+   $('clientEmail').value=address;
+   email.value=address;
+   status.textContent=`Email saved for ${id}.`;
   }
  }catch(error){
-  if(pendingQuote===request)status.textContent='Your request could not be saved. Please try again.';
+  if(clientId===id && pendingEmailSave===saveToken)status.textContent='Email could not be saved. Please try again.';
  }finally{
-  if(pendingQuote===request){
-   pendingQuote=null;
+  if(pendingEmailSave===saveToken){
+   pendingEmailSave=null;
    updateEmailControls();
   }
  }
