@@ -57,6 +57,8 @@
     .active-id{padding:6px 9px;border:1px solid #615188;border-radius:9px;background:#302744;color:#ddc7ff;font-size:11px;font-weight:800}
     .action-row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
     .action-row .btn{min-width:0}
+    .auto-button{width:100%;margin-top:8px;background:#34413b;border-color:#619f7a;color:#e6ffee;min-height:46px;font-size:12px}
+    .auto-note{font-size:10px;color:#b8cad3;line-height:1.4;margin:7px 2px 0}
     .action-row.draw-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
     .action-row.draw-actions .btn{padding:0 5px}
     .action-row.draw-actions #cancelBtn{grid-column:1/-1;min-height:37px}
@@ -129,6 +131,8 @@
         <button class="btn primary" id="startBtn" type="button" disabled>✎ Draw new segment</button>
         <button class="btn" id="fitBtn" type="button" disabled>⌖ View selected</button>
       </div>
+      <button type="button" id="autoBtn" class="btn auto-button" disabled>⌁ Auto 500 m along buildings</button>
+      <p class="auto-note" id="autoHint">Starts near your GPS pin, traces mapped street-facing building edges, and uses short dashed connectors between buildings. Preview before saving.</p>
       <div id="drawingUI" class="hidden">
         <div class="draw-modes">
           <label><input name="drawMode" type="radio" value="trace" checked><span>✎ Finger trace</span></label>
@@ -195,13 +199,15 @@ const ui={
   badge:$('activeBadge'),segmentSelect:$('segmentSelect'),count:$('segmentCount'),listHint:$('listHint'),
   start:$('startBtn'),fit:$('fitBtn'),view:$('viewBtn'),idle:$('idleActions'),drawingUI:$('drawingUI'),
   pan:$('panBtn'),undo:$('undoBtn'),save:$('saveBtn'),cancel:$('cancelBtn'),actionHint:$('actionHint'),
-  mapHint:$('mapHint'),mapPill:$('mapPill'),locate:$('locateBtn'),locateText:$('locateText'),
+  mapHint:$('mapHint'),mapPill:$('mapPill'),locate:$('locateBtn'),locateText:$('locateText'),auto:$('autoBtn'),autoHint:$('autoHint'),
   name:$('metricName'),length:$('metricLength'),points:$('metricPoints'),startCoord:$('metricStart'),endCoord:$('metricEnd'),
   connection:$('connectionChip'),connectionText:$('connectionText'),toast:$('toast')
 };
 let tt='',busy=false,drawing=false,panning=false,mapReady=false;
 let draft=[],undoHistory=[],traceMode='trace',activePointer=null,lastPixel=null,strokeMoved=false;
 let selectedKey='',selectedCoords=[],indexItems=new Map(),routeCache=new Map(),legacyCoords=null;
+let draftBridges=[],selectedBridges=[],routeBridgeCache=new Map(),draftOrigin='manual';
+let lastGPS=null,lastGPSTime=0,autoRequestId=0;
 let indexRef=null,indexListener=null,ttRequest=0,routeRequest=0,pendingKey='';
 let toastTimeout;
 function notify(msg){ui.toast.textContent=msg;ui.toast.classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>ui.toast.classList.remove('show'),3300);}
@@ -214,6 +220,7 @@ function distance(pts){let d=0;for(let i=1;i<pts.length;i++)d+=meters(pts[i-1],p
 function formatDistance(d){return d>=1000?(d/1000).toFixed(2)+' km':Math.round(d)+' m';}
 function formatCoord(p){return p?`${p[1].toFixed(5)}, ${p[0].toFixed(5)}`:'—';}
 function mapFeature(coords){return{type:'FeatureCollection',features:coords.length>=2?[{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords}}]:[]};}
+function bridgeFeature(coords,ranges){return{type:'FeatureCollection',features:(Array.isArray(ranges)?ranges:[]).filter(r=>Array.isArray(r)&&r.length===2&&Number.isInteger(r[0])&&Number.isInteger(r[1])&&r[0]>=0&&r[1]<coords.length&&r[1]>r[0]).map(([i,j])=>({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords.slice(i,j+1)}}))};}
 const map=new maplibregl.Map({
   container:'map',
   style:{version:8,sources:{osm:{type:'raster',tileSize:256,tiles:[
@@ -234,9 +241,13 @@ function locationMarker(){
 map.on('load',()=>{
   map.addSource('selected',{type:'geojson',data:mapFeature([])});
   map.addSource('draft',{type:'geojson',data:mapFeature([])});
+  map.addSource('savedBridges',{type:'geojson',data:bridgeFeature([],[])});
+  map.addSource('draftBridges',{type:'geojson',data:bridgeFeature([],[])});
   map.addLayer({id:'savedGlow',type:'line',source:'selected',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#b787fa','line-width':13,'line-opacity':.32,'line-blur':3}});
   map.addLayer({id:'savedLine',type:'line',source:'selected',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#963cf3','line-width':5.5}});
+  map.addLayer({id:'savedBridgeLine',type:'line',source:'savedBridges',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#f3d0ff','line-width':5.8,'line-dasharray':[1.8,1.6]}});
   map.addLayer({id:'draftLine',type:'line',source:'draft',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#f5b744','line-width':5}});
+  map.addLayer({id:'draftBridgeLine',type:'line',source:'draftBridges',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#f9e6b0','line-width':5.6,'line-dasharray':[1.8,1.6]}});
   startPin=endpointMarker('S','s');endPin=endpointMarker('E','e');
   mapReady=true;renderMap();refreshControls();
 });
@@ -247,6 +258,8 @@ function renderMap(){
   const shown=drawing?draft:selectedCoords;
   map.getSource('selected').setData(mapFeature(drawing?[]:selectedCoords));
   map.getSource('draft').setData(mapFeature(drawing?draft:[]));
+  map.getSource('savedBridges').setData(bridgeFeature(drawing?[]:selectedCoords,drawing?[]:selectedBridges));
+  map.getSource('draftBridges').setData(bridgeFeature(drawing?draft:[],drawing?draftBridges:[]));
   if(shown.length)startPin.setLngLat(shown[0]).addTo(map);else startPin.remove();
   if(shown.length>1)endPin.setLngLat(shown[shown.length-1]).addTo(map);else endPin.remove();
   if(drawing){
@@ -284,6 +297,9 @@ function refreshControls(){
   ui.mapHint.classList.toggle('hidden',!drawing);
   ui.mapHint.textContent=panning?'Pan mode: move or zoom the map':traceMode==='tap'?'Tap map to place points':'Use your finger to trace the route';
   ui.start.disabled=busy||!tt||!mapReady;
+  ui.auto.disabled=busy||!tt||!mapReady||drawing;
+  ui.auto.classList.toggle('hidden',drawing);
+  ui.autoHint.classList.toggle('hidden',drawing);
   ui.fit.disabled=busy||!selectedKey||selectedCoords.length<2;
   ui.view.disabled=busy||!selectedKey||drawing;
   ui.save.disabled=busy||!drawing||draft.length<2;
@@ -296,8 +312,8 @@ function refreshControls(){
   else ui.actionHint.textContent='Open a TT ID to start drawing. Every save creates another segment under that ID.';
 }
 function changedTTWarning(){return !drawing||draft.length===0||confirm('Discard the unsaved segment?');}
-function stopDrawing(){drawing=false;panning=false;activePointer=null;draft=[];undoHistory=[];scheduleRender();}
-function resetSelected(){selectedKey='';selectedCoords=[];setMetrics();scheduleRender();}
+function stopDrawing(){drawing=false;panning=false;activePointer=null;draft=[];draftBridges=[];draftOrigin='manual';undoHistory=[];scheduleRender();}
+function resetSelected(){selectedKey='';selectedCoords=[];selectedBridges=[];setMetrics();scheduleRender();}
 function detachIndex(){if(indexRef&&indexListener)indexRef.off('value',indexListener);indexRef=null;indexListener=null;}
 function segmentLabel(key){
   const keys=[...indexItems.entries()].sort((a,b)=>(Number(a[1].createdAt)||0)-(Number(b[1].createdAt)||0)||a[0].localeCompare(b[0])).map(([k])=>k);
@@ -332,7 +348,7 @@ async function activateTT(text){
   if(!changedTTWarning())return;
   const token=++ttRequest;routeRequest++;busy=true;refreshControls();
   detachIndex();stopDrawing();tt=id;ui.input.value=id;
-  legacyCoords=null;indexItems.clear();routeCache.clear();pendingKey='';resetSelected();updateList();
+  legacyCoords=null;indexItems.clear();routeCache.clear();routeBridgeCache.clear();pendingKey='';resetSelected();updateList();
   ui.ttHint.textContent='Loading segments for '+id+'…';
   try{
     // The registry makes manually opened IDs visible to the generator without listing IDs in the UI.
@@ -378,28 +394,30 @@ async function selectSegment(key,fit=true){
   const meta=indexItems.get(key);
   if(!meta){notify('Segment not found.');return;}
   const token=++routeRequest;
-  selectedKey=key;selectedCoords=[];
+  selectedKey=key;selectedCoords=[];selectedBridges=[];
   const idx=[...indexItems.keys()].sort((a,b)=>(Number(indexItems.get(a).createdAt)||0)-(Number(indexItems.get(b).createdAt)||0)||a.localeCompare(b)).indexOf(key);
   const label='Segment '+(idx+1);
   ui.segmentSelect.value=key;setMetrics(meta,null,label);scheduleRender();
   try{
     let coords=routeCache.get(key);
     if(!coords){
-      const ref=key==='__legacy'?segmentRoot.child(tt).child('coords'):segmentRoot.child(tt).child('items').child(key).child('coords');
+      const ref=key==='__legacy'?segmentRoot.child(tt).child('coords'):segmentRoot.child(tt).child('items').child(key);
       const snap=await ref.once('value');
       if(token!==routeRequest)return;
-      coords=parseCoords(snap.val());
+      const payload=snap.val();
+      coords=parseCoords(key==='__legacy'?payload:payload?.coords);
       if(coords.length<2)throw new Error('Saved segment has fewer than two valid points.');
       routeCache.set(key,coords);
+      routeBridgeCache.set(key,key==='__legacy'?[]:(Array.isArray(payload?.connectorRanges)?payload.connectorRanges:[]));
     }
     if(token!==routeRequest)return;
-    selectedCoords=coords;setMetrics(meta,coords,label);scheduleRender();
+    selectedCoords=coords;selectedBridges=routeBridgeCache.get(key)||[];setMetrics(meta,coords,label);scheduleRender();
     if(fit)requestAnimationFrame(()=>fitRoute(coords));
   }catch(err){if(token===routeRequest){selectedCoords=[];scheduleRender();notify('Could not load segment: '+(err.message||'Firebase error'));}console.error(err);}
 }
 function startDrawing(){
   if(!tt||busy||!mapReady)return;
-  drawing=true;panning=false;draft=[];undoHistory=[];lastPixel=null;
+  drawing=true;panning=false;draft=[];draftBridges=[];draftOrigin='manual';undoHistory=[];lastPixel=null;
   traceMode=document.querySelector('input[name="drawMode"]:checked')?.value||'trace';
   ui.name.textContent='Unsaved drawing';ui.length.textContent='—';ui.points.textContent='0';ui.startCoord.textContent='—';ui.endCoord.textContent='—';
   scheduleRender();refreshControls();notify('Draw a segment on the map above');
@@ -433,18 +451,19 @@ function endStroke(e){
   scheduleRender();
 }
 touch.addEventListener('pointerup',endStroke);touch.addEventListener('pointercancel',endStroke);
-function undo(){if(!undoHistory.length){notify('Nothing to undo.');return;}draft=draft.slice(0,undoHistory.pop());scheduleRender();}
+function undo(){if(!undoHistory.length){notify('Nothing to undo.');return;}draft=draft.slice(0,undoHistory.pop());draftBridges=draftBridges.filter(r=>r[1]<draft.length);scheduleRender();}
 function cancelDrawing(){if(!changedTTWarning())return;stopDrawing();setMetrics(indexItems.get(selectedKey),selectedCoords,segmentLabel(selectedKey));scheduleRender();notify('Drawing cancelled');}
 async function saveDrawing(){
   if(!drawing||busy)return;
   if(draft.length<2){notify('Draw at least two points first.');return;}
   const len=distance(draft);if(len<1){notify('Segment must be at least 1 metre long.');return;}
-  const id=tt,pts=draft.map(p=>p.slice());
+  const id=tt,pts=draft.map(p=>p.slice()),bridges=draftBridges.map(r=>r.slice()),source=draftOrigin;
   const segRef=segmentRoot.child(id).child('items').push();
   const key=segRef.key;
   const data={ttId:id,segmentId:key,coords:toFirebase(pts),lengthMeters:+len.toFixed(2),points:pts.length,
     start:{lat:pts[0][1],lng:pts[0][0]},end:{lat:pts[pts.length-1][1],lng:pts[pts.length-1][0]},
-    createdAt:firebase.database.ServerValue.TIMESTAMP,source:'trainapp-mobile',version:2};
+    createdAt:firebase.database.ServerValue.TIMESTAMP,source:'trainapp-mobile',version:3,
+    routeMethod:source,connectorRanges:bridges};
   const summary={lengthMeters:data.lengthMeters,points:data.points,start:data.start,end:data.end,createdAt:firebase.database.ServerValue.TIMESTAMP};
   busy=true;refreshControls();
   try{
@@ -453,7 +472,7 @@ async function saveDrawing(){
     changes[`segments/${id}/items/${key}`]=data;
     changes[`segmentIndex/${id}/items/${key}`]=summary;
     await root.update(changes);
-    routeCache.set(key,pts);
+    routeCache.set(key,pts);routeBridgeCache.set(key,bridges);
     stopDrawing();pendingKey=key;
     indexItems.set(key,{...summary,createdAt:Date.now()});
     updateList();await selectSegment(key,true);
@@ -461,23 +480,236 @@ async function saveDrawing(){
   }catch(err){console.error('Save:',err);notify('Could not save: '+(err.message||'database error'));}
   finally{busy=false;refreshControls();}
 }
-// Locate Me places a PERSISTENT BLUE PIN on actual device coordinates.
-ui.locate.addEventListener('click',()=>{
-  if(!navigator.geolocation){notify('Location is unavailable in this browser.');return;}
-  if(!window.isSecureContext){notify('Location requires HTTPS (or localhost).');return;}
+// Locate Me: keeps a visible GPS pin. The automatically generated path begins
+// on the nearest mapped building facade, not on an arbitrary road centreline.
+function getDevicePosition({pan=false,fresh=false}={}){
+  if(!navigator.geolocation)return Promise.reject(new Error('Geolocation is not available.'));
+  if(!window.isSecureContext)return Promise.reject(new Error('GPS requires HTTPS or localhost.'));
+  if(!fresh&&lastGPS&&Date.now()-lastGPSTime<30000){
+    if(pan)map.flyTo({center:lastGPS,zoom:Math.max(17,map.getZoom()),duration:600});
+    return Promise.resolve(lastGPS);
+  }
+  return new Promise((resolve,reject)=>{
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const p=[pos.coords.longitude,pos.coords.latitude];
+      lastGPS=p;lastGPSTime=Date.now();
+      if(!locationPin)locationPin=locationMarker();
+      locationPin.setLngLat(p).addTo(map);
+      if(pan)map.flyTo({center:p,zoom:Math.max(17,map.getZoom()),duration:600});
+      resolve(p);
+    },err=>reject(new Error(err.message||'Location permission denied')),
+    {enableHighAccuracy:true,timeout:16000,maximumAge:15000});
+  });
+}
+ui.locate.addEventListener('click',async()=>{
   ui.locate.disabled=true;ui.locateText.textContent='Locating…';
-  navigator.geolocation.getCurrentPosition(position=>{
-    const point=[position.coords.longitude,position.coords.latitude];
-    if(!locationPin)locationPin=locationMarker();
-    locationPin.setLngLat(point).addTo(map);
-    map.flyTo({center:point,zoom:Math.max(16,map.getZoom()),duration:700});
-    ui.locate.disabled=false;ui.locateText.textContent='Locate me';
-    notify('Your location is marked with a blue pin.');
-  },err=>{
-    ui.locate.disabled=false;ui.locateText.textContent='Locate me';
-    notify('Location not available: '+err.message);
-  },{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+  try{await getDevicePosition({pan:true,fresh:true});notify('Your GPS location is marked with a blue pin.');}
+  catch(err){notify(err.message);}
+  finally{ui.locate.disabled=false;ui.locateText.textContent='Locate me';}
 });
+
+/* AUTO BUILDING-FRONT SEGMENT
+   OSM building outlines are real polygons; roads are used ONLY to identify
+   the street-facing sides. We never generate a 500m line along road centres.
+   Adjacent facades may have a gap: short connectors are marked dashed.
+   If 500m of usable mapped facades cannot be reached, refuse to make up a route.
+   This is a facade geometry preview, NOT a verified walkable pedestrian route. */
+const AUTO_DISTANCE=500;
+const AUTO_RADIUS=540;          // OSM data search radius
+const MAX_CONNECTOR=28;         // each link between two building frontages, metres
+const MIN_FACADE_RATIO=.65;     // reject if too much would be off building outlines
+let overpassCache=null;
+function llToXY(ll,origin){const a=Math.PI/180;return[(ll[0]-origin[0])*111320*Math.cos(origin[1]*a),(ll[1]-origin[1])*111195];}
+function xyToLL(p,origin){const a=Math.PI/180;return[origin[0]+p[0]/(111320*Math.cos(origin[1]*a)),origin[1]+p[1]/111195];}
+function dXY(a,b){return Math.hypot(a[0]-b[0],a[1]-b[1]);}
+function projection(p,a,b){
+  const vx=b[0]-a[0],vy=b[1]-a[1],den=vx*vx+vy*vy;
+  const t=den?Math.max(0,Math.min(1,((p[0]-a[0])*vx+(p[1]-a[1])*vy)/den)):0;
+  const q=[a[0]+vx*t,a[1]+vy*t];return{p:q,d:dXY(p,q)};
+}
+function insideRing(p,ring){
+  let odd=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const a=ring[i],b=ring[j];
+    if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])odd=!odd;
+  }
+  return odd;
+}
+function osmGeometry(data,origin){
+  const roads=[],buildings=[];
+  for(const v of(data.elements||[])){
+    if(v.type!=='way'||!Array.isArray(v.geometry)||v.geometry.length<2)continue;
+    const coords=v.geometry.map(pt=>llToXY([pt.lon,pt.lat],origin));
+    if(v.tags?.highway){
+      for(let j=1;j<coords.length;j++)if(dXY(coords[j-1],coords[j])>1)roads.push([coords[j-1],coords[j]]);
+    }
+    if(v.tags?.building){
+      if(/^(garage|garages|shed|roof|carport|hut|barn|greenhouse|industrial|warehouse)$/i.test(v.tags.building))continue;
+      if(coords.length<4)continue;
+      const first=coords[0],last=coords[coords.length-1];
+      if(dXY(first,last)>.5)coords.push(first);
+      if(coords.length>150)continue;
+      buildings.push({id:v.id,ring:coords});
+    }
+  }
+  return {roads,buildings};
+}
+function nearestRoad(pt,roads){
+  let best={d:1e10,p:null};
+  for(const [a,b] of roads){
+    if(pt[0]<Math.min(a[0],b[0])-100||pt[0]>Math.max(a[0],b[0])+100)continue;
+    if(pt[1]<Math.min(a[1],b[1])-100||pt[1]>Math.max(a[1],b[1])+100)continue;
+    const hit=projection(pt,a,b);if(hit.d<best.d)best=hit;
+  }
+  return best;
+}
+function frontageEdges(osm,origin){
+  const out=[];let seq=0;
+  for(const b of osm.buildings){
+    const ring=b.ring;
+    let area2=0;for(let j=1;j<ring.length;j++)area2+=ring[j-1][0]*ring[j][1]-ring[j][0]*ring[j-1][1];
+    const candidates=[];
+    for(let j=1;j<ring.length;j++){
+      const a=ring[j-1],c=ring[j],len=dXY(a,c);
+      if(len<2.2||len>85)continue;
+      const mid=[(a[0]+c[0])/2,(a[1]+c[1])/2];
+      const rd=nearestRoad(mid,osm.roads);
+      if(!rd.p||rd.d>46)continue;
+      const normal=area2>=0?[(c[1]-a[1])/len,-(c[0]-a[0])/len]:[-(c[1]-a[1])/len,(c[0]-a[0])/len];
+      const facing=(rd.p[0]-mid[0])*normal[0]+(rd.p[1]-mid[1])*normal[1];
+      if(facing<Math.max(1,rd.d*.35))continue; // keep sides that actually face a road
+      candidates.push({a,c,len,rd:rd.d,building:b.id});
+    }
+    if(!candidates.length)continue;
+    const mind=Math.min(...candidates.map(e=>e.rd));
+    for(const e of candidates){
+      if(e.rd>Math.min(39,mind+11))continue;
+      // Very distant facades can only be joined with long, unwanted crossings.
+      if(Math.min(dXY(e.a,[0,0]),dXY(e.c,[0,0]))>525)continue;
+      out.push({...e,id:seq++});
+    }
+  }
+  return out;
+}
+function endpointGrid(edges,cell=28){
+  const grid=new Map();
+  const addr=p=>`${Math.floor(p[0]/cell)},${Math.floor(p[1]/cell)}`;
+  for(const e of edges)for(const [p,other] of [[e.a,e.c],[e.c,e.a]]){
+    const key=addr(p);if(!grid.has(key))grid.set(key,[]);
+    grid.get(key).push({p,other,edge:e});
+  }
+  return{near(p,r){const q=[];const ix=Math.floor(p[0]/cell),iy=Math.floor(p[1]/cell),n=Math.ceil(r/cell);
+    for(let x=ix-n;x<=ix+n;x++)for(let y=iy-n;y<=iy+n;y++){
+      for(const v of grid.get(`${x},${y}`)||[])if(dXY(p,v.p)<=r)q.push(v);
+    }return q;}};
+}
+function safeConnector(a,b,buildings){
+  // Avoid connecting THROUGH building interiors. Sample at short intervals.
+  const L=dXY(a,b);if(L<.6)return true;
+  for(let i=1;i<Math.ceil(L/2.5);i++){
+    const t=i/Math.ceil(L/2.5),p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+    for(const x of buildings){
+      // Bounding-box prefilter reduces the number of point-in-polygon calls.
+      if(p[0]<x.bbox[0]||p[0]>x.bbox[2]||p[1]<x.bbox[1]||p[1]>x.bbox[3])continue;
+      if(insideRing(p,x.ring))return false;
+    }
+  }
+  return true;
+}
+function simulateFacadeWalk(edges,buildings,grid,start,dirBias=0){
+  const used=new Set();const points=[start.p.slice()];const bridges=[];
+  let pos=start.p.slice(),heading=null,total=0,facade=0,connect=0;
+  const limit=AUTO_DISTANCE;
+  for(let steps=0;steps<800&&total<limit-.015;steps++){
+    const near=grid.near(pos,MAX_CONNECTOR+1);
+    let best=null;
+    for(const v of near){
+      if(used.has(v.edge.id))continue;
+      const gap=dXY(pos,v.p),leg=dXY(v.p,v.other);
+      if(leg<.5||gap>MAX_CONNECTOR)continue;
+      if(gap>1.15&&v.edge.building===start.edge?.building&&steps===0)continue;
+      if(gap>1.15&&!safeConnector(pos,v.p,buildings))continue;
+      const to=[v.other[0]-v.p[0],v.other[1]-v.p[1]],n=Math.hypot(...to);
+      let turn=0;
+      if(heading){const dot=(heading[0]*to[0]+heading[1]*to[1])/n;turn=(1-Math.max(-1,Math.min(1,dot)))*6;}
+      // Prefer uninterrupted frontage and short, unobstructed building-to-building joins.
+      const score=(gap<=1.15?0:12+gap*2.2)+turn-v.edge.len*.02+dirBias*(to[0]/n);
+      if(!best||score<best.score)best={v,gap,score};
+    }
+    if(!best)break;
+    const {v,gap}=best;used.add(v.edge.id);
+    if(gap>.2){
+      const to=v.p,L=dXY(pos,to),need=limit-total;
+      if(L>=need){
+        points.push([pos[0]+(to[0]-pos[0])*need/L,pos[1]+(to[1]-pos[1])*need/L]);
+        bridges.push([points.length-2,points.length-1]);connect+=need;total=limit;break;
+      }
+      points.push(to.slice());bridges.push([points.length-2,points.length-1]);
+      connect+=L;total+=L;pos=to.slice();
+    }
+    const to=v.other,L=dXY(pos,to),need=limit-total;
+    heading=[(to[0]-pos[0])/L,(to[1]-pos[1])/L];
+    if(L>=need){points.push([pos[0]+heading[0]*need,pos[1]+heading[1]*need]);facade+=need;total=limit;break;}
+    points.push(to.slice());facade+=L;total+=L;pos=to.slice();
+  }
+  return {points,bridges,total,facade,connect};
+}
+function generateFacadeRoute(osmData,gps){
+  const parsed=osmGeometry(osmData,gps),edges=frontageEdges(parsed,gps);
+  if(edges.length<10)throw new Error('Not enough street-facing building outlines mapped nearby.');
+  const buildings=parsed.buildings.map(b=>{const xs=b.ring.map(p=>p[0]),ys=b.ring.map(p=>p[1]);return{...b,bbox:[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]};});
+  const grid=endpointGrid(edges);
+  const starts=[];
+  for(const e of edges)for(const p of[e.a,e.c]){
+    const d=dXY([0,0],p);if(d<=100)starts.push({p,edge:e,d});
+  }
+  starts.sort((a,b)=>a.d-b.d);
+  if(!starts.length)throw new Error('No mapped street-facing building within 100 m of your GPS pin.');
+  const unique=[];const seen=new Set();
+  for(const s of starts){const key=`${Math.round(s.p[0]/4)},${Math.round(s.p[1]/4)}`;if(!seen.has(key)){seen.add(key);unique.push(s);}if(unique.length>=6)break;}
+  const attempts=unique.flatMap((s,i)=>[-2,0,2].map(bias=>({start:s,route:simulateFacadeWalk(edges,buildings,grid,s,bias)})));
+  attempts.sort((a,b)=>(b.route.total-a.route.total)||((b.route.facade-b.route.connect*.4)-(a.route.facade-a.route.connect*.4))||a.start.d-b.start.d);
+  const winner=attempts[0];
+  if(!winner||winner.route.total<499.5)throw new Error(`Only ${Math.round(winner?.route.total||0)} m could be traced on nearby building fronts. Choose a denser area or draw manually.`);
+  if(winner.route.facade/winner.route.total<MIN_FACADE_RATIO)throw new Error('The route would spend too much distance between buildings. Try another location.');
+  const pts=winner.route.points.map(p=>xyToLL(p,gps));
+  return {coords:pts,bridges:winner.route.bridges,facadeM:winner.route.facade,connectorM:winner.route.connect,
+    buildingCount:parsed.buildings.length,startDistance:winner.start.d};
+}
+async function fetchBuildingData(gps){
+  if(overpassCache&&Date.now()-overpassCache.time<180000&&meters(overpassCache.gps,gps)<100)return overpassCache.data;
+  const query=`[out:json][timeout:25];(way["building"](around:${AUTO_RADIUS},${gps[1].toFixed(7)},${gps[0].toFixed(7)});way["highway"~"^(residential|living_street|tertiary|secondary|primary|unclassified|service|pedestrian|footway|path)$"](around:${AUTO_RADIUS},${gps[1].toFixed(7)},${gps[0].toFixed(7)}););out geom;`;
+  const aborter=new AbortController();const timeout=setTimeout(()=>aborter.abort(),30000);
+  try{
+    const resp=await fetch('https://overpass-api.de/api/interpreter',{
+      method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body:new URLSearchParams({data:query}),signal:aborter.signal});
+    if(!resp.ok)throw new Error(resp.status===429?'Map data server is busy (429). Try again later.':`Map data server returned ${resp.status}.`);
+    const data=await resp.json();if(!Array.isArray(data.elements))throw new Error('Unexpected map data response.');
+    overpassCache={time:Date.now(),gps:gps.slice(),data};return data;
+  }catch(e){if(e.name==='AbortError')throw new Error('Building map request timed out.');throw e;}
+  finally{clearTimeout(timeout);}
+}
+async function autoDraw(){
+  if(busy||drawing||!tt)return;
+  const originalTT=tt,token=++autoRequestId;
+  busy=true;ui.auto.textContent='⌁ Getting GPS and buildings…';ui.autoHint.textContent='Loading nearby OpenStreetMap building outlines. The preview will not save automatically.';refreshControls();
+  try{
+    const gps=await getDevicePosition({pan:true,fresh:true});
+    if(token!==autoRequestId||tt!==originalTT)return;
+    const data=await fetchBuildingData(gps);
+    if(token!==autoRequestId||tt!==originalTT)return;
+    const result=generateFacadeRoute(data,gps);
+    if(token!==autoRequestId||tt!==originalTT)return;
+    drawing=true;panning=false;activePointer=null;draft=result.coords;draftBridges=result.bridges;
+    draftOrigin='osm-building-fronts';undoHistory=[0];lastPixel=null;
+    ui.autoHint.textContent='Auto route ready. Review before saving.';
+    scheduleRender();refreshControls();fitRoute(draft);
+    ui.actionHint.textContent=`Auto draft: ${Math.round(result.facadeM)} m on building edges + ${Math.round(result.connectorM)} m short links (dashed). Preview carefully before Save.`;
+    notify('500 m building-front route ready. Review the dashed gaps, then Save.');
+  }catch(err){console.error('Auto 500 m route:',err);notify(err.message||'Could not generate a route.');ui.autoHint.textContent='Automatic route unavailable here. You can still draw manually.';}
+  finally{busy=false;ui.auto.textContent='⌁ Auto 500 m along buildings';refreshControls();}
+}
+ui.auto.addEventListener('click',autoDraw);
 ui.form.addEventListener('submit',e=>{e.preventDefault();ui.input.blur();activateTT(ui.input.value);});
 ui.generate.addEventListener('click',generateTT);
 ui.start.addEventListener('click',startDrawing);
