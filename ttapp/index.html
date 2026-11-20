@@ -1,528 +1,501 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#101225" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>TrainApp • Mobile Segment Mapper</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <meta name="theme-color" content="#141426">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>TrainApp — Segment Drawing</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root{color-scheme:dark;--ink:#eef0ff;--muted:#999db7;--purple:#a78bfa;--purple2:#8556ef;--green:#34d399;--orange:#fbbf24;--panel:#151729;--edge:#33354e;--shadow:0 16px 42px rgba(6,6,24,.45)}
+    :root{--bg:#111322;--panel:#17192b;--panel2:#22243a;--stroke:#393c56;--text:#f1edff;--muted:#a8abc7;--purple:#a66cf4;--lightpurple:#cfacff;--green:#36d6a9;--gold:#f5b744}
     *{box-sizing:border-box}
-    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101225;color:var(--ink);font-family:Inter,system-ui,-apple-system,sans-serif}
+    html,body{height:100%;width:100%;margin:0;overflow:hidden;color:var(--text);background:var(--bg);font-family:Inter,system-ui,-apple-system,Arial,sans-serif}
     button,input,select{font:inherit}
     button{cursor:pointer;-webkit-tap-highlight-color:transparent}
-    button:disabled{opacity:.38;cursor:not-allowed}
-    #map{position:fixed;inset:0;z-index:0}
-    #touchLayer{position:fixed;inset:0;z-index:5;pointer-events:none;touch-action:none}
-    body.is-drawing:not(.is-panning) #touchLayer{pointer-events:auto;cursor:crosshair}
-    .maplibregl-ctrl-top-right{top:248px;right:9px}
-    .maplibregl-ctrl-group{background:#1b1d33!important;border:1px solid #393b56!important;border-radius:12px!important;box-shadow:var(--shadow)!important}
+    button:disabled{opacity:.4;cursor:not-allowed}
+    .app{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+    .header{flex:none;min-height:56px;padding:calc(env(safe-area-inset-top,0px) + 8px) 14px 8px;background:#151729;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #302f48;z-index:10}
+    .brand{display:flex;align-items:center;gap:9px;min-width:0}
+    .brand-mark{width:33px;height:33px;flex:none;display:grid;place-items:center;color:white;font-weight:800;font-size:19px;border-radius:10px;background:linear-gradient(135deg,#9a61fb,#6541c5)}
+    .brand-name{font-size:16px;font-weight:800;letter-spacing:-.5px}
+    .brand-sub{font-size:9px;font-weight:700;color:#9d9bbb;margin-top:2px;letter-spacing:.05em}
+    .connection{display:flex;align-items:center;gap:6px;max-width:43%;padding:7px 9px;border:1px solid #41415a;border-radius:30px;background:#25263c;color:#bdbad0;font-size:10px;font-weight:700;white-space:nowrap}
+    .connection span:last-child{overflow:hidden;text-overflow:ellipsis}
+    .connection:before{content:'';width:7px;height:7px;flex:none;border-radius:50%;background:#f5b744}
+    .connection.online:before{background:var(--green)}
+    /* Map is at the TOP, not behind the form or bottom buttons. */
+    .map-stage{height:52dvh;min-height:230px;flex:none;position:relative;background:#d6dcd7;overflow:hidden;border-bottom:2px solid #413452}
+    #map,#touchLayer{position:absolute;inset:0;width:100%;height:100%}
+    #touchLayer{z-index:4;pointer-events:none;touch-action:none}
+    body.drawing:not(.panning) #touchLayer{pointer-events:auto}
+    .maplibregl-ctrl-top-right{top:8px;right:8px}
+    .maplibregl-ctrl-group{background:#20223b!important;border:1px solid #514a70!important;border-radius:11px!important;overflow:hidden;box-shadow:0 4px 13px #0005!important}
     .maplibregl-ctrl-group button{width:37px;height:37px}
     .maplibregl-ctrl-group button span{filter:invert(1)}
-    .maplibregl-ctrl-attrib{font-size:9px!important;background:rgba(16,18,37,.7)!important;color:#ddd!important}
-    .maplibregl-ctrl-attrib a{color:#ddd!important}
-    .topbar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 11px;background:linear-gradient(180deg,rgba(16,18,37,.98) 58%,rgba(16,18,37,.84));border-bottom:1px solid rgba(255,255,255,.075)}
-    .brand{display:flex;align-items:center;gap:10px}
-    .brand-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:linear-gradient(145deg,#7447db,#c09bff);font-weight:800;font-size:19px;color:#fff}
-    .brand-name{font-weight:800;letter-spacing:-.6px;font-size:17px;line-height:1.05}
-    .brand-sub{font-size:10px;color:#a5a5c4;margin-top:4px;font-weight:600;letter-spacing:.03em}
-    .status-chip{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;color:#cad1f4;background:#22253d;border:1px solid #343954;border-radius:18px;padding:8px 10px;max-width:45%}
-    .status-chip .dot{width:7px;height:7px;border-radius:50%;background:#fbbf24;flex:none}
-    .status-chip.connected .dot{background:#34d399}
-    .status-chip span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .card{position:fixed;z-index:20;left:12px;right:12px;max-width:520px;margin-inline:auto;background:rgba(21,23,41,.97);border:1px solid rgba(164,155,211,.22);border-radius:19px;box-shadow:var(--shadow);backdrop-filter:blur(15px)}
-    .tt-card{top:calc(env(safe-area-inset-top,0px) + 71px);padding:12px}
-    .eyebrow{color:#999db7;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;margin-bottom:8px}
-    .tt-entry{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px}
-    .tt-input{width:100%;min-width:0;min-height:43px;background:#0e1021;border:1px solid #47445e;border-radius:11px;color:#fff;font-size:16px;font-weight:800;letter-spacing:.07em;padding:0 11px;outline:none;text-transform:uppercase}
-    .tt-input:focus{border-color:#a78bfa;box-shadow:0 0 0 2px rgba(167,139,250,.14)}
-    .btn{min-height:43px;border-radius:11px;border:1px solid #3d405b;background:#292c46;color:#f2efff;padding:0 13px;font-size:12px;font-weight:800;display:inline-flex;justify-content:center;align-items:center;gap:6px;white-space:nowrap}
-    .btn.primary{background:linear-gradient(135deg,#8c56ec,#6e4ac6);border-color:#986ee8;color:#fff}
-    .btn.success{background:#123b36;border-color:#237d68;color:#b9ffe8}
-    .btn.light{background:#302846;border-color:#5f4a84;color:#e9ddff}
-    .btn.negative{background:#3c2536;border-color:#714052;color:#ffc5d2}
-    .btn.small{padding-inline:10px;font-size:11px;min-height:40px}
-    .tiny-hint{font-size:10px;line-height:1.55;color:#9c9db7;margin:8px 2px 0}
-    .tiny-hint strong{color:#d3cbfd}
-    .map-actions{position:fixed;z-index:10;right:12px;top:calc(env(safe-area-inset-top,0px) + 213px);display:flex;flex-direction:column;gap:8px}
-    .map-action{width:40px;height:40px;border-radius:12px;border:1px solid #45425d;box-shadow:var(--shadow);background:#1b1e33;color:#f1eeff;font-size:18px;font-weight:700}
-    .draw-banner{position:fixed;z-index:12;top:calc(env(safe-area-inset-top,0px) + 216px);left:12px;max-width:calc(100% - 82px);padding:9px 12px;border-radius:12px;color:#f8f2ff;background:rgba(55,31,101,.94);border:1px solid #8e67ce;font-size:11px;font-weight:700;line-height:1.35;box-shadow:var(--shadow)}
-    .bottom-card{bottom:calc(env(safe-area-inset-bottom,0px) + 12px);padding:13px 13px 12px}
-    .bottom-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
-    .bottom-title .title{font-weight:800;font-size:14px;letter-spacing:-.2px}
-    #savedCount{color:#a88cfa;background:#302749;border-radius:20px;padding:5px 8px;font-size:10px;font-weight:800}
-    .select-row{display:flex;gap:7px}
-    .select-wrap{position:relative;min-width:0;flex:1}
-    #savedSelect{width:100%;min-height:44px;appearance:none;-webkit-appearance:none;background:#0c1021;color:#eee8ff;border:1px solid #42405e;border-radius:12px;padding:0 32px 0 12px;font-weight:700;font-size:13px;outline:none}
-    #savedSelect:focus{border-color:#a78bfa}
-    .select-wrap:after{content:'⌄';position:absolute;right:13px;top:10px;font-size:19px;pointer-events:none;color:#aaa5ce}
-    .details{display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:7px;margin-top:11px}
-    .metric{min-width:0;background:#0d1122;border:1px solid #292e47;border-radius:12px;padding:10px}
-    .metric label{display:block;font-size:9px;color:#9da0b9;font-weight:800;text-transform:uppercase;letter-spacing:.055em;margin-bottom:5px}
-    .metric strong{display:block;font-size:13px;color:#e9e8ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
-    .metric .purple{color:#c1a7ff}
-    .endpoints{margin-top:9px;display:grid;grid-template-columns:1fr 1fr;gap:7px}
-    .endpoint{min-width:0;background:#24223a;border-radius:11px;padding:8px 9px;display:flex;align-items:flex-start;gap:7px}
-    .endpoint .badge{flex:none;width:21px;height:21px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;color:#081c1a;background:#34d399}
-    .endpoint.end .badge{color:#241300;background:#fbbf24}
-    .endpoint small{display:block;color:#aaa6c9;font-weight:700;font-size:9px;margin:0 0 4px}
-    .endpoint .coord{font-size:10px;font-weight:700;color:#e4e2f5;word-break:break-word;line-height:1.3}
-    .mode-picker{display:none;gap:6px;margin-top:11px}
-    .mode-picker label{flex:1;cursor:pointer}
-    .mode-picker input{position:absolute;opacity:0;pointer-events:none}
-    .mode-picker span{display:flex;align-items:center;justify-content:center;border:1px solid #44405c;background:#24253b;border-radius:10px;padding:10px 4px;color:#a5a2c0;font-size:11px;font-weight:800}
-    .mode-picker input:checked + span{background:#3d2d63;border-color:#8f63d9;color:#e8d7ff}
-    .actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:11px}
-    .actions .btn{width:100%;min-height:46px}
-    .actions.draft-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
-    .actions.draft-actions .btn{padding-inline:5px}
-    .muted-message{font-size:10px;color:#9b9ab7;line-height:1.45;margin:9px 1px 0}
-    .toast{position:fixed;z-index:100;left:50%;top:calc(env(safe-area-inset-top,0px) + 170px);width:max-content;max-width:calc(100vw - 34px);transform:translate(-50%,-8px);opacity:0;pointer-events:none;transition:.2s;background:#14152a;border:1px solid #51466f;border-radius:14px;box-shadow:var(--shadow);padding:12px 15px;text-align:center;font-size:12px;line-height:1.4;font-weight:700;color:#f3ebff}
+    .maplibregl-ctrl-attrib{font-size:9px!important;background:rgba(255,255,255,.85)!important}
+    .map-hint{position:absolute;z-index:7;left:11px;top:10px;max-width:calc(100% - 115px);border:1px solid #8e6cd3;padding:8px 10px;border-radius:11px;background:rgba(33,20,64,.9);box-shadow:0 4px 10px #0002;color:#f5eaff;font-size:11px;font-weight:700;line-height:1.35;pointer-events:none}
+    .map-pill{position:absolute;z-index:6;bottom:11px;left:11px;max-width:calc(100% - 84px);font-size:11px;font-weight:800;padding:9px 11px;border-radius:20px;background:rgba(20,22,43,.94);border:1px solid #595078;box-shadow:0 4px 10px #0004;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .locate{position:absolute;z-index:8;right:12px;bottom:11px;min-height:43px;border:2px solid #aad1ff;border-radius:13px;padding:0 12px;display:flex;align-items:center;gap:6px;background:#2477e6;color:#fff;box-shadow:0 5px 16px #0006;font-size:12px;font-weight:800}
+    .locate svg{width:19px;height:19px;stroke:currentColor;stroke-width:2.1;fill:none}
+    .controls{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:13px 13px calc(env(safe-area-inset-bottom,0px) + 22px);background:var(--bg);scrollbar-width:thin}
+    .controls-inner{max-width:560px;margin:0 auto}
+    .section{background:var(--panel);border:1px solid #34354c;border-radius:15px;padding:12px;margin-bottom:11px}
+    .section-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 9px;font-size:13px;font-weight:800;color:#f4f1ff}
+    .section-note{margin:7px 1px 0;color:var(--muted);font-size:10px;line-height:1.4}
+    .tt-entry{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px}
+    .tt-entry input{min-width:0;width:100%;height:44px;padding:0 10px;font-size:15px;font-weight:800;letter-spacing:.04em;border:1px solid #5a5270;border-radius:11px;color:#fff;outline:none;background:#0c0e20;text-transform:uppercase}
+    .tt-entry input:focus{border-color:#b795ff;box-shadow:0 0 0 2px #9867ef30}
+    .btn{border:1px solid #4c4965;border-radius:11px;padding:0 12px;min-height:44px;background:#2b2b45;color:var(--text);font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+    .btn.primary{background:#7e50d9;border-color:#a575f4;color:#fff}
+    .btn.green{background:#185748;border-color:#299e7c;color:#d5fff4}
+    .btn.soft{background:#302b47;border-color:#6d558e;color:#e3d1ff}
+    .btn.warn{background:#452938;border-color:#835167;color:#ffcdd7}
+    .btn:active:not(:disabled){transform:scale(.985)}
+    .active-id{padding:6px 9px;border:1px solid #615188;border-radius:9px;background:#302744;color:#ddc7ff;font-size:11px;font-weight:800}
+    .action-row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+    .action-row .btn{min-width:0}
+    .action-row.draw-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .action-row.draw-actions .btn{padding:0 5px}
+    .action-row.draw-actions #cancelBtn{grid-column:1/-1;min-height:37px}
+    .draw-modes{display:flex;gap:7px;margin-bottom:10px}
+    .draw-modes label{flex:1;position:relative;min-width:0}
+    .draw-modes input{position:absolute;opacity:0;pointer-events:none}
+    .draw-modes span{display:block;text-align:center;background:#22243a;border:1px solid #3e3c58;color:#bab4d4;border-radius:10px;padding:10px 6px;font-size:11px;font-weight:800}
+    .draw-modes input:checked+span{background:#493568;color:#f4e9ff;border-color:#ab7dec}
+    .saved-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}
+    .saved-row select{appearance:none;-webkit-appearance:none;width:100%;height:44px;min-width:0;border-radius:11px;padding:0 30px 0 12px;background:#0c0e20;color:#efe7ff;border:1px solid #514768;font-weight:700;font-size:13px;outline:none}
+    .select-wrap{position:relative;min-width:0}
+    .select-wrap:after{content:'⌄';position:absolute;top:9px;right:12px;font-size:19px;color:#bba4e2;pointer-events:none}
+    .count{padding:4px 8px;border-radius:20px;background:#3c2e56;color:#d8baff;font-size:10px;font-weight:800}
+    .stats{display:grid;grid-template-columns:1.3fr .7fr .7fr;gap:7px;margin-top:10px}
+    .stat{background:#0d1020;border:1px solid #2d2f49;border-radius:10px;padding:9px 8px;min-width:0}
+    .stat small{display:block;color:#a19fb9;font-size:9px;font-weight:800;text-transform:uppercase;margin-bottom:5px}
+    .stat strong{display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:13px}
+    .purple{color:#cca7ff}
+    .ends{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+    .end{background:#24263e;border-radius:10px;padding:9px;min-width:0;display:flex;gap:8px}
+    .endmark{width:23px;height:23px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:10px;color:#09221d;background:var(--green);font-weight:800}
+    .endmark.e{background:var(--gold);color:#271500}
+    .end small{display:block;font-size:9px;color:#a5a4bc;font-weight:800;margin-bottom:4px}
+    .coord{font-size:10px;font-weight:700;overflow-wrap:anywhere;line-height:1.35}
+    .route-marker{width:30px;height:30px;border-radius:50%;border:2px solid white;box-shadow:0 3px 10px #0008;display:grid;place-items:center;color:#081f19;font-size:12px;font-weight:900;user-select:none}
+    .route-marker.s{background:var(--green)}.route-marker.e{background:var(--gold);color:#281b00}
+    .your-pin{width:40px;height:48px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.35))}
+    .toast{position:fixed;z-index:100;top:calc(env(safe-area-inset-top,0px) + 70px);left:50%;transform:translate(-50%,-8px);max-width:calc(100vw - 30px);min-width:180px;padding:11px 14px;border-radius:12px;text-align:center;color:#fff;background:#1e1a37;border:1px solid #886abd;box-shadow:0 6px 24px #0007;pointer-events:none;opacity:0;transition:opacity .2s,transform .2s;font-size:12px;font-weight:700;line-height:1.4}
     .toast.show{opacity:1;transform:translate(-50%,0)}
-    .ep{width:30px;height:30px;border:2px solid #fff;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#091615;box-shadow:0 2px 8px #0009;user-select:none}
-    .ep.start{background:#34d399}.ep.end{background:#fbbf24}
     .hidden{display:none!important}
-    @media(min-width:650px){.tt-card,.bottom-card{left:50%;right:auto;width:440px;transform:translateX(-50%)}.map-actions{right:calc((100vw - 470px)/2)}}
-    @media(max-height:730px){.tt-card{padding:9px}.bottom-card{padding:10px}.details{margin-top:7px}.metric{padding:7px}.endpoints{margin-top:6px}.actions{margin-top:7px}.mode-picker{margin-top:7px}.maplibregl-ctrl-top-right{display:none}}
-    @media(max-width:365px){.tt-entry{gap:5px}.btn.small{padding:0 7px;font-size:10px}.tt-input{font-size:14px;padding:0 8px}.actions .btn{font-size:11px}}
+    @media(max-width:370px){.controls{padding-inline:9px}.section{padding:9px}.tt-entry{gap:5px}.tt-entry .btn{padding-inline:7px;font-size:10px}.tt-entry input{font-size:14px;padding-inline:7px}.action-row .btn{font-size:11px}}
+    @media(max-height:700px){.map-stage{height:46dvh}.controls{padding-top:9px}.section{padding:9px;margin-bottom:8px}}
+    @media(min-height:900px){.map-stage{height:57dvh}}
   </style>
 </head>
 <body>
-  <div id="map" aria-label="Map for drawing and viewing segments"></div>
-  <canvas id="touchLayer" aria-label="Draw a route with your finger"></canvas>
-
-  <header class="topbar">
-    <div class="brand"><div class="brand-icon">T</div><div><div class="brand-name">trainapp</div><div class="brand-sub">MOBILE SEGMENT MAPPER</div></div></div>
-    <div class="status-chip" id="connectionChip"><span class="dot"></span><span id="connectionText">Connecting</span></div>
+<div class="app">
+  <header class="header">
+    <div class="brand"><div class="brand-mark">T</div><div><div class="brand-name">trainapp</div><div class="brand-sub">MOBILE SEGMENT MAPPER</div></div></div>
+    <div class="connection" id="connectionChip"><span id="connectionText">Connecting</span></div>
   </header>
 
-  <section class="card tt-card" aria-label="TT segment identifier">
-    <div class="eyebrow">Enter or generate a segment ID</div>
-    <form id="ttForm" class="tt-entry">
-      <input id="ttInput" class="tt-input" type="text" placeholder="TT32500" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" maxlength="7" aria-label="TT ID" />
-      <button type="submit" class="btn small primary" id="useBtn">Use ID</button>
-      <button type="button" class="btn small light" id="generateBtn">＋ Generate</button>
-    </form>
-    <p class="tiny-hint" id="idHint">Valid range: <strong>TT32500–TT95000</strong>. Choose a free ID to draw one segment.</p>
-  </section>
+  <!-- MAP FIRST: always on top of the form and segment list -->
+  <main class="map-stage" aria-label="Route map">
+    <div id="map"></div>
+    <div id="touchLayer" aria-label="Touch drawing area"></div>
+    <div class="map-hint hidden" id="mapHint">Draw with your finger</div>
+    <div class="map-pill" id="mapPill">Enter a TT ID below</div>
+    <button type="button" class="locate" id="locateBtn" aria-label="Locate me and show my position pin">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
+      <span id="locateText">Locate me</span>
+    </button>
+  </main>
 
-  <div class="map-actions"><button id="locateBtn" class="map-action" type="button" aria-label="Center on my location" title="My location">◎</button></div>
-  <div class="draw-banner hidden" id="drawBanner">Drag your finger to trace the route</div>
+  <!-- CONTROLS BELOW THE MAP: scroll independently on small phones -->
+  <div class="controls"><div class="controls-inner">
+    <section class="section" aria-labelledby="ttHeading">
+      <h2 class="section-title" id="ttHeading" style="margin:0 0 10px">Enter TT ID <span class="active-id hidden" id="activeBadge"></span></h2>
+      <form class="tt-entry" id="ttForm">
+        <input type="text" id="ttInput" placeholder="TT32500" maxlength="7" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label="TT ID (TT32500 to TT95000)">
+        <button class="btn primary" type="submit" id="openBtn">Open</button>
+        <button class="btn soft" type="button" id="generateBtn">＋ Generate</button>
+      </form>
+      <p class="section-note" id="ttHint">Enter TT32500–TT95000 to view its segments or draw a new one. No TT ID list.</p>
+    </section>
 
-  <section class="card bottom-card" aria-label="Saved segments and route actions">
-    <div class="bottom-title"><div class="title">Saved segments</div><div id="savedCount">0 saved</div></div>
-    <div class="select-row">
-      <div class="select-wrap"><select id="savedSelect" aria-label="Choose a saved segment"><option value="">Select a saved TT ID…</option></select></div>
-      <button id="fitBtn" class="btn small" type="button" title="Fit segment on map" disabled>⌖ View</button>
-    </div>
-    <div class="details">
-      <div class="metric"><label>TT segment</label><strong id="metricId" class="purple">Not selected</strong></div>
-      <div class="metric"><label>Length</label><strong id="metricLength">—</strong></div>
-      <div class="metric"><label>Points</label><strong id="metricPoints">0</strong></div>
-    </div>
-    <div class="endpoints">
-      <div class="endpoint"><span class="badge">S</span><div><small>START</small><div id="metricStart" class="coord">—</div></div></div>
-      <div class="endpoint end"><span class="badge">E</span><div><small>END</small><div id="metricEnd" class="coord">—</div></div></div>
-    </div>
-    <div class="mode-picker" id="modePicker">
-      <label><input type="radio" name="traceMode" value="trace" checked/><span>✎ Finger trace</span></label>
-      <label><input type="radio" name="traceMode" value="tap"/><span>⌖ Tap points</span></label>
-    </div>
-    <div class="actions" id="idleActions">
-      <button type="button" id="startBtn" class="btn primary" disabled>✎ Start drawing</button>
-      <button type="button" id="newBtn" class="btn light">＋ New TT ID</button>
-    </div>
-    <div class="actions draft-actions hidden" id="draftActions">
-      <button type="button" class="btn light" id="panBtn">☷ Pan map</button>
-      <button type="button" class="btn light" id="undoBtn">↶ Undo</button>
-      <button type="button" class="btn success" id="saveBtn">✓ Save</button>
-      <button type="button" class="btn negative" id="cancelBtn" style="grid-column:1/-1;min-height:36px">Cancel drawing</button>
-    </div>
-    <p id="helperText" class="muted-message">Select or generate a TT ID, then trace a route on the map.</p>
-  </section>
+    <section class="section" aria-label="Create a segment">
+      <h2 class="section-title" style="margin:0 0 10px">Draw segment</h2>
+      <div id="idleActions" class="action-row">
+        <button class="btn primary" id="startBtn" type="button" disabled>✎ Draw new segment</button>
+        <button class="btn" id="fitBtn" type="button" disabled>⌖ View selected</button>
+      </div>
+      <div id="drawingUI" class="hidden">
+        <div class="draw-modes">
+          <label><input name="drawMode" type="radio" value="trace" checked><span>✎ Finger trace</span></label>
+          <label><input name="drawMode" type="radio" value="tap"><span>⌖ Tap points</span></label>
+        </div>
+        <div class="action-row draw-actions">
+          <button class="btn soft" id="panBtn" type="button">☷ Pan map</button>
+          <button class="btn soft" id="undoBtn" type="button">↶ Undo</button>
+          <button class="btn green" id="saveBtn" type="button">✓ Save</button>
+          <button class="btn warn" id="cancelBtn" type="button">Cancel drawing</button>
+        </div>
+      </div>
+      <p class="section-note" id="actionHint">Open a TT ID to start drawing. Every save creates another segment under that ID.</p>
+    </section>
 
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <section class="section" aria-labelledby="segmentsHeading">
+      <h2 class="section-title" id="segmentsHeading">Segments in current TT <span class="count" id="segmentCount">0 segments</span></h2>
+      <div class="saved-row">
+        <div class="select-wrap"><select id="segmentSelect" disabled aria-label="Saved segments in current TT"><option value="">Open a TT ID first…</option></select></div>
+        <button type="button" id="viewBtn" class="btn soft" disabled>View</button>
+      </div>
+      <p id="listHint" class="section-note">Only segments belonging to your entered TT ID appear here.</p>
+      <div class="stats">
+        <div class="stat"><small>Selected segment</small><strong class="purple" id="metricName">—</strong></div>
+        <div class="stat"><small>Length</small><strong id="metricLength">—</strong></div>
+        <div class="stat"><small>Points</small><strong id="metricPoints">—</strong></div>
+      </div>
+      <div class="ends">
+        <div class="end"><span class="endmark">S</span><div><small>START (LAT, LNG)</small><div class="coord" id="metricStart">—</div></div></div>
+        <div class="end"><span class="endmark e">E</span><div><small>END (LAT, LNG)</small><div class="coord" id="metricEnd">—</div></div></div>
+      </div>
+    </section>
+  </div></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script>
-    'use strict';
-
-    /* ===============================================================
-       TRAINAPP DATABASE ISOLATION
-       This uses the SAME Firebase project as the attached reference,
-       but ONLY reads/writes inside the NEW "trainapp" RTDB folder.
-       Existing "segments", "polygons", etc. are never changed.
-       =============================================================== */
-    const firebaseConfig = {
-      apiKey: 'AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM',
-      authDomain: 'leuvenflyers-23584.firebaseapp.com',
-      databaseURL: 'https://leuvenflyers-23584-default-rtdb.firebaseio.com',
-      projectId: 'leuvenflyers-23584',
-      storageBucket: 'leuvenflyers-23584.firebasestorage.app',
-      messagingSenderId: '1077790950414',
-      appId: '1:1077790950414:web:036fafe06df86f41ed285f'
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const ROOT = db.ref('trainapp');
-    const SEGMENTS = ROOT.child('segments');
-    const INDEX = ROOT.child('segmentIndex');
-    const COUNTER = ROOT.child('meta/nextTT');
-    const MIN_TT = 32500;
-    const MAX_TT = 95000;
-    const MAX_POINTS = 4500;
-
-    const $ = id => document.getElementById(id);
-    const el = {
-      input: $('ttInput'), form: $('ttForm'), use: $('useBtn'), generate: $('generateBtn'),
-      idHint: $('idHint'), savedSelect: $('savedSelect'), count: $('savedCount'),
-      fit: $('fitBtn'), start: $('startBtn'), newId: $('newBtn'),
-      pan: $('panBtn'), undo: $('undoBtn'), save: $('saveBtn'), cancel: $('cancelBtn'),
-      idleActions: $('idleActions'), draftActions: $('draftActions'),
-      modePicker: $('modePicker'), banner: $('drawBanner'), helper: $('helperText'),
-      metricId: $('metricId'), metricLength: $('metricLength'), metricPoints: $('metricPoints'),
-      metricStart: $('metricStart'), metricEnd: $('metricEnd'),
-      connected: $('connectionChip'), connectionText: $('connectionText'), toast: $('toast')
-    };
-
-    let activeID = '';
-    let activeExisting = false;
-    let selectedCoords = [];
-    let draftCoords = [];
-    let history = [];
-    let isDrawing = false;
-    let isPanning = false;
-    let traceMode = 'trace';
-    let busy = false;
-    let mapReady = false;
-    let renderPending = false;
-    let requestSerial = 0;
-    let savedIndex = new Map();
-    let toastTimer;
-    let activePointer = null;
-    let lastPointerPixel = null;
-    let hasMoved = false;
-
-    function message(text) {
-      el.toast.textContent = text;
-      el.toast.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => el.toast.classList.remove('show'), 3100);
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+'use strict';
+/* Firebase project is shared with your reference app; all TrainApp writes
+   remain inside the NEW /trainapp folder. No original worker-app paths modified. */
+const config = {
+  apiKey:'AIzaSyBHRyOy3hNcWarK8Zk34MWrv_tIYKM7mXM',
+  authDomain:'leuvenflyers-23584.firebaseapp.com',
+  databaseURL:'https://leuvenflyers-23584-default-rtdb.firebaseio.com',
+  projectId:'leuvenflyers-23584',
+  storageBucket:'leuvenflyers-23584.firebasestorage.app',
+  messagingSenderId:'1077790950414',
+  appId:'1:1077790950414:web:036fafe06df86f41ed285f'
+};
+firebase.initializeApp(config);
+const db=firebase.database();
+const root=db.ref('trainapp');
+const segmentRoot=root.child('segments');
+const indexRoot=root.child('segmentIndex');
+const idRegistry=root.child('ttRegistry');
+const counter=root.child('meta/nextTT');
+const MIN=32500,MAX=95000,MAX_POINTS=6000;
+const $=id=>document.getElementById(id);
+const ui={
+  input:$('ttInput'),form:$('ttForm'),open:$('openBtn'),generate:$('generateBtn'),ttHint:$('ttHint'),
+  badge:$('activeBadge'),segmentSelect:$('segmentSelect'),count:$('segmentCount'),listHint:$('listHint'),
+  start:$('startBtn'),fit:$('fitBtn'),view:$('viewBtn'),idle:$('idleActions'),drawingUI:$('drawingUI'),
+  pan:$('panBtn'),undo:$('undoBtn'),save:$('saveBtn'),cancel:$('cancelBtn'),actionHint:$('actionHint'),
+  mapHint:$('mapHint'),mapPill:$('mapPill'),locate:$('locateBtn'),locateText:$('locateText'),
+  name:$('metricName'),length:$('metricLength'),points:$('metricPoints'),startCoord:$('metricStart'),endCoord:$('metricEnd'),
+  connection:$('connectionChip'),connectionText:$('connectionText'),toast:$('toast')
+};
+let tt='',busy=false,drawing=false,panning=false,mapReady=false;
+let draft=[],undoHistory=[],traceMode='trace',activePointer=null,lastPixel=null,strokeMoved=false;
+let selectedKey='',selectedCoords=[],indexItems=new Map(),routeCache=new Map(),legacyCoords=null;
+let indexRef=null,indexListener=null,ttRequest=0,routeRequest=0,pendingKey='';
+let toastTimeout;
+function notify(msg){ui.toast.textContent=msg;ui.toast.classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>ui.toast.classList.remove('show'),3300);}
+function validateTT(text){const m=String(text||'').trim().toUpperCase().match(/^(?:TT)?(\d{5})$/);if(!m)return null;const n=+m[1];return n>=MIN&&n<=MAX?'TT'+n:null;}
+function isPoint(p){return Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=180&&Math.abs(p[1])<=90;}
+function parseCoords(raw){const a=Array.isArray(raw)?raw:raw&&typeof raw==='object'?Object.keys(raw).filter(k=>/^\d+$/.test(k)).sort((a,b)=>+a-+b).map(k=>raw[k]):[];return a.map(p=>[Number(p?.lng??p?.[1]),Number(p?.lat??p?.[0])]).filter(isPoint);}
+function toFirebase(points){return points.map(([lng,lat])=>({lat:+lat.toFixed(7),lng:+lng.toFixed(7)}));}
+function meters(a,b){const r=Math.PI/180,dLat=(b[1]-a[1])*r,dLng=(b[0]-a[0])*r;const h=Math.sin(dLat/2)**2+Math.cos(a[1]*r)*Math.cos(b[1]*r)*Math.sin(dLng/2)**2;return 12742000*Math.atan2(Math.sqrt(h),Math.sqrt(Math.max(0,1-h)));}
+function distance(pts){let d=0;for(let i=1;i<pts.length;i++)d+=meters(pts[i-1],pts[i]);return d;}
+function formatDistance(d){return d>=1000?(d/1000).toFixed(2)+' km':Math.round(d)+' m';}
+function formatCoord(p){return p?`${p[1].toFixed(5)}, ${p[0].toFixed(5)}`:'—';}
+function mapFeature(coords){return{type:'FeatureCollection',features:coords.length>=2?[{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords}}]:[]};}
+const map=new maplibregl.Map({
+  container:'map',
+  style:{version:8,sources:{osm:{type:'raster',tileSize:256,tiles:[
+    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'],attribution:'© OpenStreetMap contributors'}},
+    layers:[{id:'osm',type:'raster',source:'osm',paint:{'raster-fade-duration':0}}]},
+  center:[4.701,50.879],zoom:14,maxZoom:19,dragRotate:false,pitchWithRotate:false,attributionControl:true
+});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+let startPin,endPin,locationPin;
+function endpointMarker(letter,kind){const e=document.createElement('div');e.className='route-marker '+kind;e.textContent=letter;e.title=kind==='s'?'Segment start':'Segment end';return new maplibregl.Marker({element:e,anchor:'center'});}
+function locationMarker(){
+  const e=document.createElement('div');e.className='your-pin';e.title='Your current location';
+  e.innerHTML='<svg viewBox="0 0 40 48" xmlns="http://www.w3.org/2000/svg"><path d="M20 2C9.5 2 2 9.5 2 20c0 13 18 26 18 26s18-13 18-26C38 9.5 30.5 2 20 2Z" fill="#2479f4" stroke="#fff" stroke-width="2.5"/><circle cx="20" cy="19" r="8" fill="#fff"/><circle cx="20" cy="19" r="4" fill="#2479f4"/></svg>';
+  return new maplibregl.Marker({element:e,anchor:'bottom'});
+}
+map.on('load',()=>{
+  map.addSource('selected',{type:'geojson',data:mapFeature([])});
+  map.addSource('draft',{type:'geojson',data:mapFeature([])});
+  map.addLayer({id:'savedGlow',type:'line',source:'selected',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#b787fa','line-width':13,'line-opacity':.32,'line-blur':3}});
+  map.addLayer({id:'savedLine',type:'line',source:'selected',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#963cf3','line-width':5.5}});
+  map.addLayer({id:'draftLine',type:'line',source:'draft',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#f5b744','line-width':5}});
+  startPin=endpointMarker('S','s');endPin=endpointMarker('E','e');
+  mapReady=true;renderMap();refreshControls();
+});
+map.on('error',e=>{if(e.error)console.warn('Map:',e.error);});
+function displayPoints(){return drawing?draft:selectedCoords;}
+function renderMap(){
+  if(!mapReady)return;
+  const shown=drawing?draft:selectedCoords;
+  map.getSource('selected').setData(mapFeature(drawing?[]:selectedCoords));
+  map.getSource('draft').setData(mapFeature(drawing?draft:[]));
+  if(shown.length)startPin.setLngLat(shown[0]).addTo(map);else startPin.remove();
+  if(shown.length>1)endPin.setLngLat(shown[shown.length-1]).addTo(map);else endPin.remove();
+  if(drawing){
+    ui.length.textContent=shown.length>1?formatDistance(distance(shown)):'—';
+    ui.points.textContent=shown.length;
+    ui.startCoord.textContent=formatCoord(shown[0]);
+    ui.endCoord.textContent=formatCoord(shown.length>1?shown[shown.length-1]:null);
+    ui.name.textContent='Unsaved drawing';
+  }
+  refreshControls();
+}
+let renderQueued=false;
+function scheduleRender(){if(renderQueued)return;renderQueued=true;requestAnimationFrame(()=>{renderQueued=false;renderMap();});}
+function fitRoute(coords=displayPoints()){
+  if(!mapReady||coords.length===0)return;
+  if(coords.length===1){map.flyTo({center:coords[0],zoom:17,duration:550});return;}
+  const bounds=new maplibregl.LngLatBounds(coords[0],coords[0]);coords.forEach(c=>bounds.extend(c));
+  map.fitBounds(bounds,{padding:45,maxZoom:18,duration:650});
+}
+function setMetrics(meta=null,coords=null,label='—'){
+  ui.name.textContent=label;
+  const length=coords&&coords.length>1?distance(coords):meta?.lengthMeters;
+  ui.length.textContent=Number.isFinite(Number(length))&&length!==undefined?formatDistance(Number(length)):'—';
+  ui.points.textContent=coords?String(coords.length):meta?.points??'—';
+  const start=coords?.[0]||(meta?.start&&[Number(meta.start.lng),Number(meta.start.lat)]);
+  const end=coords?.[coords.length-1]||(meta?.end&&[Number(meta.end.lng),Number(meta.end.lat)]);
+  ui.startCoord.textContent=isPoint(start)?formatCoord(start):'—';
+  ui.endCoord.textContent=isPoint(end)?formatCoord(end):'—';
+}
+function refreshControls(){
+  ui.badge.classList.toggle('hidden',!tt);ui.badge.textContent=tt;
+  ui.mapPill.textContent=drawing?tt+' · Drawing new segment':tt?(selectedKey?tt+' · '+ui.name.textContent:tt+' · Select a segment'):'Enter a TT ID below';
+  document.body.classList.toggle('drawing',drawing);document.body.classList.toggle('panning',panning);
+  ui.idle.classList.toggle('hidden',drawing);ui.drawingUI.classList.toggle('hidden',!drawing);
+  ui.mapHint.classList.toggle('hidden',!drawing);
+  ui.mapHint.textContent=panning?'Pan mode: move or zoom the map':traceMode==='tap'?'Tap map to place points':'Use your finger to trace the route';
+  ui.start.disabled=busy||!tt||!mapReady;
+  ui.fit.disabled=busy||!selectedKey||selectedCoords.length<2;
+  ui.view.disabled=busy||!selectedKey||drawing;
+  ui.save.disabled=busy||!drawing||draft.length<2;
+  ui.undo.disabled=busy||!drawing||undoHistory.length===0;
+  ui.pan.textContent=panning?'✎ Resume draw':'☷ Pan map';
+  ui.open.disabled=busy;ui.generate.disabled=busy;
+  ui.segmentSelect.disabled=busy||!tt||drawing||indexItems.size===0;
+  if(drawing)ui.actionHint.textContent='Draw on the map above, then tap Save. You can add another segment to the same TT.';
+  else if(tt)ui.actionHint.textContent='Draw new segment creates another entry under '+tt+'. Existing segments stay saved.';
+  else ui.actionHint.textContent='Open a TT ID to start drawing. Every save creates another segment under that ID.';
+}
+function changedTTWarning(){return !drawing||draft.length===0||confirm('Discard the unsaved segment?');}
+function stopDrawing(){drawing=false;panning=false;activePointer=null;draft=[];undoHistory=[];scheduleRender();}
+function resetSelected(){selectedKey='';selectedCoords=[];setMetrics();scheduleRender();}
+function detachIndex(){if(indexRef&&indexListener)indexRef.off('value',indexListener);indexRef=null;indexListener=null;}
+function segmentLabel(key){
+  const keys=[...indexItems.entries()].sort((a,b)=>(Number(a[1].createdAt)||0)-(Number(b[1].createdAt)||0)||a[0].localeCompare(b[0])).map(([k])=>k);
+  return key&&keys.includes(key)?'Segment '+(keys.indexOf(key)+1):'—';
+}
+function updateList(){
+  const keep=selectedKey;
+  const rows=[...indexItems.entries()].sort((a,b)=>(Number(a[1].createdAt)||0)-(Number(b[1].createdAt)||0)||a[0].localeCompare(b[0]));
+  ui.segmentSelect.replaceChildren(new Option(rows.length?'Choose a segment…':'No segments saved yet',''));
+  rows.forEach(([key,meta],i)=>ui.segmentSelect.add(new Option('Segment '+(i+1)+' · '+formatDistance(Number(meta.lengthMeters)||0),key)));
+  ui.count.textContent=rows.length+' segment'+(rows.length===1?'':'s');
+  ui.segmentSelect.value=rows.some(([key])=>key===keep)?keep:'';
+  ui.listHint.textContent=tt?rows.length?('Showing only segments in '+tt+'. Tap a segment to display its purple route.'):(tt+' has no saved segments. Tap Draw new segment.'):'Enter a TT ID above to load its segments.';
+  if(selectedKey&&!indexItems.has(selectedKey)&&selectedKey!=='__legacy')resetSelected();
+  refreshControls();
+}
+function subscribeForTT(id,token){
+  indexRef=indexRoot.child(id).child('items');
+  indexListener=snapshot=>{
+    if(tt!==id||token!==ttRequest)return;
+    const next=new Map();
+    snapshot.forEach(child=>{const v=child.val();if(v&&typeof v==='object')next.set(child.key,v);});
+    if(legacyCoords&&legacyCoords.length>=2)next.set('__legacy',{lengthMeters:distance(legacyCoords),points:legacyCoords.length,start:{lat:legacyCoords[0][1],lng:legacyCoords[0][0]},end:{lat:legacyCoords[legacyCoords.length-1][1],lng:legacyCoords[legacyCoords.length-1][0]},createdAt:0});
+    indexItems=next;updateList();
+    if(pendingKey&&indexItems.has(pendingKey)){ui.segmentSelect.value=pendingKey;pendingKey='';}
+  };
+  indexRef.on('value',indexListener,err=>{if(tt===id){console.error(err);notify('Cannot load segments: '+err.message);ui.listHint.textContent='Firebase read error. Check trainapp permissions.';}});
+}
+async function activateTT(text){
+  const id=validateTT(text);
+  if(!id){notify('TT ID must be between TT32500 and TT95000.');return;}
+  if(!changedTTWarning())return;
+  const token=++ttRequest;routeRequest++;busy=true;refreshControls();
+  detachIndex();stopDrawing();tt=id;ui.input.value=id;
+  legacyCoords=null;indexItems.clear();routeCache.clear();pendingKey='';resetSelected();updateList();
+  ui.ttHint.textContent='Loading segments for '+id+'…';
+  try{
+    // The registry makes manually opened IDs visible to the generator without listing IDs in the UI.
+    await idRegistry.child(id).transaction(cur=>cur===null?{createdAt:firebase.database.ServerValue.TIMESTAMP}:undefined,undefined,false);
+    if(token!==ttRequest)return;
+    // Backward-compatible with the previous TrainApp version, which stored one route at /segments/TT/coords.
+    const legacySnap=await segmentRoot.child(id).child('coords').once('value');
+    if(token!==ttRequest)return;
+    legacyCoords=parseCoords(legacySnap.val());
+    if(legacyCoords.length>=2)routeCache.set('__legacy',legacyCoords);
+    ui.ttHint.textContent='Current TT: '+id+'. Draw as many segments as needed.';
+    subscribeForTT(id,token);
+    notify('Opened '+id);
+  }catch(err){
+    console.error('Open TT:',err);
+    if(token===ttRequest){ui.ttHint.textContent='Could not open '+id+'. Check Firebase rules and connection.';notify('Firebase error: '+(err.message||'unknown error'));}
+  }finally{if(token===ttRequest){busy=false;refreshControls();}}
+}
+async function generateTT(){
+  if(!changedTTWarning())return;
+  busy=true;refreshControls();
+  try{
+    let newID='';
+    for(let i=0;i<=MAX-MIN;i++){
+      const next=await counter.transaction(current=>{const n=current===null?MIN:Number(current)+1;return Number.isInteger(n)&&n<=MAX?n:undefined;},undefined,false);
+      if(!next.committed)throw new Error('TT ID range is exhausted.');
+      const id='TT'+next.snapshot.val();
+      // Skip IDs previously used manually or saved in the old TrainApp schema.
+      const existing=await segmentRoot.child(id).once('value');
+      if(existing.exists())continue;
+      const reserved=await idRegistry.child(id).transaction(cur=>cur===null?{createdAt:firebase.database.ServerValue.TIMESTAMP,generated:true}:undefined,undefined,false);
+      if(reserved.committed){newID=id;break;}
     }
-    function validID(input) {
-      const m = String(input || '').trim().toUpperCase().match(/^(?:TT)?(\d{5})$/);
-      if (!m) return null;
-      const n = Number(m[1]);
-      return Number.isInteger(n) && n >= MIN_TT && n <= MAX_TT ? `TT${n}` : null;
+    if(!newID)throw new Error('No unused TT IDs remain.');
+    busy=false;await activateTT(newID);
+    notify('Generated '+newID);
+  }catch(err){console.error('Generate TT:',err);notify(err.message||'Cannot generate TT ID.');}
+  finally{busy=false;refreshControls();}
+}
+async function selectSegment(key,fit=true){
+  if(drawing||!tt)return;
+  if(!key){resetSelected();return;}
+  const meta=indexItems.get(key);
+  if(!meta){notify('Segment not found.');return;}
+  const token=++routeRequest;
+  selectedKey=key;selectedCoords=[];
+  const idx=[...indexItems.keys()].sort((a,b)=>(Number(indexItems.get(a).createdAt)||0)-(Number(indexItems.get(b).createdAt)||0)||a.localeCompare(b)).indexOf(key);
+  const label='Segment '+(idx+1);
+  ui.segmentSelect.value=key;setMetrics(meta,null,label);scheduleRender();
+  try{
+    let coords=routeCache.get(key);
+    if(!coords){
+      const ref=key==='__legacy'?segmentRoot.child(tt).child('coords'):segmentRoot.child(tt).child('items').child(key).child('coords');
+      const snap=await ref.once('value');
+      if(token!==routeRequest)return;
+      coords=parseCoords(snap.val());
+      if(coords.length<2)throw new Error('Saved segment has fewer than two valid points.');
+      routeCache.set(key,coords);
     }
-    function numericID(id) { return Number(String(id).slice(2)); }
-    function isLatLng(p) { return Array.isArray(p) && p.length === 2 && p.every(Number.isFinite) && Math.abs(p[0]) <= 180 && Math.abs(p[1]) <= 90; }
-    function parseFBPoints(raw) {
-      const arr = Array.isArray(raw) ? raw : raw && typeof raw === 'object'
-        ? Object.keys(raw).sort((a,b) => Number(a)-Number(b)).map(k => raw[k]) : [];
-      return arr.map(p => Array.isArray(p) ? [Number(p[1]),Number(p[0])] : [Number(p?.lng),Number(p?.lat)]).filter(isLatLng);
-    }
-    function encodeFBPoints(points) { return points.map(([lng,lat]) => ({lat:Number(lat.toFixed(7)),lng:Number(lng.toFixed(7))})); }
-    function haversine(a,b) {
-      const rad = Math.PI / 180, lat1 = a[1]*rad, lat2=b[1]*rad;
-      const dLat=(b[1]-a[1])*rad, dLng=(b[0]-a[0])*rad;
-      const x=Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
-      return 12742000*Math.atan2(Math.sqrt(x),Math.sqrt(Math.max(0,1-x)));
-    }
-    function routeMeters(coords) { let sum=0; for (let i=1;i<coords.length;i++) sum+=haversine(coords[i-1],coords[i]); return sum; }
-    function formatMeters(m) { return m >= 1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m'; }
-    function coordText(p) { return p ? p[1].toFixed(5)+', '+p[0].toFixed(5) : '—'; }
-    function activePoints() { return isDrawing ? draftCoords : selectedCoords; }
-
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: {
-        version: 8,
-        sources: { osm: {type:'raster',tileSize:256,tiles:[
-          'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-          'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-          'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-        ],attribution:'© OpenStreetMap contributors'}},
-        layers: [{id:'osm',type:'raster',source:'osm',paint:{'raster-fade-duration':0}}]
-      },
-      center: [4.701,50.879],zoom:14,maxZoom:19,
-      dragRotate:false,pitchWithRotate:false,attributionControl:true
-    });
-    map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'top-right');
-    let startMarker = null, endMarker = null;
-    function makeEndpoint(name, role) {
-      const node=document.createElement('div');node.className='ep '+role;node.textContent=name;
-      node.title=role==='start'?'Segment start':'Segment end';
-      return new maplibregl.Marker({element:node,anchor:'center'});
-    }
-    map.on('load', () => {
-      map.addSource('activeRoute',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-      map.addLayer({id:'routeGlow',type:'line',source:'activeRoute',paint:{'line-color':'#b794ff','line-width':13,'line-opacity':.26,'line-blur':3},layout:{'line-cap':'round','line-join':'round'}});
-      map.addLayer({id:'routeLine',type:'line',source:'activeRoute',paint:{'line-color':'#965cff','line-width':5.5,'line-opacity':1},layout:{'line-cap':'round','line-join':'round'}});
-      startMarker=makeEndpoint('S','start');endMarker=makeEndpoint('E','end');
-      mapReady=true;queueRender();
-    });
-    map.on('error', event => { if (event.error) console.warn('Map:',event.error); });
-
-    function renderNow() {
-      renderPending=false;
-      const coords=activePoints();
-      if (mapReady) {
-        map.getSource('activeRoute').setData({
-          type:'FeatureCollection',
-          features:coords.length>=2?[{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords}}]:[]
-        });
-        if (startMarker) {
-          if (coords.length) {startMarker.setLngLat(coords[0]).addTo(map);} else startMarker.remove();
-        }
-        if (endMarker) {
-          if (coords.length>=2) {endMarker.setLngLat(coords[coords.length-1]).addTo(map);} else endMarker.remove();
-        }
-      }
-      el.metricId.textContent=activeID||'Not selected';
-      el.metricLength.textContent=coords.length>=2?formatMeters(routeMeters(coords)):'—';
-      el.metricPoints.textContent=String(coords.length);
-      el.metricStart.textContent=coordText(coords[0]);
-      el.metricEnd.textContent=coordText(coords.length>=2?coords[coords.length-1]:null);
-      updateButtons();
-    }
-    function queueRender() {if (!renderPending) {renderPending=true;requestAnimationFrame(renderNow);}}
-    function fitCoords(coords=activePoints()) {
-      if (!mapReady||!coords.length) return;
-      const bounds = new maplibregl.LngLatBounds(coords[0],coords[0]);
-      coords.forEach(p=>bounds.extend(p));
-      const h=Math.max(320,map.getContainer().clientHeight);
-      map.fitBounds(bounds,{padding:{top:Math.floor(h*.27),bottom:Math.floor(h*.33),left:38,right:38},maxZoom:17.5,duration:650});
-    }
-    function updateButtons(){
-      el.start.disabled=busy||!activeID||activeExisting||isDrawing;
-      el.save.disabled=busy||!isDrawing||draftCoords.length<2;
-      el.undo.disabled=busy||!isDrawing||draftCoords.length===0;
-      el.fit.disabled=activePoints().length<2;
-      el.use.disabled=busy;el.generate.disabled=busy;el.newId.disabled=busy;
-      el.pan.textContent=isPanning?'✎ Resume draw':'☷ Pan map';
-      el.idleActions.classList.toggle('hidden',isDrawing);
-      el.draftActions.classList.toggle('hidden',!isDrawing);
-      el.modePicker.style.display=isDrawing?'flex':'none';
-      el.banner.classList.toggle('hidden',!isDrawing);
-      document.body.classList.toggle('is-drawing',isDrawing);
-      document.body.classList.toggle('is-panning',isPanning);
-      if (isDrawing) {
-        el.banner.textContent=isPanning?'Map navigation enabled · tap Resume draw':traceMode==='tap'?'Tap the map to add points':'Trace the route with your finger';
-        el.helper.textContent='Your route is not saved yet. Undo removes the last stroke or point.';
-      } else if (activeExisting) {
-        el.helper.textContent='Saved route shown in purple. Select another TT ID or generate a new one.';
-      } else if(activeID){
-        el.helper.textContent='This TT ID is available. Tap Start drawing to create its route.';
-      } else {
-        el.helper.textContent='Select or generate a TT ID, then trace a route on the map.';
-      }
-    }
-    function discardIfNeeded() {
-      return !isDrawing||draftCoords.length===0||window.confirm('Discard your unsaved drawing?');
-    }
-    function leaveDrawing(){
-      isDrawing=false;isPanning=false;activePointer=null;history=[];draftCoords=[];queueRender();
-    }
-    function setActiveUnused(id) {
-      activeID=id;activeExisting=false;selectedCoords=[];el.input.value=id;
-      el.savedSelect.value='';el.idHint.textContent=id+' is available. Draw and save the segment.';
-      queueRender();
-    }
-    async function openTT(input) {
-      const id=validID(input);
-      if(!id){message('Use a TT ID between TT32500 and TT95000.');return;}
-      if(!discardIfNeeded()){el.savedSelect.value=activeExisting?activeID:'';return;}
-      const token=++requestSerial;
-      busy=true;updateButtons();
-      try{
-        const snap=await SEGMENTS.child(id).once('value');
-        if(token!==requestSerial)return;
-        leaveDrawing();
-        if(snap.exists()) {
-          const data=snap.val(), coords=parseFBPoints(data.coords);
-          if(coords.length<2)throw new Error('This saved TT ID has invalid segment points.');
-          activeID=id;activeExisting=true;selectedCoords=coords;
-          el.input.value=id;el.savedSelect.value=savedIndex.has(id)?id:'';
-          el.idHint.textContent=id+' is already saved. Viewing this route.';
-          message('Opened '+id);
-          queueRender();requestAnimationFrame(()=>fitCoords(coords));
-        } else {
-          setActiveUnused(id);message(id+' is ready to draw');
-        }
-      }catch(err){console.error(err);message('Could not open TT ID: '+(err.message||'database error'));}
-      finally {if(token===requestSerial){busy=false;updateButtons();}}
-    }
-    async function generateTT(){
-      if(!discardIfNeeded())return;
-      busy=true;updateButtons();
-      try {
-        // Atomic counter allocates unique generated IDs even if multiple phones are online.
-        // Manually used IDs are checked, so a generated ID is never an already-saved segment.
-        let newID=null;
-        for(let attempts=0;attempts<=MAX_TT-MIN_TT;attempts++) {
-          const result=await COUNTER.transaction(current=>{
-            const next=current===null?MIN_TT:Number(current)+1;
-            return Number.isInteger(next)&&next<=MAX_TT?next:undefined;
-          },undefined,false);
-          if(!result.committed)throw new Error('All TT IDs have been allocated.');
-          const n=result.snapshot.val();
-          const candidate='TT'+n;
-          const existing=await SEGMENTS.child(candidate).once('value');
-          if(!existing.exists()){newID=candidate;break;}
-        }
-        if(!newID)throw new Error('No unused TT IDs remain.');
-        leaveDrawing();setActiveUnused(newID);message('Generated '+newID);
-      }catch(err){console.error(err);message('Could not generate TT ID: '+(err.message||'database error'));}
-      finally{busy=false;updateButtons();}
-    }
-    function drawStart(){
-      if(!activeID||activeExisting||busy)return;
-      selectedCoords=[];draftCoords=[];history=[];isDrawing=true;isPanning=false;
-      traceMode=document.querySelector('input[name="traceMode"]:checked')?.value||'trace';
-      queueRender();message('Draw your segment on the map');
-    }
-    function switchPan(){if(!isDrawing)return;isPanning=!isPanning;updateButtons();}
-    function addPointAt(clientX,clientY,force=false){
-      if(!mapReady||draftCoords.length>=MAX_POINTS)return;
-      const rect=$('map').getBoundingClientRect();
-      const point=[clientX-rect.left,clientY-rect.top];
-      if(!force&&lastPointerPixel&&Math.hypot(point[0]-lastPointerPixel[0],point[1]-lastPointerPixel[1])<6)return;
-      const ll=map.unproject(point), pair=[ll.lng,ll.lat];
-      if(!isLatLng(pair))return;
-      if(draftCoords.length&&haversine(draftCoords[draftCoords.length-1],pair)<.5)return;
-      draftCoords.push(pair);lastPointerPixel=point;queueRender();
-      if(draftCoords.length===MAX_POINTS)message('Point limit reached. Save this segment.');
-    }
-    const layer=$('touchLayer');
-    layer.addEventListener('pointerdown',e=>{
-      if(!isDrawing||isPanning||activePointer!==null||!mapReady)return;
-      e.preventDefault();
-      activePointer=e.pointerId;hasMoved=false;lastPointerPixel=null;
-      try{layer.setPointerCapture(e.pointerId);}catch(_){}
-      history.push(draftCoords.length);
-      addPointAt(e.clientX,e.clientY,true);
-    });
-    layer.addEventListener('pointermove',e=>{
-      if(activePointer!==e.pointerId||!isDrawing||isPanning||traceMode==='tap')return;
-      e.preventDefault();hasMoved=true;addPointAt(e.clientX,e.clientY);
-    });
-    function finishPointer(e){
-      if(activePointer!==e.pointerId)return;
-      if(traceMode==='trace'&&hasMoved&&isDrawing&&!isPanning)addPointAt(e.clientX,e.clientY,true);
-      activePointer=null;lastPointerPixel=null;
-      try{layer.releasePointerCapture(e.pointerId);}catch(_){}
-      queueRender();
-    }
-    layer.addEventListener('pointerup',finishPointer);
-    layer.addEventListener('pointercancel',finishPointer);
-    function undo(){
-      if(!isDrawing||history.length===0){message('Nothing to undo yet.');return;}
-      const previous=history.pop();draftCoords=draftCoords.slice(0,previous);queueRender();
-    }
-    function cancelDrawing(){
-      if(!discardIfNeeded())return;
-      leaveDrawing();queueRender();message('Drawing cancelled');
-    }
-    async function saveSegment(){
-      if(!isDrawing||busy)return;
-      if(draftCoords.length<2){message('Draw at least two points before saving.');return;}
-      const id=activeID;
-      const coords=draftCoords.map(p=>p.slice());
-      const distance=routeMeters(coords);
-      if(distance<1){message('Your segment needs to be at least 1 metre long.');return;}
-      const record={
-        id,coords:encodeFBPoints(coords),lengthMeters:Math.round(distance*100)/100,
-        start:{lat:coords[0][1],lng:coords[0][0]},
-        end:{lat:coords[coords.length-1][1],lng:coords[coords.length-1][0]},
-        points:coords.length,createdAt:firebase.database.ServerValue.TIMESTAMP,source:'trainapp-mobile',version:1
-      };
-      busy=true;updateButtons();
-      try{
-        // Write-once transaction prevents two phones overwriting the same TT route.
-        const result=await SEGMENTS.child(id).transaction(current=>current===null?record:undefined,undefined,false);
-        if(!result.committed){
-          message(id+' already exists. Opening the saved version.');
-          busy=false;await openTT(id);return;
-        }
-        const indexRecord={id,lengthMeters:record.lengthMeters,points:record.points,
-          start:record.start,end:record.end,createdAt:record.createdAt};
-        let indexed=true;
-        try{await INDEX.child(id).set(indexRecord);}catch(indexError){indexed=false;console.error('Index write failed',indexError);}
-        leaveDrawing();activeID=id;activeExisting=true;selectedCoords=coords;
-        el.input.value=id;el.idHint.textContent=id+' saved in trainapp/segments.';
-        queueRender();requestAnimationFrame(()=>fitCoords(coords));
-        message(indexed?'✓ '+id+' saved successfully':id+' saved, but the dropdown index could not update.');
-        if(indexed){
-          savedIndex.set(id,indexRecord);renderDropdown();el.savedSelect.value=id;
-        }
-      }catch(err){console.error(err);message('Save failed: '+(err.message||'database error'));}
-      finally{busy=false;updateButtons();}
-    }
-    function renderDropdown(){
-      const keep=el.savedSelect.value;
-      const sorted=[...savedIndex.keys()].sort((a,b)=>numericID(b)-numericID(a));
-      el.savedSelect.replaceChildren(new Option('Select a saved TT ID…',''));
-      for(const id of sorted){
-        const value=savedIndex.get(id);
-        el.savedSelect.add(new Option(id+' · '+formatMeters(Number(value.lengthMeters)||0),id));
-      }
-      el.count.textContent=sorted.length.toLocaleString()+' saved';
-      if(activeExisting&&sorted.includes(activeID))el.savedSelect.value=activeID;
-      else if(sorted.includes(keep)&&keep===activeID)el.savedSelect.value=keep;
-    }
-    INDEX.on('value',snapshot=>{
-      const next=new Map();
-      snapshot.forEach(item=>{
-        if(validID(item.key)===item.key&&item.val()&&typeof item.val()==='object')next.set(item.key,item.val());
-      });
-      savedIndex=next;renderDropdown();
-    },err=>{console.error('Index read failed',err);message('Saved segments unavailable: '+err.message);});
-    db.ref('.info/connected').on('value',s=>{
-      const yes=s.val()===true;
-      el.connected.classList.toggle('connected',yes);
-      el.connectionText.textContent=yes?'Firebase online':'Offline / connecting';
-    });
-
-    el.form.addEventListener('submit',e=>{e.preventDefault();el.input.blur();openTT(el.input.value);});
-    el.generate.addEventListener('click',generateTT);
-    el.newId.addEventListener('click',generateTT);
-    el.start.addEventListener('click',drawStart);
-    el.pan.addEventListener('click',switchPan);
-    el.undo.addEventListener('click',undo);
-    el.cancel.addEventListener('click',cancelDrawing);
-    el.save.addEventListener('click',saveSegment);
-    el.fit.addEventListener('click',()=>fitCoords());
-    el.savedSelect.addEventListener('change',()=>{if(el.savedSelect.value)openTT(el.savedSelect.value);});
-    document.querySelectorAll('input[name="traceMode"]').forEach(input=>input.addEventListener('change',()=>{
-      traceMode=document.querySelector('input[name="traceMode"]:checked')?.value||'trace';
-      updateButtons();
-    }));
-    $('locateBtn').addEventListener('click',()=>{
-      if(!navigator.geolocation){message('Geolocation is not supported by this browser.');return;}
-      navigator.geolocation.getCurrentPosition(
-        p=>{map.flyTo({center:[p.coords.longitude,p.coords.latitude],zoom:16,duration:650});message('Centered on your location');},
-        e=>message('Location unavailable: '+e.message),
-        {enableHighAccuracy:true,timeout:12000,maximumAge:60000}
-      );
-    });
-    // Recalculate map size on orientation changes and when the browser chrome shifts.
-    window.addEventListener('resize',()=>map.resize());
-    window.addEventListener('orientationchange',()=>setTimeout(()=>map.resize(),200));
-    // Warn before browser navigation when a nonempty drawing is unsaved.
-    window.addEventListener('beforeunload',e=>{if(isDrawing&&draftCoords.length){e.preventDefault();e.returnValue='';}});
-    // Optional URL deep-link: ?tt=TT32500
-    const deepLink=new URLSearchParams(window.location.search).get('tt');
-    if(deepLink&&validID(deepLink))openTT(deepLink);
-    updateButtons();queueRender();
-  </script>
+    if(token!==routeRequest)return;
+    selectedCoords=coords;setMetrics(meta,coords,label);scheduleRender();
+    if(fit)requestAnimationFrame(()=>fitRoute(coords));
+  }catch(err){if(token===routeRequest){selectedCoords=[];scheduleRender();notify('Could not load segment: '+(err.message||'Firebase error'));}console.error(err);}
+}
+function startDrawing(){
+  if(!tt||busy||!mapReady)return;
+  drawing=true;panning=false;draft=[];undoHistory=[];lastPixel=null;
+  traceMode=document.querySelector('input[name="drawMode"]:checked')?.value||'trace';
+  ui.name.textContent='Unsaved drawing';ui.length.textContent='—';ui.points.textContent='0';ui.startCoord.textContent='—';ui.endCoord.textContent='—';
+  scheduleRender();refreshControls();notify('Draw a segment on the map above');
+}
+function setPan(){if(!drawing)return;panning=!panning;activePointer=null;refreshControls();}
+function addTouchPoint(clientX,clientY,force=false){
+  if(!drawing||panning||!mapReady||draft.length>=MAX_POINTS)return;
+  const bounds=$('map').getBoundingClientRect();const pix=[clientX-bounds.left,clientY-bounds.top];
+  if(!force&&lastPixel&&Math.hypot(pix[0]-lastPixel[0],pix[1]-lastPixel[1])<7)return;
+  const pos=map.unproject(pix),p=[pos.lng,pos.lat];
+  if(!isPoint(p)||draft.length&&meters(draft[draft.length-1],p)<.5)return;
+  draft.push(p);lastPixel=pix;scheduleRender();
+  if(draft.length===MAX_POINTS)notify('Maximum points reached: save this segment.');
+}
+const touch=$('touchLayer');
+touch.addEventListener('pointerdown',e=>{
+  if(!drawing||panning||!mapReady||activePointer!==null)return;
+  e.preventDefault();activePointer=e.pointerId;strokeMoved=false;lastPixel=null;
+  try{touch.setPointerCapture(e.pointerId);}catch(_){}
+  undoHistory.push(draft.length);addTouchPoint(e.clientX,e.clientY,true);refreshControls();
+});
+touch.addEventListener('pointermove',e=>{
+  if(activePointer!==e.pointerId||!drawing||panning||traceMode==='tap')return;
+  e.preventDefault();strokeMoved=true;addTouchPoint(e.clientX,e.clientY);
+});
+function endStroke(e){
+  if(activePointer!==e.pointerId)return;
+  if(traceMode==='trace'&&strokeMoved&&drawing&&!panning)addTouchPoint(e.clientX,e.clientY,true);
+  activePointer=null;lastPixel=null;
+  try{touch.releasePointerCapture(e.pointerId);}catch(_){}
+  scheduleRender();
+}
+touch.addEventListener('pointerup',endStroke);touch.addEventListener('pointercancel',endStroke);
+function undo(){if(!undoHistory.length){notify('Nothing to undo.');return;}draft=draft.slice(0,undoHistory.pop());scheduleRender();}
+function cancelDrawing(){if(!changedTTWarning())return;stopDrawing();setMetrics(indexItems.get(selectedKey),selectedCoords,segmentLabel(selectedKey));scheduleRender();notify('Drawing cancelled');}
+async function saveDrawing(){
+  if(!drawing||busy)return;
+  if(draft.length<2){notify('Draw at least two points first.');return;}
+  const len=distance(draft);if(len<1){notify('Segment must be at least 1 metre long.');return;}
+  const id=tt,pts=draft.map(p=>p.slice());
+  const segRef=segmentRoot.child(id).child('items').push();
+  const key=segRef.key;
+  const data={ttId:id,segmentId:key,coords:toFirebase(pts),lengthMeters:+len.toFixed(2),points:pts.length,
+    start:{lat:pts[0][1],lng:pts[0][0]},end:{lat:pts[pts.length-1][1],lng:pts[pts.length-1][0]},
+    createdAt:firebase.database.ServerValue.TIMESTAMP,source:'trainapp-mobile',version:2};
+  const summary={lengthMeters:data.lengthMeters,points:data.points,start:data.start,end:data.end,createdAt:firebase.database.ServerValue.TIMESTAMP};
+  busy=true;refreshControls();
+  try{
+    // One atomic multi-path update: the route and its dropdown index always save together.
+    const changes={};
+    changes[`segments/${id}/items/${key}`]=data;
+    changes[`segmentIndex/${id}/items/${key}`]=summary;
+    await root.update(changes);
+    routeCache.set(key,pts);
+    stopDrawing();pendingKey=key;
+    indexItems.set(key,{...summary,createdAt:Date.now()});
+    updateList();await selectSegment(key,true);
+    notify('Segment saved under '+id);
+  }catch(err){console.error('Save:',err);notify('Could not save: '+(err.message||'database error'));}
+  finally{busy=false;refreshControls();}
+}
+// Locate Me places a PERSISTENT BLUE PIN on actual device coordinates.
+ui.locate.addEventListener('click',()=>{
+  if(!navigator.geolocation){notify('Location is unavailable in this browser.');return;}
+  if(!window.isSecureContext){notify('Location requires HTTPS (or localhost).');return;}
+  ui.locate.disabled=true;ui.locateText.textContent='Locating…';
+  navigator.geolocation.getCurrentPosition(position=>{
+    const point=[position.coords.longitude,position.coords.latitude];
+    if(!locationPin)locationPin=locationMarker();
+    locationPin.setLngLat(point).addTo(map);
+    map.flyTo({center:point,zoom:Math.max(16,map.getZoom()),duration:700});
+    ui.locate.disabled=false;ui.locateText.textContent='Locate me';
+    notify('Your location is marked with a blue pin.');
+  },err=>{
+    ui.locate.disabled=false;ui.locateText.textContent='Locate me';
+    notify('Location not available: '+err.message);
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+});
+ui.form.addEventListener('submit',e=>{e.preventDefault();ui.input.blur();activateTT(ui.input.value);});
+ui.generate.addEventListener('click',generateTT);
+ui.start.addEventListener('click',startDrawing);
+ui.fit.addEventListener('click',()=>fitRoute(selectedCoords));
+ui.view.addEventListener('click',()=>fitRoute(selectedCoords));
+ui.segmentSelect.addEventListener('change',()=>{if(ui.segmentSelect.value)selectSegment(ui.segmentSelect.value,true);else resetSelected();});
+ui.pan.addEventListener('click',setPan);
+ui.undo.addEventListener('click',undo);
+ui.save.addEventListener('click',saveDrawing);
+ui.cancel.addEventListener('click',cancelDrawing);
+document.querySelectorAll('input[name="drawMode"]').forEach(r=>r.addEventListener('change',()=>{traceMode=document.querySelector('input[name="drawMode"]:checked')?.value||'trace';refreshControls();}));
+db.ref('.info/connected').on('value',s=>{const online=s.val()===true;ui.connection.classList.toggle('online',online);ui.connectionText.textContent=online?'Firebase online':'Connecting';});
+window.addEventListener('resize',()=>map.resize());
+window.addEventListener('orientationchange',()=>setTimeout(()=>map.resize(),250));
+window.addEventListener('beforeunload',e=>{if(drawing&&draft.length){e.preventDefault();e.returnValue='';}});
+const initial=new URLSearchParams(location.search).get('tt');
+if(initial&&validateTT(initial))activateTT(initial);
+refreshControls();
+</script>
 </body>
 </html>
