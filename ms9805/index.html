@@ -1146,6 +1146,10 @@
 
   // Marker arrays (DOM markers we manage manually)
   let locationMarker = null;
+  let lastFixTime=0, followPausedUntil=0, firstFollow=true;
+  function pauseWalkingCamera(){followPausedUntil=Date.now()+15000;}
+  map.on('dragstart',event=>{if(event.originalEvent)pauseWalkingCamera();});
+  map.on('dragend',event=>{if(event.originalEvent)pauseWalkingCamera();});
   const dotMarkers  = [];
   const shiftViewMarkers = [];
   let shiftViewActive = false;
@@ -1215,6 +1219,7 @@
     if(!hex) return;
     const bounds=new maplibregl.LngLatBounds();
     hex.points.forEach(point=>bounds.extend(point));
+    pauseWalkingCamera();
     map.fitBounds(bounds,{padding:45,maxZoom:16,duration:650});
     showToast(hex.label);
   });
@@ -1452,6 +1457,7 @@
     }
 
     const lngs = s.coords.map(c => c.lng), lats = s.coords.map(c => c.lat);
+    pauseWalkingCamera();
     map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 50, duration: 900 });
     return true;
   }
@@ -2779,6 +2785,7 @@
     if(!posts.length){showToast('No posts yet');return;}
     if(historyIndex<0||historyIndex>=posts.length)historyIndex=posts.length-1;
     const d=posts[historyIndex];
+    pauseWalkingCamera();
     map.flyTo({center:[d.lng,d.lat],zoom:18,duration:900});
     if(map.getSource('histdot')){
       const fill=d.color==='green'?'#22c55e':d.color==='blue'?'#3b82f6':d.color==='orange'?'#f97316':'#ef4444';
@@ -3168,15 +3175,32 @@
   // ── Geolocation ───────────────────────────────────────────────────────────
   function setPostEnabled(on){const ok=on&&!!currentUserId&&!!currentWorkerName&&!isAdmin&&!workerShiftEnded();btnJa.disabled=btnNee.disabled=btnBonus.disabled=btnPost.disabled=!ok;}
 
+  function applyWalkingFix(pos,focus=false){
+    if(!currentLatLng||pos.timestamp>=lastFixTime){
+      lastFixTime=pos.timestamp;
+      currentLatLng=[pos.coords.latitude,pos.coords.longitude];
+    }
+    ensureLocMarker(currentLatLng);
+    setPostEnabled(true);
+    updateSegLiveDot(currentLatLng);
+    if(!focus&&(Date.now()<followPausedUntil||replayActive||shiftViewActive||map.isMoving()))return;
+    const center=[currentLatLng[1],currentLatLng[0]];
+    const {x,y}=map.project(center);
+    const {clientWidth:w,clientHeight:h}=map.getContainer();
+    if(focus||firstFollow||Math.abs(x-w/2)>w*.15||Math.abs(y-h/2)>h*.15){
+      const camera={center,duration:350};
+      if(focus||firstFollow)camera.zoom=Math.max(map.getZoom(),18);
+      map.easeTo(camera);
+      firstFollow=false;
+    }
+  }
+
   async function goToCurrentLocation({focus=true}={}){
     if(!('geolocation' in navigator))return;
     return new Promise(resolve=>{
       navigator.geolocation.getCurrentPosition(
         pos=>{
-          currentLatLng=[pos.coords.latitude,pos.coords.longitude];
-          ensureLocMarker(currentLatLng);
-          if(focus)map.flyTo({center:[currentLatLng[1],currentLatLng[0]],zoom:Math.max(map.getZoom(),18),duration:800});
-          setPostEnabled(true);updateSegLiveDot(currentLatLng);resolve(currentLatLng);
+          applyWalkingFix(pos,focus);resolve(currentLatLng);
         },
         ()=>{showToast('Location unavailable');setPostEnabled(false);resolve(null);},
         {enableHighAccuracy:true,timeout:25000,maximumAge:10000}
@@ -3186,8 +3210,7 @@
 
   if('geolocation' in navigator){
     navigator.geolocation.watchPosition(pos=>{
-      currentLatLng=[pos.coords.latitude,pos.coords.longitude];
-      ensureLocMarker(currentLatLng);setPostEnabled(true);updateSegLiveDot(currentLatLng);
+      applyWalkingFix(pos);
     },()=>{},{enableHighAccuracy:true,maximumAge:15000,timeout:25000});
   }
 
@@ -3226,7 +3249,12 @@
     }catch(e){}
   }
 
-  btnLocate.addEventListener('click',()=>goToCurrentLocation({focus:true}));
+  btnLocate.addEventListener('click',()=>{
+    followPausedUntil=0;
+    if(replayActive)stopHistory();
+    if(shiftViewActive)clearShiftView();
+    goToCurrentLocation({focus:true});
+  });
   btnJa.addEventListener('click',()=>postDot('green'));
   btnNee.addEventListener('click',()=>postDot('red'));
   btnBonus.addEventListener('click',()=>postDot('blue'));
