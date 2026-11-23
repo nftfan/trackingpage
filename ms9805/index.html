@@ -501,6 +501,18 @@
     #pickupSave{height:36px}
     #pickupStatus{font-size:12px}
     #pickupStatus:empty{display:none}
+    #pickupMode{background:#16352a;color:#bbf7d0;border-color:#306e50}
+    #returnMode{background:#3e2026;color:#fecaca;border-color:#84404a}
+    #pickupMode[aria-selected="true"]{background:#17623c;color:white;border-color:#86efac}
+    #returnMode[aria-selected="true"]{background:#952f3c;color:white;border-color:#fda4af}
+    #pickupPanel th,#pickupPanel td{white-space:nowrap;padding:5px 4px;font-size:10px;line-height:1.25}
+    #pickupPanel th{font-size:9px}
+    .pickup-proof-button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:4px 0;text-decoration:underline}
+    #pickupProofDialog{position:fixed;inset:0;margin:auto;width:fit-content;max-width:calc(100vw - 24px);height:fit-content;max-height:90dvh;padding:12px;border:1px solid #454956;border-radius:12px;background:var(--panel);color:var(--text);overflow:auto}
+    #pickupProofDialog::backdrop{background:#000b}
+    #pickupProofTitle{font-size:16px}
+    #pickupProofImage{display:block;max-width:min(76rem,100%);max-height:calc(90dvh - 72px);object-fit:contain;margin:auto}
+    #pickupProofImage[hidden]{display:none}
     #pickupPanel .pickup-row{color:#86efac}
     #pickupPanel .return-row{color:#fca5a5}
     #pickupPanel td,#pickupPanel a{color:inherit}
@@ -563,9 +575,9 @@
   </div>
 
   <div class="controls" style="padding:4px 4px 0;">
-    <button id="btnPost" class="btn-post" title="Post action">
+    <button id="btnPost" class="btn-post" title="Delivered">
       <div class="btn-content">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20 4l-7.5 17-2-7-7-2.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        Delivered
         <div class="btn-count" id="countPost">0</div>
       </div>
     </button>
@@ -757,6 +769,12 @@
     <div class="mistakes-table-wrap"><table class="mistakes-table"><thead><tr><th scope="col">Time</th><th scope="col">Mistake</th></tr></thead><tbody id="shiftMistakesRows"></tbody></table></div>
   </div>
 </div>
+
+<dialog id="pickupProofDialog" aria-labelledby="pickupProofTitle">
+  <div class="popup-title-row"><h2 id="pickupProofTitle">Photo proof</h2><form method="dialog"><button class="popup-close" aria-label="Close photo proof">&times;</button></form></div>
+  <p id="pickupProofMessage" role="status"></p>
+  <img id="pickupProofImage" alt="Flyer photo proof" hidden>
+</dialog>
 
 <dialog id="pickupDialog" aria-labelledby="pickupHeading">
   <div class="popup-title-row"><h2 id="pickupHeading"></h2><button id="pickupClose" class="popup-close" type="button" aria-label="Close">&times;</button></div>
@@ -2821,6 +2839,26 @@
     }
   };
 
+  const proofViewer = pickupEl('pickupProofDialog');
+  const proofImage = pickupEl('pickupProofImage');
+  const proofMessage = pickupEl('pickupProofMessage');
+  function openPickupProof(entry) {
+    proofImage.hidden = true;
+    proofMessage.textContent = 'Loading photo…';
+    proofImage.alt = (entry.type === 'return' ? 'Return' : 'Pickup') + ' photo proof from ' + entry.firstName;
+    proofImage.src = entry.photoUrl;
+    proofViewer.showModal();
+  }
+  proofImage.onload = () => {
+    proofImage.hidden = false;
+    proofMessage.textContent = '';
+  };
+  proofImage.onerror = () => {
+    proofImage.hidden = true;
+    proofMessage.textContent = 'This photo could not be loaded.';
+  };
+  proofViewer.addEventListener('close', () => proofImage.removeAttribute('src'));
+
   let unsubscribePickup = null;
   function syncPickupHistory() {
     if (unsubscribePickup) { unsubscribePickup(); unsubscribePickup = null; }
@@ -2845,12 +2883,13 @@
         }
         const proofCell = row.insertCell();
         if (typeof entry.photoUrl === 'string' && entry.photoUrl.startsWith(PROOF_R2_PUBLIC)) {
-          const link = document.createElement('a');
-          link.href = entry.photoUrl;
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          link.textContent = 'View photo proof';
-          proofCell.append(link);
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'pickup-proof-button';
+          button.textContent = 'View photo proof';
+          button.setAttribute('aria-haspopup', 'dialog');
+          button.onclick = () => openPickupProof(entry);
+          proofCell.append(button);
         }
       }
       status.textContent = entries.length ? '' : 'No pickups or returns recorded.';
