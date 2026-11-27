@@ -637,6 +637,22 @@
       background: #30343d;
       border-color: #a8b4c8;
     }
+    .shift-metrics { grid-template-columns: 1fr; }
+    #challengeTimeChip { justify-content: center; text-align: center; padding: 10px; }
+    #challengeTimeRemaining { font-size: clamp(30px, 9vw, 44px); }
+    .icon-bar #btnStartWorker { background: #166534; border-color: #368750; }
+    .icon-bar #btnStartWorker.shift-running, #endWorkerShift, #confirmEndShiftYes,
+    .icon-bar #shiftMistakesBtn.has-mistakes { background: #982e36; border-color: #df6570; color: white; }
+    .admin-mode .icon-bar #btnStartWorker { background: var(--control); border-color: var(--edge); }
+    #segSelect { background: #503174; color: #fff; border-color: #8c66b6; }
+    #segSelect:disabled { opacity: 1; color: #e2d1ef; }
+    .dropdown-field:has(#segSelect)>span { color: #d8b4fe; }
+    #changeUserBtn { background: #e7ca72; color: #2c2411; border-color: #ead58e; }
+    .app-inner .shift-summary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; padding: 10px; }
+    .shift-summary .worker-line { grid-column: 1/-1; color: var(--muted); font-size: 13px; }
+    .worker-line strong { color: var(--text); overflow-wrap: anywhere; }
+    .shift-summary small { display: block; font-size: 11px; color: var(--muted); }
+    #shiftSalary, #userPillText { font-size: clamp(20px,5.3vw,27px); font-weight: 750; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -722,10 +738,6 @@
     <input type="file" id="proofFileInput" accept="image/*" style="display:none">
   </div>
   <div class="shift-metrics" role="group" aria-label="Shift progress">
-    <div id="challengeDotsChip" class="challenge-chip left inactive" aria-label="Orange posts remaining">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
-      <span class="metric"><small>Flyers left</small><span id="challengeDotsRemaining" class="challenge-value">1,000</span></span>
-    </div>
     <div id="challengeTimeChip" class="challenge-chip right inactive" aria-label="Challenge time remaining">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12l4 2"/><path class="clock-hand" d="M12 12V6"/></svg>
       <span class="metric"><small>Time left</small><span id="challengeTimeRemaining" class="challenge-value">03:00:00</span></span>
@@ -740,33 +752,11 @@
   <button id="btnLatestDot" style="display:none;"></button>
 
   <div class="app-inner">
-    <header>
-
-      <span id="shiftSalary" class="shift-salary" role="status" aria-live="polite" hidden></span>
-      <div class="header-title"></div>
-      <div id="userPill" class="user-pill">
-        <span id="userPillText"></span>
-      </div>
+    <header class="shift-summary">
+      <div class="worker-line">Worker <strong id="activeWorkerName">—</strong></div>
+      <div><small>Shift salary</small><strong id="shiftSalary" role="status">—</strong></div>
+      <div id="userPill"><small>FF ID</small><strong id="userPillText">—</strong></div>
     </header>
-
-    <div class="session-strip">
-      <div id="sessionTimer" class="session-timer inactive">00:00:00</div>
-      <div class="session-meta">
-        <span><b id="sessionAvg">—</b> avg/min</span>
-        <span><b id="sessionTotal">0</b> today</span>
-      </div>
-    </div>
-
-    <div class="stats-card">
-      <div class="stat-box"><div class="stat-label">Today's Dots</div><div class="stat-value dots" id="todayWorkerDots">0</div></div>
-    </div>
-
-    <div class="stats-card">
-      <div class="stat-box"><div class="stat-label">Today's Conns</div><div class="stat-value conns" id="todayWorkerConns">0</div></div>
-      <div class="stat-divider"></div>
-      <div class="stat-box"><div class="stat-label">Total Conns</div><div class="stat-value conns" id="totalWorkerConns">0</div></div>
-    </div>
-
     <div class="campaign-progress">
       <div class="camp-header">
         <span class="camp-title">
@@ -1173,21 +1163,14 @@
   const userIdInput      = document.getElementById('userIdInput');
   const userJoinBtn      = document.getElementById('userJoinBtn');
   const loginError       = document.getElementById('loginError');
-  const userPill         = document.getElementById('userPill');
   const userPillText     = document.getElementById('userPillText');
   const changeUserBtn    = document.getElementById('changeUserBtn');
-  const sessionTimerEl   = document.getElementById('sessionTimer');
-  const sessionAvgEl     = document.getElementById('sessionAvg');
-  const sessionTotalEl   = document.getElementById('sessionTotal');
   const segSelect        = document.getElementById('segSelect');
   const btnStartWorker   = document.getElementById('btnStartWorker');
   const workerBackdrop   = document.getElementById('workerBackdrop');
   const workerNameInput  = document.getElementById('workerNameInput');
   const workerSaveBtn    = document.getElementById('workerSaveBtn');
   const workerError      = document.getElementById('workerError');
-  const todayWorkerDotsEl     = document.getElementById('todayWorkerDots');
-  const todayWorkerConnsEl    = document.getElementById('todayWorkerConns');
-  const totalWorkerConnsEl    = document.getElementById('totalWorkerConns');
   const campPercentEl         = document.getElementById('campPercent');
   const campBarEl             = document.getElementById('campBar');
   const campRemEl             = document.getElementById('campRem');
@@ -1202,9 +1185,7 @@
   const cameraBtn        = document.getElementById('cameraBtn');
   const proofFileInput   = document.getElementById('proofFileInput');
   const btnLatestDot     = document.getElementById('btnLatestDot');
-  const challengeDotsChip     = document.getElementById('challengeDotsChip');
   const challengeTimeChip     = document.getElementById('challengeTimeChip');
-  const challengeDotsRemainingEl = document.getElementById('challengeDotsRemaining');
   const challengeTimeRemainingEl = document.getElementById('challengeTimeRemaining');
   const starEarnedEl      = document.getElementById('starEarned');
   const diamondEarnedEl   = document.getElementById('diamondEarned');
@@ -1244,8 +1225,8 @@
   function renderShiftSalary(){
     const amount = shiftSalaryCents === null ? null : `€${(shiftSalaryCents / 100).toFixed(2)}`;
     const label = shiftSalaryState === 'loading' ? 'Loading…' : shiftSalaryState === 'error' ? 'Unavailable' : amount || 'Not set';
-    shiftSalaryEl.hidden = !currentUserId;
-    shiftSalaryEl.textContent = `Shift salary: ${label}`;
+    
+    shiftSalaryEl.textContent = currentUserId ? label : "—";
     adminCurrentSalary.textContent = label;
   }
   function parseShiftSalary(value){
@@ -1985,27 +1966,25 @@
     if (cRef) update(cRef,{startAt:ts,endAt:ts+CHALLENGE_MS,starsEarned:0,diamondsEarned:0,deadMinutes:0,orangePosts:0,targetPosts:CHALLENGE_TARGET_POSTS,starThreshold:STAR_POSTS_PER_MINUTE,diamondThreshold:DIAMOND_POSTS_PER_MINUTE,rewardRoundsPerMinute:MAX_REWARD_ROUNDS_PER_MINUTE,maxRewardedPostsPerMinute:MAX_REWARDED_POSTS_PER_MINUTE,rewardVersion:CHALLENGE_REWARD_VERSION,durationMinutes:CHALLENGE_TOTAL_STARS,updatedAt:Date.now()}).catch(()=>{});
   }
 
-  function updateMapMetrics(stats){
-    const remaining=stats?.remainingPosts??CHALLENGE_TARGET_POSTS;
-    const ms=stats?.remainingMs??CHALLENGE_MS;
-    challengeTimeChip.classList.toggle('urgent',Boolean(stats)&&remaining>0&&ms<=300000);
-
+  function displayDeliveryTime(timestamp) {
+    const elapsed = challengeStartAt && Number.isFinite(timestamp) ? Math.max(0, timestamp - challengeStartAt) : 0;
+    const remaining = Math.max(0, CHALLENGE_MS - elapsed);
+    challengeTimeRemainingEl.textContent = formatHMS(remaining);
+    challengeTimeChip.classList.toggle('urgent', remaining > 0 && remaining <= 300000);
+    challengeTimeChip.classList.toggle('done', remaining === 0);
   }
   function resetChallengeUi() {
-    updateMapMetrics(null);
+    challengeTimeChip.classList.remove('urgent');
     challengeStartAt = null;
     challengeOrangeTimestamps = [];
     beatClock = null;
     beatClockCooldownUntil = 0;
     lastChallengePersistSig = '';
-    challengeDotsRemainingEl.textContent = CHALLENGE_TARGET_POSTS.toLocaleString();
     challengeTimeRemainingEl.textContent = '03:00:00';
     starEarnedEl.textContent = '⭐ 0';
     diamondEarnedEl.textContent = '💎 0';
     if (deadEarnedEl) deadEarnedEl.textContent = '☠ 0';
-    challengeDotsChip.classList.add('inactive');
     challengeTimeChip.classList.add('inactive');
-    challengeDotsChip.classList.remove('done');
     challengeTimeChip.classList.remove('done');
     renderCoach({icon:'🎯',title:'Ready for 1,000',detail:'Your first orange post starts the 3-hour challenge.',side:'1K · 3H',tone:'',progress:0});
   }
@@ -2168,10 +2147,10 @@
   function updateChallengeUi() {
     if (isAdmin) {
       challengeStartAt=null;challengeOrangeTimestamps=[];beatClock=null;lastChallengePersistSig='';
-      updateMapMetrics(null);challengeDotsChip.classList.remove('done');challengeTimeChip.classList.remove('done');
-      challengeDotsRemainingEl.textContent='—';challengeTimeRemainingEl.textContent='—';
+      challengeTimeChip.classList.remove('urgent');challengeTimeChip.classList.remove('done');
+      challengeTimeRemainingEl.textContent='—';
       starEarnedEl.textContent='⭐ 0';diamondEarnedEl.textContent='💎 0';if(deadEarnedEl)deadEarnedEl.textContent='☠ 0';
-      challengeDotsChip.classList.add('inactive');challengeTimeChip.classList.add('inactive');
+      challengeTimeChip.classList.add('inactive');
       renderCoach({icon:'◆',title:'Admin mode',detail:'Set the campaign target for this campaign.',side:'ADMIN',tone:'diamond',progress:0});
       return;
     }
@@ -2182,16 +2161,10 @@
     const now = Date.now();
     const stats = computeChallengeStats(now);
     persistChallengeRecord(stats);
-    updateMapMetrics(stats);
-    challengeDotsRemainingEl.textContent = stats.remainingPosts.toLocaleString();
-    challengeTimeRemainingEl.textContent = formatHMS(stats.remainingMs);
     starEarnedEl.textContent = `⭐ ${stats.earned}`;
     diamondEarnedEl.textContent = `💎 ${stats.diamonds}`;
     if (deadEarnedEl) deadEarnedEl.textContent = `☠ ${stats.missed}`;
-    challengeDotsChip.classList.remove('inactive');
     challengeTimeChip.classList.remove('inactive');
-    challengeDotsChip.classList.toggle('done', stats.remainingPosts === 0);
-    challengeTimeChip.classList.toggle('done', stats.remainingMs === 0);
 
     updateBeatClock(stats, now);
     if (now >= coachOverrideUntil) renderDefaultCoach(stats, now);
@@ -2224,6 +2197,7 @@
       const key = challengeWorkerKey();
       if (key) localStorage.setItem(key, String(challengeStartAt));
     }
+    displayDeliveryTime(oranges[oranges.length - 1]);
     challengeOrangeTimestamps = challengeStartAt
       ? oranges.filter(ts => ts >= challengeStartAt && ts < challengeStartAt + CHALLENGE_MS)
       : [];
@@ -2246,6 +2220,7 @@
     }
     if (!challengeStartAt) return;
 
+    displayDeliveryTime(ts);
     const endAt = challengeStartAt + CHALLENGE_MS;
     if (ts < challengeStartAt || ts >= endAt) {
       updateChallengeUi();
@@ -2289,62 +2264,17 @@
 
   // ── Session display ────────────────────────────────────────────
   function updateSessionDisplay(allDots) {
-    let sessionDurationMs=0, sessionDots=0, isActive=false, sessionAvg=0;
-    let greenC=0, redC=0, blueC=0, orangeC=0;
-    let todayGroupDots=0, totalGroupDots=0, todayGroupPosts=0, totalGroupPosts=0;
-    const baseName = currentWorkerName ? currentWorkerName.replace(/[0-9]/g,'').toLowerCase() : '';
-    const exactSafe = currentWorkerName ? currentWorkerName.toLowerCase().replace(/[^a-z0-9]/g,'') : '';
-    const exactBonusBlue = Number(shiftRegistry[exactSafe]?.adminBonusBlue)||0;
-    let groupBonusTotal=0, groupBonusToday=0;
-    if(baseName){
-      Object.entries(shiftRegistry).forEach(([safe,reg])=>{
-        const dn=((reg&&reg.firstName)||safe||'').toString();
-        if(dn.replace(/[0-9]/g,'').toLowerCase()!==baseName)return;
-        groupBonusTotal += Number(reg?.adminBonusBlue)||0;
-        const grants=reg?.adminBonusGrants||{};
-        Object.values(grants).forEach(g=>{if(g&&Number(g.amount)>0&&isToday(Number(g.timestamp)))groupBonusToday+=Number(g.amount)||0;});
-      });
-    }
-
-    if (currentWorkerName && allDots?.length) {
-      const exactLow = currentWorkerName.toLowerCase();
-      allDots.forEach(p => {
-        const pLow = (p.workerName||'').toLowerCase();
-        if (pLow===exactLow) {
-          if(p.color==='green')greenC++;
-          else if(p.color==='red')redC++;
-          else if(p.color==='blue')blueC++;
-          else if(p.color==='orange')orangeC++;
-        }
-        const wBase = pLow.replace(/[0-9]/g,'');
-        if (wBase===baseName) {
-          if(p.color!=='orange'){totalGroupDots++;if(isToday(p.timestamp))todayGroupDots++;}
-          else{totalGroupPosts++;if(isToday(p.timestamp))todayGroupPosts++;}
-        }
-      });
-      const workerDots = allDots.filter(p=>(p.workerName||'').toLowerCase()===exactLow&&p.color==='orange'&&Number.isFinite(Number(p.timestamp)));
-      if (workerDots.length > 0) {
-        isActive = true; sessionDots = allDots.filter(p=>(p.workerName||'').toLowerCase()===exactLow&&p.color!=='orange').length;
-        const ts = workerDots.map(p=>p.timestamp).sort((a,b)=>a-b);
-        sessionDurationMs = Math.max(0, ts[ts.length-1]-ts[0]);
-        const mins = sessionDurationMs/60000;
-        sessionAvg = mins > 0 ? sessionDots/mins : 0;
+    const counts = {green:0, red:0, blue:0, orange:0};
+    if (currentWorkerName) {
+      const worker = currentWorkerName.toLowerCase();
+      for (const dot of allDots || []) {
+        if ((dot.workerName || '').toLowerCase() === worker && Object.hasOwn(counts, dot.color)) counts[dot.color]++;
       }
     }
-
-    countRight.textContent=greenC; countLeft.textContent=redC; countBonus.textContent=blueC+exactBonusBlue; countPost.textContent=orangeC;
-    sessionTimerEl.classList.toggle('inactive', !isActive);
-    sessionTimerEl.textContent = isActive ? formatHMS(sessionDurationMs) : '00:00:00';
-    sessionAvgEl.textContent = isActive ? sessionAvg.toFixed(2) : '—';
-    sessionTotalEl.textContent = isActive ? String(sessionDots) : '0';
-    
-    const todayDotsWithBonus = todayGroupDots + groupBonusToday;
-    const totalDotsWithBonus = totalGroupDots + groupBonusTotal;
-    todayWorkerDotsEl.textContent = todayDotsWithBonus;
-    
-    todayWorkerConnsEl.textContent = todayGroupPosts;
-    totalWorkerConnsEl.textContent = totalGroupPosts;
-    
+    countRight.textContent = counts.green;
+    countLeft.textContent = counts.red;
+    countBonus.textContent = counts.blue + (Number(workerShiftRecord(currentWorkerName).adminBonusBlue) || 0);
+    countPost.textContent = counts.orange;
   }
 
   function workerShiftRecord(name){return shiftRegistry[(name||'').toLowerCase().replace(/[^a-z0-9]/g,'')]||{};}
@@ -2442,6 +2372,7 @@
     const badge=document.getElementById('shiftMistakesBadge');
     badge.textContent=String(mistakes.length);
     badge.classList.toggle('show',mistakes.length>0);
+    shiftMistakesBtn.classList.toggle('has-mistakes', mistakes.length > 0);
     document.getElementById('shiftMistakesBtn').setAttribute('aria-label',`Current shift mistakes: ${mistakes.length}`);
     if (!shiftMistakesBackdrop.classList.contains('show')) return;
     if(!currentUserId || !currentWorkerName || isAdmin){
@@ -2679,9 +2610,6 @@
     if(map.getSource('dots'))map.getSource('dots').setData(fc());
     if(map.getSource('trails'))map.getSource('trails').setData(fc());
     dotMarkers.forEach(m=>m.remove()); dotMarkers.length=0;
-    sessionTimerEl.textContent='00:00:00'; sessionAvgEl.textContent='—'; sessionTotalEl.textContent='0'; 
-    todayWorkerDotsEl.textContent='0';  
-    todayWorkerConnsEl.textContent='0'; totalWorkerConnsEl.textContent='0'; 
     globalAllDots=[]; historyIndex=-1; renderMistakes([]);
     localClicks=[]; globalAbsDCount=0; globalAbsPCount=0; renderLocalClicks();
     resetChallengeUi();
@@ -2727,7 +2655,7 @@
     shiftRegistry={};
     changeUserBtn.textContent='Change FF ID';
     isAdmin=false;document.body.classList.remove('admin-mode');
-    currentUserId=id; shiftSalaryCents=null; shiftSalaryState='loading'; renderShiftSalary(); resetSegmentAssignments(); localStorage.setItem(LS_KEY,id); userPillText.textContent=id; userPill.style.display='flex';
+    currentUserId=id; shiftSalaryCents=null; shiftSalaryState='loading'; renderShiftSalary(); resetSegmentAssignments(); localStorage.setItem(LS_KEY,id); userPillText.textContent=id; 
     syncPickupHistory();
     loadCampaignHexagons(id).catch(error=>{console.error(error);showToast('Hexagons could not load.');});
     loadLocalClicks(id); attachMyPostsListener(id); attachChatListener(id); loadShiftRegistry(id); attachCampaignSettings(id);
@@ -2736,7 +2664,7 @@
 
   refreshAssignedSegments();
   const stored=normalizeUserId(localStorage.getItem(LS_KEY));
-  if(validateUserId(stored)){registerUser(stored).then(()=>onUserReady(stored));}else{hideLoader();setPostEnabled(false);userPill.style.display='flex';userPillText.textContent='';}
+  if(validateUserId(stored)){registerUser(stored).then(()=>onUserReady(stored));}else{hideLoader();setPostEnabled(false);userPillText.textContent='—';}
 
   userJoinBtn.addEventListener('click',async()=>{
     loginError.textContent=''; const id=normalizeUserId(userIdInput.value); userIdInput.value=id;
@@ -2764,7 +2692,8 @@
     document.getElementById('workerActionLabel').textContent=caption;
     btnStartWorker.title=isAdmin?'Open admin panel':running?'End shift '+currentWorkerName:'Start shift';
     btnStartWorker.setAttribute('aria-label',btnStartWorker.title);
-    userPillText.textContent=currentUserId||'';
+    userPillText.textContent=currentUserId||'—';
+    document.getElementById('activeWorkerName').textContent=isAdmin?'Admin':currentWorkerName||'—';
   }
   function showAdminPinIfNeeded(){
     const wantsAdmin=(workerNameInput.value||'').trim().toLowerCase()==='admin';
