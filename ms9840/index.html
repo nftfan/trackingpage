@@ -653,6 +653,12 @@
     .worker-line strong { color: var(--text); overflow-wrap: anywhere; }
     .shift-summary small { display: block; font-size: 11px; color: var(--muted); }
     #shiftSalary, #userPillText { font-size: clamp(20px,5.3vw,27px); font-weight: 750; overflow-wrap: anywhere; }
+    .shift-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .shift-metrics .challenge-chip, #challengeTimeChip { justify-content: center; text-align: center; padding: 6px 8px; }
+    .shift-metrics .challenge-value, #challengeTimeRemaining { font-size: clamp(16px, 4vw, 20px); }
+    .icon-bar #chatBtn:has(#chatBadge.show), .icon-bar #cameraBtn.proof-due {
+      background: #982e36; border-color: #df6570; color: white;
+    }
 </style>
 </head>
 <body>
@@ -738,6 +744,7 @@
     <input type="file" id="proofFileInput" accept="image/*" style="display:none">
   </div>
   <div class="shift-metrics" role="group" aria-label="Shift progress">
+    <div class="challenge-chip left"><span class="metric"><small>Flyers left</small><span id="flyersRemaining" class="challenge-value">1,000</span></span></div>
     <div id="challengeTimeChip" class="challenge-chip right inactive" aria-label="Challenge time remaining">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12l4 2"/><path class="clock-hand" d="M12 12V6"/></svg>
       <span class="metric"><small>Time left</small><span id="challengeTimeRemaining" class="challenge-value">03:00:00</span></span>
@@ -1026,7 +1033,7 @@
 </script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, push, query, orderByChild, limitToLast, serverTimestamp, onValue, set, update, get, off, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+  import { getDatabase, ref, push, query, orderByChild, startAt, limitToLast, serverTimestamp, onValue, set, update, get, off, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyA6w6auszWRniQfZCjb4nXE_bq9Mzt9dOs",
@@ -2197,6 +2204,7 @@
       const key = challengeWorkerKey();
       if (key) localStorage.setItem(key, String(challengeStartAt));
     }
+    syncProofReminder();
     displayDeliveryTime(oranges[oranges.length - 1]);
     challengeOrangeTimestamps = challengeStartAt
       ? oranges.filter(ts => ts >= challengeStartAt && ts < challengeStartAt + CHALLENGE_MS)
@@ -2220,6 +2228,7 @@
     }
     if (!challengeStartAt) return;
 
+    syncProofReminder();
     displayDeliveryTime(ts);
     const endAt = challengeStartAt + CHALLENGE_MS;
     if (ts < challengeStartAt || ts >= endAt) {
@@ -2263,6 +2272,10 @@
   startChallengeTicker();
 
   // ── Session display ────────────────────────────────────────────
+  function setDeliveredCount(count) {
+    countPost.textContent = count;
+    document.getElementById('flyersRemaining').textContent = Math.max(0, CHALLENGE_TARGET_POSTS - count).toLocaleString();
+  }
   function updateSessionDisplay(allDots) {
     const counts = {green:0, red:0, blue:0, orange:0};
     if (currentWorkerName) {
@@ -2274,9 +2287,50 @@
     countRight.textContent = counts.green;
     countLeft.textContent = counts.red;
     countBonus.textContent = counts.blue + (Number(workerShiftRecord(currentWorkerName).adminBonusBlue) || 0);
-    countPost.textContent = counts.orange;
+    setDeliveredCount(counts.orange);
   }
 
+  const proofHourMs = 3600000;
+  let proofShift = null;
+  let proofAlarm;
+  function refreshProofReminder() {
+    clearTimeout(proofAlarm);
+    const now = Date.now();
+    const start = proofShift?.start;
+    const hour = start ? Math.floor((now - start) / proofHourMs) : 0;
+    const due = hour >= 1 && proofShift.lastProof < start + hour * proofHourMs;
+    cameraBtn.classList.toggle('proof-due', due);
+    cameraBtn.title = due ? 'Hourly photo proof due' : 'Upload proof';
+    const caption = cameraBtn.querySelector('.icon-caption');
+    caption.textContent = cameraBtn.classList.contains('uploading') ? 'Uploading…' : due ? 'Proof due' : 'Camera';
+    if (start && !due) proofAlarm = setTimeout(refreshProofReminder, Math.max(1, start + (hour + 1) * proofHourMs - now));
+  }
+  function syncProofReminder() {
+    const record = workerShiftRecord(currentWorkerName);
+    const start = Number(record.startedAt) || challengeStartAt;
+    const active = currentUserId && currentWorkerName && !isAdmin && !record.endedAt && start > 0;
+    const key = active ? JSON.stringify([currentUserId, currentWorkerName.toLowerCase(), start]) : '';
+    if (key === (proofShift?.key || '')) return;
+    proofShift = null;
+    if (active) {
+      const shift = {key, start, lastProof: 0};
+      proofShift = shift;
+      try { shift.lastProof = Number(localStorage.getItem('hourlyProof:' + key)) || 0; } catch {}
+      const worker = currentWorkerName.toLowerCase();
+      const campaign = currentUserId.replace(/^FF/, 'XX');
+      get(query(ref(proofDb, 'campaigns/' + campaign + '/proofs'), orderByChild('timestamp'), startAt(start))).then(snapshot => {
+        if (proofShift !== shift) return;
+        snapshot.forEach(child => {
+          const proof = child.val();
+          if (proof.url && String(proof.workerName || '').toLowerCase() === worker)
+            shift.lastProof = Math.max(shift.lastProof, Number(proof.timestamp) || 0);
+        });
+        refreshProofReminder();
+      }).catch(() => {});
+    }
+    refreshProofReminder();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshProofReminder(); });
   function workerShiftRecord(name){return shiftRegistry[(name||'').toLowerCase().replace(/[^a-z0-9]/g,'')]||{};}
   function workerShiftEnded(){return !!Number(workerShiftRecord(currentWorkerName).endedAt);}
   let cachedMistakes = [];
@@ -2446,7 +2500,7 @@
       if(unread>0){chatBadge.textContent=unread;chatBadge.classList.add('show');}else chatBadge.classList.remove('show');
     };
     onValue(chatRef,handler);
-    chatUnsub=()=>off(chatRef,'value',handler);
+    chatUnsub=()=>{ off(chatRef,'value',handler); chatBadge.classList.remove('show'); chatBadge.textContent='0'; };
   }
 
   // Reverse history uses a snapshot while playing; new live dots remain visible.
@@ -2683,6 +2737,8 @@
 
   // ── Worker / admin session ────────────────────────────────────────────────
   function updateWorkerUi(){
+    syncProofReminder();
+    updateSessionDisplay(globalAllDots);
     renderCurrentShiftMistakes();
    
     const running=!!currentWorkerName&&!isAdmin&&!workerShiftEnded();
@@ -2981,6 +3037,9 @@
     if (file.size > PROOF_MAX_BYTES) { showToast('Image too large (max 10 MB)'); return; }
     if (!currentLatLng) { showToast('No location — enable GPS'); return; }
 
+    const uploadShift = proofShift;
+    const uploadWorker = currentWorkerName;
+    const [uploadLat, uploadLng] = currentLatLng;
     cameraBtn.classList.add('uploading');
     cameraBtn.querySelector('.icon-caption').textContent = 'Uploading…';
     showToast('Compressing…');
@@ -2997,13 +3056,16 @@
       showToast('Uploading proof…');
       const url = await uploadProofToCloudflare(compressed);
 
+      const submittedAt = Date.now();
       await push(ref(proofDb, `campaigns/${cId}/proofs`), {
-        url,
-        lat: roundCoord(currentLatLng[0]),
-        lng: roundCoord(currentLatLng[1]),
-        timestamp: Date.now(),
-        workerName: currentWorkerName || null
+        url, lat: roundCoord(uploadLat), lng: roundCoord(uploadLng),
+        timestamp: submittedAt, workerName: uploadWorker || null
       });
+      if (uploadShift) {
+        uploadShift.lastProof = Math.max(uploadShift.lastProof, submittedAt);
+        try { localStorage.setItem('hourlyProof:' + uploadShift.key, String(uploadShift.lastProof)); } catch {}
+        if (proofShift?.key === uploadShift.key) proofShift.lastProof = Math.max(proofShift.lastProof, submittedAt);
+      }
       showToast('✅ Proof submitted!');
       localClicks.push({ type: 'upload' });
       localClicks = localClicks.slice(-50);
@@ -3013,7 +3075,7 @@
       showToast('Upload failed — try again');
     } finally {
       cameraBtn.classList.remove('uploading');
-      cameraBtn.querySelector('.icon-caption').textContent = 'Camera';
+      refreshProofReminder();
       proofFileInput.value = '';
     }
   });
@@ -3487,7 +3549,7 @@
     if(!currentUserId||!currentWorkerName)return openWorkerModal();
     if(!currentLatLng){await goToCurrentLocation({focus:true});if(!currentLatLng)return;}
     const now=Date.now();
-    countPost.textContent=parseInt(countPost.textContent||0)+1;
+    setDeliveredCount(Number(countPost.textContent) + 1);
     addLocalClick('orange');
     registerOrangeForChallenge(now);
     // Storage: 5-decimal GPS (\~1 m) instead of full-precision floats
